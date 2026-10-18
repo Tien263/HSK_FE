@@ -74,53 +74,54 @@ const courses: CourseCard[] = [
 
 export default function Hero() {
   return (
-    <section className="relative w-full pt-4 pb-20 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
-        {/* Top Hero Grid: Headline on Left, Visual/Video on Right */}
-        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center mb-16 pt-4">
-          {/* Left Column: Heading, Subtext, Accent CTA button */}
-          <div className="lg:col-span-6 z-10">
-            <h1 className="text-3xl sm:text-5xl lg:text-[3.35rem] font-bold text-white tracking-tight leading-[1.16] mb-6">
-              Lộ trình đào tạo{" "}
-              <span className="block">tiếng Trung cá nhân hóa</span>{" "}
-              <span className="font-extrabold text-white">
-                với cam kết đạt chuẩn HSK sau 3 tháng
-              </span>
-            </h1>
+    <section className="relative w-full overflow-hidden">
+      {/* Submerged Background Video with Organic Multi-Directional Gradients */}
+      <div className="absolute -top-24 left-0 right-0 h-[640px] sm:h-[720px] lg:h-[780px] overflow-hidden pointer-events-none z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover object-right lg:object-center opacity-65 lg:opacity-75 scale-105"
+        >
+          <source src="/main-background.mp4" type="video/mp4" />
+        </video>
 
-            <p className="text-[#9cb396] text-sm sm:text-base leading-relaxed max-w-lg mb-8 font-normal">
-              Thiết kế chương trình từ số 0 đến HSK 6, tối ưu thời gian học với phương pháp giải mã bộ
-              thủ Hán tự và phản xạ đàm thoại trực tiếp cùng đội ngũ thạc sĩ Hán ngữ.
-            </p>
+        {/* Left-to-right fade: deep dark pine green on left for text readability, clear video on right */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#061609] via-[#061609]/85 sm:via-[#061609]/60 to-transparent/30" />
 
-            <div>
-              <button
-                onClick={() =>
-                  alert("Chuyên viên tư vấn Huayu sẽ liên hệ xếp lịch kiểm tra trình độ miễn phí!")
-                }
-                className="px-8 py-3.5 rounded-lg bg-[#c3dc4e] text-[#061609] font-bold text-sm hover:bg-[#b3cb40] transition shadow-lg shadow-black/30 cursor-pointer"
-              >
-                Tư vấn miễn phí
-              </button>
-            </div>
-          </div>
+        {/* Bottom fade: seamless transition into pure #061609 above the cards */}
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#061609] via-[#061609]/90 to-transparent" />
 
-          {/* Right Column: Hero Visual embedding background video with natural fade */}
-          <div className="lg:col-span-6 relative">
-            <div className="relative h-[340px] sm:h-[420px] lg:h-[460px] rounded-3xl overflow-hidden border border-[#234a29] shadow-2xl bg-[#0a2012]">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover object-center"
-              >
-                <source src="/main-background.mp4" type="video/mp4" />
-              </video>
-              {/* Natural organic vignette gradients matching the reference garden fade */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#061609] via-transparent to-transparent opacity-70 pointer-events-none" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#061609]/60 via-transparent to-transparent pointer-events-none" />
-            </div>
+        {/* Top fade: subtle shadow behind navbar */}
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#061609]/90 via-[#061609]/40 to-transparent" />
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 pt-6 sm:pt-10 pb-20">
+        {/* Top Hero Text (Headline, Subtext, Accent CTA button - left-aligned over submerged video) */}
+        <div className="max-w-2xl mb-16 sm:mb-20 lg:mb-24">
+          <h1 className="text-3xl sm:text-5xl lg:text-[3.4rem] font-bold text-white tracking-tight leading-[1.15] mb-6">
+            Lộ trình đào tạo{" "}
+            <span className="block">tiếng Trung cá nhân hóa</span>{" "}
+            <span className="font-extrabold text-white">
+              với cam kết đạt chuẩn HSK sau 3 tháng
+            </span>
+          </h1>
+
+          <p className="text-[#9cb396] text-sm sm:text-base leading-relaxed max-w-xl mb-8 font-normal">
+            Thiết kế chương trình từ số 0 đến HSK 6, tối ưu thời gian học với phương pháp giải mã bộ
+            thủ Hán tự và phản xạ đàm thoại trực tiếp cùng đội ngũ thạc sĩ Hán ngữ.
+          </p>
+
+          <div>
+            <button
+              onClick={() =>
+                alert("Chuyên viên tư vấn Huayu sẽ liên hệ xếp lịch kiểm tra trình độ miễn phí!")
+              }
+              className="px-8 py-3.5 rounded-lg bg-[#c3dc4e] text-[#061609] font-bold text-sm hover:bg-[#b3cb40] transition shadow-xl shadow-black/40 cursor-pointer"
+            >
+              Tư vấn miễn phí
+            </button>
           </div>
         </div>
 
