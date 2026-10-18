@@ -2,104 +2,125 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BookOpen, Sparkles, Menu, X, GraduationCap, FileCheck } from "lucide-react";
+import { Search, Heart, Menu, X, Sparkles } from "lucide-react";
 
 export default function Navbar() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <nav className="absolute top-0 left-0 right-0 z-50 px-6 lg:px-16 py-6 flex items-center justify-between text-white drop-shadow-md">
-      {/* Brand Logo */}
+    <header className="relative z-50 w-full max-w-7xl mx-auto px-6 lg:px-12 py-5 flex items-center justify-between">
+      {/* Brand Logo (Pomaii style) */}
       <Link href="/" className="flex items-center gap-3 group">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 group-hover:scale-105 transition">
-          <span className="text-xl font-bold font-serif text-slate-950">汉</span>
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#e86a24] to-[#f59e0b] flex items-center justify-center shadow-md shadow-orange-500/20 group-hover:scale-105 transition">
+          {/* Mountain / Sun organic leaf mark */}
+          <span className="text-white font-black text-xl font-serif">华</span>
         </div>
         <div>
-          <span className="text-xl font-bold tracking-wider font-serif block leading-none">
-            HSK MASTER
+          <span className="text-2xl font-black tracking-tight text-slate-900 block leading-tight font-sans">
+            Huayu<span className="text-[#e86a24]">.</span>
           </span>
-          <span className="text-[10px] text-amber-300/80 tracking-widest font-mono uppercase">
-            华语研习 • Chinese Academy
+          <span className="text-[11px] text-slate-400 font-medium tracking-wide block -mt-0.5">
+            Explore. Learn. Discover.
           </span>
         </div>
       </Link>
 
-      {/* Desktop Menu Links */}
-      <div className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide text-white/90">
-        <Link href="#levels" className="hover:text-amber-300 transition flex items-center gap-1.5">
-          <GraduationCap className="w-4 h-4 text-amber-400" />
+      {/* Desktop Menu Navigation */}
+      <nav className="hidden md:flex items-center gap-9 text-sm font-semibold text-slate-600">
+        <Link
+          href="/"
+          className="text-[#e86a24] relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-0.5 after:bg-[#e86a24] after:rounded-full"
+        >
+          Trang chủ
+        </Link>
+        <Link href="#levels" className="hover:text-slate-900 transition">
           Lộ trình HSK
         </Link>
-        <Link href="#vocab" className="hover:text-amber-300 transition flex items-center gap-1.5">
-          <BookOpen className="w-4 h-4 text-amber-400" />
-          Học từ vựng
+        <Link href="#categories" className="hover:text-slate-900 transition">
+          Khóa học
         </Link>
-        <Link href="#exams" className="hover:text-amber-300 transition flex items-center gap-1.5">
-          <FileCheck className="w-4 h-4 text-amber-400" />
-          Thi thử Online
+        <Link href="#exams" className="hover:text-slate-900 transition">
+          Bộ đề thi
         </Link>
-        <Link href="#about" className="hover:text-amber-300 transition">
-          Về phương pháp
+        <Link href="#guides" className="hover:text-slate-900 transition">
+          Góc học tập
         </Link>
-      </div>
+        <Link href="#about" className="hover:text-slate-900 transition">
+          Giới thiệu
+        </Link>
+      </nav>
 
-      {/* Action CTA */}
-      <div className="hidden md:flex items-center gap-4">
-        <Link
-          href="#levels"
-          className="px-5 py-2 rounded-md text-sm font-medium text-white border border-white/30 backdrop-blur-md hover:bg-white/15 hover:border-white/60 transition shadow-sm"
+      {/* Right Icons (Search, Heart, Menu) */}
+      <div className="hidden md:flex items-center gap-3">
+        <button
+          className="w-10 h-10 rounded-full border border-slate-200/80 bg-white flex items-center justify-center text-slate-600 hover:text-slate-950 hover:border-slate-300 transition shadow-sm"
+          aria-label="Tìm kiếm"
         >
-          Đăng ký học thử
-        </Link>
+          <Search className="w-4 h-4" />
+        </button>
+        <button
+          className="w-10 h-10 rounded-full border border-slate-200/80 bg-white flex items-center justify-center text-slate-600 hover:text-rose-500 hover:border-rose-200 transition shadow-sm"
+          aria-label="Yêu thích"
+        >
+          <Heart className="w-4 h-4" />
+        </button>
+        <button
+          className="w-10 h-10 rounded-full border border-slate-200/80 bg-white flex items-center justify-center text-slate-600 hover:text-slate-950 hover:border-slate-300 transition shadow-sm"
+          aria-label="Menu"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Mobile Menu Toggle Button */}
+      {/* Mobile Toggle */}
       <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="md:hidden p-2 rounded-md bg-white/10 backdrop-blur-md text-white"
+        onClick={() => setMobileOpen(!mobileOpen)}
+        className="md:hidden p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700"
         aria-label="Toggle menu"
       >
-        {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
 
       {/* Mobile Menu Dropdown */}
-      {mobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-4 right-4 bg-[#121629]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-base">
+      {mobileOpen && (
+        <div className="md:hidden absolute top-full left-4 right-4 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-2xl p-6 shadow-xl flex flex-col gap-4 text-base">
+          <Link
+            href="/"
+            onClick={() => setMobileOpen(false)}
+            className="text-[#e86a24] font-semibold"
+          >
+            Trang chủ
+          </Link>
           <Link
             href="#levels"
-            onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center gap-3 py-2 text-white hover:text-amber-300"
+            onClick={() => setMobileOpen(false)}
+            className="text-slate-700 font-medium hover:text-[#e86a24]"
           >
-            <GraduationCap className="w-5 h-5 text-amber-400" />
             Lộ trình HSK 1 - 6
           </Link>
           <Link
-            href="#vocab"
-            onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center gap-3 py-2 text-white hover:text-amber-300"
+            href="#categories"
+            onClick={() => setMobileOpen(false)}
+            className="text-slate-700 font-medium hover:text-[#e86a24]"
           >
-            <BookOpen className="w-5 h-5 text-amber-400" />
-            Học từ vựng Flashcard
+            Kỹ năng học tập
           </Link>
           <Link
             href="#exams"
-            onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center gap-3 py-2 text-white hover:text-amber-300"
+            onClick={() => setMobileOpen(false)}
+            className="text-slate-700 font-medium hover:text-[#e86a24]"
           >
-            <FileCheck className="w-5 h-5 text-amber-400" />
-            Bộ đề thi thử miễn phí
+            Bộ đề thi thử
           </Link>
-          <div className="pt-4 border-t border-white/10">
-            <Link
-              href="#levels"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center block py-3 rounded-lg bg-amber-500 text-slate-950 font-semibold"
-            >
-              Bắt đầu học ngay
-            </Link>
-          </div>
+          <Link
+            href="#guides"
+            onClick={() => setMobileOpen(false)}
+            className="text-slate-700 font-medium hover:text-[#e86a24]"
+          >
+            Góc học tập & Mẹo thi
+          </Link>
         </div>
       )}
-    </nav>
+    </header>
   );
 }

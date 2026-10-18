@@ -1,33 +1,41 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import StatsBar from "@/components/StatsBar";
-import HskLevelsSection from "@/components/HskLevelsSection";
-import InteractiveFlashcardDemo from "@/components/InteractiveFlashcardDemo";
-import MockExamsSection from "@/components/MockExamsSection";
+import TrustFeatures from "@/components/TrustFeatures";
+import PopularLevels from "@/components/PopularLevels";
+import CategoryPills from "@/components/CategoryPills";
+import StudyGuides from "@/components/StudyGuides";
+import SpecialExamBanner from "@/components/SpecialExamBanner";
+import MetricsRow from "@/components/MetricsRow";
 import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#0b0e1b] text-slate-100 selection:bg-amber-400 selection:text-slate-950">
-      {/* Header Navigation */}
+    <div className="min-h-screen flex flex-col bg-[#faf9f5] text-slate-900 selection:bg-[#e86a24] selection:text-white">
+      {/* Top Header / Navigation */}
       <Navbar />
 
-      {/* Hero Section based on Pinterest design */}
+      {/* Hero with framed background video from user download & floating search bar */}
       <Hero />
 
-      {/* Key Metric Highlights Bar */}
-      <StatsBar />
+      {/* 4 Value proposition features */}
+      <TrustFeatures />
 
-      {/* Interactive HSK 1 - 6 Curriculum Roadmap */}
-      <HskLevelsSection />
+      {/* Popular HSK Levels Grid (Pomaii style) */}
+      <PopularLevels />
 
-      {/* 3D Interactive Vocabulary Flashcard Preview */}
-      <InteractiveFlashcardDemo />
+      {/* Circular skill & category pills */}
+      <CategoryPills />
 
-      {/* Real-time Mock Exams Showcase */}
-      <MockExamsSection />
+      {/* Study Guides & Exam Tips (Pomaii Travel stories style) */}
+      <StudyGuides />
 
-      {/* Footer */}
+      {/* Special Exam Banner (Deep forest green card with orange CTA) */}
+      <SpecialExamBanner />
+
+      {/* Key Numbers / Metrics Row */}
+      <MetricsRow />
+
+      {/* Clean modern light Footer */}
       <Footer />
     </div>
   );
