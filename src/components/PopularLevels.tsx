@@ -17,42 +17,38 @@ interface LevelCard {
 const levels: LevelCard[] = [
   {
     level: 1,
-    title: "HSK Cấp 1",
-    subtitle: "Nhập môn Hán tự & Pinyin",
+    title: "HSK 1 - Nhập Môn Hán Tự",
+    subtitle: "Thư pháp, phiên âm & 150 từ vựng",
     words: 150,
-    rating: 4.9,
-    imageUrl:
-      "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    imageUrl: "/hsk-images/hsk1.jpg",
     tag: "150 từ",
   },
   {
     level: 2,
-    title: "HSK Cấp 2",
-    subtitle: "Giao tiếp đời sống & du lịch",
+    title: "HSK 2 - Giao Tiếp Đời Sống",
+    subtitle: "Du lịch, mua sắm & hỏi đường",
     words: 300,
-    rating: 4.8,
-    imageUrl:
-      "https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?auto=format&fit=crop&w=800&q=80",
+    rating: 4.7,
+    imageUrl: "/hsk-images/hsk2.jpg",
     tag: "300 từ",
   },
   {
     level: 3,
-    title: "HSK Cấp 3",
-    subtitle: "Trung cấp đàm thoại tự tin",
+    title: "HSK 3 - Trung Cấp Thực Chiến",
+    subtitle: "Đàm thoại tự tin & văn bản ngắn",
     words: 600,
     rating: 4.9,
-    imageUrl:
-      "https://images.unsplash.com/photo-1528728329032-2972f65dfb3f?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/hsk-images/hsk3.jpg",
     tag: "600 từ",
   },
   {
     level: 4,
-    title: "HSK Cấp 4",
-    subtitle: "Đạt chuẩn du học Trung Quốc",
+    title: "HSK 4 - Chuẩn Du Học ĐH",
+    subtitle: "Đọc báo chí & ngữ pháp chuyên sâu",
     words: 1200,
-    rating: 4.7,
-    imageUrl:
-      "https://images.unsplash.com/photo-1513415564515-763d91423bdd?auto=format&fit=crop&w=800&q=80",
+    rating: 4.6,
+    imageUrl: "/hsk-images/hsk4.jpg",
     tag: "1200 từ",
   },
 ];
@@ -80,10 +76,9 @@ export default function PopularLevels() {
       {/* Grid of 4 Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {levels.map((item) => (
-          <Link
+          <div
             key={item.level}
-            href="#guides"
-            className="group relative h-[360px] rounded-2xl overflow-hidden shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 block"
+            className="group relative h-[380px] rounded-2xl overflow-hidden shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 block cursor-pointer"
           >
             {/* Background Image */}
             <Image
@@ -95,29 +90,29 @@ export default function PopularLevels() {
             />
 
             {/* Gradient Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
-            {/* Top Star Rating Pill */}
+            {/* Top Star Rating Pill (exact Pomaii style) */}
             <div className="absolute top-4 left-4 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/40 backdrop-blur-md text-white text-xs font-semibold">
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
               <span>{item.rating}</span>
             </div>
 
-            {/* Bottom Content */}
+            {/* Bottom Content (exact Pomaii style) */}
             <div className="absolute inset-x-0 bottom-0 p-5 z-10 flex items-end justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white tracking-tight leading-tight">
+                <h3 className="text-base font-bold text-white tracking-tight leading-tight">
                   {item.title}
                 </h3>
                 <p className="text-xs text-white/80 mt-1 font-normal">{item.subtitle}</p>
               </div>
 
-              {/* Orange word count tag */}
-              <div className="text-[#e86a24] font-bold text-base tracking-tight shrink-0 pl-2">
+              {/* Orange word count tag (exact Pomaii price tag style) */}
+              <div className="text-[#e86a24] font-bold text-lg tracking-tight shrink-0 pl-2">
                 {item.tag}
               </div>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </section>
