@@ -9,8 +9,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Huayu Chinese - Đào Tạo Tiếng Trung & Luyện Thi HSK Chuẩn Quốc Tế",
-  description: "Khóa học Hán ngữ trực tuyến cam kết chuẩn đầu ra HSK 1 đến HSK 6 với phương pháp hiện đại.",
+  title: "Lớp Tiếng Trung Cô Ning Ning - Ôn Đúng Bài, Luyện Đúng Chuẩn HSK 3.0",
+  description: "Website nội bộ dành cho học viên lớp cô Ning Ning. Không gian ôn bài, luyện đề và chơi game từ vựng mỗi ngày.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

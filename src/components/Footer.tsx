@@ -1,112 +1,116 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
+import { MessageCircle, Mail, Globe, ShieldCheck, Heart } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[#234a29] bg-[#040f06] text-[#9cb396] pt-14 pb-10">
+    <footer className="border-t border-[#234a29] bg-[#040f06] text-[#9cb396] pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-10 border-b border-[#234a29]/60 text-xs">
-          {/* Brand */}
-          <div>
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-full border border-white/20 bg-[#0d2816] flex items-center justify-center text-[#c3dc4e] font-black text-sm">
-                华
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-[#234a29]/60">
+          {/* Brand Info */}
+          <div className="md:col-span-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full border border-white/20 bg-[#0d2816] flex items-center justify-center text-[#c3dc4e] font-black text-xl shadow-md">
+                宁
               </div>
-              <span className="font-bold text-white text-sm tracking-wide uppercase font-mono">
-                HUAYU ACADEMY
-              </span>
+              <div>
+                <span className="font-bold text-white text-base tracking-wide block font-sans">
+                  宁宁老师中文课堂
+                </span>
+                <span className="text-xs text-[#9cb396] block">
+                  Lớp tiếng Trung cô Ning Ning
+                </span>
+              </div>
             </div>
-            <p className="text-[#9cb396] leading-relaxed mb-4">
-              Hệ thống đào tạo Hán ngữ & Luyện thi HSK cam kết chất lượng đầu ra theo chuẩn Hanban quốc tế.
+            <p className="text-[#9cb396] text-sm leading-relaxed max-w-sm mb-4">
+              Website nội bộ dành cho học viên lớp cô Ning Ning. Không gian ôn bài, luyện đề và chơi game từ vựng mỗi ngày.
             </p>
+            <div className="text-xs text-white/80 flex items-center gap-1.5 font-medium">
+              <span>加油! Học đều đặn mỗi ngày để tiến bộ</span>
+              <Heart className="w-3.5 h-3.5 fill-[#c3dc4e] text-[#c3dc4e]" />
+            </div>
           </div>
 
-          {/* Courses */}
-          <div>
-            <h5 className="font-bold text-white uppercase tracking-wider mb-3 font-mono text-[11px]">
-              Khóa học HSK
+          {/* Quick Links */}
+          <div className="md:col-span-3">
+            <h5 className="font-bold text-white uppercase tracking-wider mb-4 font-mono text-xs text-[#c3dc4e]">
+              Khu vực học tập
             </h5>
-            <ul className="space-y-2">
+            <ul className="space-y-2.5 text-xs">
               <li>
-                <Link href="#courses" className="hover:text-white transition">
-                  HSK 1 (Sơ cấp 150 từ)
+                <Link href="#kho-bai-hoc" className="hover:text-white transition">
+                  Kho bài học & Ngữ pháp
                 </Link>
               </li>
               <li>
-                <Link href="#courses" className="hover:text-white transition">
-                  HSK 2 (Giao tiếp 300 từ)
+                <Link href="#phong-luyen-tap" className="hover:text-white transition">
+                  Phòng luyện tập & Sửa câu sai
                 </Link>
               </li>
               <li>
-                <Link href="#courses" className="hover:text-white transition">
-                  HSK 3 (Đột phá 600 từ)
+                <Link href="#game-center" className="hover:text-white transition">
+                  Game Center & Bảng xếp hạng
                 </Link>
               </li>
               <li>
-                <Link href="#courses" className="hover:text-white transition">
-                  HSK 4 (Du học 1200 từ)
+                <Link href="#hsk-levels" className="hover:text-white transition">
+                  Luyện thi chuẩn HSK 3.0 (Cấp 1 - 9)
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Support */}
-          <div>
-            <h5 className="font-bold text-white uppercase tracking-wider mb-3 font-mono text-[11px]">
-              Hỗ trợ học tập
+          {/* Contact Support */}
+          <div className="md:col-span-4">
+            <h5 className="font-bold text-white uppercase tracking-wider mb-4 font-mono text-xs text-[#c3dc4e]">
+              Hỗ trợ tài khoản học viên
             </h5>
-            <ul className="space-y-2">
+            <p className="text-xs text-[#9cb396] mb-3 leading-relaxed">
+              Quên mật khẩu hoặc chưa có tài khoản? Liên hệ cô qua các kênh sau để được cấp lại ngay:
+            </p>
+            <ul className="space-y-2.5 text-xs">
               <li>
-                <Link href="#about" className="hover:text-white transition">
-                  Phương pháp Spaced Repetition
-                </Link>
+                <a
+                  href="https://zalo.me"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-[#c3dc4e] transition text-white"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-[#c3dc4e]" />
+                  <span>Zalo cô Ning Ning: 098.123.4567</span>
+                </a>
               </li>
               <li>
-                <Link href="#courses" className="hover:text-white transition">
-                  Bộ đề thi thử trực tuyến
-                </Link>
+                <a
+                  href="https://facebook.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-[#c3dc4e] transition"
+                >
+                  <Globe className="w-3.5 h-3.5 text-[#c3dc4e]" />
+                  <span>Facebook: Lớp tiếng Trung Cô Ning Ning</span>
+                </a>
               </li>
               <li>
-                <Link href="#process" className="hover:text-white transition">
-                  Lộ trình học theo năng lực
-                </Link>
-              </li>
-              <li>
-                <Link href="#gallery" className="hover:text-white transition">
-                  Tài liệu & Thư viện Hán tự
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h5 className="font-bold text-white uppercase tracking-wider mb-3 font-mono text-[11px]">
-              Liên hệ tư vấn
-            </h5>
-            <ul className="space-y-2.5">
-              <li className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#c3dc4e]" />
-                <span className="text-white">+84 (098) 123 4567</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-[#c3dc4e]" />
-                <span>tuvankhoahoc@huayu.edu.vn</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#c3dc4e]" />
-                <span>Hà Nội & TP. Hồ Chí Minh</span>
+                <a
+                  href="mailto:coningning.tiengtrung@gmail.com"
+                  className="flex items-center gap-2 hover:text-[#c3dc4e] transition"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#c3dc4e]" />
+                  <span>Email: coningning.tiengtrung@gmail.com</span>
+                </a>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom */}
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#9cb396]/70">
-          <div>© 2026 Huayu Academy. All rights reserved.</div>
-          <div className="flex gap-4">
-            <span className="hover:text-white cursor-pointer">Chính sách bảo mật</span>
-            <span className="hover:text-white cursor-pointer">Điều khoản dịch vụ</span>
+        {/* Bottom Copyright */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#9cb396]/70">
+          <div>© 2026 Lớp tiếng Trung cô Ning Ning. All rights reserved.</div>
+          <div className="flex items-center gap-6">
+            <span className="hover:text-white cursor-pointer flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Chính sách bảo mật nội bộ</span>
+            </span>
           </div>
         </div>
       </div>
