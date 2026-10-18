@@ -1,0 +1,119 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  passwordHash  String?
+  image         String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  vocabProgress VocabularyProgress[]
+  examAttempts  ExamAttempt[]
+}
+
+model Vocabulary {
+  id          String   @id @default(cuid())
+  hanzi       String   // Chữ Hán (Ví dụ: 苹果)
+  pinyin      String   // Phiên âm Pinyin (Ví dụ: píngguǒ)
+  meaningVi   String   // Nghĩa tiếng Việt (Ví dụ: Quả táo)
+  meaningEn   String?  // Nghĩa tiếng Anh
+  level       Int      // Cấp độ HSK: 1, 2, 3, 4, 5, 6
+  partOfSpeech String? // Loại từ: Danh từ, Động từ, Tính từ...
+  audioUrl    String?  // Link audio phát âm
+  examples    Json?    // Danh sách câu ví dụ [{ hanzi: "", pinyin: "", meaningVi: "" }]
+  createdAt   DateTime @default(now())
+
+  progress    VocabularyProgress[]
+
+  @@index([level])
+  @@index([hanzi])
+}
+
+model VocabularyProgress {
+  id           String      @id @default(cuid())
+  userId       String
+  vocabularyId String
+  isMastered   Boolean     @default(false)
+  isFavorite   Boolean     @default(false)
+  reviewCount  Int         @default(0)
+  lastReviewed DateTime    @default(now())
+
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabulary   Vocabulary  @relation(fields: [vocabularyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vocabularyId])
+}
+
+model Exam {
+  id              String      @id @default(cuid())
+  title           String      // Tên đề thi (Ví dụ: Đề thi HSK 1 - Mã H11001)
+  level           Int         // Cấp độ HSK: 1 đến 6
+  durationMinutes Int         // Thời gian làm bài (phút)
+  totalScore      Int         @default(100)
+  passScore       Int         @default(60)
+  audioUrl        String?     // Audio tổng hợp cho phần thi nghe
+  description     String?
+  createdAt       DateTime    @default(now())
+
+  questions       Question[]
+  attempts        ExamAttempt[]
+
+  @@index([level])
+}
+
+enum QuestionSection {
+  LISTENING // Phần thi nghe
+  READING   // Phần thi đọc hiểu
+  WRITING   // Phần thi viết (cho HSK 3 trở lên)
+}
+
+model Question {
+  id            String          @id @default(cuid())
+  examId        String
+  section       QuestionSection
+  questionIndex Int             // Số thứ tự câu hỏi trong đề
+  prompt        String?         // Đề bài / Câu hỏi
+  audioUrl      String?         // File nghe riêng cho câu (nếu có)
+  imageUrl      String?         // Hình ảnh minh họa cho câu hỏi
+  options       Json?           // Danh sách lựa chọn: ["A. ...", "B. ...", "C. ...", "D. ..."]
+  correctAnswer String          // Đáp án đúng: "A", "B", "C", "D" hoặc "TRUE" / "FALSE"
+  explanation   String?         // Giải thích đáp án chi tiết
+
+  exam          Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId, questionIndex])
+}
+
+model ExamAttempt {
+  id               String    @id @default(cuid())
+  userId           String
+  examId           String
+  score            Int       // Điểm đạt được
+  totalQuestions   Int
+  correctCount     Int
+  timeSpentSeconds Int       // Thời gian hoàn thành (giây)
+  userAnswers      Json      // Lưu chi tiết các đáp án user đã chọn
+  completedAt      DateTime  @default(now())
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam             Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([examId])
+}
