@@ -51,15 +51,22 @@ export default function Navbar() {
         </Link>
       </nav>
 
-      {/* Right Login Button */}
-      <div className="hidden lg:flex items-center gap-4">
-        <button
-          onClick={handleLoginClick}
-          className="border border-white/25 text-white/95 rounded-lg px-5 py-2 text-xs font-semibold hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition bg-white/5 backdrop-blur-sm cursor-pointer flex items-center gap-2"
+      {/* Right Login & Teacher Portal Buttons */}
+      <div className="hidden lg:flex items-center gap-3">
+        <Link
+          href="/t/dashboard"
+          className="bg-[#c3dc4e] text-[#061609] rounded-lg px-4 py-2 text-xs font-bold hover:bg-[#b3cb40] transition shadow-md flex items-center gap-1.5 cursor-pointer"
+        >
+          <span>🐼 Trang cô giáo</span>
+        </Link>
+
+        <Link
+          href="/t/dashboard"
+          className="border border-white/25 text-white/95 rounded-lg px-4 py-2 text-xs font-semibold hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition bg-white/5 backdrop-blur-sm cursor-pointer flex items-center gap-1.5"
         >
           <LogIn className="w-3.5 h-3.5 text-[#c3dc4e]" />
           <span>Đăng nhập</span>
-        </button>
+        </Link>
       </div>
 
       {/* Mobile Menu Toggle */}
@@ -109,17 +116,14 @@ export default function Navbar() {
           >
             Báo cáo lớp
           </Link>
-          <div className="pt-4 border-t border-white/10">
-            <button
-              onClick={() => {
-                setMobileOpen(false);
-                handleLoginClick();
-              }}
+          <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
+            <Link
+              href="/t/dashboard"
+              onClick={() => setMobileOpen(false)}
               className="w-full py-2.5 rounded-lg bg-[#c3dc4e] text-[#061609] font-bold text-xs text-center cursor-pointer flex items-center justify-center gap-2"
             >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Đăng nhập vào học</span>
-            </button>
+              <span>🐼 Vào Trang Cô Giáo (Dashboard)</span>
+            </Link>
           </div>
         </div>
       )}
