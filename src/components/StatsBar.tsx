@@ -29,8 +29,8 @@ export default function StatsBar() {
   ];
 
   return (
-    <div className="relative z-20 -mt-10 max-w-7xl mx-auto px-6 lg:px-16">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-6 rounded-2xl bg-[#14192d]/80 backdrop-blur-xl border border-white/10 shadow-2xl">
+    <div className="relative z-20 -mt-14 max-w-7xl mx-auto px-6 lg:px-16">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-6 sm:p-7 rounded-2xl bg-[#12162a]/90 backdrop-blur-2xl border border-amber-500/20 shadow-2xl shadow-black/60">
         {stats.map((item, idx) => {
           const Icon = item.icon;
           return (
