@@ -9,14 +9,14 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "HSK Master - Học & Ôn Tập Tiếng Trung Chuẩn Hanban",
-  description: "Trang web học và ôn tập HSK từ số 0 đến HSK 6 với lộ trình chuẩn, thẻ từ vựng và đề thi thử trực tuyến miễn phí.",
+  title: "Huayu Chinese - Đào Tạo Tiếng Trung & Luyện Thi HSK Chuẩn Quốc Tế",
+  description: "Khóa học Hán ngữ trực tuyến cam kết chuẩn đầu ra HSK 1 đến HSK 6 với phương pháp hiện đại.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" className={`${jakarta.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#faf9f5] text-slate-900 font-sans">
+      <body className="min-h-full flex flex-col bg-[#07190c] text-white font-sans selection:bg-[#bbcf52] selection:text-[#07190c]">
         {children}
       </body>
     </html>

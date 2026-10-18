@@ -1,171 +1,179 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { Search, MapPin, Calendar, Clock, BookOpen, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+
+interface CourseCard {
+  id: string;
+  level: number;
+  title: string;
+  imageUrl: string;
+  bullets: string[];
+  price: string;
+}
+
+const courses: CourseCard[] = [
+  {
+    id: "hsk-1",
+    level: 1,
+    title: "HSK 1 - Sơ Cấp 150",
+    imageUrl: "/hsk-images/hsk1.jpg",
+    bullets: [
+      "Mục tiêu: Nhập môn & chuẩn Pinyin",
+      "Từ vựng: 150 từ cốt lõi",
+      "Thời lượng: 4 tuần (12 buổi)",
+      "Kỹ năng: Nghe & nhận diện chữ",
+    ],
+    price: "từ 1.250.000 đ",
+  },
+  {
+    id: "hsk-2",
+    level: 2,
+    title: "HSK 2 - Giao Tiếp 300",
+    imageUrl: "/hsk-images/hsk2.jpg",
+    bullets: [
+      "Mục tiêu: Giao tiếp đời sống hàng ngày",
+      "Từ vựng: 300 từ thực tế",
+      "Thời lượng: 6 tuần (18 buổi)",
+      "Kỹ năng: Mua sắm, du lịch, hỏi đường",
+    ],
+    price: "từ 1.850.000 đ",
+  },
+  {
+    id: "hsk-3",
+    level: 3,
+    title: "HSK 3 - Trung Cấp 600",
+    imageUrl: "/hsk-images/hsk3.jpg",
+    bullets: [
+      "Mục tiêu: Đàm thoại tự tin & văn bản ngắn",
+      "Từ vựng: 600 từ trọng tâm",
+      "Thời lượng: 8 tuần (24 buổi)",
+      "Kỹ năng: Giao tiếp công sở cơ bản",
+    ],
+    price: "từ 2.450.000 đ",
+  },
+  {
+    id: "hsk-4",
+    level: 4,
+    title: "HSK 4 - Chuẩn Du Học 1200",
+    imageUrl: "/hsk-images/hsk4.jpg",
+    bullets: [
+      "Mục tiêu: Đạt chuẩn apply học bổng ĐH",
+      "Từ vựng: 1200 từ chuyên sâu",
+      "Thời lượng: 12 tuần (36 buổi)",
+      "Kỹ năng: Đọc báo chí & viết đoạn văn",
+    ],
+    price: "từ 3.250.000 đ",
+  },
+];
 
 export default function Hero() {
   return (
-    <section className="relative w-full pt-2 pb-16 overflow-hidden">
-      {/* Decorative Botanical Leaf Branch in Top-Left (exact Pomaii style) */}
-      <div className="absolute top-0 left-6 sm:left-12 w-28 sm:w-36 h-28 pointer-events-none select-none z-20 opacity-80">
-        <svg viewBox="0 0 140 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M10 5C35 25 55 60 70 100"
-            stroke="#15803d"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-          {/* Leaves along branch */}
-          <path d="M25 20C15 15 12 5 28 8C35 15 32 25 25 20Z" fill="#22c55e" fillOpacity="0.7" />
-          <path d="M42 38C55 35 60 22 46 25C38 32 38 42 42 38Z" fill="#16a34a" fillOpacity="0.8" />
-          <path d="M56 65C45 60 42 48 58 52C65 60 62 70 56 65Z" fill="#22c55e" fillOpacity="0.75" />
-          <path d="M70 95C85 90 90 78 76 80C68 88 68 98 70 95Z" fill="#15803d" fillOpacity="0.85" />
-        </svg>
-      </div>
-
-      {/* Decorative 3x3 Dot Grid in Top-Right (exact Pomaii style) */}
-      <div className="absolute top-6 right-8 sm:right-16 grid grid-cols-3 gap-2 opacity-30 pointer-events-none select-none z-20">
-        {[...Array(9)].map((_, i) => (
-          <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-        ))}
-      </div>
-
-      {/* Main Container */}
+    <section className="relative w-full pt-4 pb-20">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
-        {/* Main Hero Card Container with Rounded Framing and Video Background */}
-        <div className="relative min-h-[580px] lg:min-h-[640px] rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200/60 border border-slate-200/50 bg-[#faf9f5]">
-          {/* Background Video from user folder (backgroud.mp4) */}
-          <div className="absolute inset-0 z-0">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              poster="/sample-design.jpg"
-              className="w-full h-full object-cover object-center scale-105"
-            >
-              <source src="/main-background.mp4" type="video/mp4" />
-            </video>
-
-            {/* Organic Soft White Ribbons & Curves (exact Pomaii style) */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#faf9f5]/95 via-[#faf9f5]/85 md:via-[#faf9f5]/65 to-transparent/15" />
-            <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#faf9f5] via-[#faf9f5]/75 to-transparent" />
-
-            {/* Fluid Frosted Ribbon Curve Overlay (SVG) */}
-            <svg
-              className="absolute -top-12 -right-12 w-[600px] h-[600px] opacity-25 pointer-events-none"
-              viewBox="0 0 600 600"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M600 200C450 180 320 280 250 400C180 520 80 580 0 600"
-                stroke="white"
-                strokeWidth="60"
-                strokeLinecap="round"
-                className="blur-xl"
-              />
-            </svg>
-          </div>
-
-          {/* Left Text Content */}
-          <div className="relative z-10 max-w-2xl px-8 sm:px-14 lg:px-16 pt-16 sm:pt-20 pb-36">
-            {/* Small uppercase category tag with leaf icon */}
-            <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest text-slate-500 uppercase mb-5 font-mono">
-              <span>HÀNH TRÌNH CHINH PHỤC HÁN NGỮ</span>
-              <span className="text-emerald-600">🌿</span>
-            </div>
-
-            {/* Giant Clean Modern Headline with Brush Swoosh */}
-            <h1 className="text-4xl sm:text-6xl lg:text-[4rem] font-extrabold text-slate-900 tracking-tight leading-[1.1] mb-6">
-              Chinh Phục Hán Tự.
-              <span className="block relative mt-1 text-slate-900">
-                Mở Lối Tương Lai.
-                {/* Organic hand-drawn orange arc line underline (exact Pomaii style) */}
-                <svg
-                  className="absolute -bottom-2.5 left-0 w-64 sm:w-80 h-3.5 text-[#e86a24]"
-                  viewBox="0 0 280 14"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M3 10C70 3 200 1 277 8"
-                    stroke="currentColor"
-                    strokeWidth="4.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
+        {/* Top Hero Grid (Headline on Left, Video Visual on Right) */}
+        <div className="grid lg:grid-cols-12 gap-10 items-center mb-16">
+          {/* Left Column: Headline, subtext, lime CTA */}
+          <div className="lg:col-span-6">
+            <h1 className="text-3xl sm:text-5xl lg:text-[3.25rem] font-bold text-white tracking-tight leading-[1.18] mb-5">
+              Khóa học tiếng Trung chất lượng cao{" "}
+              <span className="font-extrabold text-white">cam kết đạt chuẩn HSK sau 3 tháng</span>
             </h1>
 
-            {/* Sub-paragraph */}
-            <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-lg mb-8 font-normal">
-              Trang web học và ôn tập tiếng Trung toàn diện, bài bản theo khung chuẩn Hanban từ số 0
-              đến HSK 6. Nắm vững 5,000+ từ vựng, phản xạ nghe tự nhiên và thi thử thực chiến.
+            <p className="text-[#8ea797] text-sm sm:text-base leading-relaxed max-w-lg mb-8 font-normal">
+              Thiết kế chương trình từ số 0 đến HSK 6, tối ưu thời gian học với phương pháp ghi nhớ
+              chữ Hán Spaced Repetition và phản xạ giao tiếp tự nhiên.
             </p>
 
-            {/* Primary Orange Pill CTA Button (exact Pomaii style) */}
-            <div className="flex items-center gap-4">
-              <Link
-                href="#levels"
-                className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#e86a24] text-white font-semibold text-base shadow-lg shadow-orange-500/30 hover:bg-[#d45a16] hover:shadow-orange-500/40 hover:scale-[1.02] transition-all duration-200"
+            <div>
+              <button
+                onClick={() => alert("Chuyên viên tư vấn Huayu sẽ liên hệ hỗ trợ bạn trong 15 phút!")}
+                className="px-7 py-3.5 rounded-lg bg-[#bbcf52] text-[#07190c] font-bold text-sm hover:bg-[#a8be40] transition shadow-lg shadow-lime-900/20 cursor-pointer"
               >
-                <span>Bắt đầu học ngay</span>
-                <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-mono">
-                  →
-                </span>
-              </Link>
+                Tư vấn miễn phí
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Hero Visual Container embedding background video */}
+          <div className="lg:col-span-6">
+            <div className="relative h-[320px] sm:h-[400px] lg:h-[440px] rounded-3xl overflow-hidden border border-[#1a3d24] shadow-2xl bg-[#0c2514]">
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                poster="/sample-design.jpg"
+                className="w-full h-full object-cover object-center"
+              >
+                <source src="/main-background.mp4" type="video/mp4" />
+              </video>
+              {/* Subtle green ambient vignette */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#07190c]/40 via-transparent to-transparent pointer-events-none" />
             </div>
           </div>
         </div>
 
-        {/* Floating Quick Search / Filter Bar (exact Pomaii style) */}
-        <div className="relative z-20 -mt-14 max-w-5xl mx-auto px-4">
-          <div className="bg-white rounded-full p-2.5 sm:p-3 shadow-2xl shadow-slate-300/60 border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-0">
-            {/* Field 1: Cấp độ */}
-            <div className="flex items-center gap-3 px-6 py-2 w-full md:w-1/4 border-b md:border-b-0 md:border-r border-slate-100">
-              <BookOpen className="w-5 h-5 text-slate-400 shrink-0" />
+        {/* 4 Level Cards Grid (Exact arched dome card style from reference) */}
+        <div id="courses" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+          {courses.map((item) => (
+            <div
+              key={item.id}
+              className="bg-[#0c2514] border border-[#1a3d24] rounded-2xl p-4 flex flex-col justify-between hover:border-[#bbcf52]/60 transition-all duration-300 group shadow-md"
+            >
               <div>
-                <div className="text-[11px] font-bold text-slate-900 uppercase tracking-wide">
-                  Cấp độ học?
+                {/* Arched Dome Image Header (signature element in reference) */}
+                <div className="relative h-36 w-full mb-4 rounded-t-full overflow-hidden border border-[#1a3d24]/80 bg-[#07190c]">
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 25vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                 </div>
-                <div className="text-xs text-slate-500 font-medium">HSK 1 - HSK 6</div>
+
+                {/* Card Title */}
+                <h3 className="text-base font-bold text-white mb-3 tracking-wide">
+                  {item.title}
+                </h3>
+
+                {/* Bullets List with Dot */}
+                <ul className="space-y-1.5 text-xs text-[#8ea797] mb-6">
+                  {item.bullets.map((b, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-white/60">•</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Bottom Row: Price on left in Lime, Button on right */}
+              <div className="pt-3 border-t border-[#1a3d24]/60 flex items-center justify-between">
+                <span className="text-[#bbcf52] font-bold text-sm tracking-tight">
+                  {item.price}
+                </span>
+                <button
+                  onClick={() => alert(`Xem chi tiết lộ trình khóa học ${item.title}`)}
+                  className="px-3 py-1 rounded border border-white/20 text-white/90 text-xs hover:bg-white/10 transition"
+                >
+                  Chi tiết
+                </button>
               </div>
             </div>
+          ))}
+        </div>
 
-            {/* Field 2: Kỹ năng */}
-            <div className="flex items-center gap-3 px-6 py-2 w-full md:w-1/4 border-b md:border-b-0 md:border-r border-slate-100">
-              <Calendar className="w-5 h-5 text-slate-400 shrink-0" />
-              <div>
-                <div className="text-[11px] font-bold text-slate-900 uppercase tracking-wide">
-                  Kỹ năng chính
-                </div>
-                <div className="text-xs text-slate-500 font-medium">Từ vựng & Nghe</div>
-              </div>
-            </div>
-
-            {/* Field 3: Mục tiêu */}
-            <div className="flex items-center gap-3 px-6 py-2 w-full md:w-1/4 border-b md:border-b-0 md:border-r border-slate-100">
-              <Clock className="w-5 h-5 text-slate-400 shrink-0" />
-              <div>
-                <div className="text-[11px] font-bold text-slate-900 uppercase tracking-wide">
-                  Mục tiêu
-                </div>
-                <div className="text-xs text-slate-500 font-medium">Thi đỗ chứng chỉ</div>
-              </div>
-            </div>
-
-            {/* Action Search Button */}
-            <div className="px-2 w-full md:w-auto">
-              <Link
-                href="#levels"
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-[#183226] text-white font-semibold text-sm hover:bg-[#11241b] transition shadow-md shadow-emerald-950/20"
-              >
-                <span>Tìm lộ trình</span>
-                <Search className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
+        {/* Center Button under 4 Cards (Посмотреть еще style) */}
+        <div className="flex justify-center">
+          <Link
+            href="#courses"
+            className="px-8 py-3 rounded-lg bg-[#bbcf52] text-[#07190c] font-bold text-sm hover:bg-[#a8be40] transition shadow-md"
+          >
+            Xem tất cả các khóa học
+          </Link>
         </div>
       </div>
     </section>

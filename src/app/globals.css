@@ -1,18 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf9f5;
-  --foreground: #111827;
+  --background: #0b2210;
+  --foreground: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-pine-bg: #07190c;
+  --color-pine-card: #0c2514;
+  --color-pine-border: #1a3d24;
+  --color-lime-accent: #bbcf52;
+  --color-lime-hover: #a8be40;
+  --color-sage-text: #8ea797;
   --font-sans: var(--font-jakarta), system-ui, -apple-system, sans-serif;
 }
 
 body {
-  background-color: #faf9f5;
-  color: #111827;
+  background-color: #07190c;
+  color: #ffffff;
   font-family: var(--font-sans);
 }
