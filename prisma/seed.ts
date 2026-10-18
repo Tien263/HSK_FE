@@ -3,105 +3,95 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Bắt đầu nạp dữ liệu mẫu cho Lớp tiếng Trung cô Ning Ning...");
+  console.log("🧹 Xóa toàn bộ dữ liệu cũ để đồng bộ dữ liệu thật 100%...");
+  await prisma.attemptAnswer.deleteMany();
+  await prisma.attempt.deleteMany();
+  await prisma.assignmentTarget.deleteMany();
+  await prisma.assignment.deleteMany();
+  await prisma.quizSetQuestion.deleteMany();
+  await prisma.quizSet.deleteMany();
+  await prisma.question.deleteMany();
+  await prisma.vocabProgress.deleteMany();
+  await prisma.wrongQuestion.deleteMany();
+  await prisma.vocabulary.deleteMany();
+  await prisma.grammarPoint.deleteMany();
+  await prisma.listeningItem.deleteMany();
+  await prisma.readingItem.deleteMany();
+  await prisma.lesson.deleteMany();
+  await prisma.level.deleteMany();
+  await prisma.curriculum.deleteMany();
+  await prisma.classStudent.deleteMany();
+  await prisma.class.deleteMany();
+  await prisma.gameSession.deleteMany();
+  await prisma.xpLog.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.user.deleteMany();
 
-  // 1. Tạo Giáo viên Cô Ning Ning (Nguyễn Thảo)
-  const teacher = await prisma.user.upsert({
-    where: { username: "coningning" },
-    update: {},
-    create: {
-      username: "coningning",
+  console.log("👤 Tạo 3 tài khoản cho 3 role chuẩn...");
+
+  // 1. Admin
+  const admin = await prisma.user.create({
+    data: {
+      username: "admin",
+      name: "Quản trị viên Hệ thống",
+      email: "admin@ningning.edu.vn",
+      passwordHash: "admin123",
+      role: "ADMIN",
+      status: "ACTIVE",
+    },
+  });
+
+  // 2. Giáo viên (Cô Ning Ning)
+  const teacher = await prisma.user.create({
+    data: {
+      username: "teacher",
       name: "Nguyễn Thảo (Cô Ning Ning)",
-      email: "coningning.tiengtrung@gmail.com",
-      passwordHash: "pbkdf2_sha256$hashed_password_ningning",
+      email: "coningning@ningning.edu.vn",
+      passwordHash: "teacher123",
       role: "TEACHER",
       status: "ACTIVE",
       avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
     },
   });
 
-  // 2. Tạo Admin
-  await prisma.user.upsert({
-    where: { username: "admin" },
-    update: {},
-    create: {
-      username: "admin",
-      name: "Quản trị viên Hệ thống",
-      email: "admin@ningning.edu.vn",
-      passwordHash: "pbkdf2_sha256$hashed_password_admin",
-      role: "ADMIN",
+  // 3. Học sinh (Em Minh Khang)
+  const student = await prisma.user.create({
+    data: {
+      username: "student",
+      name: "Trần Minh Khang",
+      email: "student@ningning.edu.vn",
+      passwordHash: "student123",
+      role: "STUDENT",
       status: "ACTIVE",
+      currentHskLevel: 1,
+      totalXp: 180,
+      streakDays: 4,
     },
   });
 
-  // 3. Tạo các Lớp học
-  const classData = [
-    { name: "HSK 1A", level: 1, totalStudents: 36, activeCount: 32 },
-    { name: "HSK 1B", level: 1, totalStudents: 30, activeCount: 28 },
-    { name: "HSK 2A", level: 2, totalStudents: 28, activeCount: 20 },
-    { name: "HSK 3A", level: 3, totalStudents: 25, activeCount: 18 },
-    { name: "HSK 1C", level: 1, totalStudents: 22, activeCount: 20 },
-    { name: "HSK 2B", level: 2, totalStudents: 24, activeCount: 22 },
-    { name: "HSK 3B", level: 3, totalStudents: 20, activeCount: 17 },
-    { name: "HSK 4A", level: 4, totalStudents: 18, activeCount: 15 },
-  ];
+  console.log("🏫 Tạo Lớp học HSK 1A...");
+  const hskClass = await prisma.class.create({
+    data: {
+      name: "HSK 1A",
+      level: 1,
+      teacherId: teacher.id,
+      description: "Lớp tiếng Trung HSK 1 cơ bản cô Ning Ning trực tiếp giảng dạy",
+    },
+  });
 
-  const createdClasses = [];
-  for (const c of classData) {
-    const cls = await prisma.class.create({
-      data: {
-        name: c.name,
-        level: c.level,
-        teacherId: teacher.id,
-        description: `Lớp tiếng Trung HSK ${c.level} cô Ning Ning phụ trách`,
-      },
-    });
-    createdClasses.push(cls);
-  }
+  // Gán học sinh vào lớp
+  await prisma.classStudent.create({
+    data: {
+      classId: hskClass.id,
+      studentId: student.id,
+    },
+  });
 
-  // 4. Tạo các Học sinh tiêu biểu và gán vào lớp
-  const studentData = [
-    { name: "Trần Minh Khang", username: "khang.tm", classIdx: 1, atRiskReason: "Thường sai từ vựng 3 bài gần đây" },
-    { name: "Lê Gia Hân", username: "han.lg", classIdx: 2, atRiskReason: "Nghe hiểu dưới 50% 2 bài liên tiếp" },
-    { name: "Nguyễn Tuấn Kiệt", username: "kiet.nt", classIdx: 3, atRiskReason: "Chưa nộp 2 bài tập quá hạn" },
-    { name: "Phạm Mai Linh", username: "linh.pm", classIdx: 0, atRiskReason: "Cần ôn lại ngữ pháp 把字句" },
-    { name: "Đỗ Hoàng Long", username: "long.dh", classIdx: 0, atRiskReason: null },
-    { name: "Vũ Bảo Ngọc", username: "ngoc.vb", classIdx: 1, atRiskReason: null },
-    { name: "Trương Khánh An", username: "an.tk", classIdx: 2, atRiskReason: null },
-    { name: "Hoàng Minh Đức", username: "duc.hm", classIdx: 3, atRiskReason: null },
-  ];
-
-  const createdStudents = [];
-  for (const s of studentData) {
-    const student = await prisma.user.create({
-      data: {
-        username: s.username,
-        name: s.name,
-        email: `${s.username}@ningning.edu.vn`,
-        passwordHash: "pbkdf2_sha256$hashed_student",
-        role: "STUDENT",
-        status: "ACTIVE",
-        totalXp: Math.floor(Math.random() * 500) + 120,
-        streakDays: Math.floor(Math.random() * 15) + 3,
-      },
-    });
-
-    createdStudents.push({ ...student, atRiskReason: s.atRiskReason, classIdx: s.classIdx });
-
-    // Gán vào lớp
-    await prisma.classStudent.create({
-      data: {
-        classId: createdClasses[s.classIdx].id,
-        studentId: student.id,
-      },
-    });
-  }
-
-  // 5. Tạo Giáo trình & Cấp độ HSK 1, 2, 3
+  console.log("📚 Tạo Giáo trình và Bài học...");
   const curriculum = await prisma.curriculum.create({
     data: {
       title: "Giáo trình chuẩn HSK 3.0 Lớp Cô Ning Ning",
-      description: "Khung đào tạo tích lũy từ vựng, ngữ pháp và đề thi thử",
+      description: "Lộ trình ôn bài, làm bài tập và thi thử đạt chuẩn",
     },
   });
 
@@ -109,37 +99,8 @@ async function main() {
     data: {
       curriculumId: curriculum.id,
       hskLevel: 1,
-      title: "HSK 1 - Sơ cấp",
+      title: "HSK 1 (Sơ cấp)",
       isOpen: true,
-    },
-  });
-
-  const level2 = await prisma.level.create({
-    data: {
-      curriculumId: curriculum.id,
-      hskLevel: 2,
-      title: "HSK 2 - Sơ cấp",
-      isOpen: true,
-    },
-  });
-
-  const level3 = await prisma.level.create({
-    data: {
-      curriculumId: curriculum.id,
-      hskLevel: 3,
-      title: "HSK 3 - Sơ cấp",
-      isOpen: true,
-    },
-  });
-
-  // 6. Tạo các Bài học trọng điểm (Bài 4, Bài 5, Bài 6)
-  const lesson4 = await prisma.lesson.create({
-    data: {
-      levelId: level1.id,
-      lessonNumber: 4,
-      title: "Bài 4 · 家庭 (Gia đình)",
-      description: "Học từ vựng và câu hỏi về các thành viên trong gia đình",
-      status: "PUBLISHED",
     },
   });
 
@@ -148,109 +109,224 @@ async function main() {
       levelId: level1.id,
       lessonNumber: 5,
       title: "Bài 5 · 购物 (Mua sắm)",
-      description: "Số đếm, đơn vị tiền tệ, mẫu câu hỏi giá và mua hàng",
+      description: "Hỏi giá cả, đơn vị tiền tệ và các đồ vật thường dùng",
       status: "PUBLISHED",
     },
   });
 
-  const lesson6 = await prisma.lesson.create({
-    data: {
-      levelId: level2.id,
-      lessonNumber: 6,
-      title: "Bài 6 · 旅行 (Du lịch)",
-      description: "Hỏi đường, phương tiện giao thông và địa điểm du lịch",
-      status: "PUBLISHED",
-    },
-  });
-
-  // 7. Tạo Từ vựng cho Bài 5 & Bài 4
-  const vocabItems = [
-    { lessonId: lesson5.id, hanzi: "买", pinyin: "mǎi", meaningVi: "Mua", wordType: "Động từ" },
-    { lessonId: lesson5.id, hanzi: "多少钱", pinyin: "duōshǎo qián", meaningVi: "Bao nhiêu tiền", wordType: "Cụm từ" },
-    { lessonId: lesson5.id, hanzi: "块", pinyin: "kuài", meaningVi: "Đồng (tệ)", wordType: "Lượng từ" },
-    { lessonId: lesson5.id, hanzi: "苹果", pinyin: "píngguǒ", meaningVi: "Quả táo", wordType: "Danh từ" },
-    { lessonId: lesson4.id, hanzi: "爸爸", pinyin: "bàba", meaningVi: "Bố", wordType: "Danh từ" },
-    { lessonId: lesson4.id, hanzi: "妈妈", pinyin: "māma", meaningVi: "Mẹ", wordType: "Danh từ" },
-    { lessonId: lesson4.id, hanzi: "家", pinyin: "jiā", meaningVi: "Gia đình / Nhà", wordType: "Danh từ" },
-  ];
-
-  for (const v of vocabItems) {
-    await prisma.vocabulary.create({ data: v });
-  }
-
-  // 8. Tạo Bộ câu hỏi & Bài kiểm tra
-  const quizSet5 = await prisma.quizSet.create({
-    data: {
+  console.log("📖 Tạo Từ vựng thực tế trong Database...");
+  const vocabList = [
+    {
       lessonId: lesson5.id,
-      title: "Kiểm tra từ vựng & phản xạ Bài 5 · 购物",
-      mode: "EXAM",
-      totalScore: 100,
-    },
-  });
-
-  const quizSet4 = await prisma.quizSet.create({
-    data: {
-      lessonId: lesson4.id,
-      title: "Luyện nghe & nhận diện chữ Hán Bài 4 · 家庭",
-      mode: "EXAM",
-      totalScore: 100,
-    },
-  });
-
-  // 9. Tạo các Bài tập đang giao (Khớp 100% với ảnh dashboard của cô)
-  const assignments = [
-    {
-      title: "Bài 5 · 购物 (Từ vựng)",
-      quizSetId: quizSet5.id,
-      classId: createdClasses[1].id, // HSK 1B
-      dueAt: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000), // Hạn 16/10
-      submittedCount: 24,
-      totalCount: 28,
+      hanzi: "苹果",
+      pinyin: "píngguǒ",
+      meaningVi: "Quả táo",
+      wordType: "Danh từ",
+      exampleHanzi: "我想买三个苹果。",
+      examplePinyin: "Wǒ xiǎng mǎi sān gè píngguǒ.",
+      exampleMeaning: "Tôi muốn mua ba quả táo.",
     },
     {
-      title: "Ngữ pháp · 把字句",
-      quizSetId: quizSet5.id,
-      classId: createdClasses[3].id, // HSK 3A
-      dueAt: new Date(Date.now() + 0.5 * 24 * 60 * 60 * 1000), // Hạn 15/10
-      submittedCount: 18,
-      totalCount: 25,
+      lessonId: lesson5.id,
+      hanzi: "多少钱",
+      pinyin: "duōshǎo qián",
+      meaningVi: "Bao nhiêu tiền",
+      wordType: "Cụm từ",
+      exampleHanzi: "这个苹果多少钱一斤？",
+      examplePinyin: "Zhège píngguǒ duōshǎo qián yì jīn?",
+      exampleMeaning: "Táo này bao nhiêu tiền một cân?",
     },
     {
-      title: "Bài 4 · 家庭 (Nghe hiểu)",
-      quizSetId: quizSet4.id,
-      classId: createdClasses[0].id, // HSK 1A
-      dueAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Hạn 14/10
-      submittedCount: 32,
-      totalCount: 36,
+      lessonId: lesson5.id,
+      hanzi: "块",
+      pinyin: "kuài",
+      meaningVi: "Đồng (tệ)",
+      wordType: "Lượng từ",
+      exampleHanzi: "五块钱一斤。",
+      examplePinyin: "Wǔ kuài qián yì jīn.",
+      exampleMeaning: "Năm tệ một cân.",
     },
     {
-      title: "Bài 6 · 旅行 (Đọc hiểu)",
-      quizSetId: quizSet5.id,
-      classId: createdClasses[2].id, // HSK 2A
-      dueAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // Hạn 20/10
-      submittedCount: 12,
-      totalCount: 28,
+      lessonId: lesson5.id,
+      hanzi: "买",
+      pinyin: "mǎi",
+      meaningVi: "Mua",
+      wordType: "Động từ",
+      exampleHanzi: "你要买什么？",
+      examplePinyin: "Nǐ yào mǎi shénme?",
+      exampleMeaning: "Bạn muốn mua cái gì?",
+    },
+    {
+      lessonId: lesson5.id,
+      hanzi: "太...了",
+      pinyin: "tài...le",
+      meaningVi: "Quá... rồi",
+      wordType: "Cấu trúc",
+      exampleHanzi: "太贵了，便宜一点吧！",
+      examplePinyin: "Tài guì le, piányi yìdiǎn ba!",
+      exampleMeaning: "Đắt quá rồi, bớt một chút đi!",
     },
   ];
 
-  for (const a of assignments) {
-    await prisma.assignment.create({
+  const createdVocabs = [];
+  for (const v of vocabList) {
+    const item = await prisma.vocabulary.create({ data: v });
+    createdVocabs.push(item);
+
+    // Tạo tiến trình ôn tập Leitner hộp 1 cho học sinh
+    await prisma.vocabProgress.create({
       data: {
-        title: a.title,
-        quizSetId: a.quizSetId,
-        classId: a.classId,
-        dueAt: a.dueAt,
-        status: "OPEN",
+        studentId: student.id,
+        vocabularyId: item.id,
+        leitnerBox: 1,
+        nextReviewAt: new Date(), // Đến hạn ôn hôm nay
       },
     });
   }
 
-  console.log("✅ Dữ liệu mẫu đã được nạp thành công vào SQLite!");
+  console.log("❓ Tạo Ngân hàng câu hỏi thực tế trong Database...");
+  const questionsData = [
+    {
+      type: "single_choice",
+      content: "Chọn nghĩa tiếng Việt đúng của từ 「苹果」 (píngguǒ):",
+      pinyinPrompt: "píngguǒ",
+      options: JSON.stringify([
+        { id: "A", text: "Quả chuối" },
+        { id: "B", text: "Quả táo" },
+        { id: "C", text: "Quả dưa hấu" },
+        { id: "D", text: "Quả cam" },
+      ]),
+      correctAnswer: "B",
+      explanation: "苹果 (píngguǒ) có nghĩa là Quả táo.",
+      skill: "VOCABULARY",
+      difficulty: "EASY",
+      level: 1,
+      tags: "Hoa quả, Mua sắm",
+    },
+    {
+      type: "single_choice",
+      content: "Điền từ thích hợp vào chỗ trống: 「这个多少______？」 (Cái này bao nhiêu tiền?)",
+      pinyinPrompt: "Zhège duōshǎo ______?",
+      options: JSON.stringify([
+        { id: "A", text: "点 (diǎn)" },
+        { id: "B", text: "钱 (qián)" },
+        { id: "C", text: "本 (běn)" },
+        { id: "D", text: "个 (gè)" },
+      ]),
+      correctAnswer: "B",
+      explanation: "多少钱 (duōshǎo qián) là mẫu câu hỏi giá tiền: Bao nhiêu tiền?",
+      skill: "VOCABULARY",
+      difficulty: "EASY",
+      level: 1,
+      tags: "Mua sắm",
+    },
+    {
+      type: "single_choice",
+      content: "Từ nào sau đây mang nghĩa là 「Mua」?",
+      pinyinPrompt: "mǎi",
+      options: JSON.stringify([
+        { id: "A", text: "买 (mǎi)" },
+        { id: "B", text: "卖 (mài)" },
+        { id: "C", text: "看 (kàn)" },
+        { id: "D", text: "去 (qù)" },
+      ]),
+      correctAnswer: "A",
+      explanation: "买 (mǎi - thanh 3) nghĩa là Mua. Phân biệt với 卖 (mài - thanh 4) nghĩa là Bán.",
+      skill: "VOCABULARY",
+      difficulty: "MEDIUM",
+      level: 1,
+      tags: "Động từ",
+    },
+    {
+      type: "true_false",
+      content: "Câu 「太贵了！」 (Tài guì le!) có nghĩa là 「Rẻ quá!」, đúng hay sai?",
+      pinyinPrompt: "Tài guì le!",
+      options: JSON.stringify([
+        { id: "A", text: "Đúng (对)" },
+        { id: "B", text: "Sai (不对)" },
+      ]),
+      correctAnswer: "B",
+      explanation: "Sai. 「贵」 (guì) nghĩa là Đắt. 「太贵了！」 nghĩa là Đắt quá rồi! Rẻ là 「便宜」 (piányi).",
+      skill: "READING",
+      difficulty: "EASY",
+      level: 1,
+      tags: "Cảm thán",
+    },
+  ];
+
+  const createdQuestions = [];
+  for (const q of questionsData) {
+    const ques = await prisma.question.create({ data: q });
+    createdQuestions.push(ques);
+  }
+
+  // 1 Câu sai mẫu để học sinh vào mục "Luyện câu sai" test được ngay
+  await prisma.wrongQuestion.create({
+    data: {
+      studentId: student.id,
+      questionId: createdQuestions[2].id, // Câu phân biệt mǎi / mài
+      wrongCount: 2,
+      consecutiveRight: 0,
+    },
+  });
+
+  console.log("📝 Tạo Bộ câu hỏi & Bài tập giao cho học sinh...");
+  const quizSet = await prisma.quizSet.create({
+    data: {
+      lessonId: lesson5.id,
+      title: "Bài kiểm tra từ vựng Bài 5 · 购物",
+      mode: "EXAM",
+      totalScore: 100,
+    },
+  });
+
+  // Gắn 4 câu hỏi vào bộ đề
+  for (let i = 0; i < createdQuestions.length; i++) {
+    await prisma.quizSetQuestion.create({
+      data: {
+        quizSetId: quizSet.id,
+        questionId: createdQuestions[i].id,
+        orderIndex: i + 1,
+        points: 25.0,
+      },
+    });
+  }
+
+  // Tạo Bài tập đang giao
+  const assignment = await prisma.assignment.create({
+    data: {
+      quizSetId: quizSet.id,
+      classId: hskClass.id,
+      title: "Bài tập 5: Ôn từ vựng & phản xạ Mua sắm",
+      openAt: new Date(),
+      dueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // Hạn sau 3 ngày
+      durationMin: 20,
+      maxAttempts: 3,
+      mode: "EXAM",
+      status: "OPEN",
+    },
+  });
+
+  // Giao cho học sinh
+  await prisma.assignmentTarget.create({
+    data: {
+      assignmentId: assignment.id,
+      studentId: student.id,
+    },
+  });
+
+  console.log("✨ HOÀN THÀNH TẠO DỮ LIỆU THẬT 100%!");
+  console.log("==========================================");
+  console.log("🔑 TÀI KHOẢN ĐĂNG NHẬP TEST:");
+  console.log("1. HỌC SINH: username: 'student'  | password: 'student123'");
+  console.log("2. GIÁO VIÊN: username: 'teacher'  | password: 'teacher123'");
+  console.log("3. ADMIN:     username: 'admin'    | password: 'admin123'");
+  console.log("==========================================");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Lỗi nạp dữ liệu mẫu:", e);
+    console.error("Lỗi:", e);
     process.exit(1);
   })
   .finally(async () => {
