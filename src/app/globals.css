@@ -17,6 +17,10 @@
   --font-sans: var(--font-jakarta), system-ui, -apple-system, sans-serif;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: #061609;
   color: #ffffff;
