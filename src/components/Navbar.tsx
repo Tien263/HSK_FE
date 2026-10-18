@@ -8,54 +8,57 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="relative z-50 w-full max-w-7xl mx-auto px-6 lg:px-12 py-6 flex items-center justify-between text-white text-sm">
-      {/* Brand Logo (Exact style: Circle badge + Brand name) */}
+    <header className="relative z-50 w-full max-w-7xl mx-auto px-6 lg:px-12 pt-6 pb-4 flex items-center justify-between text-white">
+      {/* Brand Logo: Circle badge + 2-line brand name */}
       <Link href="/" className="flex items-center gap-3 group">
-        <div className="w-10 h-10 rounded-full border border-white/30 flex items-center justify-center bg-[#0d2e17] text-[#bbcf52] font-black text-lg group-hover:border-[#bbcf52] transition">
+        <div className="w-11 h-11 rounded-full border border-white/30 flex items-center justify-center bg-[#0d2816]/80 text-[#c3dc4e] font-black text-xl group-hover:border-[#c3dc4e] transition shadow-md">
           <span>华</span>
         </div>
         <div className="leading-tight">
-          <span className="font-bold text-white text-base tracking-wide block uppercase font-mono">
+          <span className="font-bold text-white text-[15px] tracking-wider block uppercase font-mono">
             HUAYU ACADEMY
           </span>
-          <span className="text-[10px] text-[#8ea797] tracking-wider block font-sans">
-            Đào tạo Hán ngữ & HSK
+          <span className="text-[11px] text-[#9cb396] tracking-wide block font-sans">
+            Đào tạo Tiếng Trung & HSK
           </span>
         </div>
       </Link>
 
-      {/* Center Nav Links (Separated by subtle vertical pipe | as in reference) */}
-      <nav className="hidden md:flex items-center gap-2 text-xs font-medium text-[#8ea797]">
-        <Link href="/" className="text-white hover:text-[#bbcf52] transition px-2">
+      {/* Center Nav Links (Separated by subtle pipe | as in reference) */}
+      <nav className="hidden md:flex items-center gap-3 text-[13px] font-medium text-white/90">
+        <Link href="/" className="hover:text-[#c3dc4e] transition">
           Trang chủ
         </Link>
-        <span className="opacity-40">|</span>
-        <Link href="#courses" className="hover:text-white transition px-2">
-          Khóa học HSK
+        <span className="text-white/30 text-xs font-light">|</span>
+        <Link href="#courses" className="text-[#9cb396] hover:text-white transition">
+          Khóa học
         </Link>
-        <span className="opacity-40">|</span>
-        <Link href="#about" className="hover:text-white transition px-2">
+        <span className="text-white/30 text-xs font-light">|</span>
+        <Link href="#about" className="text-[#9cb396] hover:text-white transition">
           Về chúng tôi
         </Link>
-        <span className="opacity-40">|</span>
-        <Link href="#gallery" className="hover:text-white transition px-2">
-          Hoạt động
+        <span className="text-white/30 text-xs font-light">|</span>
+        <Link href="#gallery" className="text-[#9cb396] hover:text-white transition">
+          Hình ảnh thực tế
         </Link>
-        <span className="opacity-40">|</span>
-        <Link href="#process" className="hover:text-white transition px-2">
+        <span className="text-white/30 text-xs font-light">|</span>
+        <Link href="#process" className="text-[#9cb396] hover:text-white transition">
           Quy trình
         </Link>
       </nav>
 
-      {/* Right Contact Hotline & Button (Exact reference layout) */}
+      {/* Right Contact Hotline & Pill Button (Exact reference layout) */}
       <div className="hidden md:flex items-center gap-5">
-        <div className="text-xs font-semibold text-white tracking-wider flex items-center gap-1.5">
-          <Phone className="w-3.5 h-3.5 text-[#bbcf52]" />
-          <span>+84 (0) 908 123 456</span>
-        </div>
+        <a
+          href="tel:0908123456"
+          className="text-sm font-semibold text-white tracking-wide hover:text-[#c3dc4e] transition flex items-center gap-1.5"
+        >
+          <Phone className="w-3.5 h-3.5 text-[#c3dc4e]" />
+          <span>+84 (098) 123 4567</span>
+        </a>
         <button
-          onClick={() => alert("Hệ thống tư vấn viên Huayu sẵn sàng liên hệ hỗ trợ bạn!")}
-          className="border border-white/20 text-white rounded-lg px-4 py-2 text-xs font-semibold hover:bg-white/10 transition backdrop-blur-sm"
+          onClick={() => alert("Chuyên viên tư vấn Huayu sẽ liên hệ lại với bạn trong 15 phút!")}
+          className="border border-white/25 text-white/95 rounded-lg px-5 py-2 text-xs font-semibold hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition bg-white/5 backdrop-blur-sm cursor-pointer"
         >
           Yêu cầu gọi lại
         </button>
@@ -64,7 +67,7 @@ export default function Navbar() {
       {/* Mobile Menu Toggle */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="md:hidden p-2 rounded-lg bg-[#0d2e17] border border-white/20 text-white"
+        className="md:hidden p-2 rounded-lg bg-[#0d2816] border border-white/20 text-white"
         aria-label="Toggle menu"
       >
         {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -72,50 +75,50 @@ export default function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {mobileOpen && (
-        <div className="md:hidden absolute top-full left-4 right-4 bg-[#0a2313] border border-[#1a3d24] rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-base z-50">
+        <div className="md:hidden absolute top-full left-4 right-4 bg-[#0a2012] border border-[#234a29] rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-base z-50">
           <Link
             href="/"
             onClick={() => setMobileOpen(false)}
-            className="text-white hover:text-[#bbcf52]"
+            className="text-white hover:text-[#c3dc4e]"
           >
             Trang chủ
           </Link>
           <Link
             href="#courses"
             onClick={() => setMobileOpen(false)}
-            className="text-[#8ea797] hover:text-white"
+            className="text-[#9cb396] hover:text-white"
           >
-            Khóa học HSK 1 - 6
+            Khóa học HSK
           </Link>
           <Link
             href="#about"
             onClick={() => setMobileOpen(false)}
-            className="text-[#8ea797] hover:text-white"
+            className="text-[#9cb396] hover:text-white"
           >
-            Về Huayu
+            Về chúng tôi
           </Link>
           <Link
             href="#gallery"
             onClick={() => setMobileOpen(false)}
-            className="text-[#8ea797] hover:text-white"
+            className="text-[#9cb396] hover:text-white"
           >
-            Hình ảnh lớp học
+            Hình ảnh thực tế
           </Link>
           <Link
             href="#process"
             onClick={() => setMobileOpen(false)}
-            className="text-[#8ea797] hover:text-white"
+            className="text-[#9cb396] hover:text-white"
           >
             Quy trình học tập
           </Link>
           <div className="pt-4 border-t border-white/10 flex flex-col gap-3">
-            <span className="text-xs text-[#8ea797]">+84 (0) 908 123 456</span>
+            <span className="text-xs text-[#9cb396]">+84 (098) 123 4567</span>
             <button
               onClick={() => {
                 setMobileOpen(false);
-                alert("Hệ thống tư vấn viên sẵn sàng liên hệ bạn!");
+                alert("Chuyên viên tư vấn Huayu sẽ liên hệ lại với bạn!");
               }}
-              className="w-full py-2.5 rounded-lg bg-[#bbcf52] text-[#07190c] font-bold text-xs text-center"
+              className="w-full py-2.5 rounded-lg bg-[#c3dc4e] text-[#061609] font-bold text-xs text-center cursor-pointer"
             >
               Yêu cầu gọi lại
             </button>

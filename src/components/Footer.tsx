@@ -3,21 +3,21 @@ import { Phone, Mail, MapPin } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[#1a3d24] bg-[#05140a] text-[#8ea797] pt-14 pb-10">
+    <footer className="border-t border-[#234a29] bg-[#040f06] text-[#9cb396] pt-14 pb-10">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-10 border-b border-[#1a3d24]/60 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-10 border-b border-[#234a29]/60 text-xs">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-full border border-white/20 bg-[#0d2e17] flex items-center justify-center text-[#bbcf52] font-black text-sm">
+              <div className="w-8 h-8 rounded-full border border-white/20 bg-[#0d2816] flex items-center justify-center text-[#c3dc4e] font-black text-sm">
                 华
               </div>
               <span className="font-bold text-white text-sm tracking-wide uppercase font-mono">
                 HUAYU ACADEMY
               </span>
             </div>
-            <p className="text-[#8ea797] leading-relaxed mb-4">
-              Học viện đào tạo Hán ngữ & Luyện thi HSK trực tuyến cam kết chuẩn đầu ra.
+            <p className="text-[#9cb396] leading-relaxed mb-4">
+              Hệ thống đào tạo Hán ngữ & Luyện thi HSK cam kết chất lượng đầu ra theo chuẩn Hanban quốc tế.
             </p>
           </div>
 
@@ -39,7 +39,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="#courses" className="hover:text-white transition">
-                  HSK 3 (Trung cấp 600 từ)
+                  HSK 3 (Đột phá 600 từ)
                 </Link>
               </li>
               <li>
@@ -73,7 +73,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="#gallery" className="hover:text-white transition">
-                  Tài liệu & Flashcard
+                  Tài liệu & Thư viện Hán tự
                 </Link>
               </li>
             </ul>
@@ -86,15 +86,15 @@ export default function Footer() {
             </h5>
             <ul className="space-y-2.5">
               <li className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#bbcf52]" />
-                <span className="text-white">+84 (0) 908 123 456</span>
+                <Phone className="w-3.5 h-3.5 text-[#c3dc4e]" />
+                <span className="text-white">+84 (098) 123 4567</span>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-[#bbcf52]" />
-                <span>support@huayu.edu.vn</span>
+                <Mail className="w-3.5 h-3.5 text-[#c3dc4e]" />
+                <span>tuvankhoahoc@huayu.edu.vn</span>
               </li>
               <li className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#bbcf52]" />
+                <MapPin className="w-3.5 h-3.5 text-[#c3dc4e]" />
                 <span>Hà Nội & TP. Hồ Chí Minh</span>
               </li>
             </ul>
@@ -102,7 +102,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#8ea797]/70">
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#9cb396]/70">
           <div>© 2026 Huayu Academy. All rights reserved.</div>
           <div className="flex gap-4">
             <span className="hover:text-white cursor-pointer">Chính sách bảo mật</span>

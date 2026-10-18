@@ -7,7 +7,7 @@ import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#07190c] text-white">
+    <div className="min-h-screen flex flex-col bg-[#061609] text-white">
       {/* Top Header / Navigation Bar */}
       <Navbar />
 

@@ -1,24 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0b2210;
+  --background: #061609;
   --foreground: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-pine-bg: #07190c;
-  --color-pine-card: #0c2514;
-  --color-pine-border: #1a3d24;
-  --color-lime-accent: #bbcf52;
-  --color-lime-hover: #a8be40;
-  --color-sage-text: #8ea797;
+  --color-pine-bg: #061609;
+  --color-pine-card: #0a2012;
+  --color-pine-border: #234a29;
+  --color-lime-accent: #c3dc4e;
+  --color-lime-hover: #b3cb40;
+  --color-sage-text: #9cb396;
   --font-sans: var(--font-jakarta), system-ui, -apple-system, sans-serif;
 }
 
 body {
-  background-color: #07190c;
+  background-color: #061609;
   color: #ffffff;
   font-family: var(--font-sans);
 }
+
