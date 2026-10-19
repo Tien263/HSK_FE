@@ -9,7 +9,7 @@ export default function LearningModes() {
       {/* Full-width master painted Shanshui background (Tràn viền 100%) */}
       <div className="absolute inset-0 pointer-events-none select-none z-0">
         <Image
-          src="/theme/learning-modes-master-bg.jpg"
+          src="/theme/learning-modes-master-v2.jpg"
           alt="Tranh thủy mặc trà đạo và học tập"
           fill
           className="object-cover object-center"
