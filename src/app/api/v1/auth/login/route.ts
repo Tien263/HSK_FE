@@ -26,6 +26,7 @@ export async function POST(request: Request) {
         OR: [
           { username: cleanUsername },
           { email: cleanUsername },
+          ...(cleanUsername === "ningning" ? [{ username: "ning" }] : []),
         ],
       },
       include: {

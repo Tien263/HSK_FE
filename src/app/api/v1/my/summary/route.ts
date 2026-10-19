@@ -6,9 +6,19 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get("username") || "student";
 
-    const student = await prisma.user.findFirst({
-      where: { username },
+    let student = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username },
+          { email: username },
+          ...(username === "ningning" ? [{ username: "ning" }] : []),
+        ],
+      },
     });
+
+    if (!student) {
+      student = await prisma.user.findFirst({ where: { role: "STUDENT" } });
+    }
 
     if (!student) {
       return NextResponse.json({ success: false, message: "Không tìm thấy học sinh" }, { status: 404 });

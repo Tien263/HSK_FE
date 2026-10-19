@@ -54,7 +54,22 @@ async function main() {
     },
   });
 
-  // 3. Học sinh (Em Minh Khang)
+  // 3. Học sinh Ning Ning
+  const ning = await prisma.user.create({
+    data: {
+      username: "ning",
+      name: "Ning Ning",
+      email: "vuthuthuy05052006@gmail.com",
+      passwordHash: "123456",
+      role: "STUDENT",
+      status: "ACTIVE",
+      currentHskLevel: 1,
+      totalXp: 50,
+      streakDays: 7,
+    },
+  });
+
+  // 4. Học sinh (Em Minh Khang)
   const student = await prisma.user.create({
     data: {
       username: "student",
@@ -80,6 +95,12 @@ async function main() {
   });
 
   // Gán học sinh vào lớp
+  await prisma.classStudent.create({
+    data: {
+      classId: hskClass.id,
+      studentId: ning.id,
+    },
+  });
   await prisma.classStudent.create({
     data: {
       classId: hskClass.id,

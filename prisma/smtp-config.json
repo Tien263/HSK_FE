@@ -1,0 +1,11 @@
+{
+  "authType": "PASSWORD",
+  "host": "smtp.gmail.com",
+  "port": 465,
+  "user": "xuantien50d@gmail.com",
+  "pass": "",
+  "from": "Hanyu - Lớp Tiếng Trung Cô Ning Ning <xuantien50d@gmail.com>",
+  "clientId": "",
+  "clientSecret": "",
+  "refreshToken": ""
+}

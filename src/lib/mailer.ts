@@ -62,24 +62,29 @@ export function updateSmtpConfig(config: SmtpOptions) {
 }
 
 export function getSmtpConfig(): SmtpOptions {
-  return { ...activeSmtpConfig };
+  const storedConfig = loadStoredConfig();
+  return {
+    ...activeSmtpConfig,
+    ...storedConfig,
+  };
 }
 
 /**
  * Tạo nodemailer transporter hỗ trợ Google OAuth 2.0 & Gmail App Password & Custom SMTP
  */
 function createTransporter() {
-  const user = (activeSmtpConfig.user || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
+  const config = getSmtpConfig();
+  const user = (config.user || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
 
   // 1. Chế độ GOOGLE OAUTH 2.0 (Khuyên dùng và bảo mật nhất cho Gmail)
   const isOAuth =
-    activeSmtpConfig.authType === "OAUTH2" ||
-    (!activeSmtpConfig.authType && !!(activeSmtpConfig.clientId && activeSmtpConfig.clientSecret && activeSmtpConfig.refreshToken));
+    config.authType === "OAUTH2" ||
+    (!config.authType && !!(config.clientId && config.clientSecret && config.refreshToken));
 
   if (isOAuth) {
-    const clientId = (activeSmtpConfig.clientId || process.env.GMAIL_CLIENT_ID || "").trim();
-    const clientSecret = (activeSmtpConfig.clientSecret || process.env.GMAIL_CLIENT_SECRET || "").trim();
-    const refreshToken = (activeSmtpConfig.refreshToken || process.env.GMAIL_REFRESH_TOKEN || "").trim();
+    const clientId = (config.clientId || process.env.GMAIL_CLIENT_ID || "").trim();
+    const clientSecret = (config.clientSecret || process.env.GMAIL_CLIENT_SECRET || "").trim();
+    const refreshToken = (config.refreshToken || process.env.GMAIL_REFRESH_TOKEN || "").trim();
 
     if (user && clientId && clientSecret && refreshToken) {
       console.log(`[MAILER] Khởi tạo Nodemailer qua Google OAuth 2.0 cho ${user}`);
@@ -97,9 +102,9 @@ function createTransporter() {
   }
 
   // 2. Chế độ Mật khẩu ứng dụng Google (App Password) hoặc SMTP thông thường
-  const host = (activeSmtpConfig.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().toLowerCase();
-  const pass = (activeSmtpConfig.pass || process.env.SMTP_PASS || "").trim();
-  const port = activeSmtpConfig.port || Number(process.env.SMTP_PORT) || 465;
+  const host = (config.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().toLowerCase();
+  const pass = (config.pass || process.env.SMTP_PASS || "").trim();
+  const port = config.port || Number(process.env.SMTP_PORT) || 465;
 
   if (!user || !pass) {
     return null;
@@ -134,8 +139,9 @@ export async function sendOtpEmail(
   otpCode: string,
   purpose = "Xác minh tài khoản"
 ): Promise<{ sent: boolean; message: string; errorDetail?: string }> {
-  const user = (activeSmtpConfig.user || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
-  const from = activeSmtpConfig.from || `"Hanyu Tiếng Trung" <${user || "support@hanyu.edu.vn"}>`;
+  const config = getSmtpConfig();
+  const user = (config.user || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
+  const from = config.from || `"Hanyu Tiếng Trung" <${user || "support@hanyu.edu.vn"}>`;
   const transporter = createTransporter();
 
   // Kiểm tra nếu có transporter hợp lệ
