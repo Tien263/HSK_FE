@@ -97,8 +97,22 @@ export default function StudentDashboardPage() {
     },
   ]);
 
+  const [username, setUsername] = useState("student");
+
   useEffect(() => {
-    fetch("/api/v1/my/summary?username=student")
+    let currentU = "student";
+    try {
+      const stored = localStorage.getItem("currentUser");
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.username) {
+          currentU = u.username;
+          setUsername(u.username);
+        }
+      }
+    } catch {}
+
+    fetch(`/api/v1/my/summary?username=${currentU}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success) setData(json.data);
@@ -118,7 +132,7 @@ export default function StudentDashboardPage() {
       const res = await fetch(`/api/v1/assignments/${assignmentId}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "student" }),
+        body: JSON.stringify({ username }),
       });
       const result = await res.json();
       if (result.success && result.attemptId) {

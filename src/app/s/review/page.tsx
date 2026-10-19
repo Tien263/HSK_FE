@@ -26,7 +26,16 @@ export default function VocabReviewPage() {
   const [reviewedCount, setReviewedCount] = useState(0);
 
   useEffect(() => {
-    fetch("/api/v1/my/vocab-review/today?username=student")
+    let username = "student";
+    try {
+      const stored = localStorage.getItem("currentUser");
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.username) username = u.username;
+      }
+    } catch {}
+
+    fetch(`/api/v1/my/vocab-review/today?username=${username}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.items) {

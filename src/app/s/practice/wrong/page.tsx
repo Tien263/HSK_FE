@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, RotateCcw, Sparkles, BookOpen } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Sparkles, BookOpen } from "lucide-react";
 
 interface WrongItem {
   id: string;
@@ -22,9 +22,20 @@ export default function WrongQuestionsPracticePage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [solvedCount, setSolvedCount] = useState(0);
+  const [earnedXpTotal, setEarnedXpTotal] = useState(0);
+  const [feedback, setFeedback] = useState<{ isCorrect: boolean; isMastered?: boolean; earnedXp?: number } | null>(null);
+  const [studentUsername, setStudentUsername] = useState("student");
 
   useEffect(() => {
+    // Đọc thông tin user đăng nhập
+    try {
+      const stored = localStorage.getItem("currentUser");
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.username) setStudentUsername(u.username);
+      }
+    } catch {}
+
     fetch("/api/v1/my/wrong-questions?username=student")
       .then((res) => res.json())
       .then((data) => {
@@ -36,18 +47,61 @@ export default function WrongQuestionsPracticePage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const handleSelect = (optId: string) => {
+  const handleSelect = async (optId: string) => {
     if (isAnswered) return;
+    const currentQ = items[currentIndex];
+    if (!currentQ) return;
+
     setSelectedAnswer(optId);
     setIsAnswered(true);
-    if (optId === items[currentIndex]?.correctAnswer) {
-      setSolvedCount((c) => c + 1);
+
+    const isCorrect = optId === currentQ.correctAnswer;
+
+    // Gửi cập nhật trực tiếp lên SQLite Database (Chuẩn BR-07)
+    try {
+      const res = await fetch("/api/v1/my/wrong-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wrongQuestionId: currentQ.id,
+          isCorrect,
+          username: studentUsername,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setFeedback({
+          isCorrect,
+          isMastered: json.isMastered,
+          earnedXp: json.earnedXp,
+        });
+        if (json.earnedXp) {
+          setEarnedXpTotal((prev) => prev + json.earnedXp);
+        }
+
+        // Cập nhật state item cục bộ
+        setItems((prev) =>
+          prev.map((item, idx) =>
+            idx === currentIndex
+              ? {
+                  ...item,
+                  consecutiveRight: json.item.consecutiveRight,
+                  wrongCount: json.item.wrongCount,
+                }
+              : item
+          )
+        );
+      }
+    } catch (e) {
+      console.error("Lỗi cập nhật câu sai:", e);
     }
   };
 
   const handleNext = () => {
     setSelectedAnswer(null);
     setIsAnswered(false);
+    setFeedback(null);
     if (currentIndex < items.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     }
@@ -81,6 +135,13 @@ export default function WrongQuestionsPracticePage() {
         </Link>
 
         <div className="flex items-center gap-3">
+          {earnedXpTotal > 0 && (
+            <div className="flex items-center gap-1 text-[11px] font-bold text-[#256f3a] bg-[#f0f9f3] px-2.5 py-1 rounded-full border border-[#d2edd8]">
+              <Sparkles className="w-3.5 h-3.5 text-[#256f3a]" />
+              <span>+{earnedXpTotal} XP</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#fff7ed] border border-[#ffedd5] text-[11px] font-bold text-[#c2410c]">
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Sổ tay câu sai</span>
@@ -126,7 +187,7 @@ export default function WrongQuestionsPracticePage() {
                 Đã làm sai {currentQ.wrongCount} lần
               </span>
               <span className="text-[11px] bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 rounded-md font-medium text-[#475569]">
-                Đúng liên tiếp: {currentQ.consecutiveRight}/3 lần để gỡ khỏi sổ
+                Đúng liên tiếp: <strong className="text-[#256f3a]">{currentQ.consecutiveRight}/3</strong> lần để gỡ khỏi sổ
               </span>
             </div>
 
@@ -194,15 +255,27 @@ export default function WrongQuestionsPracticePage() {
                       : "bg-[#fff1f2] border border-[#fecdd3] text-[#9f1239]"
                   }`}
                 >
-                  <p className="font-bold flex items-center gap-1.5 mb-1 text-sm">
-                    {isCorrect ? "🎉 Giỏi lắm, em làm đúng rồi!" : "💡 Chưa chính xác rồi em ơi!"}
-                  </p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-bold flex items-center gap-1.5 text-sm">
+                      {isCorrect ? "🎉 Giỏi lắm, em làm đúng rồi!" : "💡 Chưa chính xác rồi em ơi!"}
+                    </p>
+                    {feedback?.earnedXp && (
+                      <span className="font-bold text-xs bg-white/70 px-2 py-0.5 rounded-full">
+                        +{feedback.earnedXp} XP đã cộng
+                      </span>
+                    )}
+                  </div>
                   <p className="leading-relaxed">
                     {currentQ.explanation ||
                       (isCorrect
                         ? "Em làm đúng câu này rồi. Tiếp tục luyện thêm để tích lũy 3 lần đúng liên tiếp nhé."
                         : `Đáp án đúng là ${currentQ.correctAnswer}. Hãy chú ý cấu trúc và ngữ cảnh của câu nhé!`)}
                   </p>
+                  {feedback?.isMastered && (
+                    <div className="mt-2 pt-2 border-t border-emerald-300 font-bold text-[#065f46] flex items-center gap-1.5">
+                      <span>🏆 Chúc mừng em! Đã đạt 3 lần đúng liên tiếp, câu này được giải quyết thành công!</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-2">

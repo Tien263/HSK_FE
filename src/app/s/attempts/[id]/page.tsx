@@ -43,22 +43,23 @@ function AttemptInner() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/v1/assignments/cmve587zg001ducdsxrqifbgn/start`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: "student" }),
-    })
+    if (!attemptId) return;
+
+    fetch(`/api/v1/attempts/${attemptId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.questions) {
           setQuestions(data.questions);
           setAssignmentTitle(data.assignment?.title || "Bài tập kiểm tra HSK 1");
           setSecondsRemaining((data.assignment?.durationMin || 20) * 60);
+          if (data.status === "GRADED" || data.status === "SUBMITTED") {
+            router.push(`/s/attempts/${attemptId}/result`);
+          }
         }
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [attemptId]);
+  }, [attemptId, router]);
 
   useEffect(() => {
     if (secondsRemaining <= 0) return;

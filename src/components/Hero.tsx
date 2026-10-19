@@ -5,14 +5,10 @@ import { ArrowDown, Sparkles, LogIn, Compass } from "lucide-react";
 
 export default function Hero() {
   const scrollToFeatures = () => {
-    const el = document.getElementById("hsk-levels");
+    const el = document.getElementById("kho-bai-hoc") || document.getElementById("hsk-levels");
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });
     }
-  };
-
-  const handleLogin = () => {
-    alert("Chào mừng em đến với không gian học tập của lớp cô Ning Ning! Hãy nhập tài khoản cô đã cấp để vào phòng luyện tập.");
   };
 
   return (
@@ -64,13 +60,13 @@ export default function Hero() {
 
           {/* Nút: Đăng nhập để vào học | Khám phá tính năng */}
           <div className="flex flex-wrap items-center gap-4">
-            <button
-              onClick={handleLogin}
+            <Link
+              href="/login"
               className="px-8 py-4 rounded-xl bg-[#c3dc4e] text-[#061609] font-bold text-sm sm:text-base hover:bg-[#b3cb40] transition shadow-2xl shadow-lime-950/40 cursor-pointer flex items-center gap-2"
             >
               <LogIn className="w-4 h-4 stroke-[2.5]" />
               <span>Đăng nhập để vào học</span>
-            </button>
+            </Link>
 
             <button
               onClick={scrollToFeatures}

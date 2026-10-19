@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, ArrowUpRight } from "lucide-react";
 import { useState } from "react";
 
@@ -18,7 +19,9 @@ export default function ClassroomGallery() {
         "Dành cho học sinh: Quên bài nào mở lại bài đó",
       ],
       ctaTeacher: "Thêm bài mới",
+      linkTeacher: "/t/dashboard",
       ctaStudent: "Xem kho bài học",
+      linkStudent: "/s/review",
       imageUrl: "/hsk-images/guide-hanzi.jpg",
       arch: "rounded-t-[65px] rounded-b-xl",
     },
@@ -34,7 +37,9 @@ export default function ClassroomGallery() {
         "Tích lũy điểm kinh nghiệm (XP) & chuỗi ngày học đều",
       ],
       ctaTeacher: "Xem bài đã giao",
+      linkTeacher: "/t/dashboard",
       ctaStudent: "Vào phòng luyện tập",
+      linkStudent: "/s/home",
       imageUrl: "/hsk-images/guide-listening.jpg",
       arch: "rounded-t-[80px] rounded-b-xl",
     },
@@ -49,8 +54,10 @@ export default function ClassroomGallery() {
         "Xây câu: Sắp xếp các từ thành câu đúng ngữ pháp",
         "Bảng xếp hạng theo lớp: Vinh danh các bạn chăm chỉ nhất tuần",
       ],
-      ctaTeacher: "Xem bảng xếp hạng",
+      ctaTeacher: "Xem báo cáo lớp",
+      linkTeacher: "/t/dashboard",
       ctaStudent: "Vào Game Center",
+      linkStudent: "/s/games",
       imageUrl: "/hsk-images/exam-banner.jpg",
       arch: "rounded-t-[65px] rounded-b-xl",
     },
@@ -58,99 +65,118 @@ export default function ClassroomGallery() {
 
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const handleAction = (msg: string) => {
-    alert(`Chức năng ${msg}: Em hãy đăng nhập tài khoản để vào hệ thống nhé!`);
+  const nextSlide = () => {
+    setActiveIndex((prev) => (prev + 1) % features.length);
   };
 
+  const prevSlide = () => {
+    setActiveIndex((prev) => (prev - 1 + features.length) % features.length);
+  };
+
+  const current = features[activeIndex];
+
   return (
-    <section id="features-detail" className="py-24 border-t border-[#234a29]/60 max-w-7xl mx-auto px-6 lg:px-12 scroll-mt-20">
-      {/* Section Header */}
-      <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center mb-12">
-        <div className="lg:col-span-8">
+    <section id="kho-bai-hoc" className="py-24 border-t border-[#234a29]/60 max-w-7xl mx-auto px-6 lg:px-12">
+      {/* Top Header with Prev/Next Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-14 gap-6">
+        <div>
           <div className="text-xs font-semibold text-[#c3dc4e] uppercase tracking-widest mb-3 font-mono">
-            TÍNH NĂNG NỔI BẬT NỘI BỘ
+            TÍNH NĂNG NỔI BẬT DÀNH CHO LỚP
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight mb-4">
-            Trải nghiệm học tập thông minh cùng cô Ning Ning
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
+            Trải nghiệm học tập hiện đại
           </h2>
-          <p className="text-[#9cb396] text-sm sm:text-base leading-relaxed max-w-2xl">
-            Tất cả công cụ từ soạn bài, làm bài, sửa lỗi đến trò chơi tương tác đều được thiết kế để
-            học sinh dễ nhớ - nhớ lâu - không áp lực.
+          <p className="text-[#9cb396] text-sm sm:text-base mt-2 max-w-xl font-normal leading-relaxed">
+            Học sinh chủ động làm bài, giáo viên quản lý lớp sát sao với các công cụ chuyên sâu.
           </p>
         </div>
 
-        {/* Navigation Arrows */}
-        <div className="lg:col-span-4 flex items-center justify-start lg:justify-end gap-3">
+        {/* Carousel Navigation Buttons */}
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setActiveIndex((prev) => (prev > 0 ? prev - 1 : features.length - 1))}
-            className="w-11 h-11 rounded-full border border-white/20 flex items-center justify-center hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition cursor-pointer"
-            aria-label="Previous feature"
+            onClick={prevSlide}
+            className="w-12 h-12 rounded-full border border-white/20 bg-[#0a2012] flex items-center justify-center text-white hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition cursor-pointer shadow-md"
+            aria-label="Previous slide"
           >
-            <ArrowLeft className="w-5 h-5 stroke-[1.5]" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
+          <span className="text-xs font-mono font-bold text-[#c3dc4e] px-2">
+            0{activeIndex + 1} / 0{features.length}
+          </span>
           <button
-            onClick={() => setActiveIndex((prev) => (prev < features.length - 1 ? prev + 1 : 0))}
-            className="w-11 h-11 rounded-full border border-white/20 flex items-center justify-center hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition cursor-pointer"
-            aria-label="Next feature"
+            onClick={nextSlide}
+            className="w-12 h-12 rounded-full border border-white/20 bg-[#0a2012] flex items-center justify-center text-white hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition cursor-pointer shadow-md"
+            aria-label="Next slide"
           >
-            <ArrowRight className="w-5 h-5 stroke-[1.5]" />
+            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      {/* 3 Arched Feature Cards Grid (Exact reference layout) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {features.map((item, idx) => (
-          <div
-            key={item.id}
-            id={item.id}
-            className="bg-[#0a2012]/95 border border-[#234a29] rounded-2xl p-5 flex flex-col justify-between hover:border-[#c3dc4e]/60 transition-all duration-300 shadow-xl group scroll-mt-24"
-          >
+      {/* Feature Showcase Grid (Text on Left, Arched Image Card on Right) */}
+      <div className="bg-[#0a2012] border border-[#234a29] rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl">
+        <div className="grid lg:grid-cols-12 gap-10 items-center">
+          {/* Left Details */}
+          <div className="lg:col-span-7 flex flex-col justify-between">
             <div>
-              {/* Arched Dome Image Header */}
-              <div
-                className={`relative h-56 w-full mb-5 overflow-hidden border border-white/20 bg-[#061609] shadow-inner ${item.arch}`}
-              >
-                <Image
-                  src={item.imageUrl}
-                  alt={item.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#061609]/90 via-transparent to-transparent" />
-                <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[10px] text-[#c3dc4e] font-mono font-bold">
-                  {item.tag}
-                </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#c3dc4e]/10 border border-[#c3dc4e]/30 text-xs font-semibold text-[#c3dc4e] mb-4 font-mono">
+                <Sparkles className="w-3 h-3" />
+                <span>{current.tag}</span>
               </div>
 
-              {/* Title & Sub */}
-              <h3 className="text-lg font-bold text-white mb-2 leading-snug">{item.title}</h3>
-              <p className="text-xs text-[#9cb396] leading-relaxed mb-5">{item.sub}</p>
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4 leading-tight">
+                {current.title}
+              </h3>
 
-              {/* Feature Points */}
-              <ul className="space-y-2 text-xs text-[#9cb396] mb-6">
-                {item.details.map((point, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#c3dc4e] shrink-0 mt-0.5" />
+              <p className="text-[#9cb396] text-sm sm:text-base leading-relaxed mb-6">
+                {current.sub}
+              </p>
+
+              {/* 4 Feature Bullet Points */}
+              <div className="grid sm:grid-cols-2 gap-3 mb-8">
+                {current.details.map((point, idx) => (
+                  <div key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-white/90">
+                    <CheckCircle2 className="w-4 h-4 text-[#c3dc4e] shrink-0 mt-0.5" />
                     <span>{point}</span>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="pt-4 border-t border-[#234a29] flex items-center justify-between gap-2">
-              <button
-                onClick={() => handleAction(item.ctaStudent)}
-                className="flex-1 py-2 rounded-lg bg-[#c3dc4e] text-[#061609] text-xs font-bold hover:bg-[#b3cb40] transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+            {/* Action Buttons for both Teacher and Student */}
+            <div className="pt-6 border-t border-[#234a29] flex flex-wrap items-center gap-4">
+              <Link
+                href={current.linkStudent}
+                className="px-6 py-3.5 rounded-xl bg-[#c3dc4e] text-[#061609] font-bold text-xs sm:text-sm hover:bg-[#b3cb40] transition shadow-lg cursor-pointer flex items-center gap-2"
               >
-                <span>{item.ctaStudent}</span>
-                <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              </button>
+                <span>{current.ctaStudent}</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+
+              <Link
+                href={current.linkTeacher}
+                className="px-6 py-3.5 rounded-xl border border-white/20 text-white font-medium text-xs sm:text-sm hover:bg-white/10 hover:border-white/40 transition cursor-pointer flex items-center gap-2"
+              >
+                <span>{current.ctaTeacher}</span>
+                <ArrowUpRight className="w-4 h-4 text-[#9cb396]" />
+              </Link>
             </div>
           </div>
-        ))}
+
+          {/* Right Arched Image Container */}
+          <div className="lg:col-span-5 flex justify-center">
+            <div className={`relative w-full max-w-sm aspect-[4/5] overflow-hidden ${current.arch} border border-white/15 shadow-2xl`}>
+              <Image
+                src={current.imageUrl}
+                alt={current.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 400px"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#061609]/80 via-transparent to-transparent" />
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

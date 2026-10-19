@@ -2,14 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X, UserCheck, LogIn } from "lucide-react";
+import { Menu, X, LogIn, Sparkles } from "lucide-react";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleLoginClick = () => {
-    alert("Cổng đăng nhập hệ thống nội bộ Lớp cô Ning Ning:\n- Học sinh: Nhập tài khoản & mật khẩu cô đã cấp\n- Giáo viên: Nhập tài khoản quản trị");
-  };
 
   return (
     <header className="relative z-50 w-full max-w-7xl mx-auto px-6 lg:px-12 pt-6 pb-4 flex items-center justify-between text-white">
@@ -38,15 +34,15 @@ export default function Navbar() {
           Kho bài học
         </Link>
         <span className="text-white/25 text-xs font-light">|</span>
-        <Link href="#phong-luyen-tap" className="text-[#9cb396] hover:text-white transition">
+        <Link href="/s/home" className="text-[#9cb396] hover:text-white transition">
           Phòng luyện tập
         </Link>
         <span className="text-white/25 text-xs font-light">|</span>
-        <Link href="#game-center" className="text-[#9cb396] hover:text-white transition">
+        <Link href="/s/games" className="text-[#9cb396] hover:text-white transition">
           Game Center
         </Link>
         <span className="text-white/25 text-xs font-light">|</span>
-        <Link href="#bao-cao-lop" className="text-[#9cb396] hover:text-white transition">
+        <Link href="/t/dashboard" className="text-[#9cb396] hover:text-white transition">
           Báo cáo lớp
         </Link>
       </nav>
@@ -61,7 +57,7 @@ export default function Navbar() {
         </Link>
 
         <Link
-          href="/t/dashboard"
+          href="/login"
           className="border border-white/25 text-white/95 rounded-lg px-4 py-2 text-xs font-semibold hover:border-[#c3dc4e] hover:text-[#c3dc4e] transition bg-white/5 backdrop-blur-sm cursor-pointer flex items-center gap-1.5"
         >
           <LogIn className="w-3.5 h-3.5 text-[#c3dc4e]" />
@@ -96,33 +92,41 @@ export default function Navbar() {
             Kho bài học
           </Link>
           <Link
-            href="#phong-luyen-tap"
+            href="/s/home"
             onClick={() => setMobileOpen(false)}
             className="text-[#9cb396] hover:text-white"
           >
             Phòng luyện tập
           </Link>
           <Link
-            href="#game-center"
+            href="/s/games"
             onClick={() => setMobileOpen(false)}
             className="text-[#9cb396] hover:text-white"
           >
             Game Center
           </Link>
           <Link
-            href="#bao-cao-lop"
+            href="/t/dashboard"
             onClick={() => setMobileOpen(false)}
             className="text-[#9cb396] hover:text-white"
           >
             Báo cáo lớp
           </Link>
-          <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
+
+          <div className="pt-4 border-t border-[#234a29] flex flex-col gap-3">
             <Link
               href="/t/dashboard"
               onClick={() => setMobileOpen(false)}
-              className="w-full py-2.5 rounded-lg bg-[#c3dc4e] text-[#061609] font-bold text-xs text-center cursor-pointer flex items-center justify-center gap-2"
+              className="w-full text-center py-2.5 rounded-xl bg-[#c3dc4e] text-[#061609] font-bold text-xs"
             >
-              <span>🐼 Vào Trang Cô Giáo (Dashboard)</span>
+              🐼 Trang cô giáo
+            </Link>
+            <Link
+              href="/login"
+              onClick={() => setMobileOpen(false)}
+              className="w-full text-center py-2.5 rounded-xl border border-white/20 text-white text-xs font-semibold"
+            >
+              Đăng nhập
             </Link>
           </div>
         </div>

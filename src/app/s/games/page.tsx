@@ -11,25 +11,57 @@ interface PairItem {
   meaning: string;
 }
 
-const vocabPairs: PairItem[] = [
+const defaultPairs: PairItem[] = [
   { id: "1", hanzi: "苹果", pinyin: "píngguǒ", meaning: "Quả táo" },
   { id: "2", hanzi: "多少钱", pinyin: "duōshǎo qián", meaning: "Bao nhiêu tiền" },
   { id: "3", hanzi: "买", pinyin: "mǎi", meaning: "Mua" },
   { id: "4", hanzi: "块", pinyin: "kuài", meaning: "Đồng (tệ)" },
-  { id: "5", hanzi: "爸爸", pinyin: "bàba", meaning: "Bố" },
+  { id: "5", hanzi: "太...了", pinyin: "tài...le", meaning: "Quá... rồi" },
   { id: "6", hanzi: "妈妈", pinyin: "māma", meaning: "Mẹ" },
 ];
 
 export default function GameCenterPage() {
+  const [vocabPairs, setVocabPairs] = useState<PairItem[]>(defaultPairs);
   const [selectedHanzi, setSelectedHanzi] = useState<string | null>(null);
   const [selectedPinyin, setSelectedPinyin] = useState<string | null>(null);
   const [matchedIds, setMatchedIds] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
   const [shuffledPinyins, setShuffledPinyins] = useState<PairItem[]>([]);
+  const [isSaved, setIsSaved] = useState(false);
+  const [studentUsername, setStudentUsername] = useState("student");
 
   useEffect(() => {
-    setShuffledPinyins([...vocabPairs].sort(() => Math.random() - 0.5));
+    // Đọc thông tin user đăng nhập
+    try {
+      const stored = localStorage.getItem("currentUser");
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.username) setStudentUsername(u.username);
+      }
+    } catch {}
+
+    // Lấy từ vựng thực tế từ cơ sở dữ liệu
+    fetch("/api/v1/my/vocab-review/today?username=student")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.items && data.items.length >= 4) {
+          const formatted: PairItem[] = data.items.map((it: any) => ({
+            id: it.vocabId || it.progressId,
+            hanzi: it.hanzi,
+            pinyin: it.pinyin,
+            meaning: it.meaningVi,
+          }));
+          setVocabPairs(formatted);
+          setShuffledPinyins([...formatted].sort(() => Math.random() - 0.5));
+        } else {
+          setShuffledPinyins([...defaultPairs].sort(() => Math.random() - 0.5));
+        }
+      })
+      .catch(() => {
+        setShuffledPinyins([...defaultPairs].sort(() => Math.random() - 0.5));
+      });
   }, []);
 
   const handleSpeak = (text: string) => {
@@ -65,11 +97,20 @@ export default function GameCenterPage() {
     if (hId === pId) {
       const newCombo = combo + 1;
       setCombo(newCombo);
+      if (newCombo > maxCombo) setMaxCombo(newCombo);
+
       const points = 10 + (newCombo > 1 ? (newCombo - 1) * 2 : 0);
-      setScore((prev) => prev + points);
-      setMatchedIds((prev) => [...prev, hId]);
+      const newScore = score + points;
+      setScore(newScore);
+      const newMatched = [...matchedIds, hId];
+      setMatchedIds(newMatched);
       setSelectedHanzi(null);
       setSelectedPinyin(null);
+
+      // Nếu hoàn thành toàn bộ ván game, lưu kết quả vào Database
+      if (newMatched.length === vocabPairs.length) {
+        saveGameResult(newScore, Math.max(newCombo, maxCombo));
+      }
     } else {
       setCombo(0);
       setTimeout(() => {
@@ -79,16 +120,36 @@ export default function GameCenterPage() {
     }
   };
 
+  const saveGameResult = async (finalScore: number, finalMaxCombo: number) => {
+    try {
+      await fetch("/api/v1/my/games/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: studentUsername,
+          score: finalScore,
+          maxCombo: finalMaxCombo,
+          gameType: "PINYIN_MATCH",
+        }),
+      });
+      setIsSaved(true);
+    } catch (e) {
+      console.error("Lỗi lưu kết quả game:", e);
+    }
+  };
+
   const handleReset = () => {
     setMatchedIds([]);
     setSelectedHanzi(null);
     setSelectedPinyin(null);
     setScore(0);
     setCombo(0);
+    setMaxCombo(0);
+    setIsSaved(false);
     setShuffledPinyins([...vocabPairs].sort(() => Math.random() - 0.5));
   };
 
-  const isCompleted = matchedIds.length === vocabPairs.length;
+  const isCompleted = matchedIds.length > 0 && matchedIds.length === vocabPairs.length;
 
   return (
     <div className="min-h-screen bg-[#f2f7f3] text-[#1e293b] flex flex-col justify-between p-4 sm:p-6 font-sans">
@@ -148,10 +209,15 @@ export default function GameCenterPage() {
               🏆
             </div>
             <h2 className="text-2xl font-bold text-[#1e293b] mb-1">Xuất sắc quá em ơi!</h2>
-            <p className="text-sm text-[#256f3a] font-bold mb-3 flex items-center justify-center gap-1">
+            <p className="text-sm text-[#256f3a] font-bold mb-2 flex items-center justify-center gap-1">
               <Sparkles className="w-4 h-4" />
               Tổng điểm thưởng: +{score} XP
             </p>
+            {isSaved && (
+              <span className="inline-block text-[11px] font-semibold text-[#047857] bg-[#ecfdf5] border border-[#a7f3d0] px-3 py-1 rounded-full mb-4">
+                ✓ Đã cập nhật điểm thưởng vào tài khoản SQLite
+              </span>
+            )}
             <p className="text-xs text-[#64748b] mb-6 leading-relaxed">
               Em đã ghép nối chính xác toàn bộ chữ Hán và Pinyin của bài học. Hãy chơi lại để rèn luyện phản xạ nhanh hơn nữa nhé!
             </p>
@@ -203,7 +269,7 @@ export default function GameCenterPage() {
                     type="button"
                     disabled={isMatched}
                     onClick={() => handleSelectHanzi(item)}
-                    className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-center justify-between ${cardStyle}`}
+                    className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-center justify-between cursor-pointer ${cardStyle}`}
                   >
                     <div>
                       <span className="text-2xl font-bold font-serif tracking-wider">
@@ -251,7 +317,7 @@ export default function GameCenterPage() {
                     type="button"
                     disabled={isMatched}
                     onClick={() => handleSelectPinyin(item)}
-                    className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-center justify-between ${cardStyle}`}
+                    className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-center justify-between cursor-pointer ${cardStyle}`}
                   >
                     <div>
                       <div className="text-base font-bold font-mono text-[#256f3a]">
