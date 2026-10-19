@@ -307,19 +307,19 @@ export default function OnboardingPage() {
       </div>
 
       {/* Header */}
-      <header className="w-full max-w-5xl mx-auto px-4 sm:px-8 py-5 flex items-center justify-between z-10">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#9D493E] text-[#FFFCF6] flex items-center justify-center font-serif text-lg font-bold shadow-sm">
+      <header className="w-full max-w-[1920px] mx-auto px-4 sm:px-8 2xl:px-16 py-3 2xl:py-5 flex items-center justify-between z-10 shrink-0">
+        <Link href="/" className="flex items-center gap-2.5 2xl:gap-3">
+          <div className="w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl bg-[#9D493E] text-[#FFFCF6] flex items-center justify-center font-serif text-base 2xl:text-lg font-bold shadow-sm">
             <span>宁</span>
           </div>
           <div>
-            <div className="font-serif font-bold text-xl text-[#204434] tracking-tight drop-shadow-xs">Hanyu</div>
-            <div className="text-[11px] text-[#315E48] tracking-widest uppercase font-semibold">Thiết lập học tập</div>
+            <div className="font-serif font-bold text-lg 2xl:text-xl text-[#204434] tracking-tight drop-shadow-xs">Hanyu</div>
+            <div className="text-[10px] 2xl:text-[11px] text-[#315E48] tracking-widest uppercase font-semibold">Thiết lập học tập</div>
           </div>
         </Link>
 
         {/* Step Indicator */}
-        <div className="flex items-center gap-2 bg-[#FFFCF6]/85 backdrop-blur-md px-4 py-1.5 rounded-full border border-[#BC9B6B]/40 text-xs font-semibold text-[#204434] shadow-xs">
+        <div className="flex items-center gap-2 bg-[#FFFCF6]/85 backdrop-blur-md px-3.5 2xl:px-4 py-1.5 rounded-full border border-[#BC9B6B]/40 text-[11px] 2xl:text-xs font-semibold text-[#204434] shadow-xs">
           <span className="w-2 h-2 rounded-full bg-[#BC9B6B]" />
           <span>Bước {step} / 3:</span>
           <span className="text-[#315E48]">
@@ -329,26 +329,26 @@ export default function OnboardingPage() {
       </header>
 
       {/* Main Container */}
-      <main className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8 my-auto relative z-10">
+      <main className="w-full max-w-4xl 2xl:max-w-5xl mx-auto px-4 sm:px-6 2xl:px-8 py-2 2xl:py-6 my-auto relative z-10">
         
         {/* ========================================================================= */}
         {/* MÀN HÌNH 4 (BƯỚC 1): CHỌN HÌNH THỨC HỌC */}
         {/* ========================================================================= */}
         {step === 1 && (
-          <div className="space-y-6">
-            <div className="text-center max-w-xl mx-auto mb-8">
-              <span className="inline-block px-3 py-1 rounded-full bg-[#204434]/10 text-xs font-semibold text-[#204434] mb-2.5">
+          <div className="space-y-4 2xl:space-y-6">
+            <div className="text-center max-w-xl mx-auto mb-4 2xl:mb-8">
+              <span className="inline-block px-3 py-1 rounded-full bg-[#204434]/10 text-[11px] 2xl:text-xs font-semibold text-[#204434] mb-1.5 2xl:mb-2.5">
                 Màn hình 4 · Khởi đầu học tập
               </span>
-              <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#204434] tracking-tight">
+              <h1 className="font-serif text-2xl sm:text-3xl 2xl:text-4xl font-bold text-[#204434] tracking-tight">
                 Bạn muốn bắt đầu như thế nào?
               </h1>
-              <p className="text-sm text-[#315E48] mt-2 leading-relaxed">
+              <p className="text-xs 2xl:text-sm text-[#315E48] mt-1.5 leading-relaxed">
                 Hai lựa chọn chỉ xác định cách bạn muốn bắt đầu. Bạn có thể tự học độc lập và tham gia lớp có giáo viên đồng thời mà không bị mất tiến độ.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 2xl:gap-6">
               
               {/* Option A: Tự học chủ động */}
               <div

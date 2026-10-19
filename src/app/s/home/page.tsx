@@ -345,9 +345,9 @@ export default function StudentHomePage() {
       <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
         
         {/* Top Navbar */}
-        <header className="h-20 bg-[#FFFCF6]/85 backdrop-blur-md border-b border-[#BC9B6B]/25 px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-16 2xl:h-20 bg-[#FFFCF6]/85 backdrop-blur-md border-b border-[#BC9B6B]/25 px-4 sm:px-6 2xl:px-10 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#204434]/10 border border-[#204434]/20 relative shrink-0">
+            <div className="w-9 h-9 2xl:w-10 2xl:h-10 rounded-xl overflow-hidden bg-[#204434]/10 border border-[#204434]/20 relative shrink-0">
               <Image
                 src="/theme/avatar-student.jpg"
                 alt="Avatar"
@@ -385,7 +385,7 @@ export default function StudentHomePage() {
         </header>
 
         {/* ===================== DASHBOARD BODY (6 SPEC SECTIONS) ===================== */}
-        <main className="p-6 lg:p-8 space-y-8 max-w-6xl w-full mx-auto">
+        <main className="p-4 sm:p-6 2xl:p-8 space-y-6 2xl:space-y-8 max-w-6xl 2xl:max-w-7xl w-full mx-auto">
           
           {/* ========================================================================= */}
           {/* KHU VỰC 1: BANNER CHÀO ĐÓN HỌC VIÊN */}
