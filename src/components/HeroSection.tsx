@@ -25,10 +25,12 @@ export default function HeroSection() {
             thế giới lớn hơn
           </h1>
 
-          {/* Description */}
-          <p className="text-xs sm:text-sm text-[#3b4e42] leading-relaxed mb-7 max-w-md font-sans">
-            Hanyu đồng hành cùng bạn trên hành trình chinh phục tiếng Trung với lộ trình bài bản, nội dung thực tiễn và phương pháp hiện đại.
-          </p>
+          {/* Description with enhanced contrast and subtle soft paper scrim */}
+          <div className="bg-[#f7efe2]/75 backdrop-blur-[2px] p-3.5 sm:p-4 rounded-2xl border border-[#d8cdb8]/50 max-w-lg mb-7 shadow-2xs">
+            <p className="text-xs sm:text-sm text-[#132219] font-medium leading-relaxed font-sans">
+              Hanyu đồng hành cùng bạn trên hành trình chinh phục tiếng Trung với lộ trình bài bản, nội dung thực tiễn và phương pháp hiện đại.
+            </p>
+          </div>
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3.5 mb-10">
