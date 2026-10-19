@@ -9,43 +9,31 @@ function getDb() {
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ success: false, message: "Thiếu ID tài liệu" }, { status: 400 });
+    }
+
     const db = getDb();
+    const existing = db.prepare("SELECT id FROM Material WHERE id = ?").get(id);
+
+    if (!existing) {
+      return NextResponse.json({ success: false, message: "Không tìm thấy tài liệu cần xóa" }, { status: 404 });
+    }
+
     db.prepare("DELETE FROM Material WHERE id = ?").run(id);
 
     return NextResponse.json({
       success: true,
-      message: "Đã xóa tài liệu khỏi thư viện.",
+      message: "Đã xóa tài liệu thành công!",
+      deletedId: id,
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
-  }
-}
-
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const body = await req.json();
-    const { classId } = body;
-
-    const db = getDb();
-    db.prepare("UPDATE Material SET classId = ? WHERE id = ?").run(classId || null, id);
-
-    const updated = db.prepare("SELECT * FROM Material WHERE id = ?").get(id);
-
-    return NextResponse.json({
-      success: true,
-      message: "Cập nhật tài liệu thành công!",
-      item: updated,
-    });
-  } catch (error: any) {
+    console.error("DELETE /api/v1/materials/[id] error:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }

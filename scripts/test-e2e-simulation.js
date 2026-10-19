@@ -177,6 +177,11 @@ async function runTests() {
     const listMatData = await listMatRes.json();
     assert(listMatData.success === true && listMatData.items.some((m) => m.id === uploadMatData.item.id), "Newly uploaded material retrieved in Library query");
 
+    // Teacher deletes the test material to keep the library 100% clean for real user uploads
+    const delMatRes = await fetch(`${baseUrl}/api/v1/materials?id=${uploadMatData.item.id}`, { method: "DELETE" });
+    const delMatData = await delMatRes.json();
+    assert(delMatData.success === true, "Teacher successfully deleted material from Library");
+
     // -------------------------------------------------------------
     // SUMMARY
     // -------------------------------------------------------------

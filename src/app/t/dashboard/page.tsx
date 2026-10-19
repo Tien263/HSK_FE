@@ -221,13 +221,19 @@ export default function TeacherDashboard() {
   const handleDeleteMaterial = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này khỏi thư viện?")) return;
     try {
-      const res = await fetch(`/api/v1/materials/${id}`, { method: "DELETE" });
+      setMaterialsList((prev) => prev.filter((m) => m.id !== id));
+      const res = await fetch(`/api/v1/materials?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        fetchMaterials();
+        await fetchMaterials();
+      } else {
+        alert("Lỗi khi xóa: " + data.message);
+        await fetchMaterials();
       }
     } catch (e) {
-      console.error(e);
+      console.error("handleDeleteMaterial error:", e);
+      alert("Lỗi kết nối khi xóa tài liệu.");
+      await fetchMaterials();
     }
   };
 

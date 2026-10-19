@@ -128,3 +128,42 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const url = new URL(req.url);
+    let id = url.searchParams.get("id");
+
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body?.id;
+      } catch {
+        // query param preferred
+      }
+    }
+
+    if (!id) {
+      return NextResponse.json({ success: false, message: "Thiếu mã tài liệu cần xóa" }, { status: 400 });
+    }
+
+    const db = getDb();
+    const existing = db.prepare("SELECT id, title FROM Material WHERE id = ?").get(id);
+
+    if (!existing) {
+      return NextResponse.json({ success: false, message: "Không tìm thấy tài liệu cần xóa" }, { status: 404 });
+    }
+
+    db.prepare("DELETE FROM Material WHERE id = ?").run(id);
+
+    return NextResponse.json({
+      success: true,
+      message: "Đã xóa tài liệu thành công!",
+      deletedId: id,
+    });
+  } catch (error: any) {
+    console.error("DELETE /api/v1/materials error:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}
+
