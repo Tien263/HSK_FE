@@ -21,6 +21,7 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   Clock,
   Settings,
   LogOut,
@@ -117,17 +118,40 @@ export default function AdminDashboardPage() {
 
   // SMTP Settings State
   const [smtpConfig, setSmtpConfig] = useState({
-    host: "smtp.hanyu.edu.vn",
-    port: "587",
-    user: "no-reply@hanyu.edu.vn",
-    password: "••••••••••••••••",
-    senderName: "Hanyu - Học Tiếng Trung",
-    encryption: "TLS",
+    host: "smtp.gmail.com",
+    port: "465",
+    user: "",
+    password: "",
+    senderName: "Hanyu - Lớp Tiếng Trung Cô Ning Ning",
+    encryption: "SSL",
   });
   const [smtpSaved, setSmtpSaved] = useState(false);
+  const [testEmailRecipient, setTestEmailRecipient] = useState("");
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Tải cấu hình SMTP đã lưu
+  const fetchSmtpConfig = async () => {
+    try {
+      const res = await fetch("/api/v1/admin/smtp");
+      const data = await res.json();
+      if (data.success && data.config) {
+        setSmtpConfig({
+          host: data.config.host || "smtp.gmail.com",
+          port: String(data.config.port || 465),
+          user: data.config.user || "",
+          password: data.config.password || "",
+          senderName: data.config.senderName || "Hanyu - Lớp Tiếng Trung Cô Ning Ning",
+          encryption: Number(data.config.port) === 465 ? "SSL" : "TLS",
+        });
+        if (data.config.user) setTestEmailRecipient(data.config.user);
+      }
+    } catch {}
+  };
 
   // Kiểm tra phiên đăng nhập admin
   useEffect(() => {
+    fetchSmtpConfig();
     const stored = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
     if (stored) {
       try {
@@ -1096,8 +1120,38 @@ export default function AdminDashboardPage() {
               </div>
               <span className="px-3 py-1 rounded-full bg-[#315E48]/15 text-[#315E48] font-bold text-xs flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#315E48]" />
-                Sẵn sàng hoạt động
+                {smtpConfig.user && smtpConfig.password ? "Đã có cấu hình" : "Chưa thiết lập"}
               </span>
+            </div>
+
+            {/* Quick Gmail Guide Banner */}
+            <div className="p-4 rounded-2xl bg-[#F7F4EB] border border-[#BC9B6B]/30 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#204434] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                  Hướng dẫn cấu hình gửi email qua Gmail:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSmtpConfig({
+                      ...smtpConfig,
+                      host: "smtp.gmail.com",
+                      port: "465",
+                      encryption: "SSL",
+                    });
+                    showToast("Đã chọn cấu hình chuẩn cho Gmail (smtp.gmail.com, port 465)", "success");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-[#204434] text-white text-[11px] font-bold hover:bg-[#183629] transition cursor-pointer"
+                >
+                  Áp dụng mẫu Gmail
+                </button>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-[#315E48] leading-relaxed">
+                <li>Truy cập cài đặt bảo mật Google của bạn: <strong>Tài khoản Google → Bảo mật → Bật Xác minh 2 bước</strong>.</li>
+                <li>Mở liên kết tạo mật khẩu ứng dụng: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-[#204434] underline font-bold">myaccount.google.com/apppasswords</a>.</li>
+                <li>Tạo một tên ứng dụng (vd: <em>Hanyu Web</em>) rồi sao chép <strong>16 chữ số mật khẩu ứng dụng</strong> vào ô Mật khẩu bên dưới.</li>
+              </ol>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
@@ -1109,7 +1163,7 @@ export default function AdminDashboardPage() {
                   type="text"
                   value={smtpConfig.host}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, host: e.target.value })}
-                  placeholder="smtp.gmail.com hoặc smtp.resend.com"
+                  placeholder="smtp.gmail.com"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
                 />
               </div>
@@ -1122,34 +1176,34 @@ export default function AdminDashboardPage() {
                   type="text"
                   value={smtpConfig.port}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, port: e.target.value })}
-                  placeholder="587 hoặc 465"
+                  placeholder="465 hoặc 587"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
                 />
               </div>
 
               <div>
                 <label className="block text-[#204434] font-semibold mb-1">
-                  Tài khoản đăng nhập SMTP (User / Email)
+                  Địa chỉ Gmail người gửi (User)
                 </label>
                 <input
-                  type="text"
+                  type="email"
                   value={smtpConfig.user}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, user: e.target.value })}
-                  placeholder="admin@hanyu.edu.vn"
+                  placeholder="email-cua-ban@gmail.com"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
                 />
               </div>
 
               <div>
                 <label className="block text-[#204434] font-semibold mb-1">
-                  Mật khẩu ứng dụng / API Key
+                  Mật khẩu ứng dụng Google (16 chữ số)
                 </label>
                 <input
                   type="password"
                   value={smtpConfig.password}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, password: e.target.value })}
-                  placeholder="••••••••••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  placeholder="Nhập 16 ký tự app password..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434] font-mono"
                 />
               </div>
 
@@ -1161,7 +1215,7 @@ export default function AdminDashboardPage() {
                   type="text"
                   value={smtpConfig.senderName}
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, senderName: e.target.value })}
-                  placeholder="Hanyu Tiếng Trung"
+                  placeholder="Hanyu - Lớp Tiếng Trung Cô Ning Ning"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
                 />
               </div>
@@ -1173,16 +1227,90 @@ export default function AdminDashboardPage() {
                   onChange={(e) => setSmtpConfig({ ...smtpConfig, encryption: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
                 >
-                  <option value="TLS">STARTTLS (Khuyên dùng cho port 587)</option>
-                  <option value="SSL">SSL / TLS (Port 465)</option>
+                  <option value="SSL">SSL / TLS (Port 465 - Khuyên dùng cho Gmail)</option>
+                  <option value="TLS">STARTTLS (Port 587)</option>
                   <option value="NONE">Không mã hóa (Local test)</option>
                 </select>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-[#BC9B6B]/20 flex items-center justify-between">
+            {/* Live Test Send Section */}
+            <div className="p-4 rounded-2xl bg-[#204434]/5 border border-[#204434]/20 space-y-3 text-xs">
+              <div className="font-bold text-[#204434] flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-[#BC9B6B]" />
+                <span>Gửi thử 1 email kiểm tra kết nối trực tiếp đến hộp thư của bạn:</span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  placeholder="Nhập email bạn muốn nhận thư test (vd: email-ca-nhan@gmail.com)..."
+                  value={testEmailRecipient}
+                  onChange={(e) => setTestEmailRecipient(e.target.value)}
+                  className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-[#BC9B6B]/35 text-[#204434]"
+                />
+                <button
+                  type="button"
+                  disabled={testingEmail || !testEmailRecipient.trim()}
+                  onClick={async () => {
+                    setTestingEmail(true);
+                    setTestEmailResult(null);
+                    try {
+                      const res = await fetch("/api/v1/admin/smtp", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          ...smtpConfig,
+                          action: "TEST_CONNECTION",
+                          testRecipient: testEmailRecipient.trim(),
+                        }),
+                      });
+                      const data = await res.json();
+                      setTestEmailResult({ success: data.success, message: data.message });
+                      if (data.success) {
+                        showToast("Đã gửi thành công email test!", "success");
+                      } else {
+                        showToast(data.message || "Gửi email thất bại", "error");
+                      }
+                    } catch (err: any) {
+                      setTestEmailResult({ success: false, message: "Lỗi kết nối máy chủ khi gửi thử email." });
+                    } finally {
+                      setTestingEmail(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  {testingEmail ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Gửi thử nghiệm ngay</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {testEmailResult && (
+                <div
+                  className={`p-3 rounded-xl border flex items-center gap-2 ${
+                    testEmailResult.success
+                      ? "bg-green-50 border-green-200 text-green-800"
+                      : "bg-red-50 border-red-200 text-red-800"
+                  }`}
+                >
+                  {testEmailResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{testEmailResult.message}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-[#BC9B6B]/20 flex items-center justify-between">
               <span className="text-xs text-[#315E48]">
-                {smtpSaved ? "✓ Đã lưu cấu hình SMTP vào hệ thống" : "Thiết lập cấu hình dùng chung cho toàn bộ module OTP"}
+                {smtpSaved ? "✓ Đã lưu cấu hình SMTP vào hệ thống" : "Cấu hình này sẽ được dùng để gửi toàn bộ mã OTP đăng ký"}
               </span>
               <button
                 type="button"
