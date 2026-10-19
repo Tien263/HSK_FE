@@ -271,9 +271,9 @@ export default function StudentHomePage() {
       {/* 1. SIDEBAR TRÁI (CÓ PHONG CẢNH THỦY MẶC DƯỚI THANH MENU) */}
       {/* ========================================================================= */}
       <aside className="fixed inset-y-0 left-0 w-60 bg-[#F8F5ED] border-r border-[#E5DEC9] z-40 hidden lg:flex flex-col justify-between shadow-xs overflow-hidden">
-        {/* Background Image: phong_cảnh_thủy_mặc_giữa_sương_mờ.png at bottom */}
+        {/* Background Image: phong_cảnh_thủy_mặc_giữa_sương_mờ.png spanning full sidebar */}
         <div
-          className="absolute bottom-0 left-0 right-0 h-96 pointer-events-none z-0 bg-bottom bg-no-repeat bg-contain opacity-80 mix-blend-multiply transition-opacity duration-300"
+          className="absolute inset-0 w-full h-full pointer-events-none z-0 bg-bottom bg-no-repeat bg-cover opacity-85 mix-blend-multiply transition-opacity duration-300"
           style={{ backgroundImage: `url('/theme/dashboard/sidebar-bg.webp')` }}
         />
 
