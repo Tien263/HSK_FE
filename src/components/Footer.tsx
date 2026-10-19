@@ -6,7 +6,7 @@ export default function Footer() {
   return (
     <footer className="relative bg-[#12281e] text-[#a4b5aa] pt-14 pb-10 px-6 overflow-hidden">
       {/* Decorative top hill curved line */}
-      <div className="absolute top-0 left-0 right-0 h-6 bg-[#f5f2e9] rounded-b-[100%] scale-x-125 pointer-events-none" />
+      <div className="absolute top-0 left-0 right-0 h-6 bg-[#f7efe2] rounded-b-[100%] scale-x-125 pointer-events-none" />
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 sm:gap-10 pb-10 border-b border-[#234234]/70 relative z-10 text-xs">
         {/* Col 1: Logo & Slogan */}

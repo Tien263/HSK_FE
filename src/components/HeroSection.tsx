@@ -9,23 +9,10 @@ export default function HeroSection() {
   const [videoModalOpen, setVideoModalOpen] = useState(false);
 
   return (
-    <section className="relative pt-8 sm:pt-12 pb-20 md:pb-28 px-6 max-w-6xl mx-auto overflow-hidden">
-      {/* 100% PURE AI SHANSHUI BACKGROUND PAINTING (NO TEXT, NO BUTTONS) */}
-      <div className="absolute inset-0 pointer-events-none select-none z-0 rounded-3xl overflow-hidden">
-        <Image
-          src="/theme/hero-shanshui-leaf.jpg"
-          alt="Chinese Shanshui Ink Wash Landscape"
-          fill
-          className="object-cover object-right md:object-center opacity-90"
-          priority
-        />
-        {/* Soft bottom fade into page background */}
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#f5f2e9] via-[#f5f2e9]/80 to-transparent" />
-      </div>
-
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+    <section className="relative pt-4 sm:pt-8 pb-16 md:pb-24 px-6 max-w-6xl mx-auto">
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[460px] md:min-h-[520px]">
         {/* Left Content Column */}
-        <div className="lg:col-span-7 max-w-xl pt-2">
+        <div className="lg:col-span-7 max-w-xl">
           {/* Poetic Sub-tagline: 一茶一世界 一语一未来 */}
           <div className="text-[12px] font-serif tracking-[0.35em] text-[#5a6b5c] uppercase mb-4 font-semibold">
             一 茶 一 世 界 · 一 语 一 未 来
@@ -56,7 +43,7 @@ export default function HeroSection() {
             <button
               type="button"
               onClick={() => setVideoModalOpen(true)}
-              className="px-5 py-2.5 rounded-full bg-white/85 border border-[#dcd4c3] text-[#173d2d] font-bold text-xs hover:bg-white transition shadow-xs flex items-center gap-2 cursor-pointer backdrop-blur-xs"
+              className="px-5 py-2.5 rounded-full bg-[#faf6ed]/85 border border-[#d8cdb8] text-[#173d2d] font-bold text-xs hover:bg-white transition shadow-xs flex items-center gap-2 cursor-pointer backdrop-blur-xs"
             >
               <div className="w-4 h-4 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center text-[8px]">
                 <Play className="w-2 h-2 fill-white ml-0.5" />
@@ -66,21 +53,21 @@ export default function HeroSection() {
           </div>
 
           {/* 3 Metric Stats with vertical dividers */}
-          <div className="flex items-center gap-6 pt-6 border-t border-[#dcd4c3] max-w-md">
+          <div className="flex items-center gap-6 pt-6 border-t border-[#d8cdb8] max-w-md">
             <div>
               <div className="text-2xl font-serif font-bold text-[#173d2d]">
                 50.000+
               </div>
               <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Học viên tin tưởng</p>
             </div>
-            <div className="h-7 w-px bg-[#dcd4c3]" />
+            <div className="h-7 w-px bg-[#d8cdb8]" />
             <div>
               <div className="text-2xl font-serif font-bold text-[#173d2d]">
                 1.000+
               </div>
               <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Bài học chất lượng</p>
             </div>
-            <div className="h-7 w-px bg-[#dcd4c3]" />
+            <div className="h-7 w-px bg-[#d8cdb8]" />
             <div>
               <div className="text-2xl font-serif font-bold text-[#173d2d]">
                 4.9/5
@@ -90,10 +77,10 @@ export default function HeroSection() {
           </div>
         </div>
 
-        {/* Right Art Seal & Calligraphy Badge */}
+        {/* Right Seal & Calligraphy Badge */}
         <div className="lg:col-span-5 flex justify-end items-start pointer-events-none select-none">
-          <div className="flex flex-col items-center gap-2 pr-2 sm:pr-8 pt-4">
-            <div className="font-serif text-3xl font-bold tracking-widest text-[#173d2d] writing-vertical drop-shadow-xs" style={{ writingMode: "vertical-rl" }}>
+          <div className="flex flex-col items-center gap-2 pr-2 sm:pr-8 pt-2">
+            <div className="font-serif text-3xl font-bold tracking-widest text-[#173d2d] drop-shadow-xs" style={{ writingMode: "vertical-rl" }}>
               汉语
             </div>
             <div className="w-7 h-7 rounded-sm bg-[#a8383b] text-white flex items-center justify-center font-serif text-[11px] font-bold shadow-xs">
@@ -109,7 +96,7 @@ export default function HeroSection() {
       {/* ===================== VIDEO MODAL ===================== */}
       {videoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#faf7f0] border border-[#dcd4c3] rounded-3xl max-w-xl w-full p-6 shadow-2xl relative">
+          <div className="bg-[#faf6ed] border border-[#d8cdb8] rounded-3xl max-w-xl w-full p-6 shadow-2xl relative">
             <button
               onClick={() => setVideoModalOpen(false)}
               className="absolute top-4 right-4 text-[#526056] hover:text-[#173d2d] p-1.5 rounded-full transition cursor-pointer"
@@ -133,10 +120,10 @@ export default function HeroSection() {
 
             <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black relative flex items-center justify-center mb-4">
               <Image
-                src="/theme/hero-shanshui-leaf.jpg"
+                src="/theme/hero-master-bg.jpg"
                 alt="Video thumbnail"
                 fill
-                className="object-cover opacity-70"
+                className="object-cover opacity-75"
               />
               <div className="relative z-10 text-center text-white p-4">
                 <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mx-auto mb-2 border border-white/40 cursor-pointer hover:scale-105 transition">
@@ -151,7 +138,7 @@ export default function HeroSection() {
               <button
                 type="button"
                 onClick={() => setVideoModalOpen(false)}
-                className="px-4 py-1.5 rounded-xl border border-[#dcd4c3] text-xs font-semibold text-[#526056] cursor-pointer"
+                className="px-4 py-1.5 rounded-xl border border-[#d8cdb8] text-xs font-semibold text-[#526056] cursor-pointer"
               >
                 Đóng
               </button>

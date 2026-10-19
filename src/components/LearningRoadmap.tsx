@@ -66,7 +66,7 @@ export default function LearningRoadmap() {
           {steps.map((step) => (
             <div key={step.num} className="flex flex-col items-start relative">
               {/* Badge Circle */}
-              <div className="w-8 h-8 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center text-xs font-serif font-bold shadow-xs mb-3 ring-4 ring-[#f5f2e9]">
+              <div className="w-8 h-8 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center text-xs font-serif font-bold shadow-xs mb-3 ring-4 ring-[#f7efe2]">
                 {step.num}
               </div>
 

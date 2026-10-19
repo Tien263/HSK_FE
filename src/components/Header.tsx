@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Search, X } from "lucide-react";
 
 export default function Header() {
@@ -10,8 +9,8 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <header className="relative z-30 w-full border-b border-[#e8e1d3]/60 bg-[#f5f2e9]/80 backdrop-blur-xs">
-      <div className="max-w-6xl mx-auto px-6 py-4 sm:py-5 flex items-center justify-between relative z-20">
+    <header className="relative z-30 w-full bg-transparent">
+      <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between relative z-20">
         {/* Logo Left: leaf sprig + Hanyu + Chinese Slogan */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <span className="text-xl sm:text-2xl transition-transform group-hover:rotate-6">🍃</span>
@@ -19,14 +18,14 @@ export default function Header() {
             <span className="font-serif font-bold text-2xl text-[#173d2d] tracking-tight block">
               Hanyu
             </span>
-            <span className="text-[10px] text-[#6b8271] tracking-widest block font-serif">
+            <span className="text-[10px] text-[#5a6b5c] tracking-widest block font-serif font-medium">
               学中文 见更大的世界
             </span>
           </div>
         </Link>
 
         {/* Center Navigation Links */}
-        <nav className="hidden md:flex items-center gap-7 text-xs font-medium text-[#4d6356]">
+        <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-[#3b4e42]">
           <a href="#courses" className="hover:text-[#173d2d] transition">
             HSK 3.0
           </a>
@@ -50,7 +49,7 @@ export default function Header() {
           <button
             type="button"
             onClick={() => setSearchOpen(!searchOpen)}
-            className="w-8 h-8 rounded-full border border-[#dcd4c3] flex items-center justify-center text-[#4d6356] hover:text-[#173d2d] hover:bg-white/40 transition cursor-pointer"
+            className="w-8 h-8 rounded-full border border-[#d8cdb8] flex items-center justify-center text-[#3b4e42] hover:text-[#173d2d] hover:bg-white/40 transition cursor-pointer"
             title="Tìm kiếm khóa học"
             aria-label="Tìm kiếm"
           >
@@ -60,7 +59,7 @@ export default function Header() {
           {/* Login Ghost Button */}
           <Link
             href="/login"
-            className="px-4 py-1.5 rounded-full border border-[#dcd4c3] bg-transparent hover:bg-white/50 text-xs font-semibold text-[#173d2d] transition"
+            className="px-4 py-1.5 rounded-full border border-[#d8cdb8] bg-transparent hover:bg-white/50 text-xs font-semibold text-[#173d2d] transition"
           >
             Đăng nhập
           </Link>
@@ -79,7 +78,7 @@ export default function Header() {
       {/* Search popup dropdown */}
       {searchOpen && (
         <div className="max-w-xl mx-auto px-6 mb-4 animate-in fade-in duration-150 relative z-30">
-          <div className="p-2 rounded-2xl bg-white border border-[#e6decb] shadow-lg flex items-center gap-2">
+          <div className="p-2 rounded-2xl bg-[#faf6ed] border border-[#d8cdb8] shadow-lg flex items-center gap-2">
             <Search className="w-4 h-4 text-[#8c9a8f] ml-3" />
             <input
               type="text"
