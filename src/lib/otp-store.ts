@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sendOtpEmail } from "@/lib/mailer";
 
 export interface OtpRecord {
   id: string;
@@ -97,6 +98,13 @@ export async function generateAndSendOtp(
     }
   } catch (err) {
     console.error("Lỗi ghi audit log OTP:", err);
+  }
+
+  // Gửi email thực tế qua SMTP (nếu cấu hình) hoặc ghi log hệ thống
+  try {
+    await sendOtpEmail(cleanEmail, code, purpose);
+  } catch (err) {
+    console.error("Lỗi gửi email qua mailer:", err);
   }
 
   return newRecord;

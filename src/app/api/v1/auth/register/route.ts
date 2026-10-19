@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Đăng ký tài khoản thành công! Mã OTP xác thực đã được gửi tự động đến email của bạn.",
+      message: `Đăng ký tài khoản thành công! Mã OTP xác thực đã được gửi đến email ${cleanEmail}. Vui lòng kiểm tra hộp thư của bạn.`,
       user: {
         id: user.id,
         name: user.name,
@@ -94,12 +94,7 @@ export async function POST(request: Request) {
         totalXp: user.totalXp,
         streakDays: user.streakDays,
       },
-      otpData: {
-        email: cleanEmail,
-        otp: otpRecord.otp,
-        expiresAt: otpRecord.expiresAt,
-        message: "Mã OTP đã phát sinh tự động.",
-      },
+      email: cleanEmail,
     });
   } catch (error) {
     console.error("POST /api/v1/auth/register error:", error);

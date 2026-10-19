@@ -9,13 +9,12 @@ import {
   CheckCircle2,
   RefreshCw,
   ArrowRight,
-  Sparkles,
   ArrowLeft,
   Home,
   ShieldCheck,
   AlertCircle,
   KeyRound,
-  Send,
+  Inbox,
 } from "lucide-react";
 
 function VerifyEmailContent() {
@@ -23,7 +22,6 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("hocvien@hanyu.edu.vn");
   const [otpCode, setOtpCode] = useState("");
-  const [autoOtp, setAutoOtp] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [verifying, setVerifying] = useState(false);
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
@@ -33,14 +31,11 @@ function VerifyEmailContent() {
   // Tải email từ URL param hoặc sessionStorage
   useEffect(() => {
     const qEmail = searchParams.get("email");
-    let currentEmail = "hocvien@hanyu.edu.vn";
     if (qEmail) {
-      currentEmail = qEmail;
       setEmail(qEmail);
     } else {
       const stored = sessionStorage.getItem("registeredEmail");
       if (stored) {
-        currentEmail = stored;
         setEmail(stored);
       } else {
         try {
@@ -48,30 +43,11 @@ function VerifyEmailContent() {
           if (userStored) {
             const u = JSON.parse(userStored);
             if (u.email) {
-              currentEmail = u.email;
               setEmail(u.email);
             }
           }
         } catch {}
       }
-    }
-
-    // Kiểm tra xem có mã OTP tự động vừa sinh từ phiên đăng ký không
-    const cachedOtp = sessionStorage.getItem("lastAutoOtp");
-    if (cachedOtp) {
-      setAutoOtp(cachedOtp);
-      setOtpCode(cachedOtp); // Điền trước cho người dùng test nhanh
-    } else {
-      // Gọi API lấy OTP hiện hành cho email này (tiện lợi cho môi trường local test)
-      fetch(`/api/v1/auth/verify-otp?email=${encodeURIComponent(currentEmail)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.record?.otp) {
-            setAutoOtp(data.record.otp);
-            setOtpCode(data.record.otp);
-          }
-        })
-        .catch(() => {});
     }
   }, [searchParams]);
 
@@ -84,7 +60,7 @@ function VerifyEmailContent() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  // Gửi lại mã OTP
+  // Gửi lại mã OTP qua email
   const handleResend = async () => {
     if (resendCooldown > 0) return;
     setError("");
@@ -99,21 +75,16 @@ function VerifyEmailContent() {
       const data = await res.json();
       if (data.success) {
         setResendCooldown(60);
-        setSuccessMsg(data.message || "Đã gửi mã OTP mới đến email!");
-        if (data.otp) {
-          setAutoOtp(data.otp);
-          setOtpCode(data.otp);
-          sessionStorage.setItem("lastAutoOtp", data.otp);
-        }
+        setSuccessMsg(data.message || `Mã OTP mới đã được gửi lại vào email ${email}! Vui lòng kiểm tra hộp thư.`);
       } else {
-        setError(data.message || "Không thể gửi lại mã OTP.");
+        setError(data.message || "Không thể gửi lại mã OTP. Vui lòng thử lại sau.");
       }
     } catch {
       setError("Lỗi kết nối máy chủ khi gửi lại mã OTP.");
     }
   };
 
-  // Xác nhận mã OTP
+  // Xác nhận mã OTP do người dùng nhập từ email
   const handleConfirmVerification = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError("");
@@ -121,7 +92,12 @@ function VerifyEmailContent() {
 
     const cleanOtp = otpCode.trim();
     if (!cleanOtp) {
-      setError("Vui lòng nhập mã OTP xác thực.");
+      setError("Vui lòng nhập mã OTP gồm 6 chữ số đã gửi về email của bạn.");
+      return;
+    }
+
+    if (cleanOtp.length < 6) {
+      setError("Mã OTP phải có đủ 6 chữ số.");
       return;
     }
 
@@ -137,7 +113,7 @@ function VerifyEmailContent() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setError(data.message || "Mã OTP không hợp lệ hoặc đã hết hạn.");
+        setError(data.message || "Mã OTP không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại email.");
         setVerifying(false);
         return;
       }
@@ -145,13 +121,12 @@ function VerifyEmailContent() {
       setVerifying(false);
       setVerifiedSuccess(true);
       localStorage.setItem("hanyu_email_verified", "true");
-      sessionStorage.removeItem("lastAutoOtp");
 
       if (data.user) {
         localStorage.setItem("currentUser", JSON.stringify(data.user));
       }
 
-      // Tự động chuyển tiếp sau 1.2s sang Màn hình 4: Thiết lập học tập
+      // Tự động chuyển tiếp sau 1.2s sang Màn hình Thiết lập học tập
       setTimeout(() => {
         router.push("/onboarding");
       }, 1200);
@@ -206,7 +181,7 @@ function VerifyEmailContent() {
             <div className="p-5 2xl:p-8 rounded-3xl bg-[#FFFCF6]/80 backdrop-blur-md border border-[#BC9B6B]/35 shadow-xl shadow-[#204434]/10 space-y-3 2xl:space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#204434]/10 text-[11px] 2xl:text-xs font-semibold text-[#204434]">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#BC9B6B]" />
-                <span>Xác thực an toàn & Tự động gửi OTP</span>
+                <span>Bảo mật tài khoản qua mã OTP Email</span>
               </div>
 
               <h2 className="font-serif text-2xl 2xl:text-4xl font-bold tracking-tight text-[#204434] leading-snug">
@@ -218,11 +193,11 @@ function VerifyEmailContent() {
               </p>
 
               <p className="text-xs 2xl:text-sm text-[#315E48] leading-relaxed">
-                Hệ thống Hanyu đã tự động tạo và gửi mã xác thực OTP đến email học viên của bạn. Xác thực mã để hoàn tất bước đăng ký và bước vào lộ trình học tập cá nhân hóa.
+                Để đảm bảo an toàn cho tài khoản và tiến trình học tập của bạn, Hanyu đã gửi một mã xác thực 6 chữ số về email đăng ký. Hãy mở hộp thư để lấy mã và tiếp tục hành trình.
               </p>
 
               <div className="pt-2 border-t border-[#BC9B6B]/25 flex items-center justify-between text-[11px] 2xl:text-xs text-[#315E48]">
-                <span>Tự động bảo mật 2 lớp</span>
+                <span>Xác thực an toàn & Chuẩn hóa</span>
                 <span className="font-serif font-bold text-[#9D493E]">Hanyu Security</span>
               </div>
             </div>
@@ -243,13 +218,13 @@ function VerifyEmailContent() {
 
               {/* Title & Description */}
               <h1 className="font-serif text-2xl 2xl:text-3xl font-bold text-[#204434] tracking-tight">
-                {verifiedSuccess ? "Xác minh thành công!" : "Xác minh mã OTP"}
+                {verifiedSuccess ? "Xác minh thành công!" : "Xác minh email"}
               </h1>
               
               <p className="text-xs 2xl:text-sm text-[#315E48] mt-1.5 leading-relaxed">
                 {verifiedSuccess
                   ? "Tài khoản của bạn đã được kích hoạt thành công. Đang chuyển tiếp sang thiết lập lộ trình học tập..."
-                  : "Mã OTP đã được hệ thống gửi tự động đến địa chỉ:"}
+                  : "Mã xác thực OTP đã được gửi về địa chỉ:"}
               </p>
 
               {/* Email Pill */}
@@ -259,22 +234,12 @@ function VerifyEmailContent() {
 
               {!verifiedSuccess ? (
                 <>
-                  {/* Auto-detected OTP Badge (Local Test Helper) */}
-                  {autoOtp && (
-                    <div className="mb-3 p-2.5 rounded-2xl bg-[#315E48]/10 border border-[#315E48]/25 text-xs text-[#204434] flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 font-medium text-[11px]">
-                        <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
-                        Mã OTP vừa gửi: <strong className="font-mono text-sm tracking-wider">{autoOtp}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setOtpCode(autoOtp)}
-                        className="px-2 py-0.5 rounded-lg bg-[#204434] text-[#FFFCF6] text-[10px] font-bold hover:bg-[#183629] transition cursor-pointer"
-                      >
-                        Điền ngay
-                      </button>
-                    </div>
-                  )}
+                  <div className="p-2.5 rounded-xl bg-[#F8F5ED]/80 border border-[#BC9B6B]/25 text-[11px] 2xl:text-xs text-[#315E48] text-left flex items-start gap-2 mb-3">
+                    <Inbox className="w-4 h-4 text-[#BC9B6B] shrink-0 mt-0.5" />
+                    <span>
+                      Vui lòng mở hộp thư email của bạn (kiểm tra cả mục <strong>Thư rác / Spam</strong> nếu chưa thấy), sao chép mã 6 chữ số và nhập vào ô bên dưới.
+                    </span>
+                  </div>
 
                   {/* Error Alert */}
                   {error && (
@@ -310,21 +275,21 @@ function VerifyEmailContent() {
                         />
                       </div>
                       <p className="text-[10px] text-[#315E48]/70 mt-1 text-right">
-                        Mã hiệu lực trong 5 phút
+                        Mã có hiệu lực trong vòng 5 phút
                       </p>
                     </div>
 
                     {/* Submit Button */}
                     <button
                       type="submit"
-                      disabled={verifying || !otpCode.trim()}
-                      className="w-full bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-semibold py-2.5 2xl:py-3 rounded-xl transition duration-200 shadow-md shadow-[#204434]/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 text-xs 2xl:text-sm"
+                      disabled={verifying || otpCode.trim().length !== 6}
+                      className="w-full bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-semibold py-2.5 2xl:py-3 rounded-xl transition duration-200 shadow-md shadow-[#204434]/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs 2xl:text-sm"
                     >
                       {verifying ? (
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : (
                         <>
-                          <span>Xác nhận & Tiếp tục</span>
+                          <span>Xác nhận mã OTP</span>
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}
@@ -342,7 +307,7 @@ function VerifyEmailContent() {
                     <span>
                       {resendCooldown > 0
                         ? `Gửi lại sau (${resendCooldown}s)`
-                        : "Chưa nhận được? Gửi lại mã OTP"}
+                        : "Chưa nhận được email? Gửi lại mã OTP"}
                     </span>
                   </button>
 
@@ -361,7 +326,7 @@ function VerifyEmailContent() {
                 <div className="py-6 space-y-3">
                   <div className="w-8 h-8 border-3 border-[#204434] border-t-transparent rounded-full animate-spin mx-auto" />
                   <p className="text-xs text-[#315E48] font-medium">
-                    Đang hoàn tất kích hoạt và khởi tạo không gian học tập...
+                    Đang kích hoạt tài khoản và chuyển tới không gian học tập...
                   </p>
                 </div>
               )}

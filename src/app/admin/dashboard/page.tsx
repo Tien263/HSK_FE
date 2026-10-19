@@ -138,8 +138,8 @@ export default function AdminDashboardPage() {
   }, []);
 
   // Tải danh sách người dùng
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
@@ -150,19 +150,19 @@ export default function AdminDashboardPage() {
       if (data.success) {
         setUsers(data.users || []);
         if (data.stats) setStats(data.stats);
-      } else {
+      } else if (!isBackground) {
         showToast(data.message || "Không thể tải danh sách tài khoản", "error");
       }
     } catch (err) {
-      showToast("Lỗi kết nối tới máy chủ khi tải tài khoản", "error");
+      if (!isBackground) showToast("Lỗi kết nối tới máy chủ khi tải tài khoản", "error");
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   // Tải danh sách OTP Logs
-  const fetchOtpLogs = async () => {
-    setLoadingOtpLogs(true);
+  const fetchOtpLogs = async (isBackground = false) => {
+    if (!isBackground) setLoadingOtpLogs(true);
     try {
       const res = await fetch("/api/v1/admin/otp/send");
       const data = await res.json();
@@ -172,17 +172,34 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error("Lỗi tải OTP logs:", err);
     } finally {
-      setLoadingOtpLogs(false);
+      if (!isBackground) setLoadingOtpLogs(false);
     }
   };
 
+  // Tự động làm mới khi đổi bộ lọc hoặc khi quay lại tab và định kỳ mỗi 6 giây
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(false);
+
+    const interval = setInterval(() => {
+      fetchUsers(true);
+      fetchOtpLogs(true);
+    }, 6000);
+
+    const onFocus = () => {
+      fetchUsers(true);
+      fetchOtpLogs(true);
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [roleFilter]);
 
   useEffect(() => {
     if (activeTab === "otp") {
-      fetchOtpLogs();
+      fetchOtpLogs(false);
     }
   }, [activeTab]);
 
@@ -625,7 +642,7 @@ export default function AdminDashboardPage() {
                   className="w-full pl-10 pr-24 py-2 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/30 focus:outline-hidden focus:border-[#204434] text-xs sm:text-sm text-[#204434]"
                 />
                 <button
-                  onClick={fetchUsers}
+                  onClick={() => fetchUsers(false)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg bg-[#204434] text-[#FFFCF6] text-xs font-semibold hover:bg-[#183629] transition"
                 >
                   Tìm kiếm
@@ -657,7 +674,7 @@ export default function AdminDashboardPage() {
                 ))}
 
                 <button
-                  onClick={fetchUsers}
+                  onClick={() => fetchUsers(false)}
                   title="Làm mới danh sách"
                   className="p-1.5 rounded-xl bg-[#F8F5ED] hover:bg-[#204434]/10 border border-[#BC9B6B]/20 text-[#315E48] transition cursor-pointer ml-1"
                 >
@@ -993,7 +1010,7 @@ export default function AdminDashboardPage() {
                   </p>
                 </div>
                 <button
-                  onClick={fetchOtpLogs}
+                  onClick={() => fetchOtpLogs(false)}
                   className="p-1.5 rounded-lg bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-[#FFFCF6] transition"
                   title="Làm mới nhật ký"
                 >
@@ -1165,13 +1182,27 @@ export default function AdminDashboardPage() {
 
             <div className="pt-4 border-t border-[#BC9B6B]/20 flex items-center justify-between">
               <span className="text-xs text-[#315E48]">
-                {smtpSaved ? "✓ Đã lưu cài đặt SMTP thành công" : "Thiết lập cấu hình dùng chung cho toàn bộ module OTP"}
+                {smtpSaved ? "✓ Đã lưu cấu hình SMTP vào hệ thống" : "Thiết lập cấu hình dùng chung cho toàn bộ module OTP"}
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  setSmtpSaved(true);
-                  showToast("Đã lưu cấu hình máy chủ SMTP thành công!", "success");
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/v1/admin/smtp", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(smtpConfig),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      setSmtpSaved(true);
+                      showToast(data.message || "Đã lưu cấu hình SMTP thành công!", "success");
+                    } else {
+                      showToast(data.message || "Không thể lưu cấu hình SMTP", "error");
+                    }
+                  } catch {
+                    showToast("Lỗi kết nối khi lưu cấu hình SMTP", "error");
+                  }
                 }}
                 className="bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer"
               >

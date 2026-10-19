@@ -25,13 +25,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      record: {
-        email: record.email,
-        otp: record.otp,
-        purpose: record.purpose,
-        expiresAt: record.expiresAt,
-        status: record.status,
-      },
+      hasPendingOtp: record.status === "SENT",
+      expiresAt: record.expiresAt,
     });
   } catch (error) {
     return NextResponse.json(
@@ -64,8 +59,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Đã gửi mã OTP mới đến email ${email}!`,
-        otp: newRecord.otp,
+        message: `Mã OTP mới đã được gửi về hộp thư ${email}! Vui lòng kiểm tra email của bạn.`,
         expiresAt: newRecord.expiresAt,
       });
     }
