@@ -83,8 +83,8 @@ export default function StudentHomePage() {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeNav, setActiveNav] = useState("home");
-  const [username, setUsername] = useState("ning");
-  const [studentName, setStudentName] = useState("ning");
+  const [username, setUsername] = useState("student");
+  const [studentName, setStudentName] = useState("Học viên");
   const [studyProfile, setStudyProfile] = useState<StudyProfile | null>(null);
 
   // Today's checklist status

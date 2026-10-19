@@ -3,8 +3,8 @@
   "host": "smtp.gmail.com",
   "port": 465,
   "user": "xuantien50d@gmail.com",
-  "pass": "",
-  "from": "Hanyu - Lớp Tiếng Trung Cô Ning Ning <xuantien50d@gmail.com>",
+  "pass": "jcixuzmywvedgmoj",
+  "from": "Hanyu - Học Tiếng Trung <xuantien50d@gmail.com>",
   "clientId": "",
   "clientSecret": "",
   "refreshToken": ""
