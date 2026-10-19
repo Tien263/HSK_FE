@@ -84,8 +84,11 @@ export default function RegisterPage() {
       // Lưu thông tin người dùng vào session / localStorage
       localStorage.setItem("currentUser", JSON.stringify(data.user));
       sessionStorage.setItem("registeredEmail", cleanEmail);
+      if (data.otpData?.otp) {
+        sessionStorage.setItem("lastAutoOtp", data.otpData.otp);
+      }
 
-      // Chuyển sang Màn hình 3: Xác minh email
+      // Chuyển sang Màn hình 3: Xác minh email bằng mã OTP tự động
       router.push(`/verify-email?email=${encodeURIComponent(cleanEmail)}`);
     } catch {
       setError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.");

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { generateAndSendOtp } from "@/lib/otp-store";
 
 export async function POST(request: Request) {
   try {
@@ -8,7 +9,6 @@ export async function POST(request: Request) {
 
     const trimmedName = (name || "").trim();
     const cleanEmail = (email || "").toLowerCase().trim();
-    const cleanUsername = (username || cleanEmail.split("@")[0] || "").toLowerCase().trim();
 
     if (!trimmedName) {
       return NextResponse.json(
@@ -31,28 +31,39 @@ export async function POST(request: Request) {
       );
     }
 
-    // Kiểm tra tài khoản hoặc email đã tồn tại chưa
-    const existing = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: cleanEmail },
-          { username: cleanUsername },
-        ],
-      },
+    // Kiểm tra xem email này đã đăng ký chưa
+    const existingEmail = await prisma.user.findFirst({
+      where: { email: cleanEmail },
     });
 
-    if (existing) {
+    if (existingEmail) {
       return NextResponse.json(
-        { success: false, message: "Email hoặc tên tài khoản này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác." },
+        { success: false, message: "Địa chỉ email này đã được sử dụng. Vui lòng đăng nhập hoặc sử dụng email khác." },
         { status: 409 }
       );
+    }
+
+    // Tự động sinh username duy nhất nếu username bị trùng hoặc không nhập
+    const baseUsername = (username || cleanEmail.split("@")[0] || "user")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_]/g, "");
+
+    let finalUsername = baseUsername || "user";
+    const existingUsername = await prisma.user.findFirst({
+      where: { username: finalUsername },
+    });
+
+    if (existingUsername) {
+      // Thêm hậu tố ngẫu nhiên để tránh xung đột
+      finalUsername = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
     // Tài khoản đăng ký công khai mặc định luôn là STUDENT (Học viên)
     const user = await prisma.user.create({
       data: {
         name: trimmedName,
-        username: cleanUsername,
+        username: finalUsername,
         email: cleanEmail,
         passwordHash: password,
         role: "STUDENT",
@@ -63,9 +74,16 @@ export async function POST(request: Request) {
       },
     });
 
+    // Tự động sinh và gửi mã OTP cho học viên vừa đăng ký
+    const otpRecord = await generateAndSendOtp(
+      cleanEmail,
+      "Kích hoạt tài khoản học viên mới",
+      6
+    );
+
     return NextResponse.json({
       success: true,
-      message: "Đăng ký tài khoản thành công!",
+      message: "Đăng ký tài khoản thành công! Mã OTP xác thực đã được gửi tự động đến email của bạn.",
       user: {
         id: user.id,
         name: user.name,
@@ -75,6 +93,12 @@ export async function POST(request: Request) {
         currentHskLevel: user.currentHskLevel,
         totalXp: user.totalXp,
         streakDays: user.streakDays,
+      },
+      otpData: {
+        email: cleanEmail,
+        otp: otpRecord.otp,
+        expiresAt: otpRecord.expiresAt,
+        message: "Mã OTP đã phát sinh tự động.",
       },
     });
   } catch (error) {
