@@ -19,8 +19,8 @@ export default function AttemptPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f2f7f3] text-[#1e2e22] flex items-center justify-center font-medium">
-          Đang tải đề thi...
+        <div className="min-h-screen bg-[#f7f4ee] text-[#1a3d2f] flex items-center justify-center font-medium">
+          Đang nạp đề kiểm tra...
         </div>
       }
     >
@@ -50,7 +50,7 @@ function AttemptInner() {
       .then((data) => {
         if (data.success && data.questions) {
           setQuestions(data.questions);
-          setAssignmentTitle(data.assignment?.title || "Bài tập kiểm tra HSK 1");
+          setAssignmentTitle(data.assignment?.title || "Bài tập kiểm tra HSK");
           setSecondsRemaining((data.assignment?.durationMin || 20) * 60);
           if (data.status === "GRADED" || data.status === "SUBMITTED") {
             router.push(`/s/attempts/${attemptId}/result`);
@@ -78,7 +78,7 @@ function AttemptInner() {
     if (
       answeredCount < questions.length &&
       !confirm(
-        `Em mới trả lời ${answeredCount}/${questions.length} câu. Em có chắc chắn muốn nộp bài sớm không?`
+        `Bạn mới trả lời ${answeredCount}/${questions.length} câu. Bạn có chắc chắn muốn nộp bài sớm không?`
       )
     ) {
       return;
@@ -116,8 +116,11 @@ function AttemptInner() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f2f7f3] text-[#1e2e22] flex items-center justify-center text-sm font-medium">
-        Đang nạp đề bài thi...
+      <div className="min-h-screen bg-[#f7f4ee] text-[#1a3d2f] flex flex-col items-center justify-center p-6">
+        <div className="w-12 h-12 rounded-xl bg-[#991b1b] text-white flex items-center justify-center font-serif text-xl mb-3 animate-pulse">
+          考
+        </div>
+        <p className="text-sm font-bold">Đang nạp đề bài thi...</p>
       </div>
     );
   }
@@ -125,27 +128,29 @@ function AttemptInner() {
   const currentQ = questions[currentIndex];
 
   return (
-    <div className="min-h-screen bg-[#f2f7f3] text-[#1e2e22] flex flex-col justify-between font-sans">
+    <div className="min-h-screen bg-[#f7f4ee] text-[#1a3d2f] flex flex-col justify-between font-sans">
       {/* Top Header matching Hanyu design */}
-      <header className="h-20 bg-white border-b border-[#e3ece5] px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+      <header className="h-18 bg-[#fcfaf7] border-b border-[#e6decb] px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30 shadow-xs">
         <div className="flex items-center gap-3">
-          <Link href="/s/home" className="w-10 h-10 rounded-2xl bg-[#eaf4ed] flex items-center justify-center text-xl shadow-sm">
-            🐼
+          <Link href="/s/home" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#991b1b] text-white flex items-center justify-center font-serif text-sm font-bold shadow-xs">
+              汉语
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-[#8c9a8f] block">
+                Phòng thi HSK 🍃
+              </span>
+              <h1 className="text-sm sm:text-base font-bold text-[#1a3d2f] truncate max-w-sm sm:max-w-md font-serif">
+                {assignmentTitle}
+              </h1>
+            </div>
           </Link>
-          <div>
-            <span className="text-[10px] font-mono font-bold text-[#256f3a] uppercase block">
-              PHÒNG LÀM BÀI HỌC SINH
-            </span>
-            <h1 className="text-sm sm:text-base font-bold text-[#154625] truncate max-w-sm sm:max-w-md">
-              {assignmentTitle}
-            </h1>
-          </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Timer */}
-          <div className="flex items-center gap-2 bg-[#f0fdf4] border border-[#dcfce7] px-4 py-2 rounded-xl text-sm font-mono font-bold text-[#256f3a] shadow-xs">
-            <Clock className="w-4 h-4 text-[#256f3a]" />
+          <div className="flex items-center gap-2 bg-[#f0eee6] border border-[#d8ceb9] px-3.5 py-1.5 rounded-xl text-sm font-mono font-bold text-[#1a3d2f]">
+            <Clock className="w-4 h-4 text-[#3d7b56]" />
             <span>{formatTime(secondsRemaining)}</span>
           </div>
 
@@ -153,20 +158,20 @@ function AttemptInner() {
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-5 py-2.5 rounded-xl bg-[#256f3a] text-white font-bold text-xs hover:bg-[#1a552b] transition shadow-md shadow-emerald-950/10 cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2 rounded-xl bg-[#1a3d2f] text-white font-bold text-xs hover:bg-[#122b21] transition shadow-xs cursor-pointer flex items-center gap-1.5"
           >
-            <Send className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Send className="w-3.5 h-3.5" />
             <span>{submitting ? "Đang nộp..." : "Nộp bài"}</span>
           </button>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-5xl mx-auto px-6 py-8 w-full flex-1">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
           {/* Question Nav Drawer */}
-          <div className="md:col-span-4 bg-white border border-[#e3ece5] rounded-2xl p-5 order-2 md:order-1 shadow-xs">
-            <h3 className="text-xs font-bold text-[#657d6b] uppercase tracking-wider mb-4">
+          <div className="md:col-span-4 bg-[#fcfaf7] border border-[#e6decb] rounded-2xl p-5 order-2 md:order-1 shadow-xs">
+            <h3 className="text-xs font-bold text-[#8c9a8f] uppercase tracking-wider mb-4">
               Danh sách câu hỏi ({questions.length} câu)
             </h3>
             <div className="grid grid-cols-4 gap-2">
@@ -177,12 +182,12 @@ function AttemptInner() {
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(idx)}
-                    className={`h-11 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer ${
+                    className={`h-10 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer ${
                       isCurrent
-                        ? "bg-[#256f3a] text-white shadow-md ring-2 ring-emerald-200"
+                        ? "bg-[#1a3d2f] text-white shadow-xs"
                         : isAnswered
-                        ? "bg-[#eaf7ee] text-[#256f3a] border border-[#bfe4ca]"
-                        : "bg-[#f8faf8] text-[#526857] border border-[#e2ece4] hover:bg-[#ebf4ee]"
+                        ? "bg-[#e2ebe4] text-[#1a3d2f] border border-[#a4c5ae]"
+                        : "bg-[#f7f4ee] text-[#526056] border border-[#e6decb] hover:bg-[#ede7da]"
                     }`}
                   >
                     <span>{idx + 1}</span>
@@ -191,36 +196,36 @@ function AttemptInner() {
               })}
             </div>
 
-            <div className="mt-6 pt-4 border-t border-[#edf3ee] text-[11px] text-[#657d6b] space-y-2">
+            <div className="mt-5 pt-4 border-t border-[#e6decb] text-[11px] text-[#526056] space-y-1.5">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-[#256f3a]" />
+                <span className="w-2.5 h-2.5 rounded bg-[#1a3d2f]" />
                 <span>Đang chọn</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-[#eaf7ee] border border-[#bfe4ca]" />
-                <span>Đã trả lời</span>
+                <span className="w-2.5 h-2.5 rounded bg-[#e2ebe4] border border-[#a4c5ae]" />
+                <span>Đã làm ({Object.keys(answers).length}/{questions.length})</span>
               </div>
             </div>
           </div>
 
           {/* Question Body */}
-          <div className="md:col-span-8 bg-white border border-[#e3ece5] rounded-3xl p-6 sm:p-8 shadow-xs order-1 md:order-2">
+          <div className="md:col-span-8 bg-[#fcfaf7] border border-[#e6decb] rounded-3xl p-6 sm:p-8 shadow-xs order-1 md:order-2">
             {currentQ && (
               <div>
-                <div className="flex items-center justify-between pb-4 border-b border-[#edf3ee] mb-6">
-                  <span className="text-xs font-mono font-bold text-[#256f3a] bg-[#eaf7ee] px-3 py-1 rounded-full">
+                <div className="flex items-center justify-between pb-4 border-b border-[#e6decb] mb-6">
+                  <span className="text-xs font-bold text-[#1a3d2f] bg-[#f0eee6] px-3 py-1 rounded-full border border-[#d8ceb9]">
                     CÂU {currentIndex + 1} / {questions.length}
                   </span>
-                  <span className="text-xs text-[#657d6b]">+{currentQ.points} điểm</span>
+                  <span className="text-xs text-[#8c9a8f]">+{currentQ.points} điểm</span>
                 </div>
 
                 <div className="mb-6">
                   {currentQ.pinyinPrompt && (
-                    <div className="text-sm font-mono text-[#256f3a] mb-1 font-semibold">
+                    <div className="text-sm font-mono text-[#3d7b56] mb-1 font-semibold">
                       {currentQ.pinyinPrompt}
                     </div>
                   )}
-                  <h2 className="text-lg sm:text-xl font-bold text-[#154625] leading-relaxed">
+                  <h2 className="text-xl font-bold text-[#1a3d2f] leading-relaxed font-serif">
                     {currentQ.content}
                   </h2>
                 </div>
@@ -235,34 +240,34 @@ function AttemptInner() {
                         onClick={() => selectAnswer(currentQ.id, opt.id)}
                         className={`w-full p-4 rounded-2xl border text-left text-sm transition cursor-pointer flex items-center justify-between ${
                           isSelected
-                            ? "bg-[#eaf7ee] border-[#256f3a] text-[#154625] shadow-xs"
-                            : "bg-[#fcfdfc] border-[#e2ece4] text-[#3e5644] hover:bg-[#f3f7f4] hover:border-[#b0c7b6]"
+                            ? "bg-[#e2ebe4] border-[#1a3d2f] text-[#1a3d2f] font-semibold shadow-xs"
+                            : "bg-[#f7f4ee] border-[#e6decb] text-[#526056] hover:bg-[#ede7da]"
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <span
-                            className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center shrink-0 ${
+                            className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${
                               isSelected
-                                ? "bg-[#256f3a] text-white"
-                                : "bg-[#edf3ee] text-[#556959]"
+                                ? "bg-[#1a3d2f] text-white"
+                                : "bg-[#f0eee6] text-[#1a3d2f] border border-[#d8ceb9]"
                             }`}
                           >
                             {opt.id}
                           </span>
-                          <span className="font-medium text-base text-[#154625]">{opt.text}</span>
+                          <span className="font-medium text-base">{opt.text}</span>
                         </div>
-                        {isSelected && <CheckCircle2 className="w-5 h-5 text-[#256f3a]" />}
+                        {isSelected && <CheckCircle2 className="w-5 h-5 text-[#3d7b56]" />}
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Bottom Navigation */}
-                <div className="flex items-center justify-between pt-6 border-t border-[#edf3ee]">
+                <div className="flex items-center justify-between pt-6 border-t border-[#e6decb]">
                   <button
                     onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                     disabled={currentIndex === 0}
-                    className="px-5 py-2.5 rounded-xl border border-[#dae6dc] text-xs font-semibold text-[#48634f] hover:bg-[#f3f7f4] disabled:opacity-40 transition flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 py-2 rounded-xl border border-[#e6decb] text-xs font-semibold text-[#526056] hover:bg-[#ede7da] disabled:opacity-40 transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Câu trước</span>
@@ -271,18 +276,18 @@ function AttemptInner() {
                   {currentIndex < questions.length - 1 ? (
                     <button
                       onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
-                      className="px-6 py-2.5 rounded-xl bg-[#256f3a] text-white text-xs font-bold hover:bg-[#1a552b] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="px-5 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <span>Câu tiếp theo</span>
-                      <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
                     <button
                       onClick={handleSubmit}
-                      className="px-6 py-2.5 rounded-xl bg-[#256f3a] text-white text-xs font-bold hover:bg-[#1a552b] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="px-5 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <span>Nộp bài ngay</span>
-                      <Send className="w-4 h-4 stroke-[2.5]" />
+                      <Send className="w-4 h-4" />
                     </button>
                   )}
                 </div>
@@ -293,8 +298,8 @@ function AttemptInner() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center text-xs text-[#7b9381] py-4 bg-white border-t border-[#e3ece5]">
-        Lớp tiếng Trung cô Ning Ning · Bài tập HSK 3.0 tự động chấm điểm
+      <footer className="text-center text-xs text-[#8c9a8f] py-4 bg-[#fcfaf7] border-t border-[#e6decb]">
+        Hệ thống phòng thi HSK trực tuyến · HSK Hanyu 🍃
       </footer>
     </div>
   );

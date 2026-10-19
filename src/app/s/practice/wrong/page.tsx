@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Sparkles, BookOpen } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Sparkles, BookOpen, ArrowRight, RotateCcw } from "lucide-react";
 
 interface WrongItem {
   id: string;
@@ -27,7 +27,6 @@ export default function WrongQuestionsPracticePage() {
   const [studentUsername, setStudentUsername] = useState("student");
 
   useEffect(() => {
-    // Đọc thông tin user đăng nhập
     try {
       const stored = localStorage.getItem("currentUser");
       if (stored) {
@@ -57,7 +56,6 @@ export default function WrongQuestionsPracticePage() {
 
     const isCorrect = optId === currentQ.correctAnswer;
 
-    // Gửi cập nhật trực tiếp lên SQLite Database (Chuẩn BR-07)
     try {
       const res = await fetch("/api/v1/my/wrong-questions", {
         method: "POST",
@@ -80,7 +78,6 @@ export default function WrongQuestionsPracticePage() {
           setEarnedXpTotal((prev) => prev + json.earnedXp);
         }
 
-        // Cập nhật state item cục bộ
         setItems((prev) =>
           prev.map((item, idx) =>
             idx === currentIndex
@@ -109,12 +106,12 @@ export default function WrongQuestionsPracticePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f2f7f3] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-white shadow-sm border border-[#dce8e0] flex items-center justify-center text-3xl mb-4 animate-bounce">
-          🐼
+      <div className="min-h-screen bg-[#f7f4ee] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-[#991b1b] text-white shadow-md flex items-center justify-center text-2xl font-serif mb-4 animate-bounce">
+          错
         </div>
-        <p className="text-sm font-semibold text-[#1e293b]">Đang nạp sổ tay câu sai của em...</p>
-        <p className="text-xs text-[#64748b] mt-1">Luyện lại câu sai giúp nhớ sâu và khắc phục lỗ hổng kiến thức</p>
+        <p className="text-sm font-bold text-[#1a3d2f]">Đang nạp sổ tay câu sai của bạn...</p>
+        <p className="text-xs text-[#526056] mt-1">Luyện lại câu sai giúp nhớ sâu và khắc phục lỗ hổng kiến thức</p>
       </div>
     );
   }
@@ -123,30 +120,33 @@ export default function WrongQuestionsPracticePage() {
   const isCorrect = selectedAnswer === currentQ?.correctAnswer;
 
   return (
-    <div className="min-h-screen bg-[#f2f7f3] text-[#1e293b] flex flex-col justify-between p-4 sm:p-6 font-sans">
+    <div className="min-h-screen bg-[#f7f4ee] text-[#1a3d2f] flex flex-col justify-between p-4 sm:p-6 font-sans">
       {/* Top Header */}
-      <header className="max-w-3xl mx-auto w-full flex items-center justify-between py-3 px-4 rounded-2xl bg-white border border-[#dce8e0] shadow-sm">
+      <header className="max-w-3xl mx-auto w-full flex items-center justify-between py-3 px-4 rounded-2xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs">
         <Link
           href="/s/home"
-          className="text-xs font-semibold text-[#64748b] hover:text-[#256f3a] transition flex items-center gap-1.5"
+          className="text-xs font-semibold text-[#526056] hover:text-[#1a3d2f] transition flex items-center gap-1.5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Về bàn học</span>
         </Link>
 
-        <div className="flex items-center gap-3">
+        {/* Center Brand */}
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-[#991b1b] text-white flex items-center justify-center font-serif text-xs font-bold shadow-xs">
+            汉语
+          </div>
+          <span className="text-xs font-bold text-[#1a3d2f] hidden sm:inline">Sổ tay khắc phục câu sai</span>
+        </div>
+
+        <div className="flex items-center gap-2.5">
           {earnedXpTotal > 0 && (
-            <div className="flex items-center gap-1 text-[11px] font-bold text-[#256f3a] bg-[#f0f9f3] px-2.5 py-1 rounded-full border border-[#d2edd8]">
-              <Sparkles className="w-3.5 h-3.5 text-[#256f3a]" />
+            <div className="flex items-center gap-1 text-[11px] font-bold text-[#3d7b56] bg-[#e8f1ec] px-2.5 py-0.5 rounded-full border border-[#cbdcd0]">
+              <Sparkles className="w-3.5 h-3.5" />
               <span>+{earnedXpTotal} XP</span>
             </div>
           )}
-
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#fff7ed] border border-[#ffedd5] text-[11px] font-bold text-[#c2410c]">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Sổ tay câu sai</span>
-          </div>
-          <span className="text-xs font-mono font-bold text-[#c2410c]">
+          <span className="text-xs font-mono font-bold text-[#991b1b] px-2.5 py-1 rounded-full bg-[#fef2f2] border border-[#fecaca]">
             {items.length > 0 ? currentIndex + 1 : 0} / {items.length}
           </span>
         </div>
@@ -155,67 +155,70 @@ export default function WrongQuestionsPracticePage() {
       {/* Main Practice Container */}
       <main className="max-w-2xl mx-auto w-full my-6 flex-1 flex flex-col justify-center">
         {items.length === 0 ? (
-          <div className="text-center p-8 sm:p-10 rounded-3xl bg-white border border-[#dce8e0] shadow-sm">
-            <div className="w-20 h-20 rounded-full bg-[#fef3c7] text-[#d97706] flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner">
-              🌟
+          <div className="text-center p-8 sm:p-10 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-[#1a3d2f] text-white flex items-center justify-center text-3xl mx-auto mb-4 shadow-sm">
+              ✨
             </div>
-            <h2 className="text-2xl font-bold text-[#1e293b] mb-2">Không còn câu sai nào!</h2>
-            <p className="text-sm text-[#64748b] max-w-md mx-auto mb-6 leading-relaxed">
-              Tuyệt vời lắm! Em đã giải quyết xong toàn bộ các câu sai trong sổ tay. Hãy tiếp tục làm bài tập để duy trì phong độ nhé!
+            <h2 className="text-2xl font-bold text-[#1a3d2f] mb-2 font-serif">Không còn câu sai nào!</h2>
+            <p className="text-sm text-[#526056] max-w-md mx-auto mb-6 leading-relaxed">
+              Tuyệt vời lắm! Bạn đã giải quyết xong toàn bộ các câu sai trong sổ tay. Hãy tiếp tục làm bài tập để nâng cao trình độ HSK nhé!
             </p>
             <div className="flex items-center justify-center gap-3">
               <Link
                 href="/s/home"
-                className="px-6 py-2.5 rounded-xl bg-[#256f3a] text-white font-bold text-xs hover:bg-[#1e5a2e] transition shadow-md shadow-[#256f3a]/20"
+                className="px-6 py-2.5 rounded-xl bg-[#1a3d2f] text-white font-bold text-xs hover:bg-[#122b21] transition shadow-xs"
               >
-                Về bàn học của em
+                Về bàn học của bạn
               </Link>
               <Link
                 href="/s/review"
-                className="px-6 py-2.5 rounded-xl bg-[#f0f9f3] text-[#256f3a] font-bold text-xs hover:bg-[#e2f3e8] border border-[#d2edd8] transition"
+                className="px-6 py-2.5 rounded-xl bg-[#f0eee6] text-[#1a3d2f] font-bold text-xs hover:bg-[#e4ded0] border border-[#d8ceb9] transition"
               >
                 Ôn từ vựng hôm nay
               </Link>
             </div>
           </div>
         ) : (
-          <div className="bg-white border border-[#dce8e0] rounded-3xl p-6 sm:p-8 shadow-sm">
+          <div className="bg-[#fcfaf7] border border-[#e6decb] rounded-3xl p-6 sm:p-8 shadow-xs">
             {/* Header badges */}
-            <div className="flex items-center justify-between pb-4 border-b border-[#f1f5f9] mb-5 text-xs text-[#64748b]">
-              <span className="flex items-center gap-1.5 text-[#c2410c] font-bold">
+            <div className="flex items-center justify-between pb-4 border-b border-[#e6decb] mb-5 text-xs text-[#526056]">
+              <span className="flex items-center gap-1.5 text-[#991b1b] font-bold">
                 <AlertTriangle className="w-4 h-4" />
                 Đã làm sai {currentQ.wrongCount} lần
               </span>
-              <span className="text-[11px] bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 rounded-md font-medium text-[#475569]">
-                Đúng liên tiếp: <strong className="text-[#256f3a]">{currentQ.consecutiveRight}/3</strong> lần để gỡ khỏi sổ
+              <span className="text-[11px] bg-[#f0eee6] border border-[#d8ceb9] px-2.5 py-1 rounded-lg font-medium text-[#1a3d2f]">
+                Đúng liên tiếp: <strong className="text-[#3d7b56]">{currentQ.consecutiveRight}/3</strong> lần để hoàn thành
               </span>
             </div>
 
             {/* Question Text */}
             <div className="mb-6">
-              <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-[#256f3a] bg-[#f0f9f3] px-2.5 py-0.5 rounded-md mb-2">
+              <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-[#1a3d2f] bg-[#f0eee6] px-2.5 py-0.5 rounded-md mb-2 border border-[#d8ceb9]">
                 Câu {currentIndex + 1}
               </span>
-              <h2 className="text-xl font-bold text-[#1e293b] mb-1">
+              <h2 className="text-xl font-bold text-[#1a3d2f] mb-1 font-serif">
                 {currentQ.content}
               </h2>
               {currentQ.pinyinPrompt && (
-                <p className="text-sm font-mono text-[#64748b]">{currentQ.pinyinPrompt}</p>
+                <p className="text-xs font-mono text-[#3d7b56]">{currentQ.pinyinPrompt}</p>
               )}
             </div>
 
-            {/* Options List */}
+            {/* Answer Options */}
             <div className="space-y-3 mb-6">
               {currentQ.options.map((opt) => {
-                let btnStyle = "bg-[#f8faf9] border-[#e2ece5] text-[#1e293b] hover:bg-[#e8f5ec] hover:border-[#bbf0cb]";
+                const isSelected = selectedAnswer === opt.id;
+                const isThisCorrect = opt.id === currentQ.correctAnswer;
+
+                let optStyle = "bg-[#f7f4ee] border-[#e6decb] text-[#1a3d2f] hover:bg-[#ede7da]";
 
                 if (isAnswered) {
-                  if (opt.id === currentQ.correctAnswer) {
-                    btnStyle = "bg-[#ecfdf5] border-[#10b981] text-[#047857] font-semibold";
-                  } else if (opt.id === selectedAnswer) {
-                    btnStyle = "bg-[#fff1f2] border-[#f43f5e] text-[#e11d48]";
+                  if (isThisCorrect) {
+                    optStyle = "bg-[#e2ebe4] border-[#a4c5ae] text-[#1a3d2f] font-semibold";
+                  } else if (isSelected && !isThisCorrect) {
+                    optStyle = "bg-[#fef2f2] border-[#fecaca] text-[#b91c1c]";
                   } else {
-                    btnStyle = "bg-[#f8fafc] border-[#f1f5f9] text-[#94a3b8] opacity-60";
+                    optStyle = "bg-[#f7f4ee] border-[#e6decb] text-[#8c9a8f] opacity-60";
                   }
                 }
 
@@ -225,86 +228,77 @@ export default function WrongQuestionsPracticePage() {
                     type="button"
                     disabled={isAnswered}
                     onClick={() => handleSelect(opt.id)}
-                    className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between text-sm transition-all duration-200 ${btnStyle}`}
+                    className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all duration-200 ${optStyle}`}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-xl bg-white border border-[#dce8e0] text-xs font-bold text-[#475569] flex items-center justify-center shrink-0 shadow-2xs">
-                        {opt.id}
-                      </span>
-                      <span className="font-medium">{opt.text}</span>
-                    </div>
-
-                    {isAnswered && opt.id === currentQ.correctAnswer && (
-                      <CheckCircle2 className="w-5 h-5 text-[#10b981] shrink-0" />
+                    <span className="text-sm">{opt.text}</span>
+                    {isAnswered && isThisCorrect && (
+                      <CheckCircle2 className="w-5 h-5 text-[#3d7b56] shrink-0" />
                     )}
-                    {isAnswered && opt.id === selectedAnswer && opt.id !== currentQ.correctAnswer && (
-                      <XCircle className="w-5 h-5 text-[#f43f5e] shrink-0" />
+                    {isAnswered && isSelected && !isThisCorrect && (
+                      <XCircle className="w-5 h-5 text-[#b91c1c] shrink-0" />
                     )}
                   </button>
                 );
               })}
             </div>
 
-            {/* Teacher Explanation & Next Action */}
+            {/* Explanation box on answered */}
             {isAnswered && (
-              <div className="pt-4 border-t border-[#f1f5f9] space-y-4 animate-in fade-in duration-300">
-                <div
-                  className={`p-4 rounded-2xl text-xs ${
-                    isCorrect
-                      ? "bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46]"
-                      : "bg-[#fff1f2] border border-[#fecdd3] text-[#9f1239]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-bold flex items-center gap-1.5 text-sm">
-                      {isCorrect ? "🎉 Giỏi lắm, em làm đúng rồi!" : "💡 Chưa chính xác rồi em ơi!"}
-                    </p>
-                    {feedback?.earnedXp && (
-                      <span className="font-bold text-xs bg-white/70 px-2 py-0.5 rounded-full">
-                        +{feedback.earnedXp} XP đã cộng
+              <div
+                className={`p-4 rounded-2xl mb-6 border transition-all ${
+                  isCorrect
+                    ? "bg-[#e2ebe4] border-[#a4c5ae]"
+                    : "bg-[#fef2f2] border-[#fecaca]"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1.5 font-bold text-xs">
+                  {isCorrect ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-[#3d7b56]" />
+                      <span className="text-[#1a3d2f]">
+                        Chính xác! {feedback?.isMastered ? "🎉 Em đã ghi nhớ xuất sắc!" : "Cố gắng đạt 3 lần đúng liên tiếp nhé."}
                       </span>
-                    )}
-                  </div>
-                  <p className="leading-relaxed">
-                    {currentQ.explanation ||
-                      (isCorrect
-                        ? "Em làm đúng câu này rồi. Tiếp tục luyện thêm để tích lũy 3 lần đúng liên tiếp nhé."
-                        : `Đáp án đúng là ${currentQ.correctAnswer}. Hãy chú ý cấu trúc và ngữ cảnh của câu nhé!`)}
-                  </p>
-                  {feedback?.isMastered && (
-                    <div className="mt-2 pt-2 border-t border-emerald-300 font-bold text-[#065f46] flex items-center gap-1.5">
-                      <span>🏆 Chúc mừng em! Đã đạt 3 lần đúng liên tiếp, câu này được giải quyết thành công!</span>
-                    </div>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4 text-[#b91c1c]" />
+                      <span className="text-[#991b1c]">Chưa chính xác! Hãy đọc kỹ giải thích dưới đây:</span>
+                    </>
                   )}
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  {currentIndex < items.length - 1 ? (
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-6 py-2.5 rounded-xl bg-[#256f3a] text-white font-bold text-xs hover:bg-[#1e5a2e] transition shadow-md shadow-[#256f3a]/20"
-                    >
-                      Câu tiếp theo →
-                    </button>
-                  ) : (
-                    <Link
-                      href="/s/home"
-                      className="px-6 py-2.5 rounded-xl bg-[#256f3a] text-white font-bold text-xs hover:bg-[#1e5a2e] transition shadow-md shadow-[#256f3a]/20"
-                    >
-                      Hoàn thành buổi luyện tập ✓
-                    </Link>
-                  )}
-                </div>
+                {currentQ.explanation && (
+                  <p className="text-xs text-[#526056] leading-relaxed mt-2 border-t border-dashed border-[#d8ceb9] pt-2">
+                    {currentQ.explanation}
+                  </p>
+                )}
               </div>
             )}
+
+            {/* Bottom Actions */}
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-[#8c9a8f]">
+                {currentIndex + 1} / {items.length} câu trong sổ
+              </span>
+
+              {isAnswered && (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="px-5 py-2.5 rounded-xl bg-[#1a3d2f] text-white font-bold text-xs hover:bg-[#122b21] transition shadow-xs flex items-center gap-1.5"
+                >
+                  <span>{currentIndex < items.length - 1 ? "Câu tiếp theo" : "Hoàn thành"}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="max-w-3xl mx-auto w-full py-2 text-center text-[11px] text-[#64748b]">
-        Sổ tay câu sai thông minh · Tự động gỡ bỏ sau 3 lần trả lời đúng liên tiếp (Chuẩn BR-07)
+      {/* Footer Info */}
+      <footer className="max-w-3xl mx-auto w-full py-2 text-center text-[11px] text-[#8c9a8f]">
+        Sổ tay sửa câu sai thông minh · HSK Hanyu 🍃
       </footer>
     </div>
   );
