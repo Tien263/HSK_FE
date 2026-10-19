@@ -13,6 +13,7 @@ import {
   Sparkles,
   GraduationCap,
   UserCheck,
+  ShieldCheck,
   Check,
   AlertCircle,
   Home,
@@ -67,7 +68,9 @@ export default function LoginPage() {
       }
 
       // Điều hướng theo vai trò và trạng thái thiết lập
-      if (data.user.role === "TEACHER") {
+      if (data.user.role === "ADMIN") {
+        router.push("/admin/dashboard");
+      } else if (data.user.role === "TEACHER") {
         router.push("/t/dashboard");
       } else {
         // Kiểm tra xem học viên đã hoàn thành thiết lập mục tiêu chưa
@@ -87,15 +90,19 @@ export default function LoginPage() {
     }
   };
 
-  const quickDemoLogin = (type: "student" | "teacher") => {
+  const quickDemoLogin = (type: "student" | "teacher" | "admin") => {
     if (type === "student") {
       setIdentifier("student");
       setPassword("student123");
       handleLogin("student", "student123");
-    } else {
+    } else if (type === "teacher") {
       setIdentifier("teacher");
       setPassword("teacher123");
       handleLogin("teacher", "teacher123");
+    } else if (type === "admin") {
+      setIdentifier("admin");
+      setPassword("admin123");
+      handleLogin("admin", "admin123");
     }
   };
 
@@ -171,11 +178,11 @@ export default function LoginPage() {
                 <span className="w-2 h-2 rounded-full bg-[#BC9B6B]" />
                 Đăng nhập mẫu:
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 2xl:gap-2">
                 <button
                   type="button"
                   onClick={() => quickDemoLogin("student")}
-                  className="px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
+                  className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
                 >
                   <GraduationCap className="w-3.5 h-3.5" />
                   <span>Học viên</span>
@@ -183,10 +190,18 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => quickDemoLogin("teacher")}
-                  className="px-2.5 2xl:px-3 py-1 2xl:py-1.5 rounded-xl bg-[#9D493E]/10 hover:bg-[#9D493E] text-[#9D493E] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
+                  className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-xl bg-[#9D493E]/10 hover:bg-[#9D493E] text-[#9D493E] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
                   <span>Giáo viên</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quickDemoLogin("admin")}
+                  className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-xl bg-[#BC9B6B]/20 hover:bg-[#BC9B6B] text-[#7A5B2E] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Admin</span>
                 </button>
               </div>
             </div>
@@ -343,6 +358,13 @@ export default function LoginPage() {
                     className="px-2 py-0.5 rounded-lg bg-[#9D493E]/10 text-[#9D493E] font-semibold text-[11px]"
                   >
                     Giáo viên
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => quickDemoLogin("admin")}
+                    className="px-2 py-0.5 rounded-lg bg-[#BC9B6B]/20 text-[#7A5B2E] font-semibold text-[11px]"
+                  >
+                    Admin
                   </button>
                 </div>
               </div>
