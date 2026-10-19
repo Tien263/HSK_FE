@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trophy, RotateCcw, Sparkles, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Trophy, RotateCcw, Sparkles, CheckCircle2, Flame, Volume2 } from "lucide-react";
 
 interface PairItem {
   id: string;
@@ -29,13 +29,23 @@ export default function GameCenterPage() {
   const [shuffledPinyins, setShuffledPinyins] = useState<PairItem[]>([]);
 
   useEffect(() => {
-    // Xáo trộn danh sách pinyin
     setShuffledPinyins([...vocabPairs].sort(() => Math.random() - 0.5));
   }, []);
+
+  const handleSpeak = (text: string) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "zh-CN";
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   const handleSelectHanzi = (item: PairItem) => {
     if (matchedIds.includes(item.id)) return;
     setSelectedHanzi(item.id);
+    handleSpeak(item.hanzi);
 
     if (selectedPinyin) {
       checkMatch(item.id, selectedPinyin);
@@ -53,7 +63,6 @@ export default function GameCenterPage() {
 
   const checkMatch = (hId: string, pId: string) => {
     if (hId === pId) {
-      // Ghép đúng
       const newCombo = combo + 1;
       setCombo(newCombo);
       const points = 10 + (newCombo > 1 ? (newCombo - 1) * 2 : 0);
@@ -62,7 +71,6 @@ export default function GameCenterPage() {
       setSelectedHanzi(null);
       setSelectedPinyin(null);
     } else {
-      // Ghép sai
       setCombo(0);
       setTimeout(() => {
         setSelectedHanzi(null);
@@ -83,131 +91,193 @@ export default function GameCenterPage() {
   const isCompleted = matchedIds.length === vocabPairs.length;
 
   return (
-    <div className="min-h-screen bg-[#061609] text-white flex flex-col justify-between p-6">
+    <div className="min-h-screen bg-[#f2f7f3] text-[#1e293b] flex flex-col justify-between p-4 sm:p-6 font-sans">
       {/* Top Header */}
-      <div className="max-w-4xl mx-auto w-full flex items-center justify-between py-2">
+      <header className="max-w-4xl mx-auto w-full flex items-center justify-between py-3 px-4 rounded-2xl bg-white border border-[#dce8e0] shadow-sm">
         <Link
           href="/s/home"
-          className="text-xs text-[#9cb396] hover:text-white transition flex items-center gap-1.5"
+          className="text-xs font-semibold text-[#64748b] hover:text-[#256f3a] transition flex items-center gap-1.5"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Về phòng học</span>
+          <span>Về bàn học</span>
         </Link>
 
         {/* Score & Combo */}
-        <div className="flex items-center gap-4 text-xs font-mono font-bold">
+        <div className="flex items-center gap-3 text-xs font-bold">
           {combo > 1 && (
-            <span className="text-orange-400 bg-orange-950/60 border border-orange-800 px-3 py-1 rounded-full animate-bounce">
-              🔥 Combo x{combo}!
+            <span className="flex items-center gap-1 text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1 rounded-full animate-bounce">
+              <Flame className="w-3.5 h-3.5 fill-orange-500 text-orange-500" />
+              <span>Chuỗi x{combo}!</span>
             </span>
           )}
-          <span className="bg-[#14331e] border border-[#2d5c39] text-[#c3dc4e] px-4 py-1.5 rounded-full">
-            🏆 Điểm: {score}
-          </span>
-        </div>
-      </div>
 
-      {/* Main Game Arena */}
-      <main className="max-w-4xl mx-auto w-full my-6 flex-1 flex flex-col justify-center">
-        <div className="bg-[#0a2012] border border-[#234a29] rounded-3xl p-6 sm:p-8 shadow-2xl">
-          <div className="text-center mb-8">
-            <span className="text-xs font-mono font-bold text-[#c3dc4e] uppercase tracking-widest block mb-1">
-              TRÒ CHƠI NỐI TỪ VỰNG HSK 1
-            </span>
-            <h1 className="text-2xl font-bold text-white mb-2">
-              Ghép Chữ Hán với Pinyin
-            </h1>
-            <p className="text-xs text-[#9cb396]">
-              Chọn một ô Chữ Hán ở cột trái và nối với ô Pinyin tương ứng ở cột phải!
-            </p>
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f0f9f3] border border-[#d2edd8] text-[#256f3a]">
+            <Trophy className="w-3.5 h-3.5" />
+            <span>{score} XP</span>
           </div>
 
-          {isCompleted ? (
-            <div className="text-center py-8">
-              <div className="text-5xl mb-4">👑</div>
-              <h2 className="text-2xl font-bold text-white mb-2">Xuất sắc! Hoàn thành ván chơi!</h2>
-              <p className="text-sm text-[#9cb396] mb-6">
-                Tổng điểm đạt được: <strong className="text-[#c3dc4e]">{score} điểm</strong> (+{Math.round(score / 2)} XP cộng vào hồ sơ học sinh).
-              </p>
-              <button
-                onClick={handleReset}
-                className="px-6 py-3 rounded-xl bg-[#c3dc4e] text-[#061609] font-bold text-xs inline-flex items-center gap-2 shadow-lg cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Chơi lại ván mới</span>
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-6 sm:gap-10">
-              {/* Cột Trái: Chữ Hán */}
-              <div className="space-y-3">
-                <div className="text-xs font-bold text-[#9cb396] uppercase text-center mb-2 font-mono">
-                  CHỮ HÁN
-                </div>
-                {vocabPairs.map((item) => {
-                  const isMatched = matchedIds.includes(item.id);
-                  const isSelected = selectedHanzi === item.id;
+          <button
+            type="button"
+            onClick={handleReset}
+            className="p-1.5 rounded-xl hover:bg-gray-100 text-[#64748b] transition"
+            title="Chơi lại ván mới"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
 
-                  return (
-                    <button
-                      key={item.id}
-                      disabled={isMatched}
-                      onClick={() => handleSelectHanzi(item)}
-                      className={`w-full p-4 rounded-2xl border text-center transition cursor-pointer select-none ${
-                        isMatched
-                          ? "bg-[#0d2816]/30 border-emerald-900/40 text-emerald-600 opacity-40 line-through"
-                          : isSelected
-                          ? "bg-[#14331e] border-[#c3dc4e] text-white shadow-lg ring-2 ring-[#c3dc4e]/40"
-                          : "bg-[#061609] border-[#234a29] text-white hover:border-white/40"
-                      }`}
-                    >
-                      <span className="text-2xl sm:text-3xl font-bold block font-serif">
+      {/* Main Game Arena */}
+      <main className="max-w-4xl mx-auto w-full my-6 flex-1 flex flex-col items-center justify-center">
+        {/* Intro Banner */}
+        <div className="w-full text-center mb-6">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#dce8e0] text-xs font-bold text-[#256f3a] mb-2 shadow-2xs">
+            <span>🎮 Game Center · Ghép Chữ Hán & Pinyin</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1e293b]">
+            Nối Chữ Hán Với Cách Đọc Đúng
+          </h1>
+          <p className="text-xs sm:text-sm text-[#64748b] mt-1">
+            Chọn 1 ô Chữ Hán bên trái và 1 ô Pinyin bên phải tương ứng để ghi điểm thưởng
+          </p>
+        </div>
+
+        {isCompleted ? (
+          <div className="w-full max-w-md text-center p-8 sm:p-10 rounded-3xl bg-white border border-[#dce8e0] shadow-sm animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 rounded-full bg-[#e8f5ec] text-[#256f3a] flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner">
+              🏆
+            </div>
+            <h2 className="text-2xl font-bold text-[#1e293b] mb-1">Xuất sắc quá em ơi!</h2>
+            <p className="text-sm text-[#256f3a] font-bold mb-3 flex items-center justify-center gap-1">
+              <Sparkles className="w-4 h-4" />
+              Tổng điểm thưởng: +{score} XP
+            </p>
+            <p className="text-xs text-[#64748b] mb-6 leading-relaxed">
+              Em đã ghép nối chính xác toàn bộ chữ Hán và Pinyin của bài học. Hãy chơi lại để rèn luyện phản xạ nhanh hơn nữa nhé!
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-6 py-2.5 rounded-xl bg-[#256f3a] text-white font-bold text-xs hover:bg-[#1e5a2e] transition shadow-md shadow-[#256f3a]/20"
+              >
+                Chơi lại ván mới
+              </button>
+              <Link
+                href="/s/home"
+                className="px-6 py-2.5 rounded-xl bg-[#f0f9f3] text-[#256f3a] font-bold text-xs hover:bg-[#e2f3e8] border border-[#d2edd8] transition"
+              >
+                Về bàn học
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Column 1: Hanzi Cards */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-2 text-xs font-bold text-[#475569]">
+                <span>CỘT CHỮ HÁN</span>
+                <span className="text-[#256f3a]">
+                  Đã ghép: {matchedIds.length}/{vocabPairs.length}
+                </span>
+              </div>
+
+              {vocabPairs.map((item) => {
+                const isMatched = matchedIds.includes(item.id);
+                const isSelected = selectedHanzi === item.id;
+
+                let cardStyle =
+                  "bg-white border-[#dce8e0] text-[#1e293b] hover:border-[#256f3a] hover:shadow-sm";
+
+                if (isMatched) {
+                  cardStyle =
+                    "bg-[#ecfdf5] border-[#10b981] text-[#047857] opacity-60 cursor-default scale-98";
+                } else if (isSelected) {
+                  cardStyle =
+                    "bg-[#f0f9f3] border-[#256f3a] ring-2 ring-[#256f3a] text-[#256f3a] shadow-sm";
+                }
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={isMatched}
+                    onClick={() => handleSelectHanzi(item)}
+                    className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-center justify-between ${cardStyle}`}
+                  >
+                    <div>
+                      <span className="text-2xl font-bold font-serif tracking-wider">
                         {item.hanzi}
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
+                    </div>
 
-              {/* Cột Phải: Pinyin & Nghĩa */}
-              <div className="space-y-3">
-                <div className="text-xs font-bold text-[#9cb396] uppercase text-center mb-2 font-mono">
-                  PINYIN & NGHĨA
-                </div>
-                {shuffledPinyins.map((item) => {
-                  const isMatched = matchedIds.includes(item.id);
-                  const isSelected = selectedPinyin === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      disabled={isMatched}
-                      onClick={() => handleSelectPinyin(item)}
-                      className={`w-full p-4 rounded-2xl border text-center transition cursor-pointer select-none ${
-                        isMatched
-                          ? "bg-[#0d2816]/30 border-emerald-900/40 text-emerald-600 opacity-40 line-through"
-                          : isSelected
-                          ? "bg-[#14331e] border-[#c3dc4e] text-white shadow-lg ring-2 ring-[#c3dc4e]/40"
-                          : "bg-[#061609] border-[#234a29] text-white hover:border-white/40"
-                      }`}
-                    >
-                      <span className="text-base sm:text-lg font-mono font-bold text-[#c3dc4e] block">
-                        {item.pinyin}
-                      </span>
-                      <span className="text-xs text-[#9cb396] block mt-0.5">
-                        {item.meaning}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                    <div className="flex items-center gap-2">
+                      {isMatched ? (
+                        <CheckCircle2 className="w-5 h-5 text-[#10b981]" />
+                      ) : (
+                        <span className="text-xs text-[#94a3b8] font-medium">Chọn</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </div>
+
+            {/* Column 2: Pinyin Cards */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-2 text-xs font-bold text-[#475569]">
+                <span>CỘT PINYIN & NGHĨA</span>
+                <span className="text-[#64748b]">Bấm để nối</span>
+              </div>
+
+              {shuffledPinyins.map((item) => {
+                const isMatched = matchedIds.includes(item.id);
+                const isSelected = selectedPinyin === item.id;
+
+                let cardStyle =
+                  "bg-white border-[#dce8e0] text-[#1e293b] hover:border-[#256f3a] hover:shadow-sm";
+
+                if (isMatched) {
+                  cardStyle =
+                    "bg-[#ecfdf5] border-[#10b981] text-[#047857] opacity-60 cursor-default scale-98";
+                } else if (isSelected) {
+                  cardStyle =
+                    "bg-[#f0f9f3] border-[#256f3a] ring-2 ring-[#256f3a] text-[#256f3a] shadow-sm";
+                }
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={isMatched}
+                    onClick={() => handleSelectPinyin(item)}
+                    className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-center justify-between ${cardStyle}`}
+                  >
+                    <div>
+                      <div className="text-base font-bold font-mono text-[#256f3a]">
+                        {item.pinyin}
+                      </div>
+                      <div className="text-xs text-[#64748b] mt-0.5">{item.meaning}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isMatched ? (
+                        <CheckCircle2 className="w-5 h-5 text-[#10b981]" />
+                      ) : (
+                        <span className="text-xs text-[#94a3b8] font-medium">Chọn</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
 
-      <footer className="text-center text-xs text-[#9cb396]/50 py-2">
-        Game Center Lớp Cô Ning Ning · Ghép Chữ Hán – Pinyin (Match Game S-10)
+      {/* Footer */}
+      <footer className="max-w-4xl mx-auto w-full py-2 text-center text-[11px] text-[#64748b]">
+        Game Center Lớp cô Ning Ning · Luyện chữ Hán & Pinyin phản xạ nhanh
       </footer>
     </div>
   );
