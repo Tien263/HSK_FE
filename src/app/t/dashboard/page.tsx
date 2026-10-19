@@ -29,6 +29,16 @@ import {
   Sparkles,
   Award,
   MoreVertical,
+  FolderArchive,
+  FileText,
+  UploadCloud,
+  Download,
+  Trash2,
+  FileSpreadsheet,
+  Presentation,
+  Music,
+  File,
+  Layers,
 } from "lucide-react";
 
 export default function TeacherDashboard() {
@@ -41,6 +51,31 @@ export default function TeacherDashboard() {
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [isUploadMatModalOpen, setIsUploadMatModalOpen] = useState(false);
+
+  // Materials Library states
+  const [materialsList, setMaterialsList] = useState<any[]>([]);
+  const [materialsStats, setMaterialsStats] = useState<any>({
+    total: 0,
+    vocabulary: 0,
+    grammar: 0,
+    slide: 0,
+    textbook: 0,
+    audio: 0,
+  });
+  const [selectedMatType, setSelectedMatType] = useState("ALL");
+  const [selectedMatHsk, setSelectedMatHsk] = useState("ALL");
+  const [matSearch, setMatSearch] = useState("");
+  const [uploadingMat, setUploadingMat] = useState(false);
+
+  // Form states: Upload Material
+  const [newMatTitle, setNewMatTitle] = useState("");
+  const [newMatType, setNewMatType] = useState<"VOCABULARY" | "GRAMMAR" | "SLIDE" | "TEXTBOOK" | "AUDIO" | "OTHER">("VOCABULARY");
+  const [newMatHsk, setNewMatHsk] = useState(1);
+  const [newMatClassId, setNewMatClassId] = useState("");
+  const [newMatFileName, setNewMatFileName] = useState("");
+  const [newMatFileSize, setNewMatFileSize] = useState("5.2 MB");
+  const [newMatDesc, setNewMatDesc] = useState("");
 
   // Class Management Workspace states
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -104,9 +139,31 @@ export default function TeacherDashboard() {
     }
   };
 
+  const fetchMaterials = async () => {
+    try {
+      const q = new URLSearchParams();
+      if (selectedMatType !== "ALL") q.set("type", selectedMatType);
+      if (selectedMatHsk !== "ALL") q.set("hskLevel", selectedMatHsk);
+      if (matSearch) q.set("search", matSearch);
+
+      const res = await fetch(`/api/v1/materials?${q.toString()}`).then((r) => r.json());
+      if (res.success) {
+        setMaterialsList(res.items);
+        if (res.stats) setMaterialsStats(res.stats);
+      }
+    } catch (e) {
+      console.error("fetchMaterials error:", e);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchMaterials();
   }, []);
+
+  useEffect(() => {
+    fetchMaterials();
+  }, [selectedMatType, selectedMatHsk, matSearch, activeTab]);
 
   // Fetch tab-specific data when tab changes
   useEffect(() => {
@@ -124,6 +181,55 @@ export default function TeacherDashboard() {
         });
     }
   }, [activeTab]);
+
+  const handleCreateMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploadingMat(true);
+    try {
+      const res = await fetch("/api/v1/materials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newMatTitle,
+          type: newMatType,
+          hskLevel: newMatHsk,
+          classId: newMatClassId || null,
+          fileName: newMatFileName || `${newMatTitle.replace(/\s+/g, "_")}.${newMatType === "SLIDE" ? "pptx" : newMatType === "VOCABULARY" ? "xlsx" : newMatType === "AUDIO" ? "mp3" : "pdf"}`,
+          fileSize: newMatFileSize || "5.2 MB",
+          description: newMatDesc,
+          uploadedBy: "Cô Ning Ning",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsUploadMatModalOpen(false);
+        setNewMatTitle("");
+        setNewMatDesc("");
+        setNewMatFileName("");
+        fetchMaterials();
+        alert("🎉 Đã lưu tài liệu thành công vào Kho thư viện!");
+      } else {
+        alert("Lỗi: " + data.message);
+      }
+    } catch {
+      alert("Lỗi kết nối khi tải lên tài liệu.");
+    } finally {
+      setUploadingMat(false);
+    }
+  };
+
+  const handleDeleteMaterial = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này khỏi thư viện?")) return;
+    try {
+      const res = await fetch(`/api/v1/materials/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        fetchMaterials();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Open class detail workspace
   const handleOpenClass = async (classId: string) => {
@@ -311,6 +417,7 @@ export default function TeacherDashboard() {
 
             {[
               { id: "classes", label: "Lớp học", icon: Users },
+              { id: "materials", label: "Thư viện tài liệu", icon: FolderArchive, badge: materialsStats.total },
               { id: "lessons", label: "Kho bài học", icon: BookOpen },
               { id: "questions", label: "Ngân hàng câu hỏi", icon: HelpCircle },
               { id: "create-question", label: "Tự tạo câu hỏi", icon: PenTool },
@@ -1021,33 +1128,318 @@ export default function TeacherDashboard() {
                       </div>
                     )}
 
-                    {/* SUBTAB 3: MATERIALS */}
+                    {/* SUBTAB 3: MATERIALS (TỪ VỰNG, NGỮ PHÁP, SLIDE, SÁCH GIÁO KHOA) */}
                     {classSubTab === "materials" && (
-                      <div className="space-y-4">
+                      <div className="space-y-6">
+                        <div className="flex items-center justify-between pb-2 border-b border-[#e2dac9]">
+                          <div>
+                            <span className="font-bold text-xs text-[#1a3d2f] block">Tài liệu học tập của lớp {selectedClassData?.name}</span>
+                            <span className="text-[11px] text-[#64796a]">Bao gồm Từ vựng, Ngữ pháp, Slide bài giảng và Sách giáo khoa HSK {selectedClassData?.level}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewMatClassId(selectedClassId || "");
+                              setNewMatHsk(selectedClassData?.level || 1);
+                              setIsUploadMatModalOpen(true);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <UploadCloud className="w-3.5 h-3.5" />
+                            <span>+ Tải lên tài liệu cho lớp này</span>
+                          </button>
+                        </div>
+
+                        {/* Uploaded Materials for this class / level */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {selectedClassData?.lessons?.map((l: any) => (
-                            <div key={l.id} className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9] flex items-center justify-between">
-                              <div>
-                                <span className="text-[11px] font-bold text-[#1a3d2f] bg-white px-2 py-0.5 rounded border border-[#dae6dc]">
-                                  Bài {l.lessonNumber}
-                                </span>
-                                <h4 className="font-bold text-sm text-[#1e2e22] mt-1">{l.title}</h4>
-                                <span className="text-xs text-[#64796a]">{l.vocabCount} từ vựng · {l.grammarCount} ngữ pháp</span>
+                          {materialsList
+                            .filter((m) => m.classId === selectedClassId || (!m.classId && m.hskLevel === selectedClassData?.level))
+                            .map((m) => {
+                              const typeConfig = {
+                                VOCABULARY: { label: "Từ vựng", icon: FileSpreadsheet, badge: "bg-[#e2ebe4] text-[#3d7b56] border-[#a4c5ae]" },
+                                GRAMMAR: { label: "Ngữ pháp", icon: FileText, badge: "bg-[#fef3c7] text-[#b45309] border-[#fde68a]" },
+                                SLIDE: { label: "Slide bài giảng", icon: Presentation, badge: "bg-[#ffedd5] text-[#c2410c] border-[#fed7aa]" },
+                                TEXTBOOK: { label: "Sách giáo khoa", icon: BookOpen, badge: "bg-[#dbeafe] text-[#1d4ed8] border-[#bfdbfe]" },
+                                AUDIO: { label: "File Audio", icon: Music, badge: "bg-[#f3e8ff] text-[#7e22ce] border-[#e9d5ff]" },
+                                OTHER: { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" },
+                              }[m.type as string] || { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" };
+                              const TypeIcon = typeConfig.icon;
+
+                              return (
+                                <div key={m.id} className="p-4 rounded-2xl bg-[#fcfaf7] border border-[#e6decb] flex items-center justify-between hover:border-[#1a3d2f] transition shadow-xs">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-[#f0eee6] flex items-center justify-center text-[#1a3d2f] shrink-0 border border-[#d8ceb9]">
+                                      <TypeIcon className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-1.5 mb-0.5">
+                                        <span className={`text-[10px] font-bold px-2 py-0.2 rounded border ${typeConfig.badge}`}>
+                                          {typeConfig.label}
+                                        </span>
+                                        <span className="text-[10px] text-[#8c9a8f]">{m.fileSize}</span>
+                                      </div>
+                                      <h4 className="font-bold text-xs text-[#1e2e22] line-clamp-1">{m.title}</h4>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => alert(`Tải xuống: ${m.fileName} (${m.fileSize})`)}
+                                      className="p-1.5 rounded-lg bg-[#1a3d2f] text-white hover:bg-[#122b21] transition shadow-xs"
+                                      title="Tải về"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMaterial(m.id)}
+                                      className="p-1.5 rounded-lg bg-[#fef2f2] text-[#991b1b] hover:bg-[#fee2e2] transition border border-[#fecaca]"
+                                      title="Xóa"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        {/* Lessons breakdown */}
+                        <div className="pt-4 border-t border-[#e2dac9]">
+                          <span className="text-xs font-bold text-[#64796a] uppercase tracking-wider block mb-3">
+                            Bài học giáo trình chuẩn (HSK {selectedClassData?.level})
+                          </span>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {selectedClassData?.lessons?.map((l: any) => (
+                              <div key={l.id} className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9] flex items-center justify-between">
+                                <div>
+                                  <span className="text-[11px] font-bold text-[#1a3d2f] bg-white px-2 py-0.5 rounded border border-[#dae6dc]">
+                                    Bài {l.lessonNumber}
+                                  </span>
+                                  <h4 className="font-bold text-sm text-[#1e2e22] mt-1">{l.title}</h4>
+                                  <span className="text-xs text-[#64796a]">{l.vocabCount} từ vựng · {l.grammarCount} ngữ pháp</span>
+                                </div>
+                                <Link
+                                  href="/s/review"
+                                  className="px-3 py-1.5 rounded-lg bg-white border border-[#bedac5] text-[#1a3d2f] font-bold text-xs hover:bg-[#eaf4ed] transition"
+                                >
+                                  Xem trước
+                                </Link>
                               </div>
-                              <Link
-                                href="/s/review"
-                                className="px-3 py-1.5 rounded-lg bg-white border border-[#bedac5] text-[#1a3d2f] font-bold text-xs hover:bg-[#eaf4ed] transition"
-                              >
-                                Xem trước
-                              </Link>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ===================== TAB: THƯ VIỆN TÀI LIỆU (TỪ VỰNG, NGỮ PHÁP, SLIDE, SÁCH GIÁO KHOA, AUDIO) ===================== */}
+          {activeTab === "materials" && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#991b1b] text-white flex items-center justify-center font-serif text-2xl font-bold shadow-md shrink-0">
+                    库
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#f0eee6] border border-[#d8ceb9] text-[11px] font-bold text-[#1a3d2f] mb-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#3d7b56]" />
+                      <span>HỆ THỐNG KHO HỌC LIỆU SỐ HSK 3.0</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-[#1a3d2f] font-serif">
+                      Kho Thư Viện Tài Liệu Học Tập
+                    </h2>
+                    <p className="text-xs sm:text-sm text-[#5c7363] mt-0.5">
+                      Tải lên, quản lý và phân loại tài liệu Từ vựng, Ngữ pháp, Slide bài giảng, Sách giáo khoa & File nghe Audio.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsUploadMatModalOpen(true)}
+                  className="px-5 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>+ Tải lên tài liệu mới</span>
+                </button>
+              </div>
+
+              {/* 6 Category Filter Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { id: "ALL", label: "Tất cả", count: materialsStats.total, icon: Layers, color: "text-[#1a3d2f]" },
+                  { id: "VOCABULARY", label: "Từ vựng", count: materialsStats.vocabulary, icon: FileSpreadsheet, color: "text-[#3d7b56]" },
+                  { id: "GRAMMAR", label: "Ngữ pháp", count: materialsStats.grammar, icon: FileText, color: "text-[#b45309]" },
+                  { id: "SLIDE", label: "Slide bài giảng", count: materialsStats.slide, icon: Presentation, color: "text-[#c2410c]" },
+                  { id: "TEXTBOOK", label: "Sách giáo khoa", count: materialsStats.textbook, icon: BookOpen, color: "text-[#1d4ed8]" },
+                  { id: "AUDIO", label: "File Audio", count: materialsStats.audio, icon: Music, color: "text-[#7e22ce]" },
+                ].map((cat) => {
+                  const Icon = cat.icon;
+                  const isSelected = selectedMatType === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedMatType(cat.id)}
+                      className={`p-3.5 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                        isSelected
+                          ? "bg-[#1a3d2f] text-white border-[#1a3d2f] shadow-xs"
+                          : "bg-[#fcfaf7] border-[#e6decb] text-[#5c7363] hover:border-[#1a3d2f] hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <Icon className={`w-4 h-4 ${isSelected ? "text-white" : cat.color}`} />
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isSelected ? "bg-white/20 text-white" : "bg-[#f0eee6] text-[#1a3d2f]"}`}>
+                          {cat.count}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold truncate">{cat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search & HSK Level Filter Controls */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-[#fcfaf7] border border-[#e6decb]">
+                <div className="relative w-full sm:w-80">
+                  <Search className="w-4 h-4 text-[#8c9a8f] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={matSearch}
+                    onChange={(e) => setMatSearch(e.target.value)}
+                    placeholder="Tìm theo tên tài liệu, ghi chú, định dạng file..."
+                    className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl pl-9 pr-4 py-2 text-xs text-[#1a3d2f] placeholder-[#8c9a8f] outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <span className="text-xs text-[#64796a] font-medium shrink-0">Lọc HSK:</span>
+                  <div className="flex items-center gap-1 overflow-x-auto">
+                    {["ALL", "1", "2", "3", "4", "5", "6"].map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setSelectedMatHsk(lvl)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          selectedMatHsk === lvl
+                            ? "bg-[#1a3d2f] text-white shadow-xs"
+                            : "bg-[#f0eee6] text-[#5c7363] hover:bg-[#e4ded0]"
+                        }`}
+                      >
+                        {lvl === "ALL" ? "Tất cả" : `HSK ${lvl}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Materials Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {materialsList.length === 0 ? (
+                  <div className="col-span-full text-center py-12 rounded-3xl bg-[#fcfaf7] border border-[#e6decb]">
+                    <FolderArchive className="w-12 h-12 text-[#8c9a8f] mx-auto mb-3 stroke-[1.5]" />
+                    <h3 className="text-base font-bold text-[#1a3d2f]">Chưa có tài liệu phù hợp</h3>
+                    <p className="text-xs text-[#64796a] mt-1 mb-4">
+                      Bạn có thể bấm tải lên tài liệu mới để bổ sung Từ vựng, Ngữ pháp, Slide hoặc Sách giáo khoa.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsUploadMatModalOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs"
+                    >
+                      + Tải lên ngay
+                    </button>
+                  </div>
+                ) : (
+                  materialsList.map((m) => {
+                    const typeConfig = {
+                      VOCABULARY: { label: "Từ vựng", icon: FileSpreadsheet, badge: "bg-[#e2ebe4] text-[#3d7b56] border-[#a4c5ae]" },
+                      GRAMMAR: { label: "Ngữ pháp", icon: FileText, badge: "bg-[#fef3c7] text-[#b45309] border-[#fde68a]" },
+                      SLIDE: { label: "Slide bài giảng", icon: Presentation, badge: "bg-[#ffedd5] text-[#c2410c] border-[#fed7aa]" },
+                      TEXTBOOK: { label: "Sách giáo khoa", icon: BookOpen, badge: "bg-[#dbeafe] text-[#1d4ed8] border-[#bfdbfe]" },
+                      AUDIO: { label: "File Audio", icon: Music, badge: "bg-[#f3e8ff] text-[#7e22ce] border-[#e9d5ff]" },
+                      OTHER: { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" },
+                    }[m.type as string] || { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" };
+
+                    const TypeIcon = typeConfig.icon;
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs hover:border-[#1a3d2f] hover:shadow-md transition-all flex flex-col justify-between group"
+                      >
+                        <div>
+                          {/* Top Badges */}
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${typeConfig.badge}`}>
+                              <TypeIcon className="w-3 h-3" />
+                              <span>{typeConfig.label}</span>
+                            </span>
+
+                            <span className="text-[11px] font-bold text-[#1a3d2f] bg-[#f0eee6] border border-[#d8ceb9] px-2 py-0.5 rounded-md">
+                              HSK {m.hskLevel}
+                            </span>
+                          </div>
+
+                          {/* Title */}
+                          <h4 className="font-bold text-sm text-[#1a3d2f] mb-1.5 leading-snug line-clamp-2 font-serif group-hover:text-[#3d7b56] transition-colors">
+                            {m.title}
+                          </h4>
+
+                          {/* Description */}
+                          {m.description && (
+                            <p className="text-xs text-[#64796a] line-clamp-2 mb-3 leading-relaxed">
+                              {m.description}
+                            </p>
+                          )}
+
+                          {/* File info */}
+                          <div className="p-2.5 rounded-xl bg-[#f7f4ee] border border-[#e6decb] flex items-center justify-between text-[11px] text-[#5c7363] mb-4">
+                            <span className="truncate max-w-[150px] font-mono">{m.fileName}</span>
+                            <span className="font-bold text-[#1a3d2f]">{m.fileSize}</span>
+                          </div>
+                        </div>
+
+                        {/* Bottom Actions */}
+                        <div className="pt-3 border-t border-[#e6decb] flex items-center justify-between">
+                          <span className="text-[10px] text-[#8c9a8f]">
+                            Bởi {m.uploadedBy}
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                alert(`Tải xuống tệp: ${m.fileName} (${m.fileSize})`);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs flex items-center gap-1 cursor-pointer"
+                              title="Tải về"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Tải về</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMaterial(m.id)}
+                              className="w-8 h-8 rounded-xl bg-[#fef2f2] text-[#991b1b] hover:bg-[#fee2e2] transition flex items-center justify-center cursor-pointer border border-[#fecaca]"
+                              title="Xóa tài liệu này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           )}
 
@@ -1474,6 +1866,160 @@ export default function TeacherDashboard() {
                   className="flex-1 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-semibold shadow-md"
                 >
                   Giao bài ngay
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL: TẢI LÊN TÀI LIỆU THƯ VIỆN ===================== */}
+      {isUploadMatModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-[#fcfaf7] border border-[#e6decb] rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setIsUploadMatModalOpen(false)}
+              className="absolute top-5 right-5 text-[#8c9a8f] hover:text-[#1a3d2f] p-1 rounded-full transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-[#1a3d2f] text-white flex items-center justify-center font-bold">
+                <UploadCloud className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-[#1a3d2f] font-serif">
+                  Tải lên tài liệu thư viện mới
+                </h3>
+                <p className="text-xs text-[#5c7363]">
+                  Học sinh có thể tải về ôn tập hoặc cô gắn vào từng lớp học
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateMaterial} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-[#1a3d2f] block mb-1">
+                  Tiêu đề tài liệu <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newMatTitle}
+                  onChange={(e) => setNewMatTitle(e.target.value)}
+                  placeholder="Ví dụ: Giáo trình Chuẩn HSK 1 (PDF), 150 Từ vựng HSK 1, Slide Ngữ pháp câu chữ 把..."
+                  className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs text-[#1a3d2f] outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-[#1a3d2f] block mb-1">
+                    Phân loại tài liệu <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    value={newMatType}
+                    onChange={(e: any) => setNewMatType(e.target.value)}
+                    className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3 py-2 text-xs text-[#1a3d2f] outline-none"
+                  >
+                    <option value="VOCABULARY">📝 Từ vựng (Excel / Word)</option>
+                    <option value="GRAMMAR">💡 Ngữ pháp & Cấu trúc (PDF)</option>
+                    <option value="SLIDE">🖥️ Slide bài giảng (PPTX / PDF)</option>
+                    <option value="TEXTBOOK">📚 Sách giáo khoa & Bài tập</option>
+                    <option value="AUDIO">🎧 File Audio luyện nghe (MP3)</option>
+                    <option value="OTHER">📁 Tài liệu học tập khác</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-[#1a3d2f] block mb-1">
+                    Trình độ HSK
+                  </label>
+                  <select
+                    value={newMatHsk}
+                    onChange={(e) => setNewMatHsk(Number(e.target.value))}
+                    className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3 py-2 text-xs text-[#1a3d2f] outline-none"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                      <option key={lvl} value={lvl}>
+                        HSK {lvl}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-[#1a3d2f] block mb-1">
+                  Áp dụng cho Lớp học
+                </label>
+                <select
+                  value={newMatClassId}
+                  onChange={(e) => setNewMatClassId(e.target.value)}
+                  className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3 py-2 text-xs text-[#1a3d2f] outline-none"
+                >
+                  <option value="">🌐 Chung cho toàn bộ học sinh</option>
+                  {classesList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (HSK {c.level})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Upload Dropzone simulation */}
+              <div>
+                <label className="font-bold text-[#1a3d2f] block mb-1">
+                  Tệp đính kèm (PDF, PPTX, XLSX, DOCX, MP3)
+                </label>
+                <div
+                  onClick={() => {
+                    const simulatedName = newMatTitle
+                      ? `${newMatTitle.replace(/\s+/g, "_")}.${newMatType === "SLIDE" ? "pptx" : newMatType === "VOCABULARY" ? "xlsx" : newMatType === "AUDIO" ? "mp3" : "pdf"}`
+                      : "Tai_Lieu_HSK_CoNingNing.pdf";
+                    setNewMatFileName(simulatedName);
+                  }}
+                  className="p-4 rounded-2xl border-2 border-dashed border-[#d8ceb9] bg-[#f7f4ee] hover:bg-[#ede7da] text-center cursor-pointer transition"
+                >
+                  <UploadCloud className="w-6 h-6 text-[#1a3d2f] mx-auto mb-1.5" />
+                  <p className="text-xs font-semibold text-[#1a3d2f]">
+                    {newMatFileName ? `Đã chọn tệp: ${newMatFileName}` : "Nhấp để chọn tệp hoặc kéo thả file vào đây"}
+                  </p>
+                  <p className="text-[11px] text-[#8c9a8f] mt-0.5">
+                    Hỗ trợ file PDF, PowerPoint, Excel, Word, Audio tối đa 100MB
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-[#1a3d2f] block mb-1">
+                  Mô tả / Hướng dẫn học cho học viên
+                </label>
+                <textarea
+                  rows={2}
+                  value={newMatDesc}
+                  onChange={(e) => setNewMatDesc(e.target.value)}
+                  placeholder="Ghi chú thêm về nội dung, bài tập cần làm hoặc phần trọng tâm..."
+                  className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl p-3 text-xs text-[#1a3d2f] outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#e6decb]">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadMatModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-[#e6decb] text-xs font-bold text-[#5c7363] hover:bg-[#ede7da] transition"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingMat}
+                  className="px-5 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>{uploadingMat ? "Đang lưu..." : "Lưu vào kho tài liệu"}</span>
                 </button>
               </div>
             </form>

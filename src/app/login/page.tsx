@@ -124,7 +124,7 @@ export default function LoginPage() {
             </h1>
           </div>
 
-          <h2 className="text-2xl lg:text-3xl font-serif text-[#2a4537] italic font-normal mb-6 leading-snug">
+          <h2 className="text-2xl lg:text-3xl font-serif text-[#1a3d2f] font-semibold mb-6 leading-snug">
             Hành trình chinh phục <br />
             tiếng Trung, bắt đầu từ đây.
           </h2>
