@@ -3,11 +3,16 @@ import fs from "fs";
 import path from "path";
 
 export interface SmtpOptions {
+  authType?: "PASSWORD" | "OAUTH2";
   host?: string;
   port?: number;
   user?: string;
   pass?: string;
   from?: string;
+  // Google OAuth 2.0 fields
+  clientId?: string;
+  clientSecret?: string;
+  refreshToken?: string;
 }
 
 const CONFIG_FILE = path.join(process.cwd(), "prisma", "smtp-config.json");
@@ -37,11 +42,15 @@ function saveStoredConfig(config: SmtpOptions) {
 const stored = loadStoredConfig();
 
 let activeSmtpConfig: SmtpOptions = {
+  authType: stored.authType || (process.env.GMAIL_CLIENT_ID ? "OAUTH2" : "PASSWORD"),
   host: stored.host || process.env.SMTP_HOST || "smtp.gmail.com",
   port: stored.port || (process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 465),
-  user: stored.user || process.env.SMTP_USER || "",
+  user: stored.user || process.env.GMAIL_USER || process.env.SMTP_USER || "",
   pass: stored.pass || process.env.SMTP_PASS || "",
   from: stored.from || process.env.SMTP_FROM || "",
+  clientId: stored.clientId || process.env.GMAIL_CLIENT_ID || "",
+  clientSecret: stored.clientSecret || process.env.GMAIL_CLIENT_SECRET || "",
+  refreshToken: stored.refreshToken || process.env.GMAIL_REFRESH_TOKEN || "",
 };
 
 export function updateSmtpConfig(config: SmtpOptions) {
@@ -57,11 +66,38 @@ export function getSmtpConfig(): SmtpOptions {
 }
 
 /**
- * Tạo nodemailer transporter hỗ trợ tối ưu cho Gmail & Custom SMTP
+ * Tạo nodemailer transporter hỗ trợ Google OAuth 2.0 & Gmail App Password & Custom SMTP
  */
 function createTransporter() {
+  const user = (activeSmtpConfig.user || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
+
+  // 1. Chế độ GOOGLE OAUTH 2.0 (Khuyên dùng và bảo mật nhất cho Gmail)
+  const isOAuth =
+    activeSmtpConfig.authType === "OAUTH2" ||
+    (!activeSmtpConfig.authType && !!(activeSmtpConfig.clientId && activeSmtpConfig.clientSecret && activeSmtpConfig.refreshToken));
+
+  if (isOAuth) {
+    const clientId = (activeSmtpConfig.clientId || process.env.GMAIL_CLIENT_ID || "").trim();
+    const clientSecret = (activeSmtpConfig.clientSecret || process.env.GMAIL_CLIENT_SECRET || "").trim();
+    const refreshToken = (activeSmtpConfig.refreshToken || process.env.GMAIL_REFRESH_TOKEN || "").trim();
+
+    if (user && clientId && clientSecret && refreshToken) {
+      console.log(`[MAILER] Khởi tạo Nodemailer qua Google OAuth 2.0 cho ${user}`);
+      return nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          type: "OAuth2",
+          user,
+          clientId,
+          clientSecret,
+          refreshToken,
+        },
+      });
+    }
+  }
+
+  // 2. Chế độ Mật khẩu ứng dụng Google (App Password) hoặc SMTP thông thường
   const host = (activeSmtpConfig.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().toLowerCase();
-  const user = (activeSmtpConfig.user || process.env.SMTP_USER || "").trim();
   const pass = (activeSmtpConfig.pass || process.env.SMTP_PASS || "").trim();
   const port = activeSmtpConfig.port || Number(process.env.SMTP_PORT) || 465;
 
@@ -69,13 +105,13 @@ function createTransporter() {
     return null;
   }
 
-  // Tối ưu riêng cho Gmail
+  // Tối ưu riêng cho Gmail với App Password
   if (host.includes("gmail") || user.endsWith("@gmail.com")) {
     return nodemailer.createTransport({
       service: "gmail",
       auth: {
         user,
-        pass, // Mật khẩu ứng dụng (App Password 16 ký tự của Google)
+        pass,
       },
     });
   }
@@ -98,11 +134,11 @@ export async function sendOtpEmail(
   otpCode: string,
   purpose = "Xác minh tài khoản"
 ): Promise<{ sent: boolean; message: string; errorDetail?: string }> {
-  const user = (activeSmtpConfig.user || process.env.SMTP_USER || "").trim();
+  const user = (activeSmtpConfig.user || process.env.GMAIL_USER || process.env.SMTP_USER || "").trim();
   const from = activeSmtpConfig.from || `"Hanyu Tiếng Trung" <${user || "support@hanyu.edu.vn"}>`;
   const transporter = createTransporter();
 
-  // Kiểm tra nếu có cấu hình SMTP
+  // Kiểm tra nếu có transporter hợp lệ
   if (transporter && user) {
     try {
       const htmlContent = `
@@ -147,7 +183,7 @@ export async function sendOtpEmail(
       console.log(`[MAILER] ✓ Đã gửi email OTP thực tế đến ${toEmail}. MessageId: ${info.messageId}`);
       return { sent: true, message: `Email đã được gửi thành công đến ${toEmail}` };
     } catch (error: any) {
-      console.error("[MAILER] ❌ Lỗi gửi email qua Gmail/SMTP:", error);
+      console.error("[MAILER] ❌ Lỗi gửi email qua Google OAuth / SMTP:", error);
       return {
         sent: false,
         message: `Lỗi kết nối máy chủ gửi email: ${error?.message || "Không xác định"}`,
@@ -156,11 +192,11 @@ export async function sendOtpEmail(
     }
   }
 
-  // Khi chưa cấu hình SMTP
-  console.log(`[MAILER] [MÔ PHỎNG] Mã OTP cho ${toEmail} là: ${otpCode} (Chưa cấu hình tài khoản Gmail / SMTP trong Admin Dashboard)`);
+  // Khi chưa cấu hình
+  console.log(`[MAILER] [MÔ PHỎNG] Mã OTP cho ${toEmail} là: ${otpCode} (Chưa cấu hình Google OAuth 2.0 hoặc SMTP trong Admin Dashboard)`);
   return {
     sent: false,
-    message: "Hệ thống chưa kết nối Gmail / SMTP. Vui lòng vào Admin Portal cấu hình Gmail & Mật khẩu ứng dụng.",
+    message: "Hệ thống chưa kết nối Google OAuth 2.0 hoặc SMTP. Vui lòng vào Admin Portal cấu hình.",
   };
 }
 
@@ -169,5 +205,5 @@ export async function sendOtpEmail(
  */
 export async function testSmtpConnection(targetEmail: string) {
   const testOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  return sendOtpEmail(targetEmail, testOtp, "Thử nghiệm kết nối máy chủ Email Hanyu");
+  return sendOtpEmail(targetEmail, testOtp, "Thử nghiệm kết nối máy chủ Email Hanyu (OAuth 2.0 / SMTP)");
 }

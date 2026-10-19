@@ -30,6 +30,10 @@ import {
   X,
   Sparkles,
   Server,
+  Info,
+  HelpCircle,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface UserItem {
@@ -116,33 +120,46 @@ export default function AdminDashboardPage() {
   const [otpLogs, setOtpLogs] = useState<OtpLog[]>([]);
   const [loadingOtpLogs, setLoadingOtpLogs] = useState(false);
 
-  // SMTP Settings State
+  // SMTP / Google OAuth 2.0 Settings State
   const [smtpConfig, setSmtpConfig] = useState({
+    authType: "OAUTH2" as "OAUTH2" | "PASSWORD" | "CUSTOM",
     host: "smtp.gmail.com",
     port: "465",
     user: "",
     password: "",
     senderName: "Hanyu - Lớp Tiếng Trung Cô Ning Ning",
     encryption: "SSL",
+    clientId: "",
+    clientSecret: "",
+    refreshToken: "",
   });
+  const [showOauthGuide, setShowOauthGuide] = useState(true);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [smtpSaved, setSmtpSaved] = useState(false);
   const [testEmailRecipient, setTestEmailRecipient] = useState("");
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Tải cấu hình SMTP đã lưu
+  // Tải cấu hình SMTP / OAuth đã lưu
   const fetchSmtpConfig = async () => {
     try {
       const res = await fetch("/api/v1/admin/smtp");
       const data = await res.json();
       if (data.success && data.config) {
+        const detectedAuthType =
+          (data.config.authType as "OAUTH2" | "PASSWORD" | "CUSTOM") ||
+          (data.config.clientId ? "OAUTH2" : "PASSWORD");
         setSmtpConfig({
+          authType: detectedAuthType,
           host: data.config.host || "smtp.gmail.com",
           port: String(data.config.port || 465),
           user: data.config.user || "",
           password: data.config.password || "",
           senderName: data.config.senderName || "Hanyu - Lớp Tiếng Trung Cô Ning Ning",
           encryption: Number(data.config.port) === 465 ? "SSL" : "TLS",
+          clientId: data.config.clientId || "",
+          clientSecret: data.config.clientSecret || "",
+          refreshToken: data.config.refreshToken || "",
         });
         if (data.config.user) setTestEmailRecipient(data.config.user);
       }
@@ -1101,152 +1118,513 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 3: SMTP GATEWAY CONFIG */}
+        {/* TAB 3: SMTP & GOOGLE OAUTH 2.0 GATEWAY CONFIG */}
         {activeTab === "smtp" && (
-          <div className="max-w-4xl mx-auto bg-[#FFFCF6] p-6 sm:p-8 rounded-2xl border border-[#BC9B6B]/25 shadow-xs space-y-6">
-            <div className="flex items-center justify-between border-b border-[#BC9B6B]/20 pb-4">
+          <div className="max-w-4xl mx-auto bg-[#FFFCF6] p-6 sm:p-8 rounded-3xl border border-[#BC9B6B]/25 shadow-sm space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#BC9B6B]/20 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center font-bold">
-                  <Server className="w-5 h-5 text-[#204434]" />
+                <div className="w-11 h-11 rounded-2xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-bold shadow-md shadow-[#204434]/15">
+                  <Mail className="w-5 h-5 text-[#BC9B6B]" />
                 </div>
                 <div>
                   <h2 className="font-serif font-bold text-lg text-[#204434]">
-                    Cấu hình Máy chủ Gửi Email (SMTP Gateway)
+                    Cấu hình Gửi Email & Google OAuth 2.0
                   </h2>
                   <p className="text-xs text-[#315E48]">
-                    Thiết lập kết nối máy chủ gửi mail để kích hoạt gửi OTP thực tế đến hộp thư người dùng
+                    Tự động gửi mã OTP xác thực email trực tiếp vào hòm thư học viên khi đăng ký tài khoản
                   </p>
                 </div>
               </div>
-              <span className="px-3 py-1 rounded-full bg-[#315E48]/15 text-[#315E48] font-bold text-xs flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#315E48]" />
-                {smtpConfig.user && smtpConfig.password ? "Đã có cấu hình" : "Chưa thiết lập"}
-              </span>
+
+              {/* Status Badge */}
+              <div className="flex items-center">
+                {smtpConfig.authType === "OAUTH2" && smtpConfig.user && smtpConfig.clientId && smtpConfig.refreshToken ? (
+                  <span className="px-3 py-1.5 rounded-full bg-[#315E48]/15 border border-[#315E48]/30 text-[#204434] font-bold text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#315E48] animate-pulse" />
+                    ✓ Đã sẵn sàng Google OAuth 2.0
+                  </span>
+                ) : smtpConfig.authType === "PASSWORD" && smtpConfig.user && smtpConfig.password ? (
+                  <span className="px-3 py-1.5 rounded-full bg-[#315E48]/15 border border-[#315E48]/30 text-[#204434] font-bold text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#315E48]" />
+                    ✓ Đã kết nối App Password
+                  </span>
+                ) : smtpConfig.authType === "CUSTOM" && smtpConfig.host && smtpConfig.user ? (
+                  <span className="px-3 py-1.5 rounded-full bg-[#315E48]/15 border border-[#315E48]/30 text-[#204434] font-bold text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#315E48]" />
+                    ✓ Đã cấu hình Custom SMTP
+                  </span>
+                ) : (
+                  <span className="px-3 py-1.5 rounded-full bg-[#9D493E]/10 border border-[#9D493E]/30 text-[#9D493E] font-bold text-xs flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-[#9D493E]" />
+                    Chưa kết nối gửi email
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Quick Gmail Guide Banner */}
-            <div className="p-4 rounded-2xl bg-[#F7F4EB] border border-[#BC9B6B]/30 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-[#204434] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-                  Hướng dẫn cấu hình gửi email qua Gmail:
-                </span>
+            {/* Authentication Mode Switcher */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[#204434] uppercase tracking-wider">
+                Chọn phương thức kết nối gửi email:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Mode 1: OAuth 2.0 */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setSmtpConfig({
-                      ...smtpConfig,
-                      host: "smtp.gmail.com",
-                      port: "465",
-                      encryption: "SSL",
-                    });
-                    showToast("Đã chọn cấu hình chuẩn cho Gmail (smtp.gmail.com, port 465)", "success");
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-[#204434] text-white text-[11px] font-bold hover:bg-[#183629] transition cursor-pointer"
+                  onClick={() => setSmtpConfig({ ...smtpConfig, authType: "OAUTH2", host: "smtp.gmail.com", port: "465" })}
+                  className={`p-3.5 rounded-2xl border text-left transition relative cursor-pointer ${
+                    smtpConfig.authType === "OAUTH2"
+                      ? "bg-[#204434] text-[#FFFCF6] border-[#204434] shadow-md shadow-[#204434]/15"
+                      : "bg-[#FFFCF6] text-[#204434] border-[#BC9B6B]/30 hover:border-[#204434]/50"
+                  }`}
                 >
-                  Áp dụng mẫu Gmail
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Sparkles className={`w-3.5 h-3.5 ${smtpConfig.authType === "OAUTH2" ? "text-[#BC9B6B]" : "text-[#7A5B2E]"}`} />
+                      <span>Google OAuth 2.0</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        smtpConfig.authType === "OAUTH2"
+                          ? "bg-[#BC9B6B] text-[#204434]"
+                          : "bg-[#BC9B6B]/20 text-[#7A5B2E]"
+                      }`}
+                    >
+                      Khuyên dùng
+                    </span>
+                  </div>
+                  <div className={`text-[11px] leading-tight ${smtpConfig.authType === "OAUTH2" ? "text-[#FFFCF6]/85" : "text-[#315E48]"}`}>
+                    Chuẩn bảo mật Google Cloud, không bao giờ bị Google chặn gửi mail.
+                  </div>
+                </button>
+
+                {/* Mode 2: App Password */}
+                <button
+                  type="button"
+                  onClick={() => setSmtpConfig({ ...smtpConfig, authType: "PASSWORD", host: "smtp.gmail.com", port: "465" })}
+                  className={`p-3.5 rounded-2xl border text-left transition relative cursor-pointer ${
+                    smtpConfig.authType === "PASSWORD"
+                      ? "bg-[#204434] text-[#FFFCF6] border-[#204434] shadow-md shadow-[#204434]/15"
+                      : "bg-[#FFFCF6] text-[#204434] border-[#BC9B6B]/30 hover:border-[#204434]/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <KeyRound className={`w-3.5 h-3.5 ${smtpConfig.authType === "PASSWORD" ? "text-[#BC9B6B]" : "text-[#7A5B2E]"}`} />
+                      <span>Mật khẩu Ứng dụng</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        smtpConfig.authType === "PASSWORD"
+                          ? "bg-[#FFFCF6]/20 text-[#FFFCF6]"
+                          : "bg-[#204434]/10 text-[#204434]"
+                      }`}
+                    >
+                      30 giây
+                    </span>
+                  </div>
+                  <div className={`text-[11px] leading-tight ${smtpConfig.authType === "PASSWORD" ? "text-[#FFFCF6]/85" : "text-[#315E48]"}`}>
+                    Tạo App Password 16 số tại trang bảo mật tài khoản Google.
+                  </div>
+                </button>
+
+                {/* Mode 3: Custom SMTP */}
+                <button
+                  type="button"
+                  onClick={() => setSmtpConfig({ ...smtpConfig, authType: "CUSTOM" })}
+                  className={`p-3.5 rounded-2xl border text-left transition relative cursor-pointer ${
+                    smtpConfig.authType === "CUSTOM"
+                      ? "bg-[#204434] text-[#FFFCF6] border-[#204434] shadow-md shadow-[#204434]/15"
+                      : "bg-[#FFFCF6] text-[#204434] border-[#BC9B6B]/30 hover:border-[#204434]/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Server className={`w-3.5 h-3.5 ${smtpConfig.authType === "CUSTOM" ? "text-[#BC9B6B]" : "text-[#7A5B2E]"}`} />
+                      <span>Custom SMTP</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        smtpConfig.authType === "CUSTOM"
+                          ? "bg-[#FFFCF6]/20 text-[#FFFCF6]"
+                          : "bg-[#204434]/10 text-[#204434]"
+                      }`}
+                    >
+                      Tùy chọn
+                    </span>
+                  </div>
+                  <div className={`text-[11px] leading-tight ${smtpConfig.authType === "CUSTOM" ? "text-[#FFFCF6]/85" : "text-[#315E48]"}`}>
+                    Sử dụng SendGrid, Mailgun, Amazon SES hoặc SMTP riêng.
+                  </div>
                 </button>
               </div>
-              <ol className="list-decimal list-inside space-y-1 text-[#315E48] leading-relaxed">
-                <li>Truy cập cài đặt bảo mật Google của bạn: <strong>Tài khoản Google → Bảo mật → Bật Xác minh 2 bước</strong>.</li>
-                <li>Mở liên kết tạo mật khẩu ứng dụng: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-[#204434] underline font-bold">myaccount.google.com/apppasswords</a>.</li>
-                <li>Tạo một tên ứng dụng (vd: <em>Hanyu Web</em>) rồi sao chép <strong>16 chữ số mật khẩu ứng dụng</strong> vào ô Mật khẩu bên dưới.</li>
-              </ol>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
-              <div>
-                <label className="block text-[#204434] font-semibold mb-1">
-                  Máy chủ SMTP (Host)
-                </label>
-                <input
-                  type="text"
-                  value={smtpConfig.host}
-                  onChange={(e) => setSmtpConfig({ ...smtpConfig, host: e.target.value })}
-                  placeholder="smtp.gmail.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
-                />
-              </div>
+            {/* FORM 1: GOOGLE OAUTH 2.0 */}
+            {smtpConfig.authType === "OAUTH2" && (
+              <div className="space-y-4">
+                {/* Guide Accordion */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#F7F4EB] border border-[#BC9B6B]/30 text-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#204434] flex items-center gap-1.5 text-xs sm:text-sm">
+                      <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                      Hướng dẫn lấy 3 thông số Google OAuth 2.0 (Chỉ mất 2 phút):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowOauthGuide(!showOauthGuide)}
+                      className="text-[11px] font-bold text-[#315E48] hover:text-[#204434] underline cursor-pointer"
+                    >
+                      {showOauthGuide ? "Thu gọn hướng dẫn" : "Xem chi tiết từng bước"}
+                    </button>
+                  </div>
 
-              <div>
-                <label className="block text-[#204434] font-semibold mb-1">
-                  Cổng kết nối (Port)
-                </label>
-                <input
-                  type="text"
-                  value={smtpConfig.port}
-                  onChange={(e) => setSmtpConfig({ ...smtpConfig, port: e.target.value })}
-                  placeholder="465 hoặc 587"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
-                />
-              </div>
+                  {showOauthGuide && (
+                    <div className="space-y-3 pt-2 border-t border-[#BC9B6B]/20 text-[#315E48] leading-relaxed">
+                      {/* Step 1 */}
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-[#204434] text-[#FFFCF6] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                          1
+                        </span>
+                        <div className="space-y-1">
+                          <p>
+                            Truy cập{" "}
+                            <a
+                              href="https://console.cloud.google.com/apis/credentials"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-bold text-[#204434] underline hover:text-[#9D493E] inline-flex items-center gap-0.5"
+                            >
+                              Google Cloud Console Credentials <ExternalLink className="w-3 h-3" />
+                            </a>{" "}
+                            → Bật thư viện <strong>Gmail API</strong>.
+                          </p>
+                          <p className="text-[11px] text-[#315E48]/80">
+                            Bấm <strong>Create Credentials</strong> → chọn <strong>OAuth client ID</strong> → Loại ứng dụng: <strong>Web application</strong>.
+                          </p>
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <span className="text-[11px] font-semibold">Thêm mục Authorized redirect URIs:</span>
+                            <code className="px-2 py-0.5 rounded bg-[#FFFCF6] border border-[#BC9B6B]/30 font-mono text-[10px] text-[#9D493E]">
+                              https://developers.google.com/oauthplayground
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText("https://developers.google.com/oauthplayground");
+                                setCopiedKey("uri");
+                                setTimeout(() => setCopiedKey(null), 2000);
+                              }}
+                              className="px-2 py-0.5 rounded bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-[#FFFCF6] text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
+                            >
+                              {copiedKey === "uri" ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedKey === "uri" ? "Đã chép" : "Sao chép"}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
 
-              <div>
-                <label className="block text-[#204434] font-semibold mb-1">
-                  Địa chỉ Gmail người gửi (User)
-                </label>
-                <input
-                  type="email"
-                  value={smtpConfig.user}
-                  onChange={(e) => setSmtpConfig({ ...smtpConfig, user: e.target.value })}
-                  placeholder="email-cua-ban@gmail.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
-                />
-              </div>
+                      {/* Step 2 */}
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-[#204434] text-[#FFFCF6] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                          2
+                        </span>
+                        <div>
+                          <p>
+                            Sao chép <strong>Client ID</strong> và <strong>Client Secret</strong> từ cửa sổ vừa tạo dán vào 2 ô tương ứng bên dưới.
+                          </p>
+                        </div>
+                      </div>
 
-              <div>
-                <label className="block text-[#204434] font-semibold mb-1">
-                  Mật khẩu ứng dụng Google (16 chữ số)
-                </label>
-                <input
-                  type="password"
-                  value={smtpConfig.password}
-                  onChange={(e) => setSmtpConfig({ ...smtpConfig, password: e.target.value })}
-                  placeholder="Nhập 16 ký tự app password..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434] font-mono"
-                />
-              </div>
+                      {/* Step 3 */}
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-[#204434] text-[#FFFCF6] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                          3
+                        </span>
+                        <div className="space-y-1">
+                          <p>
+                            Mở{" "}
+                            <a
+                              href="https://developers.google.com/oauthplayground"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-bold text-[#204434] underline hover:text-[#9D493E] inline-flex items-center gap-0.5"
+                            >
+                              Google OAuth 2.0 Playground <ExternalLink className="w-3 h-3" />
+                            </a>{" "}
+                            để lấy <strong>Refresh Token</strong>:
+                          </p>
+                          <ul className="list-disc list-inside text-[11px] space-y-0.5 text-[#315E48]/90">
+                            <li>Bấm biểu tượng bánh răng ⚙️ ở góc trên bên phải → Tích chọn <strong>Use your own OAuth credentials</strong> → Dán Client ID & Client Secret vừa lấy.</li>
+                            <li>Ở cột trái (Step 1), cuộn xuống mục <strong>Gmail API v1</strong> → Tích chọn <code className="font-mono text-[#9D493E]">https://mail.google.com/</code>.</li>
+                            <li>Bấm <strong>Authorize APIs</strong> → Đăng nhập tài khoản Gmail gửi OTP và bấm Cho phép.</li>
+                            <li>Tại Step 2, bấm nút xanh <strong>Exchange authorization code for tokens</strong> → Sao chép chuỗi <strong>Refresh token</strong> dán vào ô bên dưới.</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-              <div>
-                <label className="block text-[#204434] font-semibold mb-1">
-                  Tên hiển thị người gửi (Sender Name)
-                </label>
-                <input
-                  type="text"
-                  value={smtpConfig.senderName}
-                  onChange={(e) => setSmtpConfig({ ...smtpConfig, senderName: e.target.value })}
-                  placeholder="Hanyu - Lớp Tiếng Trung Cô Ning Ning"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
-                />
-              </div>
+                {/* OAuth Form Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Địa chỉ Gmail người gửi (User Email) <span className="text-[#9D493E]">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={smtpConfig.user}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, user: e.target.value })}
+                      placeholder="vd: vuthuthuy05052006@gmail.com hoặc email trung tâm..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-[#204434] font-semibold mb-1">Phương thức mã hóa</label>
-                <select
-                  value={smtpConfig.encryption}
-                  onChange={(e) => setSmtpConfig({ ...smtpConfig, encryption: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
-                >
-                  <option value="SSL">SSL / TLS (Port 465 - Khuyên dùng cho Gmail)</option>
-                  <option value="TLS">STARTTLS (Port 587)</option>
-                  <option value="NONE">Không mã hóa (Local test)</option>
-                </select>
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Tên hiển thị người gửi (Sender Name)
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpConfig.senderName}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, senderName: e.target.value })}
+                      placeholder="Hanyu - Lớp Tiếng Trung Cô Ning Ning"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
 
-            {/* Live Test Send Section */}
-            <div className="p-4 rounded-2xl bg-[#204434]/5 border border-[#204434]/20 space-y-3 text-xs">
-              <div className="font-bold text-[#204434] flex items-center gap-1.5">
-                <Send className="w-4 h-4 text-[#BC9B6B]" />
-                <span>Gửi thử 1 email kiểm tra kết nối trực tiếp đến hộp thư của bạn:</span>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Google Client ID <span className="text-[#9D493E]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpConfig.clientId}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, clientId: e.target.value })}
+                      placeholder="xxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] font-mono text-xs focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Google Client Secret <span className="text-[#9D493E]">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={smtpConfig.clientSecret}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, clientSecret: e.target.value })}
+                      placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] font-mono text-xs focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Google Refresh Token <span className="text-[#9D493E]">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={smtpConfig.refreshToken}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, refreshToken: e.target.value })}
+                      placeholder="1//04xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] font-mono text-xs focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FORM 2: APP PASSWORD */}
+            {smtpConfig.authType === "PASSWORD" && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-[#F7F4EB] border border-[#BC9B6B]/30 space-y-2 text-xs">
+                  <div className="font-bold text-[#204434] flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4 text-[#BC9B6B]" />
+                    <span>Cách lấy Mật khẩu ứng dụng Google (App Password 16 chữ số):</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[#315E48] leading-relaxed">
+                    <li>
+                      Bật <strong>Xác minh 2 bước</strong> trong{" "}
+                      <a
+                        href="https://myaccount.google.com/security"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#204434] underline font-bold"
+                      >
+                        Tài khoản Google → Bảo mật
+                      </a>
+                      .
+                    </li>
+                    <li>
+                      Mở trang:{" "}
+                      <a
+                        href="https://myaccount.google.com/apppasswords"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#204434] underline font-bold"
+                      >
+                        myaccount.google.com/apppasswords
+                      </a>
+                      .
+                    </li>
+                    <li>
+                      Đặt tên ứng dụng (vd: <em>Hanyu OTP</em>) rồi sao chép <strong>16 chữ số mật khẩu ứng dụng</strong> dán vào ô bên dưới.
+                    </li>
+                  </ol>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Địa chỉ Gmail người gửi (User) <span className="text-[#9D493E]">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={smtpConfig.user}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, user: e.target.value })}
+                      placeholder="email-cua-ban@gmail.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Mật khẩu ứng dụng Google (16 ký tự) <span className="text-[#9D493E]">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={smtpConfig.password}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, password: e.target.value })}
+                      placeholder="abcd efgh ijkl mnop"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] font-mono focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Tên hiển thị người gửi (Sender Name)
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpConfig.senderName}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, senderName: e.target.value })}
+                      placeholder="Hanyu - Lớp Tiếng Trung Cô Ning Ning"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">Cổng kết nối Gmail</label>
+                    <div className="px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/40 border border-[#BC9B6B]/25 text-[#315E48] font-mono text-xs">
+                      smtp.gmail.com:465 (Mã hóa SSL)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FORM 3: CUSTOM SMTP */}
+            {smtpConfig.authType === "CUSTOM" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                <div>
+                  <label className="block text-[#204434] font-semibold mb-1">
+                    Máy chủ SMTP (Host) <span className="text-[#9D493E]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpConfig.host}
+                    onChange={(e) => setSmtpConfig({ ...smtpConfig, host: e.target.value })}
+                    placeholder="vd: smtp.sendgrid.net, smtp.mailgun.org..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#204434] font-semibold mb-1">
+                    Cổng kết nối (Port) <span className="text-[#9D493E]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpConfig.port}
+                    onChange={(e) => setSmtpConfig({ ...smtpConfig, port: e.target.value })}
+                    placeholder="465 (SSL) hoặc 587 (TLS)"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#204434] font-semibold mb-1">
+                    Tài khoản gửi (User / API Key) <span className="text-[#9D493E]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpConfig.user}
+                    onChange={(e) => setSmtpConfig({ ...smtpConfig, user: e.target.value })}
+                    placeholder="apikey hoặc email đăng nhập SMTP..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#204434] font-semibold mb-1">
+                    Mật khẩu / Secret Key <span className="text-[#9D493E]">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={smtpConfig.password}
+                    onChange={(e) => setSmtpConfig({ ...smtpConfig, password: e.target.value })}
+                    placeholder="Nhập mật khẩu SMTP..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] font-mono focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#204434] font-semibold mb-1">
+                    Tên hiển thị người gửi (Sender Name)
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpConfig.senderName}
+                    onChange={(e) => setSmtpConfig({ ...smtpConfig, senderName: e.target.value })}
+                    placeholder="Hanyu - Lớp Tiếng Trung Cô Ning Ning"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#204434] font-semibold mb-1">Phương thức mã hóa</label>
+                  <select
+                    value={smtpConfig.encryption}
+                    onChange={(e) => setSmtpConfig({ ...smtpConfig, encryption: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  >
+                    <option value="SSL">SSL / TLS (Port 465)</option>
+                    <option value="TLS">STARTTLS (Port 587)</option>
+                    <option value="NONE">Không mã hóa (Local test)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* LIVE TEST SEND SECTION */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#204434]/5 border border-[#204434]/20 space-y-3 text-xs">
+              <div className="font-bold text-[#204434] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Send className="w-4 h-4 text-[#BC9B6B]" />
+                  <span>Kiểm thử kết nối: Gửi 1 email OTP thực tế đến hộp thư của bạn</span>
+                </span>
+                <span className="text-[11px] text-[#315E48]">Kiểm tra tức thì</span>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="email"
-                  placeholder="Nhập email bạn muốn nhận thư test (vd: email-ca-nhan@gmail.com)..."
+                  placeholder="Nhập địa chỉ email cá nhân để nhận thư test (vd: hop-thu-cua-ban@gmail.com)..."
                   value={testEmailRecipient}
                   onChange={(e) => setTestEmailRecipient(e.target.value)}
-                  className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-[#BC9B6B]/35 text-[#204434]"
+                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-white border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
                 />
                 <button
                   type="button"
@@ -1267,7 +1645,7 @@ export default function AdminDashboardPage() {
                       const data = await res.json();
                       setTestEmailResult({ success: data.success, message: data.message });
                       if (data.success) {
-                        showToast("Đã gửi thành công email test!", "success");
+                        showToast("Đã gửi thành công email OTP kiểm thử! Vui lòng mở hòm thư.", "success");
                       } else {
                         showToast(data.message || "Gửi email thất bại", "error");
                       }
@@ -1277,7 +1655,7 @@ export default function AdminDashboardPage() {
                       setTestingEmail(false);
                     }
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                  className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 shrink-0 shadow-sm"
                 >
                   {testingEmail ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1292,25 +1670,28 @@ export default function AdminDashboardPage() {
 
               {testEmailResult && (
                 <div
-                  className={`p-3 rounded-xl border flex items-center gap-2 ${
+                  className={`p-3.5 rounded-xl border flex items-start gap-2.5 text-xs ${
                     testEmailResult.success
-                      ? "bg-green-50 border-green-200 text-green-800"
-                      : "bg-red-50 border-red-200 text-red-800"
+                      ? "bg-green-50 border-green-200 text-green-900"
+                      : "bg-red-50 border-red-200 text-red-900"
                   }`}
                 >
                   {testEmailResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                   )}
-                  <span>{testEmailResult.message}</span>
+                  <span className="leading-relaxed">{testEmailResult.message}</span>
                 </div>
               )}
             </div>
 
-            <div className="pt-3 border-t border-[#BC9B6B]/20 flex items-center justify-between">
+            {/* Save Buttons & Status */}
+            <div className="pt-3 border-t border-[#BC9B6B]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span className="text-xs text-[#315E48]">
-                {smtpSaved ? "✓ Đã lưu cấu hình SMTP vào hệ thống" : "Cấu hình này sẽ được dùng để gửi toàn bộ mã OTP đăng ký"}
+                {smtpSaved
+                  ? "✓ Đã lưu cấu hình máy chủ gửi mail vào hệ thống Hanyu"
+                  : "Mọi học viên khi đăng ký tài khoản sẽ tự động nhận OTP qua kết nối này."}
               </span>
               <button
                 type="button"
@@ -1324,17 +1705,18 @@ export default function AdminDashboardPage() {
                     const data = await res.json();
                     if (data.success) {
                       setSmtpSaved(true);
-                      showToast(data.message || "Đã lưu cấu hình SMTP thành công!", "success");
+                      showToast(data.message || "Đã lưu cấu hình thành công!", "success");
                     } else {
-                      showToast(data.message || "Không thể lưu cấu hình SMTP", "error");
+                      showToast(data.message || "Không thể lưu cấu hình", "error");
                     }
                   } catch {
-                    showToast("Lỗi kết nối khi lưu cấu hình SMTP", "error");
+                    showToast("Lỗi kết nối khi lưu cấu hình", "error");
                   }
                 }}
-                className="bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer"
+                className="bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-md shadow-[#204434]/15 flex items-center justify-center gap-1.5"
               >
-                Lưu cấu hình SMTP
+                <Server className="w-4 h-4" />
+                <span>Lưu cấu hình gửi mail</span>
               </button>
             </div>
           </div>

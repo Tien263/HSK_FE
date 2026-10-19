@@ -6,12 +6,19 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     config: {
+      authType: config.authType || "PASSWORD",
       host: config.host || "smtp.gmail.com",
       port: config.port || 465,
       user: config.user || "",
       password: config.pass ? "••••••••••••••••" : "",
       senderName: config.from || "",
-      isConfigured: !!(config.user && config.pass),
+      clientId: config.clientId || "",
+      clientSecret: config.clientSecret ? "••••••••••••••••" : "",
+      refreshToken: config.refreshToken ? "••••••••••••••••" : "",
+      isConfigured: !!(
+        (config.authType === "OAUTH2" && config.user && config.clientId && config.refreshToken) ||
+        (config.user && config.pass)
+      ),
     },
   });
 }
@@ -19,19 +26,36 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { host, port, user, password, senderName, action, testRecipient } = body;
+    const {
+      authType,
+      host,
+      port,
+      user,
+      password,
+      senderName,
+      clientId,
+      clientSecret,
+      refreshToken,
+      action,
+      testRecipient,
+    } = body;
+
+    const current = getSmtpConfig();
 
     // Cập nhật cấu hình
-    if (user !== undefined || password !== undefined || host !== undefined) {
-      const current = getSmtpConfig();
-      updateSmtpConfig({
-        host: host !== undefined ? host.trim() : current.host,
-        port: port ? Number(port) : current.port,
-        user: user !== undefined ? user.trim() : current.user,
-        pass: password && !password.includes("••••") ? password.trim() : current.pass,
-        from: senderName !== undefined ? senderName.trim() : current.from,
-      });
-    }
+    updateSmtpConfig({
+      authType: authType || current.authType || "PASSWORD",
+      host: host !== undefined ? host.trim() : current.host,
+      port: port ? Number(port) : current.port,
+      user: user !== undefined ? user.trim() : current.user,
+      pass: password && !password.includes("••••") ? password.trim() : current.pass,
+      from: senderName !== undefined ? senderName.trim() : current.from,
+      clientId: clientId !== undefined ? clientId.trim() : current.clientId,
+      clientSecret:
+        clientSecret && !clientSecret.includes("••••") ? clientSecret.trim() : current.clientSecret,
+      refreshToken:
+        refreshToken && !refreshToken.includes("••••") ? refreshToken.trim() : current.refreshToken,
+    });
 
     // Nếu yêu cầu kiểm thử gửi email ngay
     if (action === "TEST_CONNECTION") {
@@ -50,10 +74,15 @@ export async function POST(request: Request) {
           message: `✓ Đã kết nối và gửi thành công email thử nghiệm tới ${recipient}! Hãy kiểm tra hộp thư đến.`,
         });
       } else {
-        return NextResponse.json({
-          success: false,
-          message: `❌ Không thể gửi email: ${testResult.message}. ${testResult.errorDetail ? "Chi tiết: " + testResult.errorDetail : ""}`,
-        }, { status: 400 });
+        return NextResponse.json(
+          {
+            success: false,
+            message: `❌ Không thể gửi email: ${testResult.message}. ${
+              testResult.errorDetail ? "Chi tiết: " + testResult.errorDetail : ""
+            }`,
+          },
+          { status: 400 }
+        );
       }
     }
 
