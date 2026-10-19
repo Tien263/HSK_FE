@@ -9,90 +9,99 @@ export default function HeroSection() {
   const [videoModalOpen, setVideoModalOpen] = useState(false);
 
   return (
-    <section className="relative pt-4 sm:pt-6 pb-16 md:pb-24 px-6 max-w-6xl mx-auto overflow-hidden">
-      {/* Background artwork: Misty mountain on left */}
-      <div className="absolute left-0 top-6 w-[160px] md:w-[220px] h-[200px] pointer-events-none select-none z-0 opacity-40">
+    <section className="relative pt-8 sm:pt-12 pb-20 md:pb-28 px-6 max-w-6xl mx-auto overflow-hidden">
+      {/* 100% PURE AI SHANSHUI BACKGROUND PAINTING (NO TEXT, NO BUTTONS) */}
+      <div className="absolute inset-0 pointer-events-none select-none z-0 rounded-3xl overflow-hidden">
         <Image
-          src="/theme/hero-mountain-left.png"
-          alt="Misty ink mountains"
+          src="/theme/hero-shanshui-leaf.jpg"
+          alt="Chinese Shanshui Ink Wash Landscape"
           fill
-          className="object-contain object-left-top"
-        />
-      </div>
-
-      {/* Right Art: Master Leaf, Chinese Calligraphy 汉语, Red Seal, Pagoda and Fisherman */}
-      <div className="absolute right-0 top-0 w-full md:w-[58%] h-[520px] md:h-[620px] pointer-events-none select-none z-0">
-        <Image
-          src="/theme/hero-leaf-master.png"
-          alt="Hanyu Chinese Calligraphy and Bodhi Leaf"
-          fill
-          className="object-contain object-right-top"
+          className="object-cover object-right md:object-center opacity-90"
           priority
         />
+        {/* Soft bottom fade into page background */}
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#f5f2e9] via-[#f5f2e9]/80 to-transparent" />
       </div>
 
-      {/* Hero Left Content Column */}
-      <div className="relative z-10 max-w-lg pt-4 md:pt-10">
-        {/* Poetic Sub-tagline: 一茶一世界 一语一未来 */}
-        <div className="text-[12px] font-serif tracking-[0.35em] text-[#8c9a8f] uppercase mb-4">
-          一 茶 一 世 界 · 一 语 一 未 来
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        {/* Left Content Column */}
+        <div className="lg:col-span-7 max-w-xl pt-2">
+          {/* Poetic Sub-tagline: 一茶一世界 一语一未来 */}
+          <div className="text-[12px] font-serif tracking-[0.35em] text-[#5a6b5c] uppercase mb-4 font-semibold">
+            一 茶 一 世 界 · 一 语 一 未 来
+          </div>
+
+          {/* Main Headline (Lora Serif font, exact typography) */}
+          <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-serif font-black text-[#173d2d] leading-[1.18] tracking-tight mb-5 drop-shadow-2xs">
+            Học tiếng Trung <br />
+            mở ra một <br />
+            thế giới lớn hơn
+          </h1>
+
+          {/* Description */}
+          <p className="text-xs sm:text-sm text-[#3b4e42] leading-relaxed mb-7 max-w-md font-sans">
+            Hanyu đồng hành cùng bạn trên hành trình chinh phục tiếng Trung với lộ trình bài bản, nội dung thực tiễn và phương pháp hiện đại.
+          </p>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3.5 mb-10">
+            <Link
+              href="/register"
+              className="px-6 py-2.5 rounded-full bg-[#1a3d2f] text-white font-bold text-xs hover:bg-[#122b21] transition shadow-md flex items-center gap-1.5"
+            >
+              <span>Bắt đầu học ngay</span>
+              <span>→</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setVideoModalOpen(true)}
+              className="px-5 py-2.5 rounded-full bg-white/85 border border-[#dcd4c3] text-[#173d2d] font-bold text-xs hover:bg-white transition shadow-xs flex items-center gap-2 cursor-pointer backdrop-blur-xs"
+            >
+              <div className="w-4 h-4 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center text-[8px]">
+                <Play className="w-2 h-2 fill-white ml-0.5" />
+              </div>
+              <span>Xem video giới thiệu</span>
+            </button>
+          </div>
+
+          {/* 3 Metric Stats with vertical dividers */}
+          <div className="flex items-center gap-6 pt-6 border-t border-[#dcd4c3] max-w-md">
+            <div>
+              <div className="text-2xl font-serif font-bold text-[#173d2d]">
+                50.000+
+              </div>
+              <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Học viên tin tưởng</p>
+            </div>
+            <div className="h-7 w-px bg-[#dcd4c3]" />
+            <div>
+              <div className="text-2xl font-serif font-bold text-[#173d2d]">
+                1.000+
+              </div>
+              <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Bài học chất lượng</p>
+            </div>
+            <div className="h-7 w-px bg-[#dcd4c3]" />
+            <div>
+              <div className="text-2xl font-serif font-bold text-[#173d2d]">
+                4.9/5
+              </div>
+              <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Đánh giá từ học viên</p>
+            </div>
+          </div>
         </div>
 
-        {/* Main Headline (Lora Serif font, exact typography) */}
-        <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-serif font-black text-[#173d2d] leading-[1.18] tracking-tight mb-5">
-          Học tiếng Trung <br />
-          mở ra một <br />
-          thế giới lớn hơn
-        </h1>
-
-        {/* Description */}
-        <p className="text-xs sm:text-sm text-[#4d6356] leading-relaxed mb-7 max-w-md font-sans">
-          Hanyu đồng hành cùng bạn trên hành trình chinh phục tiếng Trung với lộ trình bài bản, nội dung thực tiễn và phương pháp hiện đại.
-        </p>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-3.5 mb-10">
-          <Link
-            href="/register"
-            className="px-6 py-2.5 rounded-full bg-[#1a3d2f] text-white font-bold text-xs hover:bg-[#122b21] transition shadow-xs flex items-center gap-1.5"
-          >
-            <span>Bắt đầu học ngay</span>
-            <span>→</span>
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => setVideoModalOpen(true)}
-            className="px-5 py-2.5 rounded-full bg-white/70 border border-[#dcd4c3] text-[#173d2d] font-bold text-xs hover:bg-white transition shadow-2xs flex items-center gap-2 cursor-pointer backdrop-blur-xs"
-          >
-            <div className="w-4 h-4 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center text-[8px]">
-              <Play className="w-2 h-2 fill-white ml-0.5" />
+        {/* Right Art Seal & Calligraphy Badge */}
+        <div className="lg:col-span-5 flex justify-end items-start pointer-events-none select-none">
+          <div className="flex flex-col items-center gap-2 pr-2 sm:pr-8 pt-4">
+            <div className="font-serif text-3xl font-bold tracking-widest text-[#173d2d] writing-vertical drop-shadow-xs" style={{ writingMode: "vertical-rl" }}>
+              汉语
             </div>
-            <span>Xem video giới thiệu</span>
-          </button>
-        </div>
-
-        {/* 3 Metric Stats with vertical dividers */}
-        <div className="flex items-center gap-6 pt-6 border-t border-[#dcd4c3]/70 max-w-md">
-          <div>
-            <div className="text-2xl font-serif font-bold text-[#173d2d]">
-              50.000+
+            <div className="w-7 h-7 rounded-sm bg-[#a8383b] text-white flex items-center justify-center font-serif text-[11px] font-bold shadow-xs">
+              中国
             </div>
-            <p className="text-[11px] text-[#6b8271] mt-0.5">Học viên tin tưởng</p>
-          </div>
-          <div className="h-7 w-px bg-[#dcd4c3]" />
-          <div>
-            <div className="text-2xl font-serif font-bold text-[#173d2d]">
-              1.000+
+            <div className="text-[9px] font-serif text-[#5a6b5c] tracking-widest uppercase text-center mt-1">
+              Chinese<br />A Brighter World
             </div>
-            <p className="text-[11px] text-[#6b8271] mt-0.5">Bài học chất lượng</p>
-          </div>
-          <div className="h-7 w-px bg-[#dcd4c3]" />
-          <div>
-            <div className="text-2xl font-serif font-bold text-[#173d2d]">
-              4.9/5
-            </div>
-            <p className="text-[11px] text-[#6b8271] mt-0.5">Đánh giá từ học viên</p>
           </div>
         </div>
       </div>
@@ -124,10 +133,10 @@ export default function HeroSection() {
 
             <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black relative flex items-center justify-center mb-4">
               <Image
-                src="/theme/landing-source-mockup.jpg"
+                src="/theme/hero-shanshui-leaf.jpg"
                 alt="Video thumbnail"
                 fill
-                className="object-cover opacity-60"
+                className="object-cover opacity-70"
               />
               <div className="relative z-10 text-center text-white p-4">
                 <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mx-auto mb-2 border border-white/40 cursor-pointer hover:scale-105 transition">

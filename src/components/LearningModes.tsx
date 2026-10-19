@@ -8,19 +8,14 @@ export default function LearningModes() {
   return (
     <section className="py-8 px-6 max-w-6xl mx-auto relative z-10">
       <div className="bg-[#ede6d8] rounded-[36px] p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-[#ded5c2] shadow-xs">
-        {/* Subtle decorative birds & bamboo in top right corner of the container */}
-        <div className="absolute top-4 right-6 text-xs text-[#6b8271]/50 pointer-events-none select-none hidden sm:block">
-          <span>🎋 𓅂 𓅂</span>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left Column: Traditional Scholar Moon Window & Tea Desk */}
-          <div className="lg:col-span-4 relative h-[240px] sm:h-[300px] rounded-2xl overflow-hidden flex items-center justify-center">
+          {/* Left Column: Traditional Scholar Moon Window & Tea Desk (Clean AI Art) */}
+          <div className="lg:col-span-4 relative h-[240px] sm:h-[300px] rounded-2xl overflow-hidden shadow-xs">
             <Image
-              src="/theme/moon-window-table.png"
+              src="/theme/landing-moon-desk.jpg"
               alt="Không gian học tập truyền thống"
               fill
-              className="object-contain object-center"
+              className="object-cover object-center"
             />
           </div>
 
@@ -29,10 +24,10 @@ export default function LearningModes() {
             {/* Red Seal + Section Header */}
             <div className="mb-6">
               <div className="inline-flex items-center gap-2 mb-2">
-                <span className="w-5 h-5 rounded-xs bg-[#991b1b] text-white flex items-center justify-center text-[10px] font-serif font-bold">
+                <span className="w-5 h-5 rounded-xs bg-[#a8383b] text-white flex items-center justify-center text-[10px] font-serif font-bold">
                   印
                 </span>
-                <span className="text-[10px] tracking-widest font-serif text-[#991b1b] uppercase font-bold">
+                <span className="text-[10px] tracking-widest font-serif text-[#a8383b] uppercase font-bold">
                   TWO LEARNING MODES
                 </span>
               </div>

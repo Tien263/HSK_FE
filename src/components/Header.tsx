@@ -10,19 +10,8 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <header className="relative z-30 w-full">
-      {/* Delicate bamboo leaves hanging in top right corner */}
-      <div className="absolute top-0 right-0 w-[160px] sm:w-[220px] md:w-[280px] h-[70px] sm:h-[90px] md:h-[110px] pointer-events-none select-none z-10 opacity-90">
-        <Image
-          src="/theme/hero-bamboo-top-right.png"
-          alt="Bamboo branch decor"
-          fill
-          className="object-contain object-right-top"
-          priority
-        />
-      </div>
-
-      <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between relative z-20">
+    <header className="relative z-30 w-full border-b border-[#e8e1d3]/60 bg-[#f5f2e9]/80 backdrop-blur-xs">
+      <div className="max-w-6xl mx-auto px-6 py-4 sm:py-5 flex items-center justify-between relative z-20">
         {/* Logo Left: leaf sprig + Hanyu + Chinese Slogan */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <span className="text-xl sm:text-2xl transition-transform group-hover:rotate-6">🍃</span>

@@ -51,13 +51,13 @@ export default function LearningRoadmap() {
 
       {/* Timeline Steps with Background Mountain Contour */}
       <div className="relative pt-6 pb-2">
-        {/* Background Mountain Contour Graphic */}
-        <div className="absolute inset-0 w-full h-[80px] top-0 pointer-events-none select-none opacity-80 hidden md:block">
+        {/* Background Clean Mountain Contour Graphic */}
+        <div className="absolute inset-0 w-full h-[70px] top-0 pointer-events-none select-none opacity-40 hidden md:block rounded-xl overflow-hidden">
           <Image
-            src="/theme/mountain-timeline-contour.png"
-            alt="Mountain timeline background"
+            src="/theme/roadmap-mountain-clean.jpg"
+            alt="Misty mountain timeline contour"
             fill
-            className="object-contain object-center"
+            className="object-cover object-center"
           />
         </div>
 

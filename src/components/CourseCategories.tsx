@@ -14,12 +14,12 @@ export default function CourseCategories() {
               <span className="text-4xl font-serif font-light text-[#b8ab97] select-none">
                 01
               </span>
-              <div className="w-24 h-16 relative">
+              <div className="w-24 h-16 relative rounded-xl overflow-hidden shadow-2xs">
                 <Image
-                  src="/theme/pillar-01-scroll.png"
-                  alt="HSK 3.0 scroll"
+                  src="/theme/card-scroll.jpg"
+                  alt="HSK 3.0 cuộn thư pháp cổ"
                   fill
-                  className="object-contain"
+                  className="object-cover"
                 />
               </div>
             </div>
@@ -46,12 +46,12 @@ export default function CourseCategories() {
               <span className="text-4xl font-serif font-light text-[#b8ab97] select-none">
                 02
               </span>
-              <div className="w-24 h-16 relative">
+              <div className="w-24 h-16 relative rounded-xl overflow-hidden shadow-2xs">
                 <Image
-                  src="/theme/pillar-02-fan.png"
-                  alt="Tiếng Trung theo chủ đề fan"
+                  src="/theme/card-fan.jpg"
+                  alt="Tiếng Trung theo chủ đề quạt xòe"
                   fill
-                  className="object-contain"
+                  className="object-cover"
                 />
               </div>
             </div>
@@ -78,12 +78,12 @@ export default function CourseCategories() {
               <span className="text-4xl font-serif font-light text-[#b8ab97] select-none">
                 03
               </span>
-              <div className="w-24 h-16 relative">
+              <div className="w-24 h-16 relative rounded-xl overflow-hidden shadow-2xs">
                 <Image
-                  src="/theme/pillar-03-books.png"
-                  alt="Tiếng Trung chuyên ngành books"
+                  src="/theme/card-books.jpg"
+                  alt="Tiếng Trung chuyên ngành chồng sách cổ"
                   fill
-                  className="object-contain"
+                  className="object-cover"
                 />
               </div>
             </div>
