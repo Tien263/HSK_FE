@@ -217,7 +217,7 @@ export default function StudentHomePage() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-100 border border-[#bfe4ca] relative shrink-0">
               <Image
-                src="/theme/sample-student.jpg"
+                src="/theme/avatar-student.jpg"
                 alt="Avatar"
                 fill
                 className="object-cover object-top"
@@ -286,14 +286,14 @@ export default function StudentHomePage() {
             </div>
 
             {/* Classical Chinese Landscape Art in Banner */}
-            <div className="relative w-64 h-36 rounded-2xl overflow-hidden border border-white/60 shadow-sm hidden md:block shrink-0">
+            <div className="relative w-72 h-36 rounded-2xl overflow-hidden border border-white/60 shadow-sm hidden md:block shrink-0">
               <Image
-                src="/theme/bg-login.jpg"
-                alt="Pavilion landscape"
+                src="/theme/hero-student-pavilion.jpg"
+                alt="Classical Chinese pavilion landscape"
                 fill
-                className="object-cover object-center filter saturate-90"
+                className="object-cover object-center filter saturate-95"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#1a3d2f]/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1a3d2f]/20 to-transparent" />
             </div>
           </div>
 

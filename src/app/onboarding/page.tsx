@@ -65,15 +65,15 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-[#f7f4ee] relative overflow-hidden flex flex-col justify-between p-4 sm:p-8 font-sans selection:bg-[#1a3d2f] selection:text-white">
       {/* Traditional Ink Painting Ambient Background */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-30">
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-50">
         <Image
-          src="/theme/bg-onboarding.jpg"
-          alt="Classical Chinese landscape"
+          src="/theme/bg-onboarding-bamboo.jpg"
+          alt="Classical Chinese bamboo grove landscape"
           fill
-          className="object-cover object-center filter saturate-90"
+          className="object-cover object-center filter saturate-95"
           priority
         />
-        <div className="absolute inset-0 bg-[#f7f4ee]/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#f7f4ee]/85 via-[#f7f4ee]/50 to-[#f7f4ee]/85" />
       </div>
 
       {/* Top Header */}

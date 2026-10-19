@@ -362,7 +362,7 @@ export default function TeacherDashboard() {
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full overflow-hidden bg-emerald-100 border border-[#bfe4ca] relative shrink-0">
                 <Image
-                  src="/theme/sample-teacher.jpg"
+                  src="/theme/avatar-teacher.jpg"
                   alt="Cô Lan"
                   fill
                   className="object-cover object-top"
@@ -420,7 +420,7 @@ export default function TeacherDashboard() {
             <div className="flex items-center gap-2.5 pl-2 border-l border-[#e2dac9]">
               <div className="w-9 h-9 rounded-full overflow-hidden border border-[#bfe4ca] relative shrink-0">
                 <Image
-                  src="/theme/sample-teacher.jpg"
+                  src="/theme/avatar-teacher.jpg"
                   alt="Teacher"
                   fill
                   className="object-cover object-top"
@@ -450,14 +450,14 @@ export default function TeacherDashboard() {
                   </p>
                 </div>
 
-                <div className="relative w-56 h-28 rounded-2xl overflow-hidden border border-white/60 shadow-sm hidden md:block shrink-0">
+                <div className="relative w-64 h-28 rounded-2xl overflow-hidden border border-white/60 shadow-sm hidden md:block shrink-0">
                   <Image
-                    src="/theme/bg-login.jpg"
-                    alt="Scenic painting"
+                    src="/theme/bg-tea-study.jpg"
+                    alt="Classical scholar study desk"
                     fill
-                    className="object-cover object-center filter saturate-90"
+                    className="object-cover object-center filter saturate-95"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#1a3d2f]/30 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#1a3d2f]/20 to-transparent" />
                 </div>
               </div>
 

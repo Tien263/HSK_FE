@@ -70,15 +70,15 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#f7f4ee] relative overflow-hidden flex flex-col justify-between p-4 sm:p-8 font-sans selection:bg-[#1a3d2f] selection:text-white">
       {/* Traditional Ink Painting Ambient Background */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
         <Image
-          src="/theme/bg-login.jpg"
-          alt="Classical Chinese landscape"
+          src="/theme/bg-auth-landscape.jpg"
+          alt="Classical Chinese Shanshui landscape"
           fill
-          className="object-cover object-center filter saturate-90 contrast-105"
+          className="object-cover object-center filter saturate-95 contrast-100"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#f7f4ee]/90 via-[#f7f4ee]/60 to-[#f7f4ee]/90" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#f7f4ee]/85 via-[#f7f4ee]/40 to-[#f7f4ee]/85" />
       </div>
 
       {/* Top Header Navigation */}
