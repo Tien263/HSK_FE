@@ -4,64 +4,64 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, username, email, password, role } = body;
+    const { name, username, email, password } = body;
 
-    if (!name || (!username && !email) || !password) {
+    const trimmedName = (name || "").trim();
+    const cleanEmail = (email || "").toLowerCase().trim();
+    const cleanUsername = (username || cleanEmail.split("@")[0] || "").toLowerCase().trim();
+
+    if (!trimmedName) {
       return NextResponse.json(
-        { success: false, message: "Vui lòng điền đầy đủ họ tên, tài khoản và mật khẩu." },
+        { success: false, message: "Vui lòng nhập họ và tên của bạn." },
         { status: 400 }
       );
     }
 
-    const cleanUsername = (username || email || "").toLowerCase().trim();
-    const cleanEmail = email ? email.toLowerCase().trim() : null;
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return NextResponse.json(
+        { success: false, message: "Vui lòng nhập địa chỉ email hợp lệ." },
+        { status: 400 }
+      );
+    }
 
-    // Kiểm tra tài khoản đã tồn tại chưa
+    if (!password || password.length < 6) {
+      return NextResponse.json(
+        { success: false, message: "Mật khẩu phải có độ dài tối thiểu 6 ký tự." },
+        { status: 400 }
+      );
+    }
+
+    // Kiểm tra tài khoản hoặc email đã tồn tại chưa
     const existing = await prisma.user.findFirst({
       where: {
         OR: [
+          { email: cleanEmail },
           { username: cleanUsername },
-          cleanEmail ? { email: cleanEmail } : { username: cleanUsername },
         ],
       },
     });
 
     if (existing) {
       return NextResponse.json(
-        { success: false, message: "Tài khoản hoặc email này đã tồn tại trên hệ thống." },
-        { status: 400 }
+        { success: false, message: "Email hoặc tên tài khoản này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác." },
+        { status: 409 }
       );
     }
 
-    const assignedRole = role === "TEACHER" ? "TEACHER" : "STUDENT";
-
-    // Tạo người dùng mới trong SQLite
+    // Tài khoản đăng ký công khai mặc định luôn là STUDENT (Học viên)
     const user = await prisma.user.create({
       data: {
-        name,
+        name: trimmedName,
         username: cleanUsername,
         email: cleanEmail,
         passwordHash: password,
-        role: assignedRole,
+        role: "STUDENT",
         status: "ACTIVE",
         currentHskLevel: 1,
-        totalXp: 50, // Thưởng 50 XP cho thành viên mới
+        totalXp: 50, // Thưởng 50 XP khởi đầu
         streakDays: 1,
       },
     });
-
-    // Nếu là học viên, tự động ghi danh vào lớp HSK 1A mặc định nếu có
-    if (assignedRole === "STUDENT") {
-      const defaultClass = await prisma.class.findFirst();
-      if (defaultClass) {
-        await prisma.classStudent.create({
-          data: {
-            classId: defaultClass.id,
-            studentId: user.id,
-          },
-        }).catch(() => {});
-      }
-    }
 
     return NextResponse.json({
       success: true,
@@ -74,12 +74,13 @@ export async function POST(request: Request) {
         role: user.role,
         currentHskLevel: user.currentHskLevel,
         totalXp: user.totalXp,
+        streakDays: user.streakDays,
       },
     });
   } catch (error) {
     console.error("POST /api/v1/auth/register error:", error);
     return NextResponse.json(
-      { success: false, message: "Lỗi hệ thống khi đăng ký tài khoản." },
+      { success: false, message: "Lỗi hệ thống khi đăng ký tài khoản. Vui lòng thử lại sau." },
       { status: 500 }
     );
   }

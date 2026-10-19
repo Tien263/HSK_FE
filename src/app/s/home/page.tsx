@@ -27,6 +27,12 @@ import {
   Calendar,
   LogOut,
   Target,
+  GraduationCap,
+  Layers,
+  CheckCircle2,
+  X,
+  AlertCircle,
+  HelpCircle,
 } from "lucide-react";
 
 interface SummaryData {
@@ -55,6 +61,22 @@ interface SummaryData {
   }>;
 }
 
+interface StudyProfile {
+  learningMode: "SELF" | "CLASS";
+  classCode?: string;
+  classInfo?: {
+    id: string;
+    name: string;
+    level: number;
+    teacherName: string;
+    code: string;
+  };
+  mainTrack: "hsk" | "topic" | "major";
+  major?: string;
+  currentLevel: "beginner" | "intermediate" | "advanced";
+  dailyTime: 15 | 30 | 60;
+}
+
 export default function StudentHomePage() {
   const router = useRouter();
   const [data, setData] = useState<SummaryData | null>(null);
@@ -62,7 +84,23 @@ export default function StudentHomePage() {
   const [activeNav, setActiveNav] = useState("home");
   const [searchQuery, setSearchQuery] = useState("");
   const [username, setUsername] = useState("student");
-  const [studentName, setStudentName] = useState("Thảo");
+  const [studentName, setStudentName] = useState("Minh Thảo");
+  const [studyProfile, setStudyProfile] = useState<StudyProfile | null>(null);
+
+  // Today's checklist status
+  const [taskDone, setTaskDone] = useState<Record<string, boolean>>({
+    task1: false,
+    task2: false,
+    task3: false,
+  });
+
+  // Join Class Modal State
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinClassCode, setJoinClassCode] = useState("");
+  const [checkingJoinCode, setCheckingJoinCode] = useState(false);
+  const [joinClassError, setJoinClassError] = useState("");
+  const [verifiedJoinClass, setVerifiedJoinClass] = useState<any>(null);
+  const [enrolling, setEnrolling] = useState(false);
 
   useEffect(() => {
     let currentU = "student";
@@ -75,8 +113,13 @@ export default function StudentHomePage() {
           setUsername(u.username);
         }
         if (u.name) {
-          setStudentName(u.name.split(" ").pop() || u.name);
+          setStudentName(u.name);
         }
+      }
+
+      const profileStored = localStorage.getItem("hanyu_study_profile");
+      if (profileStored) {
+        setStudyProfile(JSON.parse(profileStored));
       }
     } catch {}
 
@@ -86,7 +129,7 @@ export default function StudentHomePage() {
         if (json.success && json.data) {
           setData(json.data);
           if (json.data.student?.name) {
-            setStudentName(json.data.student.name.split(" ").pop() || json.data.student.name);
+            setStudentName(json.data.student.name);
           }
         }
         setLoading(false);
@@ -117,90 +160,179 @@ export default function StudentHomePage() {
     router.push("/login");
   };
 
+  // Check code in join modal
+  const handleVerifyJoinCode = async () => {
+    const code = joinClassCode.trim();
+    if (!code) {
+      setJoinClassError("Vui lòng nhập mã lớp học.");
+      return;
+    }
+    setCheckingJoinCode(true);
+    setJoinClassError("");
+    setVerifiedJoinClass(null);
+
+    try {
+      const res = await fetch(`/api/v1/classes/verify?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setJoinClassError(data.message || "Không tìm thấy lớp học với mã này.");
+        setCheckingJoinCode(false);
+        return;
+      }
+      setVerifiedJoinClass(data.classInfo);
+      setCheckingJoinCode(false);
+    } catch {
+      setJoinClassError("Lỗi kết nối máy chủ.");
+      setCheckingJoinCode(false);
+    }
+  };
+
+  // Confirm join class
+  const handleConfirmEnroll = async () => {
+    if (!verifiedJoinClass) return;
+    setEnrolling(true);
+
+    try {
+      await fetch("/api/v1/auth/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          classCode: verifiedJoinClass.code,
+          learningMode: "CLASS",
+          mainTrack: studyProfile?.mainTrack || "hsk",
+          dailyTime: studyProfile?.dailyTime || 30,
+        }),
+      });
+
+      // Cập nhật profile ở local
+      const updatedProfile: StudyProfile = {
+        ...(studyProfile || {
+          mainTrack: "hsk",
+          currentLevel: "beginner",
+          dailyTime: 30,
+        }),
+        learningMode: "CLASS",
+        classCode: verifiedJoinClass.code,
+        classInfo: verifiedJoinClass,
+      };
+
+      setStudyProfile(updatedProfile);
+      localStorage.setItem("hanyu_study_profile", JSON.stringify(updatedProfile));
+
+      // Reload summary data
+      fetch(`/api/v1/my/summary?username=${username}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.success && j.data) setData(j.data);
+        });
+
+      setEnrolling(false);
+      setShowJoinModal(false);
+      setVerifiedJoinClass(null);
+      setJoinClassCode("");
+    } catch (e) {
+      setEnrolling(false);
+      alert("Không thể ghi danh vào lớp. Vui lòng thử lại.");
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f7f4ee] flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="w-12 h-12 rounded-xl bg-[#b91c1c] text-white flex items-center justify-center font-serif text-2xl font-bold shadow-md mb-4 animate-pulse">
-          汉语
+      <div className="min-h-screen bg-[#F8F5ED] flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="w-12 h-12 rounded-2xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-2xl font-bold shadow-md mb-4 animate-pulse">
+          宁
         </div>
-        <p className="text-sm font-semibold text-[#1a3d2f]">Đang chuẩn bị bàn học Hanyu của em...</p>
+        <p className="text-sm font-semibold text-[#204434]">Đang chuẩn bị không gian học Hanyu của bạn...</p>
       </div>
     );
   }
 
   const currentLevel = data?.student?.currentHskLevel || 1;
+  const isClassMode = studyProfile?.learningMode === "CLASS" || !!studyProfile?.classInfo;
+  const targetTrackName =
+    studyProfile?.mainTrack === "topic"
+      ? "Tiếng Trung theo chủ đề"
+      : studyProfile?.mainTrack === "major"
+      ? `Đại học & Chuyên ngành (${studyProfile.major?.toUpperCase() || ""})`
+      : "HSK 3.0 Chuẩn quốc tế";
 
   return (
-    <div className="min-h-screen bg-[#f7f4ee] text-[#1e2e22] flex font-sans antialiased selection:bg-[#1a3d2f] selection:text-white">
-      {/* ===================== SIDEBAR HANYU (Matching Mockup 1) ===================== */}
-      <aside className="w-60 bg-[#fbf9f4] border-r border-[#e6decb] flex flex-col justify-between shrink-0 fixed inset-y-0 left-0 z-40 hidden lg:flex">
+    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] flex font-sans antialiased selection:bg-[#204434] selection:text-[#FFFCF6]">
+      
+      {/* ===================== SIDEBAR ===================== */}
+      <aside className="w-64 bg-[#FFFCF6] border-r border-[#BC9B6B]/25 flex flex-col justify-between shrink-0 fixed inset-y-0 left-0 z-40 hidden lg:flex shadow-xs">
         <div>
           {/* Logo Brand Header */}
-          <div className="h-20 px-6 flex items-center gap-3 border-b border-[#eee8dc]">
+          <div className="h-20 px-6 flex items-center justify-between border-b border-[#BC9B6B]/20">
             <Link href="/" className="flex items-center gap-2.5">
-              <span className="font-serif font-black text-2xl text-[#1a3d2f] tracking-tight">
-                Hanyu
-              </span>
-              <div className="w-6 h-6 rounded-md bg-[#b91c1c] text-white flex items-center justify-center text-[10px] font-serif font-bold shadow-2xs">
-                汉语
+              <div className="w-8 h-8 rounded-xl bg-[#9D493E] text-[#FFFCF6] flex items-center justify-center font-serif text-base font-bold shadow-xs">
+                <span>宁</span>
+              </div>
+              <div>
+                <span className="font-serif font-bold text-xl text-[#204434] tracking-tight block">
+                  Hanyu
+                </span>
+                <span className="text-[10px] text-[#315E48] tracking-widest block uppercase font-medium">
+                  Học tiếng Trung
+                </span>
               </div>
             </Link>
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3.5 space-y-1 text-[13px] font-medium">
+          <nav className="p-3.5 space-y-1.5 text-xs font-semibold">
             <button
               onClick={() => setActiveNav("home")}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition cursor-pointer font-bold ${
                 activeNav === "home"
-                  ? "bg-[#1a3d2f] text-white shadow-sm"
-                  : "text-[#5c7363] hover:bg-[#eee8dc] hover:text-[#1a3d2f]"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-sm shadow-[#204434]/20"
+                  : "text-[#315E48] hover:bg-[#F8F5ED] hover:text-[#204434]"
               }`}
             >
               <Home className="w-4 h-4" />
-              <span>Trang chủ</span>
+              <span>Trang chủ bàn học</span>
             </button>
 
             {[
-              { id: "roadmap", label: "Lộ trình học", icon: Compass, href: "#roadmap" },
-              { id: "courses", label: "Khóa học của tôi", icon: BookOpen, href: "#courses" },
-              { id: "assignments", label: "Bài được giao", icon: FileCheck2, href: "#assignments" },
-              { id: "practice", label: "Luyện tập", icon: Dumbbell, href: "/s/games" },
-              { id: "wrong", label: "Sổ tay lỗi sai", icon: AlertTriangle, href: "/s/practice/wrong" },
-              { id: "vocab", label: "Từ vựng", icon: RotateCw, href: "/s/review" },
-              { id: "class", label: "Lớp học của tôi", icon: Users, href: "#class" },
-              { id: "profile", label: "Tài khoản", icon: User, href: "#profile" },
+              { id: "roadmap", label: "Lộ trình của tôi", icon: Compass, href: "#roadmap" },
+              { id: "today", label: "Kế hoạch hôm nay", icon: Calendar, href: "#today" },
+              { id: "lessons", label: "Bài học đang học", icon: BookOpen, href: "#lessons" },
+              { id: "classes", label: "Lớp học của tôi", icon: Users, href: "#classes" },
+              { id: "practice", label: "Phòng luyện tập", icon: Dumbbell, href: "#practice" },
+              { id: "wrong", label: "Sổ câu hỏi sai", icon: AlertTriangle, href: "/s/practice/wrong" },
+              { id: "vocab", label: "Từ vựng Flashcard", icon: RotateCw, href: "/s/review" },
             ].map((item) => {
               const Icon = item.icon;
               return (
-                <Link
+                <a
                   key={item.id}
                   href={item.href}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition cursor-pointer text-[#5c7363] hover:bg-[#eee8dc] hover:text-[#1a3d2f]"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-[#315E48] hover:bg-[#F8F5ED] hover:text-[#204434]"
                 >
-                  <Icon className="w-4 h-4 stroke-[1.75]" />
+                  <Icon className="w-4 h-4 stroke-[1.8]" />
                   <span>{item.label}</span>
-                </Link>
+                </a>
               );
             })}
           </nav>
         </div>
 
-        {/* Bottom User Quick Card */}
-        <div className="p-3.5 border-t border-[#eee8dc]">
-          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#f4eee4] border border-[#e2dac9]">
+        {/* Bottom User Card */}
+        <div className="p-4 border-t border-[#BC9B6B]/20 bg-[#F8F5ED]/40">
+          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/30">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center font-bold text-xs">
+              <div className="w-8 h-8 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-bold text-xs">
                 {studentName.charAt(0)}
               </div>
               <div className="leading-tight">
-                <span className="font-bold text-xs text-[#1e2e22] block">{studentName}</span>
-                <span className="text-[10px] text-[#6b8271] block">HSK {currentLevel} · {data?.student?.totalXp || 0} XP</span>
+                <span className="font-bold text-xs text-[#204434] block truncate max-w-[110px]">{studentName}</span>
+                <span className="text-[10px] text-[#315E48] block">HSK {currentLevel} · {data?.student?.totalXp || 50} XP</span>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="text-[#64796a] hover:text-red-700 p-1"
+              className="text-[#315E48] hover:text-[#9D493E] p-1.5 transition cursor-pointer"
               title="Đăng xuất"
             >
               <LogOut className="w-4 h-4" />
@@ -209,13 +341,13 @@ export default function StudentHomePage() {
         </div>
       </aside>
 
-      {/* ===================== MAIN CONTENT ===================== */}
-      <div className="flex-1 lg:pl-60 flex flex-col min-h-screen">
-        {/* Top Header */}
-        <header className="h-20 bg-[#fbf9f4]/80 backdrop-blur-md border-b border-[#e6decb] px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30">
-          {/* Left Greeting */}
+      {/* ===================== MAIN CONTENT WRAPPER ===================== */}
+      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
+        
+        {/* Top Navbar */}
+        <header className="h-20 bg-[#FFFCF6]/85 backdrop-blur-md border-b border-[#BC9B6B]/25 px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-100 border border-[#bfe4ca] relative shrink-0">
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#204434]/10 border border-[#204434]/20 relative shrink-0">
               <Image
                 src="/theme/avatar-student.jpg"
                 alt="Avatar"
@@ -224,188 +356,469 @@ export default function StudentHomePage() {
               />
             </div>
             <div>
-              <h2 className="font-bold text-sm sm:text-base text-[#1a3d2f] flex items-center gap-1.5 leading-snug">
+              <h2 className="font-bold text-sm sm:text-base text-[#204434] flex items-center gap-1.5 leading-snug">
                 <span>Xin chào, {studentName}</span>
-                <span className="text-sm">🍃</span>
+                <span className="text-xs">🍃</span>
               </h2>
-              <p className="text-[11px] text-[#6b8271] hidden sm:block">
-                Kiên trì mỗi ngày, bạn sẽ tiến xa hơn hôm qua.
+              <p className="text-[11px] text-[#315E48]">
+                {targetTrackName} · {studyProfile?.dailyTime || 30} phút/ngày
               </p>
             </div>
           </div>
 
-          {/* Right Header Search & Controls */}
-          <div className="flex items-center gap-4">
-            <div className="relative w-64 lg:w-80 hidden md:block">
-              <Search className="w-4 h-4 text-[#8ea394] absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm khóa học, bài học, từ vựng..."
-                className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] focus:bg-white rounded-xl pl-10 pr-4 py-2 text-xs text-[#1e2e22] placeholder-[#8ea394] outline-none transition"
-              />
-            </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/onboarding"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-[#315E48] hover:text-[#204434] bg-[#F8F5ED] hover:bg-white px-3 py-1.5 rounded-full border border-[#BC9B6B]/30 transition shadow-xs"
+            >
+              <Target className="w-3.5 h-3.5 text-[#BC9B6B]" />
+              <span>Đổi mục tiêu học</span>
+            </Link>
 
             <button
               type="button"
-              className="w-9 h-9 rounded-xl bg-[#f4eee4] text-[#5c7363] hover:text-[#1a3d2f] flex items-center justify-center transition border border-[#e2dac9]"
+              className="w-9 h-9 rounded-xl bg-[#F8F5ED] text-[#315E48] hover:text-[#204434] flex items-center justify-center transition border border-[#BC9B6B]/30 cursor-pointer"
             >
               <Bell className="w-4 h-4" />
             </button>
-
-            <div className="w-9 h-9 rounded-full overflow-hidden border border-[#e2dac9] relative shrink-0">
-              <Image
-                src="/theme/sample-student.jpg"
-                alt="Profile"
-                fill
-                className="object-cover object-top"
-              />
-            </div>
           </div>
         </header>
 
-        {/* Dashboard Body */}
-        <main className="p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          {/* ===================== HERO BANNER (With Scenic Pavilion) ===================== */}
-          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#efeae0] via-[#f5f0e6] to-[#e8efe9] border border-[#e2dac9] p-7 sm:p-10 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="max-w-md z-10">
-              <h1 className="text-2xl sm:text-3xl font-serif font-black text-[#1a3d2f] tracking-tight mb-2">
-                Hôm nay, cùng học nhé!
+        {/* ===================== DASHBOARD BODY (6 SPEC SECTIONS) ===================== */}
+        <main className="p-6 lg:p-8 space-y-8 max-w-6xl w-full mx-auto">
+          
+          {/* ========================================================================= */}
+          {/* KHU VỰC 1: BANNER CHÀO ĐÓN HỌC VIÊN */}
+          {/* ========================================================================= */}
+          <section className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#204434] via-[#285340] to-[#315E48] text-[#FFFCF6] p-7 sm:p-9 shadow-xl shadow-[#204434]/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="max-w-xl z-10 space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold text-[#FFFCF6]">
+                <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                <span>Không gian học tập cá nhân hóa Hanyu</span>
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-[#FFFCF6] leading-snug">
+                Chào mừng trở lại, {studentName}!
               </h1>
-              <p className="text-xs sm:text-sm text-[#5c7363] leading-relaxed mb-6 font-normal">
-                Hoàn thành kế hoạch hôm nay để tiến gần hơn đến mục tiêu của bạn.
-              </p>
 
-              <Link
-                href="/s/review"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#1a3d2f] text-white font-bold text-xs hover:bg-[#132e23] transition shadow-md shadow-emerald-950/15"
-              >
-                <span>Bắt đầu học →</span>
-              </Link>
+              {/* Chinese Motto */}
+              <div className="p-3 rounded-2xl bg-black/15 backdrop-blur-xs border border-white/10 max-w-lg">
+                <div className="font-serif text-base font-bold text-[#FFFCF6] tracking-wide">
+                  “千里之行，始于足下”
+                </div>
+                <div className="text-[11px] text-[#BC9B6B] font-mono mt-0.5">
+                  Qiān lǐ zhī xíng, shǐ yú zú xià
+                </div>
+                <div className="text-xs text-[#FFFCF6]/85 font-light mt-0.5">
+                  Hành trình vạn dặm bắt đầu từ một bước chân. Kiên trì từng ngày sẽ vươn tới thành công.
+                </div>
+              </div>
+
+              {/* Quick stats pills */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <span className="px-3 py-1.5 rounded-xl bg-white/15 text-xs font-bold flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-[#BC9B6B]" />
+                  <span>Trình độ: HSK {currentLevel}</span>
+                </span>
+                <span className="px-3 py-1.5 rounded-xl bg-white/15 text-xs font-bold flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-orange-400" />
+                  <span>Chuỗi {data?.student?.streakDays || 1} ngày liên tục</span>
+                </span>
+                <span className="px-3 py-1.5 rounded-xl bg-white/15 text-xs font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-yellow-300" />
+                  <span>{data?.student?.totalXp || 50} Điểm XP</span>
+                </span>
+              </div>
             </div>
 
-            {/* Classical Chinese Landscape Art in Banner */}
-            <div className="relative w-72 h-36 rounded-2xl overflow-hidden border border-white/60 shadow-sm hidden md:block shrink-0">
+            {/* Classical Chinese Pavilion Landscape */}
+            <div className="relative w-72 h-44 rounded-2xl overflow-hidden border border-white/20 shadow-lg hidden md:block shrink-0 bg-[#12281e]">
               <Image
-                src="/theme/hero-student-pavilion.jpg"
-                alt="Classical Chinese pavilion landscape"
+                src="/theme/landing-moon-desk.jpg"
+                alt="Classical scholar study desk"
                 fill
-                className="object-cover object-center filter saturate-95"
+                className="object-cover object-center filter saturate-90"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#1a3d2f]/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#204434]/80 via-transparent to-transparent" />
+              <div className="absolute bottom-3 left-3 right-3 text-center">
+                <span className="text-[11px] font-serif text-[#FFFCF6] tracking-widest uppercase">
+                  静以修身 · 俭以养德
+                </span>
+              </div>
             </div>
-          </div>
+          </section>
 
-          {/* ===================== ROW 1: LỘ TRÌNH TỰ HỌC & BÀI GIÁO VIÊN GIAO ===================== */}
+          {/* ========================================================================= */}
+          {/* KHU VỰC 2 & KHU VỰC 3: LỘ TRÌNH CỦA TÔI & KẾ HOẠCH HÔM NAY */}
+          {/* ========================================================================= */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left: Lộ trình tự học (60% Progress) */}
-            <div id="roadmap" className="lg:col-span-6 bg-[#fcfaf7] rounded-3xl p-6 border border-[#e6decb] shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-[#1a3d2f]" />
-                    <h3 className="font-bold text-sm text-[#1a3d2f]">Lộ trình tự học</h3>
+            
+            {/* KHU VỰC 2: LỘ TRÌNH CỦA TÔI */}
+            <section id="roadmap" className="lg:col-span-7 bg-[#FFFCF6] rounded-3xl p-6 sm:p-7 border border-[#BC9B6B]/30 shadow-md shadow-[#204434]/5 space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-[#BC9B6B]/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center">
+                    <Compass className="w-4 h-4" />
                   </div>
-                  <button
-                    onClick={() => alert("Xem chi tiết toàn bộ lộ trình HSK 1 - HSK 9")}
-                    className="text-xs text-[#64796a] hover:text-[#1a3d2f] font-semibold flex items-center gap-1"
-                  >
-                    <span>Xem chi tiết</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                  <div>
+                    <h3 className="font-serif font-bold text-lg text-[#204434]">Lộ trình của tôi</h3>
+                    <p className="text-[11px] text-[#315E48]">{targetTrackName}</p>
+                  </div>
+                </div>
+                <Link
+                  href="/onboarding"
+                  className="text-xs font-semibold text-[#315E48] hover:text-[#204434] flex items-center gap-1"
+                >
+                  <span>Chỉnh sửa</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {/* Progress Summary */}
+              <div className="p-4 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-bold text-[#BC9B6B] uppercase tracking-wider block">
+                    Chặng hiện tại: Giai đoạn 1 / 4
+                  </span>
+                  <div className="font-serif font-bold text-base text-[#204434] mt-0.5">
+                    {studyProfile?.mainTrack === "topic"
+                      ? "Phát âm & Giao tiếp mở đầu"
+                      : studyProfile?.mainTrack === "major"
+                      ? "Thuật ngữ & Ngữ pháp chuyên ngành nền tảng"
+                      : "Khởi động & Ngữ âm chuẩn Pinyin"}
+                  </div>
+                  <div className="text-xs text-[#315E48] mt-1">
+                    Bài tiếp theo: <strong>Bài 4: 家庭 (Gia đình & Xưng hô)</strong>
+                  </div>
                 </div>
 
-                {/* Main Card HSK 3 */}
-                <div className="p-4 rounded-2xl bg-[#f4eee4] border border-[#e2dac9] mb-5 flex items-center justify-between">
+                <Link
+                  href="/s/review"
+                  className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold transition shrink-0 shadow-xs flex items-center gap-1.5"
+                >
+                  <span>Tiếp tục học ngay</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {/* 4 Phases Timeline */}
+              <div className="grid grid-cols-4 gap-2 pt-2 text-center">
+                {[
+                  { step: "Giai đoạn 1", name: "Ngữ âm", status: "current" },
+                  { step: "Giai đoạn 2", name: "Từ vựng", status: "next" },
+                  { step: "Giai đoạn 3", name: "Kỹ năng", status: "pending" },
+                  { step: "Giai đoạn 4", name: "Thực chiến", status: "pending" },
+                ].map((ph, idx) => (
+                  <div key={idx} className="flex flex-col items-center">
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mb-1.5 ${
+                        ph.status === "current"
+                          ? "bg-[#204434] text-[#FFFCF6] ring-4 ring-[#204434]/15"
+                          : "bg-[#F8F5ED] text-[#315E48] border border-[#BC9B6B]/30"
+                      }`}
+                    >
+                      {idx + 1}
+                    </div>
+                    <span className="text-xs font-bold text-[#204434]">{ph.step}</span>
+                    <span className="text-[10px] text-[#315E48]">{ph.name}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* KHU VỰC 3: KẾ HOẠCH HỌC HÔM NAY */}
+            <section id="today" className="lg:col-span-5 bg-[#FFFCF6] rounded-3xl p-6 sm:p-7 border border-[#BC9B6B]/30 shadow-md shadow-[#204434]/5 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#BC9B6B]/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#BC9B6B]/15 text-[#204434] flex items-center justify-center">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-lg text-[#204434]">Kế hoạch hôm nay</h3>
+                    <p className="text-[11px] text-[#315E48]">Mục tiêu {studyProfile?.dailyTime || 30} phút / ngày</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-[#204434] bg-[#F8F5ED] px-2.5 py-1 rounded-full border border-[#BC9B6B]/30">
+                  {Object.values(taskDone).filter(Boolean).length}/3 xong
+                </span>
+              </div>
+
+              {/* Tasks Checklist */}
+              <div className="space-y-2.5">
+                {/* Task 1 */}
+                <div
+                  onClick={() => setTaskDone((prev) => ({ ...prev, task1: !prev.task1 }))}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    taskDone.task1
+                      ? "bg-[#204434]/5 border-[#204434]/30 line-through text-[#315E48]"
+                      : "bg-[#F8F5ED] border-[#BC9B6B]/25 hover:border-[#204434]/40"
+                  }`}
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#1a3d2f] text-white flex items-center justify-center font-serif text-sm font-bold shadow-2xs">
-                      HSK {currentLevel}
+                    <div
+                      className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
+                        taskDone.task1
+                          ? "bg-[#204434] border-[#204434] text-white"
+                          : "border-[#BC9B6B] bg-white"
+                      }`}
+                    >
+                      {taskDone.task1 && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm text-[#1e2e22]">HSK {currentLevel}</h4>
-                      <p className="text-xs text-[#64796a]">Lộ trình chinh phục HSK {currentLevel} chuẩn 3.0</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394]" />
-                </div>
-
-                {/* Progress bar */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between text-xs font-bold mb-2">
-                    <span className="text-[#5c7363]">Tiến độ tổng thể</span>
-                    <span className="text-[#1a3d2f]">60%</span>
-                  </div>
-                  <div className="w-full bg-[#e6decb] h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-[#1a3d2f] h-full rounded-full transition-all duration-500" style={{ width: "60%" }} />
-                  </div>
-                </div>
-
-                {/* 4 Steps timeline: HSK 1 -> HSK 4 */}
-                <div className="grid grid-cols-4 gap-2 text-center pt-2 border-t border-[#eee8dc]">
-                  {[
-                    { level: "HSK 1", sub: "(Đã xong)", done: true },
-                    { level: "HSK 2", sub: "(Đã xong)", done: true },
-                    { level: `HSK 3`, sub: "(Đang học)", current: true },
-                    { level: "HSK 4", sub: "(Tiếp theo)", pending: true },
-                  ].map((s, idx) => (
-                    <div key={idx} className="flex flex-col items-center">
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mb-1.5 shadow-2xs ${
-                          s.done
-                            ? "bg-[#1a3d2f] text-white"
-                            : s.current
-                            ? "bg-[#1a3d2f] text-white ring-2 ring-[#1a3d2f]/30"
-                            : "bg-[#e5ded0] text-[#788a7d]"
-                        }`}
-                      >
-                        {s.done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : idx + 1}
+                      <div className="text-xs font-bold text-[#204434]">
+                        1. Ôn 10 từ vựng Leitner
                       </div>
-                      <span className="text-xs font-bold text-[#1e2e22]">{s.level}</span>
-                      <span className="text-[10px] text-[#788a7d]">{s.sub}</span>
+                      <div className="text-[11px] text-[#315E48]">10 phút · Ghi nhớ ngắt quãng</div>
                     </div>
-                  ))}
+                  </div>
+                  <Link
+                    href="/s/review"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs font-semibold text-[#204434] hover:underline shrink-0"
+                  >
+                    Ôn ngay →
+                  </Link>
+                </div>
+
+                {/* Task 2 */}
+                <div
+                  onClick={() => setTaskDone((prev) => ({ ...prev, task2: !prev.task2 }))}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    taskDone.task2
+                      ? "bg-[#204434]/5 border-[#204434]/30 line-through text-[#315E48]"
+                      : "bg-[#F8F5ED] border-[#BC9B6B]/25 hover:border-[#204434]/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
+                        taskDone.task2
+                          ? "bg-[#204434] border-[#204434] text-white"
+                          : "border-[#BC9B6B] bg-white"
+                      }`}
+                    >
+                      {taskDone.task2 && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-[#204434]">
+                        2. Học bài mới: Mua sắm (购物)
+                      </div>
+                      <div className="text-[11px] text-[#315E48]">12 phút · Ngữ pháp & Mẫu câu</div>
+                    </div>
+                  </div>
+                  <Link
+                    href="#lessons"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs font-semibold text-[#204434] hover:underline shrink-0"
+                  >
+                    Vào bài →
+                  </Link>
+                </div>
+
+                {/* Task 3 */}
+                <div
+                  onClick={() => setTaskDone((prev) => ({ ...prev, task3: !prev.task3 }))}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    taskDone.task3
+                      ? "bg-[#204434]/5 border-[#204434]/30 line-through text-[#315E48]"
+                      : "bg-[#F8F5ED] border-[#BC9B6B]/25 hover:border-[#204434]/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
+                        taskDone.task3
+                          ? "bg-[#204434] border-[#204434] text-white"
+                          : "border-[#BC9B6B] bg-white"
+                      }`}
+                    >
+                      {taskDone.task3 && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-[#204434]">
+                        3. Luyện 5 câu hỏi trắc nghiệm
+                      </div>
+                      <div className="text-[11px] text-[#315E48]">8 phút · Củng cố phản xạ</div>
+                    </div>
+                  </div>
+                  <Link
+                    href="/s/games"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs font-semibold text-[#204434] hover:underline shrink-0"
+                  >
+                    Luyện tập →
+                  </Link>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          {/* ========================================================================= */}
+          {/* KHU VỰC 4: BÀI HỌC ĐANG HỌC */}
+          {/* ========================================================================= */}
+          <section id="lessons" className="bg-[#FFFCF6] rounded-3xl p-6 sm:p-7 border border-[#BC9B6B]/30 shadow-md shadow-[#204434]/5 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#BC9B6B]/20">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#204434]">Bài học đang học</h3>
+                  <p className="text-[11px] text-[#315E48]">Tiếp tục những nội dung bạn đang hoàn thành dở dang</p>
                 </div>
               </div>
             </div>
 
-            {/* Right: Bài giáo viên giao */}
-            <div id="assignments" className="lg:col-span-6 bg-[#fcfaf7] rounded-3xl p-6 border border-[#e6decb] shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <FileCheck2 className="w-4 h-4 text-[#1a3d2f]" />
-                    <h3 className="font-bold text-sm text-[#1a3d2f]">Bài giáo viên giao</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Ongoing Lesson 1 */}
+              <div className="p-4 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#204434] text-[#FFFCF6] text-[10px] font-bold">
+                      Bài 4 · Gia đình
+                    </span>
+                    <span className="text-xs font-bold text-[#204434]">70% hoàn thành</span>
                   </div>
-                  <button
-                    onClick={() => alert("Xem tất cả các bài tập đã giao")}
-                    className="text-xs text-[#64796a] hover:text-[#1a3d2f] font-semibold flex items-center gap-1"
-                  >
-                    <span>Xem tất cả</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">
+                    Bài 4: 家庭 (Gia đình & Xưng hô xã hội)
+                  </h4>
+                  <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                    12 từ vựng mới, điểm ngữ pháp câu vị ngữ hình dung từ và cấu trúc xưng hô.
+                  </p>
+                  <div className="w-full bg-[#BC9B6B]/25 h-1.5 rounded-full overflow-hidden my-3">
+                    <div className="bg-[#204434] h-full rounded-full" style={{ width: "70%" }} />
+                  </div>
                 </div>
 
-                {/* Assignment List */}
+                <div className="flex items-center justify-between pt-2 border-t border-[#BC9B6B]/15">
+                  <span className="text-[11px] text-[#315E48]">Còn 2 bài tập nhỏ</span>
+                  <Link
+                    href="/s/review"
+                    className="px-3.5 py-1.5 rounded-xl bg-[#204434] text-white text-xs font-semibold hover:bg-[#183629] transition flex items-center gap-1"
+                  >
+                    <span>Tiếp tục</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Ongoing Lesson 2 */}
+              <div className="p-4 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#BC9B6B] text-white text-[10px] font-bold">
+                      Bài 5 · Mua sắm
+                    </span>
+                    <span className="text-xs font-bold text-[#204434]">35% hoàn thành</span>
+                  </div>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">
+                    Bài 5: 购物 (Mua sắm & Hỏi giá thường nhật)
+                  </h4>
+                  <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                    Mẫu câu hỏi giá多少钱, số đếm tiền tệ Nhân dân tệ và phương thức thanh toán.
+                  </p>
+                  <div className="w-full bg-[#BC9B6B]/25 h-1.5 rounded-full overflow-hidden my-3">
+                    <div className="bg-[#BC9B6B] h-full rounded-full" style={{ width: "35%" }} />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-[#BC9B6B]/15">
+                  <span className="text-[11px] text-[#315E48]">Còn 5 bài tập nhỏ</span>
+                  <Link
+                    href="/s/review"
+                    className="px-3.5 py-1.5 rounded-xl bg-[#204434] text-white text-xs font-semibold hover:bg-[#183629] transition flex items-center gap-1"
+                  >
+                    <span>Tiếp tục</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ========================================================================= */}
+          {/* KHU VỰC 5: LỚP HỌC CỦA TÔI */}
+          {/* ========================================================================= */}
+          <section id="classes" className="bg-[#FFFCF6] rounded-3xl p-6 sm:p-7 border border-[#BC9B6B]/30 shadow-md shadow-[#204434]/5 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#BC9B6B]/20">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#9D493E]/10 text-[#9D493E] flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#204434]">Lớp học của tôi</h3>
+                  <p className="text-[11px] text-[#315E48]">
+                    {isClassMode
+                      ? "Lớp học chính thức có giáo viên hướng dẫn & chấm bài"
+                      : "Không gian tự học độc lập (Có thể tham gia lớp bất cứ lúc nào)"}
+                  </p>
+                </div>
+              </div>
+
+              {!isClassMode && (
+                <button
+                  type="button"
+                  onClick={() => setShowJoinModal(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#9D493E] hover:bg-[#833d34] text-white text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Tham gia lớp học</span>
+                </button>
+              )}
+            </div>
+
+            {/* Trạng thái 1: ĐÃ THAM GIA LỚP */}
+            {isClassMode ? (
+              <div className="space-y-4">
+                {/* Class Info Card */}
+                <div className="p-4 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#9D493E] text-white flex items-center justify-center font-serif text-lg font-bold shadow-xs">
+                      宁
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-serif font-bold text-base text-[#204434]">
+                          {studyProfile?.classInfo?.name || "Lớp HSK 3 Chuẩn Quốc Tế (HANYU3A)"}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-md bg-[#204434] text-white text-[10px] font-bold">
+                          HSK {studyProfile?.classInfo?.level || 3}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#315E48] mt-0.5">
+                        Giáo viên phụ trách: <strong>{studyProfile?.classInfo?.teacherName || "Nguyễn Thảo (Cô Ning Ning)"}</strong> · Mã lớp: <span className="font-mono font-bold text-[#9D493E]">{studyProfile?.classInfo?.code || "HANYU3A"}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold self-start sm:self-auto">
+                    ● Đang hoạt động
+                  </span>
+                </div>
+
+                {/* Assignments List in Class */}
                 <div className="space-y-3">
+                  <div className="text-xs font-bold text-[#204434] uppercase tracking-wider">
+                    Bài tập được giao từ giáo viên:
+                  </div>
+
                   {data?.assignments && data.assignments.length > 0 ? (
                     data.assignments.map((item) => (
                       <div
                         key={item.id}
-                        className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9] hover:border-[#1a3d2f] transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        className="p-4 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 hover:border-[#204434] transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-red-100 text-[#b91c1c] flex items-center justify-center shrink-0 mt-0.5">
+                          <div className="w-8 h-8 rounded-xl bg-[#9D493E]/10 text-[#9D493E] flex items-center justify-center shrink-0 mt-0.5">
                             <FileCheck2 className="w-4 h-4" />
                           </div>
                           <div>
-                            <h4 className="font-bold text-xs sm:text-sm text-[#1e2e22] mb-0.5">{item.title}</h4>
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#64796a]">
+                            <h5 className="font-bold text-sm text-[#204434]">{item.title}</h5>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#315E48] mt-0.5">
                               <span>Khóa: {item.className}</span>
                               <span>•</span>
-                              <span>Giáo viên: Cô Ning Ning</span>
-                              <span>•</span>
-                              <span className="text-orange-700 font-medium">Hạn: {new Date(item.dueAt).toLocaleDateString("vi-VN")}</span>
+                              <span>Hạn nộp: <strong className="text-[#9D493E]">{new Date(item.dueAt).toLocaleDateString("vi-VN")}</strong></span>
                             </div>
                           </div>
                         </div>
@@ -413,201 +826,257 @@ export default function StudentHomePage() {
                         <button
                           type="button"
                           onClick={() => handleStartAssignment(item.id)}
-                          className="px-4 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shadow-xs shrink-0 self-end sm:self-auto cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#183629] transition shadow-xs shrink-0 self-end sm:self-auto cursor-pointer"
                         >
-                          Làm bài
+                          Làm bài ngay
                         </button>
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-8 text-xs text-[#64796a]">
-                      Không có bài tập mới cần làm. Em hãy chăm chỉ ôn từ vựng nhé!
+                    <div className="p-4 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/20 text-xs text-[#315E48] text-center">
+                      Hiện tại không có bài tập mới cần làm. Bạn hãy chủ động ôn từ vựng và luyện tập thêm nhé!
                     </div>
                   )}
-
-                  {/* Sample supplementary assignments matching mockup */}
-                  <div className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5">
-                        <PenTool className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs sm:text-sm text-[#1e2e22] mb-0.5">Viết đoạn văn: Giới thiệu bản thân</h4>
-                        <div className="flex items-center gap-2 text-[11px] text-[#64796a]">
-                          <span>HSK 1 · Cô Ning Ning</span>
-                          <span>•</span>
-                          <span className="text-orange-700">Hạn: 22/10/2026</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => alert("Bài tập viết tự do sẽ nộp trong phòng học.")}
-                      className="px-4 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shrink-0 self-end sm:self-auto"
-                    >
-                      Làm bài
-                    </button>
-                  </div>
                 </div>
               </div>
-            </div>
-          </div>
+            ) : (
+              /* Trạng thái 2: CHƯA THAM GIA LỚP */
+              <div className="p-6 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center shrink-0">
+                    <Compass className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-base text-[#204434]">
+                      Bạn đang tự học chủ động độc lập
+                    </h4>
+                    <p className="text-xs text-[#315E48] mt-0.5 leading-relaxed">
+                      Bạn có thể nhập mã lớp từ giáo viên bất kỳ lúc nào để nhận thêm bài tập. Tiến độ tự học của bạn sẽ được giữ nguyên 100%.
+                    </p>
+                  </div>
+                </div>
 
-          {/* ===================== ROW 2: 3 QUICK ACTION CARDS ===================== */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {/* Card 1: Từ vựng */}
-            <Link
-              href="/s/review"
-              className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] hover:border-[#1a3d2f] hover:shadow-md transition group flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#eaf4ed] text-[#1a3d2f] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <BookOpen className="w-6 h-6 stroke-[1.75]" />
+                <button
+                  type="button"
+                  onClick={() => setShowJoinModal(true)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold transition shrink-0 cursor-pointer shadow-xs"
+                >
+                  Nhập mã lớp ngay
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* ========================================================================= */}
+          {/* KHU VỰC 6: PHÒNG LUYỆN TẬP */}
+          {/* ========================================================================= */}
+          <section id="practice" className="bg-[#FFFCF6] rounded-3xl p-6 sm:p-7 border border-[#BC9B6B]/30 shadow-md shadow-[#204434]/5 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#BC9B6B]/20">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center">
+                  <Dumbbell className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-[#1a3d2f]">Từ vựng</h4>
-                  <p className="text-xs text-[#64796a]">Học từ mới, ôn theo chủ đề</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:text-[#1a3d2f] transition" />
-            </Link>
-
-            {/* Card 2: Sổ tay lỗi sai */}
-            <Link
-              href="/s/practice/wrong"
-              className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] hover:border-orange-400 hover:shadow-md transition group flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#fff2eb] text-[#ea580c] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <AlertTriangle className="w-6 h-6 stroke-[1.75]" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#1a3d2f]">Sổ tay lỗi sai</h4>
-                  <p className="text-xs text-[#64796a]">Xem lại các lỗi thường gặp</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:text-orange-500 transition" />
-            </Link>
-
-            {/* Card 3: Luyện tập */}
-            <Link
-              href="/s/games"
-              className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] hover:border-[#1a3d2f] hover:shadow-md transition group flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#eef6ff] text-[#2563eb] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <PenTool className="w-6 h-6 stroke-[1.75]" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#1a3d2f]">Luyện tập</h4>
-                  <p className="text-xs text-[#64796a]">Làm bài tập, luyện đề HSK</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:text-[#1a3d2f] transition" />
-            </Link>
-          </div>
-
-          {/* ===================== ROW 3: TIẾN ĐỘ HỌC TẬP & MỤC TIÊU ===================== */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left: Tiến độ học tập */}
-            <div className="lg:col-span-8 bg-[#fcfaf7] rounded-3xl p-6 border border-[#e6decb] shadow-xs">
-              <div className="flex items-center justify-between mb-6 pb-2 border-b border-[#eee8dc]">
-                <h3 className="font-bold text-sm text-[#1a3d2f] flex items-center gap-2">
-                  <span>📊 Tiến độ học tập</span>
-                </h3>
-                <span className="text-xs text-[#64796a] bg-[#f4eee4] px-2.5 py-1 rounded-lg border border-[#e2dac9]">
-                  7 ngày gần đây
-                </span>
-              </div>
-
-              {/* 4 Stats Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9]">
-                  <div className="flex items-center gap-2 text-xs text-[#64796a] mb-1">
-                    <BookOpen className="w-3.5 h-3.5 text-[#1a3d2f]" />
-                    <span>Số bài đã học</span>
-                  </div>
-                  <div className="text-xl font-black text-[#1a3d2f] mb-2">28 / 40</div>
-                  <div className="w-full bg-[#e2dac9] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#1a3d2f] h-full rounded-full" style={{ width: "70%" }} />
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9]">
-                  <div className="flex items-center gap-2 text-xs text-[#64796a] mb-1">
-                    <Clock className="w-3.5 h-3.5 text-[#2563eb]" />
-                    <span>Thời gian học</span>
-                  </div>
-                  <div className="text-xl font-black text-[#1a3d2f] mb-2">12.5 giờ</div>
-                  <div className="w-full bg-[#e2dac9] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#2563eb] h-full rounded-full" style={{ width: "80%" }} />
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9]">
-                  <div className="flex items-center gap-2 text-xs text-[#64796a] mb-1">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                    <span>Tỷ lệ hoàn thành</span>
-                  </div>
-                  <div className="text-xl font-black text-[#1a3d2f] mb-2">75%</div>
-                  <div className="w-full bg-[#e2dac9] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-emerald-600 h-full rounded-full" style={{ width: "75%" }} />
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9]">
-                  <div className="flex items-center gap-2 text-xs text-[#64796a] mb-1">
-                    <Flame className="w-3.5 h-3.5 text-orange-500" />
-                    <span>Số ngày học liên tục</span>
-                  </div>
-                  <div className="text-xl font-black text-[#1a3d2f] mb-2">{data?.student?.streakDays || 7} ngày</div>
-                  <div className="w-full bg-[#e2dac9] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-orange-500 h-full rounded-full" style={{ width: "100%" }} />
-                  </div>
+                  <h3 className="font-serif font-bold text-lg text-[#204434]">Phòng luyện tập</h3>
+                  <p className="text-[11px] text-[#315E48]">Đa dạng hình thức rèn luyện phản xạ tiếng Trung</p>
                 </div>
               </div>
             </div>
 
-            {/* Right: Mục tiêu của tôi */}
-            <div className="lg:col-span-4 bg-[#fcfaf7] rounded-3xl p-6 border border-[#e6decb] shadow-xs flex flex-col justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* Feature 1: Flashcard */}
+              <Link
+                href="/s/review"
+                className="p-5 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 hover:border-[#204434] hover:bg-white transition group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <RotateCw className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">Luyện từ vựng</h4>
+                  <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                    Flashcards ngắt quãng Leitner giúp ghi nhớ sâu từng nét chữ Hán.
+                  </p>
+                </div>
+                <div className="mt-4 pt-2 border-t border-[#BC9B6B]/20 flex items-center justify-between text-xs font-semibold text-[#204434]">
+                  <span>Vào luyện</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </Link>
+
+              {/* Feature 2: Ngữ pháp */}
+              <Link
+                href="/s/games"
+                className="p-5 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 hover:border-[#204434] hover:bg-white transition group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-[#BC9B6B]/20 text-[#204434] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">Luyện ngữ pháp</h4>
+                  <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                    Ghép câu, phân tích trật tự từ và các mẫu câu HSK trọng tâm.
+                  </p>
+                </div>
+                <div className="mt-4 pt-2 border-t border-[#BC9B6B]/20 flex items-center justify-between text-xs font-semibold text-[#204434]">
+                  <span>Vào luyện</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </Link>
+
+              {/* Feature 3: Sổ câu hỏi sai */}
+              <Link
+                href="/s/practice/wrong"
+                className="p-5 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 hover:border-[#9D493E] hover:bg-white transition group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-[#9D493E]/10 text-[#9D493E] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">Sổ câu hỏi sai</h4>
+                  <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                    Tập trung rà soát các câu làm sai để không lặp lại lỗi cũ trong kỳ thi.
+                  </p>
+                </div>
+                <div className="mt-4 pt-2 border-t border-[#BC9B6B]/20 flex items-center justify-between text-xs font-semibold text-[#9D493E]">
+                  <span>Ôn lại lỗi</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </Link>
+
+              {/* Feature 4: Game HSK */}
+              <Link
+                href="/s/games"
+                className="p-5 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/25 hover:border-[#204434] hover:bg-white transition group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <PenTool className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">Đấu trường Game</h4>
+                  <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                    Tranh tài tốc độ, ghép từ nhanh và tích lũy điểm XP thăng hạng.
+                  </p>
+                </div>
+                <div className="mt-4 pt-2 border-t border-[#BC9B6B]/20 flex items-center justify-between text-xs font-semibold text-[#204434]">
+                  <span>Chơi ngay</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </Link>
+
+            </div>
+          </section>
+
+        </main>
+
+        {/* Footer */}
+        <footer className="w-full px-6 lg:px-10 py-5 text-center text-xs text-[#315E48]/80 border-t border-[#BC9B6B]/20 mt-auto bg-[#FFFCF6]">
+          © 2026 Hanyu · Nền tảng học tiếng Trung và Luyện thi HSK 3.0 · Phong cách Thủy Mặc Tối Giản
+        </footer>
+      </div>
+
+      {/* ===================== MODAL THAM GIA LỚP HỌC ===================== */}
+      {showJoinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="bg-[#FFFCF6] border border-[#BC9B6B]/40 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative">
+            <button
+              onClick={() => {
+                setShowJoinModal(false);
+                setVerifiedJoinClass(null);
+                setJoinClassError("");
+              }}
+              className="absolute top-5 right-5 text-[#315E48] hover:text-[#204434] p-1 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="mb-5">
+              <div className="w-10 h-10 rounded-xl bg-[#9D493E]/10 text-[#9D493E] flex items-center justify-center mb-2.5">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <h3 className="font-serif font-bold text-xl text-[#204434]">Tham gia lớp học mới</h3>
+              <p className="text-xs text-[#315E48] mt-1">
+                Nhập mã lớp từ giáo viên của bạn để tham gia lớp và nhận bài tập được giao.
+              </p>
+            </div>
+
+            <div className="space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#eee8dc]">
-                  <h3 className="font-bold text-sm text-[#1a3d2f] flex items-center gap-2">
-                    <Target className="w-4 h-4 text-[#b91c1c]" />
-                    <span>Mục tiêu của tôi</span>
-                  </h3>
+                <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                  Mã lớp học:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={joinClassCode}
+                    onChange={(e) => {
+                      setJoinClassCode(e.target.value.toUpperCase());
+                      setJoinClassError("");
+                    }}
+                    placeholder="Ví dụ: HANYU3A"
+                    className="flex-1 bg-[#F8F5ED] border border-[#BC9B6B]/35 focus:border-[#204434] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold tracking-wider text-[#204434] uppercase outline-none"
+                  />
                   <button
-                    onClick={() => router.push("/onboarding")}
-                    className="text-xs text-[#64796a] hover:text-[#1a3d2f] font-semibold"
+                    type="button"
+                    onClick={handleVerifyJoinCode}
+                    disabled={checkingJoinCode}
+                    className="px-4 py-2.5 rounded-xl bg-[#204434] text-white text-xs font-semibold hover:bg-[#183629] transition disabled:opacity-60 cursor-pointer"
                   >
-                    Chỉnh sửa →
+                    {checkingJoinCode ? "Đang tìm..." : "Kiểm tra"}
                   </button>
                 </div>
+              </div>
 
-                <div className="p-4 rounded-2xl bg-[#f4eee4] border border-[#e2dac9] mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🚩</span>
-                      <div>
-                        <h4 className="font-bold text-sm text-[#1a3d2f]">Đạt HSK 3</h4>
-                        <span className="text-[10px] text-[#64796a]">Dự kiến: Tháng 12/2026</span>
-                      </div>
-                    </div>
-                    <span className="font-bold text-xs text-[#1a3d2f]">60%</span>
+              {joinClassError && (
+                <div className="p-3 rounded-xl bg-[#9D493E]/10 border border-[#9D493E]/30 text-xs text-[#9D493E] font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{joinClassError}</span>
+                </div>
+              )}
+
+              {verifiedJoinClass && (
+                <div className="p-4 rounded-2xl bg-[#204434]/5 border border-[#204434]/25 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#204434] uppercase tracking-wider flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#315E48]" />
+                      <span>Tìm thấy lớp học:</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-[#204434] text-white text-[10px] font-bold">
+                      HSK {verifiedJoinClass.level}
+                    </span>
                   </div>
-                  <div className="w-full bg-[#e2dac9] h-2 rounded-full overflow-hidden">
-                    <div className="bg-[#1a3d2f] h-full rounded-full" style={{ width: "60%" }} />
+                  <div className="font-serif font-bold text-sm text-[#204434]">
+                    {verifiedJoinClass.name}
+                  </div>
+                  <div className="text-xs text-[#315E48]">
+                    Giáo viên: <strong className="text-[#204434]">{verifiedJoinClass.teacherName}</strong>
                   </div>
                 </div>
+              )}
 
-                {/* Motivational Quote */}
-                <p className="text-xs text-[#5c7363] italic leading-relaxed pt-2">
-                  “Hôm nay tốt hơn hôm qua một chút chính là tiến bộ.”
-                </p>
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowJoinModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-[#BC9B6B]/30 text-xs font-semibold text-[#315E48] hover:text-[#204434] transition"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={!verifiedJoinClass || enrolling}
+                  onClick={handleConfirmEnroll}
+                  className="flex-1 py-2.5 rounded-xl bg-[#9D493E] hover:bg-[#833d34] text-white text-xs font-semibold transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {enrolling ? "Đang ghi danh..." : "Xác nhận tham gia"}
+                </button>
               </div>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      )}
+
     </div>
   );
 }
