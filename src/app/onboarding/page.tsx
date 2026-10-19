@@ -292,7 +292,20 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans flex flex-col justify-between selection:bg-[#204434] selection:text-[#FFFCF6]">
+    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans flex flex-col justify-between selection:bg-[#204434] selection:text-[#FFFCF6] relative overflow-hidden">
+      
+      {/* ===================== FULL-BLEED ARTWORK BACKGROUND ===================== */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <Image
+          src="/theme/bg-auth-master.jpg"
+          alt="Sơn thủy trà xanh Hanyu"
+          fill
+          priority
+          className="object-cover object-center filter saturate-100"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#F8F5ED]/45 via-[#F8F5ED]/30 to-[#F8F5ED]/65" />
+      </div>
+
       {/* Header */}
       <header className="w-full max-w-5xl mx-auto px-4 sm:px-8 py-5 flex items-center justify-between z-10">
         <Link href="/" className="flex items-center gap-3">
@@ -300,13 +313,13 @@ export default function OnboardingPage() {
             <span>宁</span>
           </div>
           <div>
-            <div className="font-serif font-bold text-xl text-[#204434] tracking-tight">Hanyu</div>
-            <div className="text-[11px] text-[#315E48] tracking-widest uppercase font-medium">Thiết lập học tập</div>
+            <div className="font-serif font-bold text-xl text-[#204434] tracking-tight drop-shadow-xs">Hanyu</div>
+            <div className="text-[11px] text-[#315E48] tracking-widest uppercase font-semibold">Thiết lập học tập</div>
           </div>
         </Link>
 
         {/* Step Indicator */}
-        <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xs px-3.5 py-1.5 rounded-full border border-[#BC9B6B]/30 text-xs font-semibold text-[#204434]">
+        <div className="flex items-center gap-2 bg-[#FFFCF6]/85 backdrop-blur-md px-4 py-1.5 rounded-full border border-[#BC9B6B]/40 text-xs font-semibold text-[#204434] shadow-xs">
           <span className="w-2 h-2 rounded-full bg-[#BC9B6B]" />
           <span>Bước {step} / 3:</span>
           <span className="text-[#315E48]">
@@ -316,7 +329,7 @@ export default function OnboardingPage() {
       </header>
 
       {/* Main Container */}
-      <main className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8 my-auto">
+      <main className="w-full max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8 my-auto relative z-10">
         
         {/* ========================================================================= */}
         {/* MÀN HÌNH 4 (BƯỚC 1): CHỌN HÌNH THỨC HỌC */}
@@ -340,10 +353,10 @@ export default function OnboardingPage() {
               {/* Option A: Tự học chủ động */}
               <div
                 onClick={() => setLearningMode("SELF")}
-                className={`relative rounded-3xl p-6 sm:p-7 transition-all duration-300 cursor-pointer border flex flex-col justify-between ${
+                className={`relative rounded-3xl p-6 sm:p-7 transition-all duration-300 cursor-pointer border flex flex-col justify-between backdrop-blur-md ${
                   learningMode === "SELF"
-                    ? "bg-[#FFFCF6] border-[#204434] shadow-xl shadow-[#204434]/10 ring-2 ring-[#204434]/15"
-                    : "bg-[#FFFCF6]/70 border-[#BC9B6B]/30 hover:border-[#204434]/50 hover:bg-[#FFFCF6]"
+                    ? "bg-[#FFFCF6]/95 border-[#204434] shadow-2xl shadow-[#204434]/15 ring-2 ring-[#204434]/20"
+                    : "bg-[#FFFCF6]/85 border-[#BC9B6B]/35 hover:border-[#204434]/50 hover:bg-[#FFFCF6]/95 shadow-lg"
                 }`}
               >
                 <div>
@@ -414,10 +427,10 @@ export default function OnboardingPage() {
               {/* Option B: Tham gia lớp có giáo viên */}
               <div
                 onClick={() => setLearningMode("CLASS")}
-                className={`relative rounded-3xl p-6 sm:p-7 transition-all duration-300 cursor-pointer border flex flex-col justify-between ${
+                className={`relative rounded-3xl p-6 sm:p-7 transition-all duration-300 cursor-pointer border flex flex-col justify-between backdrop-blur-md ${
                   learningMode === "CLASS"
-                    ? "bg-[#FFFCF6] border-[#204434] shadow-xl shadow-[#204434]/10 ring-2 ring-[#204434]/15"
-                    : "bg-[#FFFCF6]/70 border-[#BC9B6B]/30 hover:border-[#204434]/50 hover:bg-[#FFFCF6]"
+                    ? "bg-[#FFFCF6]/95 border-[#204434] shadow-2xl shadow-[#204434]/15 ring-2 ring-[#204434]/20"
+                    : "bg-[#FFFCF6]/85 border-[#BC9B6B]/35 hover:border-[#204434]/50 hover:bg-[#FFFCF6]/95 shadow-lg"
                 }`}
               >
                 <div>
@@ -539,7 +552,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Note alert */}
-            <div className="p-4 rounded-2xl bg-white/60 border border-[#BC9B6B]/25 text-center text-xs text-[#315E48] max-w-xl mx-auto leading-relaxed">
+            <div className="p-4 rounded-2xl bg-[#FFFCF6]/85 backdrop-blur-md border border-[#BC9B6B]/30 text-center text-xs text-[#315E48] max-w-xl mx-auto leading-relaxed shadow-sm">
               <strong>Ghi chú:</strong> Học viên tự học có thể tham gia lớp bất kỳ lúc nào sau này trong Dashboard. Học viên có lớp vẫn hoàn toàn tự do luyện tập độc lập mà không bị giới hạn.
             </div>
           </div>
@@ -549,7 +562,7 @@ export default function OnboardingPage() {
         {/* MÀN HÌNH 5 (BƯỚC 2): THIẾT LẬP MỤC TIÊU HỌC TẬP */}
         {/* ========================================================================= */}
         {step === 2 && (
-          <div className="bg-[#FFFCF6] border border-[#BC9B6B]/30 rounded-3xl p-6 sm:p-9 shadow-xl shadow-[#204434]/5 space-y-8">
+          <div className="bg-[#FFFCF6]/95 backdrop-blur-md border border-[#BC9B6B]/35 rounded-3xl p-6 sm:p-9 shadow-2xl shadow-[#204434]/10 space-y-8">
             
             <div className="border-b border-[#BC9B6B]/20 pb-5">
               <span className="inline-block px-3 py-1 rounded-full bg-[#204434]/10 text-xs font-semibold text-[#204434] mb-2">
@@ -821,7 +834,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* 1. Target Summary Card */}
-            <div className="bg-[#FFFCF6] border border-[#BC9B6B]/30 rounded-3xl p-5 sm:p-6 shadow-md shadow-[#204434]/5 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-[#FFFCF6]/95 backdrop-blur-md border border-[#BC9B6B]/35 rounded-3xl p-5 sm:p-6 shadow-xl shadow-[#204434]/10 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-[#315E48] font-bold block mb-1">
                   Hình thức học
@@ -879,7 +892,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* 2. Four Roadmap Phases */}
-            <div className="bg-[#FFFCF6] border border-[#BC9B6B]/30 rounded-3xl p-6 sm:p-8 shadow-xl shadow-[#204434]/5 space-y-5">
+            <div className="bg-[#FFFCF6]/95 backdrop-blur-md border border-[#BC9B6B]/35 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-[#204434]/10 space-y-5">
               <h3 className="font-serif text-xl font-bold text-[#204434] flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#BC9B6B]" />
                 <span>4 Giai đoạn học tập chi tiết</span>
@@ -922,7 +935,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* 3. Daily Breakdown */}
-            <div className="bg-[#FFFCF6] border border-[#BC9B6B]/30 rounded-3xl p-6 sm:p-7 shadow-md shadow-[#204434]/5">
+            <div className="bg-[#FFFCF6]/95 backdrop-blur-md border border-[#BC9B6B]/35 rounded-3xl p-6 sm:p-7 shadow-xl shadow-[#204434]/10">
               <h3 className="font-serif text-lg font-bold text-[#204434] mb-3 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#315E48]" />
                 <span>Phân bổ kế hoạch học tập mỗi ngày ({dailyTime} phút)</span>
@@ -944,7 +957,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Actions */}
-            <div className="p-6 rounded-3xl bg-white border border-[#BC9B6B]/30 shadow-xl shadow-[#204434]/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-6 rounded-3xl bg-[#FFFCF6]/95 backdrop-blur-md border border-[#BC9B6B]/35 shadow-2xl shadow-[#204434]/10 flex flex-col sm:flex-row items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={() => setStep(2)}
@@ -977,7 +990,7 @@ export default function OnboardingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full max-w-5xl mx-auto px-4 sm:px-8 py-4 text-center text-xs text-[#315E48]/80 z-10">
+      <footer className="w-full max-w-5xl mx-auto px-4 sm:px-8 py-4 text-center text-xs text-[#204434] font-medium z-10 drop-shadow-xs">
         © 2026 Hanyu · Nền tảng học tiếng Trung và Luyện thi HSK 3.0 · Phong cách Thủy Mặc Tối Giản
       </footer>
     </div>

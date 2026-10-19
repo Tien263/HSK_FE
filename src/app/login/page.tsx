@@ -100,62 +100,75 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans flex flex-col justify-between selection:bg-[#204434] selection:text-[#FFFCF6]">
+    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans flex flex-col justify-between selection:bg-[#204434] selection:text-[#FFFCF6] relative overflow-hidden">
+      
+      {/* ===================== FULL-BLEED ARTWORK BACKGROUND ===================== */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <Image
+          src="/theme/bg-auth-master.jpg"
+          alt="Sơn thủy trà xanh Hanyu"
+          fill
+          priority
+          className="object-cover object-center filter saturate-100"
+        />
+        {/* Soft atmospheric gradient wash to ensure text contrast while letting art shine */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#F8F5ED]/35 via-transparent to-[#F8F5ED]/65" />
+      </div>
+
       {/* Top Bar */}
       <header className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-5 flex items-center justify-between z-10">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-xl bg-[#9D493E] text-[#FFFCF6] flex items-center justify-center font-serif text-lg font-bold shadow-sm group-hover:scale-105 transition-transform">
+          <div className="w-9 h-9 rounded-xl bg-[#9D493E] text-[#FFFCF6] flex items-center justify-center font-serif text-lg font-bold shadow-md group-hover:scale-105 transition-transform">
             <span>宁</span>
           </div>
           <div>
-            <div className="font-serif font-bold text-xl text-[#204434] tracking-tight">Hanyu</div>
-            <div className="text-[11px] text-[#315E48] tracking-widest uppercase font-medium">Tiếng Trung & HSK 3.0</div>
+            <div className="font-serif font-bold text-xl text-[#204434] tracking-tight drop-shadow-xs">Hanyu</div>
+            <div className="text-[11px] text-[#315E48] tracking-widest uppercase font-semibold">Tiếng Trung & HSK 3.0</div>
           </div>
         </Link>
 
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#315E48] hover:text-[#204434] bg-white/70 hover:bg-white px-3.5 py-1.5 rounded-full border border-[#BC9B6B]/30 transition-all shadow-xs"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#204434] hover:text-[#183629] bg-[#FFFCF6]/85 hover:bg-[#FFFCF6] px-4 py-2 rounded-full border border-[#BC9B6B]/40 transition-all shadow-sm backdrop-blur-sm"
         >
-          <Home className="w-3.5 h-3.5" />
+          <Home className="w-3.5 h-3.5 text-[#315E48]" />
           <span>Về trang chủ</span>
         </Link>
       </header>
 
       {/* Main 2-Column Section */}
-      <main className="w-full max-w-6xl mx-auto px-4 sm:px-8 py-4 sm:py-8 my-auto">
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-8 py-4 sm:py-8 my-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          {/* Left Column (Desktop Only): Classical Chinese Ink Window & Scholar Desk */}
-          <div className="lg:col-span-6 hidden lg:flex flex-col">
-            <div className="relative rounded-3xl overflow-hidden border border-[#BC9B6B]/35 shadow-2xl shadow-[#204434]/10 aspect-[4/3] bg-[#EFE8DC]">
-              <Image
-                src="/theme/landing-moon-desk.jpg"
-                alt="Khung cửa sổ tròn ngắm trúc xanh và bàn trà học thuật"
-                fill
-                priority
-                className="object-cover object-center filter saturate-95 hover:scale-102 transition duration-700 ease-out"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#204434]/70 via-[#204434]/20 to-transparent" />
+          {/* Left Column (Desktop Only): Classical Poetry & Scholar Badge floating on Landscape */}
+          <div className="lg:col-span-6 hidden lg:flex flex-col justify-center pr-4">
+            <div className="p-7 rounded-3xl bg-[#FFFCF6]/80 backdrop-blur-md border border-[#BC9B6B]/35 shadow-xl shadow-[#204434]/10 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#204434]/10 text-xs font-semibold text-[#204434]">
+                <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                <span>Không gian học tập truyền thống & bài bản</span>
+              </div>
+
+              <h2 className="font-serif text-3xl font-bold tracking-tight text-[#204434] leading-snug">
+                “千里之行，始于足下”
+              </h2>
               
-              {/* Overlay Poem & Seal */}
-              <div className="absolute bottom-6 left-6 right-6 text-white">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-xs font-medium text-[#FFFCF6] mb-2.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
-                  <span>Không gian học tập truyền thống & bài bản</span>
-                </div>
-                <h3 className="font-serif text-2xl font-bold tracking-tight text-[#FFFCF6] leading-snug">
-                  “千里之行，始于足下”
-                </h3>
-                <p className="text-xs text-[#FFFCF6]/85 font-light mt-1">
-                  Hành trình vạn dặm bắt đầu từ một bước chân kiên trì mỗi ngày.
-                </p>
+              <p className="text-xs text-[#315E48] font-mono">
+                Qiān lǐ zhī xíng, shǐ yú zú xià
+              </p>
+
+              <p className="text-sm text-[#315E48] leading-relaxed">
+                Hành trình vạn dặm bắt đầu từ một bước chân. Học tiếng Trung bài bản, kiên trì mỗi ngày cùng phương pháp chuẩn HSK 3.0.
+              </p>
+
+              <div className="pt-2 border-t border-[#BC9B6B]/25 flex items-center justify-between text-xs text-[#315E48]">
+                <span>博学笃行 · 沉潜致远</span>
+                <span className="font-serif font-bold text-[#9D493E]">宁 Ning Ning</span>
               </div>
             </div>
 
             {/* Quick Demo Switcher for fast test */}
-            <div className="mt-5 p-3.5 rounded-2xl bg-white/70 border border-[#BC9B6B]/25 backdrop-blur-xs flex items-center justify-between text-xs">
-              <span className="text-[#315E48] font-medium flex items-center gap-1.5">
+            <div className="mt-4 p-3.5 rounded-2xl bg-[#FFFCF6]/85 border border-[#BC9B6B]/30 backdrop-blur-md flex items-center justify-between text-xs shadow-sm">
+              <span className="text-[#315E48] font-semibold flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#BC9B6B]" />
                 Đăng nhập nhanh mẫu:
               </span>
@@ -182,7 +195,7 @@ export default function LoginPage() {
 
           {/* Right Column: Ivory Form Card */}
           <div className="lg:col-span-6 w-full max-w-md mx-auto">
-            <div className="bg-[#FFFCF6] border border-[#BC9B6B]/30 rounded-3xl p-7 sm:p-9 shadow-xl shadow-[#204434]/5">
+            <div className="bg-[#FFFCF6]/95 backdrop-blur-md border border-[#BC9B6B]/35 rounded-3xl p-7 sm:p-9 shadow-2xl shadow-[#204434]/10">
               
               {/* Header */}
               <div className="mb-6">
@@ -224,7 +237,7 @@ export default function LoginPage() {
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                       placeholder="student@hanyu.edu.vn hoặc student"
-                      className="w-full bg-[#F8F5ED] border border-[#BC9B6B]/30 focus:border-[#204434] focus:bg-[#FFFCF6] focus:ring-2 focus:ring-[#204434]/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#204434] placeholder-[#315E48]/50 outline-none transition"
+                      className="w-full bg-[#F8F5ED]/80 border border-[#BC9B6B]/35 focus:border-[#204434] focus:bg-[#FFFCF6] focus:ring-2 focus:ring-[#204434]/15 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#204434] placeholder-[#315E48]/50 outline-none transition"
                     />
                   </div>
                 </div>
@@ -242,7 +255,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Nhập mật khẩu"
-                      className="w-full bg-[#F8F5ED] border border-[#BC9B6B]/30 focus:border-[#204434] focus:bg-[#FFFCF6] focus:ring-2 focus:ring-[#204434]/15 rounded-xl pl-10 pr-11 py-2.5 text-sm text-[#204434] placeholder-[#315E48]/50 outline-none transition"
+                      className="w-full bg-[#F8F5ED]/80 border border-[#BC9B6B]/35 focus:border-[#204434] focus:bg-[#FFFCF6] focus:ring-2 focus:ring-[#204434]/15 rounded-xl pl-10 pr-11 py-2.5 text-sm text-[#204434] placeholder-[#315E48]/50 outline-none transition"
                     />
                     <button
                       type="button"
@@ -257,7 +270,7 @@ export default function LoginPage() {
 
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between text-xs pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-[#315E48] hover:text-[#204434] transition">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-[#315E48] hover:text-[#204434] transition font-medium">
                     <input
                       type="checkbox"
                       checked={rememberMe}
@@ -271,7 +284,7 @@ export default function LoginPage() {
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      alert("Vui lòng liên hệ quản trị viên hoặc sử dụng tính năng đặt lại mật khẩu qua email xác nhận.");
+                      alert("Vui lòng liên hệ giáo viên hoặc sử dụng tính năng xác minh qua email.");
                     }}
                     className="text-[#315E48] hover:text-[#204434] hover:underline font-medium"
                   >
@@ -283,7 +296,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-semibold py-3 rounded-xl transition duration-200 shadow-md shadow-[#204434]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 mt-2"
+                  className="w-full bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-semibold py-3 rounded-xl transition duration-200 shadow-md shadow-[#204434]/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 mt-2"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -300,7 +313,7 @@ export default function LoginPage() {
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-[#BC9B6B]/20" />
                   </div>
-                  <span className="relative bg-[#FFFCF6] px-3 text-[11px] text-[#315E48]/70 uppercase tracking-wider">
+                  <span className="relative bg-[#FFFCF6] px-3 text-[11px] text-[#315E48]/70 uppercase tracking-wider font-semibold">
                     Hoặc
                   </span>
                 </div>
@@ -316,7 +329,7 @@ export default function LoginPage() {
 
               {/* Mobile Quick Switcher */}
               <div className="mt-5 pt-4 border-t border-[#BC9B6B]/20 lg:hidden flex items-center justify-between text-xs">
-                <span className="text-[#315E48]">Mẫu thử:</span>
+                <span className="text-[#315E48] font-medium">Mẫu thử:</span>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -342,7 +355,7 @@ export default function LoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-4 text-center text-xs text-[#315E48]/80 z-10">
+      <footer className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-4 text-center text-xs text-[#204434] font-medium z-10 drop-shadow-xs">
         © 2026 Hanyu · Nền tảng học tiếng Trung và Luyện thi HSK 3.0 · Phong cách Thủy Mặc Tối Giản
       </footer>
     </div>
