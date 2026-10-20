@@ -83,10 +83,11 @@ export default function RegisterPage() {
 
       // Lưu thông tin người dùng vào session / localStorage
       localStorage.setItem("currentUser", JSON.stringify(data.user));
+      localStorage.setItem("hanyu_email_verified", "true");
       sessionStorage.setItem("registeredEmail", cleanEmail);
 
-      // Chuyển sang Màn hình 3: Xác minh email
-      router.push(`/verify-email?email=${encodeURIComponent(cleanEmail)}`);
+      // Chuyển thẳng sang Màn hình Thiết lập mục tiêu học tập (Onboarding)
+      router.push("/onboarding");
     } catch {
       setError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.");
       setLoading(false);

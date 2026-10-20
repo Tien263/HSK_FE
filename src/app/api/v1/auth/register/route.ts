@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { generateAndSendOtp } from "@/lib/otp-store";
 
 export async function POST(request: Request) {
   try {
@@ -74,16 +73,9 @@ export async function POST(request: Request) {
       },
     });
 
-    // Tự động sinh và gửi mã OTP cho học viên vừa đăng ký
-    const otpRecord = await generateAndSendOtp(
-      cleanEmail,
-      "Kích hoạt tài khoản học viên mới",
-      6
-    );
-
     return NextResponse.json({
       success: true,
-      message: `Đăng ký tài khoản thành công! Mã OTP xác thực đã được gửi đến email ${cleanEmail}. Vui lòng kiểm tra hộp thư của bạn.`,
+      message: "Đăng ký tài khoản thành công! Tài khoản đã được kích hoạt trực tiếp.",
       user: {
         id: user.id,
         name: user.name,
