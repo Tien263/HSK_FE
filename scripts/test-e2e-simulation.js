@@ -1,5 +1,5 @@
 // Automated E2E test simulating a real student and a real teacher
-const baseUrl = "http://localhost:3000";
+const baseUrl = (process.env.BASE_URL || process.argv[2] || "http://localhost:3000").replace(/\/$/, "");
 
 async function runTests() {
   console.log("=== STARTING REAL STUDENT & REAL TEACHER E2E TEST ===");
@@ -43,6 +43,7 @@ async function runTests() {
       body: JSON.stringify({
         name: "Lê Hoàng Thảo",
         username: testUsername,
+        email: `${testUsername}@example.com`,
         password: "student123",
         role: "STUDENT",
       }),

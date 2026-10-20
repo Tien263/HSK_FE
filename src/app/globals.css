@@ -14,8 +14,8 @@
   --color-lime-accent: #c3dc4e;
   --color-lime-hover: #b3cb40;
   --color-sage-text: #9cb396;
-  --font-sans: var(--font-jakarta), system-ui, -apple-system, sans-serif;
-  --font-serif: var(--font-serif), "Lora", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-serif: "Lora", Georgia, serif;
 }
 
 html {
