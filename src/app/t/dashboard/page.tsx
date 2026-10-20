@@ -3,463 +3,765 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   Home,
   Users,
   BookOpen,
   HelpCircle,
-  PenTool,
   FileCheck2,
-  Send,
   BarChart3,
-  Bell,
-  User,
+  Calendar,
+  Settings,
   Search,
+  Bell,
   Plus,
   ArrowRight,
   ChevronRight,
-  X,
+  ChevronDown,
+  Check,
   CheckCircle2,
+  X,
+  AlertCircle,
+  AlertTriangle,
   Copy,
-  UserPlus,
-  BookMarked,
-  ArrowLeft,
-  Calendar,
+  ExternalLink,
   Clock,
   Sparkles,
-  Award,
-  MoreVertical,
+  Trash2,
+  Edit3,
+  Filter,
+  Download,
+  LogOut,
+  UserPlus,
   FolderArchive,
   FileText,
-  UploadCloud,
-  Download,
-  Trash2,
-  FileSpreadsheet,
-  Presentation,
-  Music,
-  File,
   Layers,
+  Award,
+  Flame,
+  ShieldCheck,
+  RefreshCw,
+  Send,
 } from "lucide-react";
 
+// ============================================================================
+// TYPES & MOCK DATA DEFINITIONS
+// ============================================================================
+
+interface ClassItem {
+  id: string;
+  name: string;
+  track: "HSK" | "TOPIC" | "MAJOR";
+  levelText: string;
+  studentCount: number;
+  completedLessons: number;
+  totalLessons: number;
+  submissionRate: number; // percentage
+  status: "ACTIVE" | "ARCHIVED";
+  artwork: string;
+  code: string;
+  description: string;
+}
+
+interface AssignmentItem {
+  id: string;
+  title: string;
+  classId: string;
+  className: string;
+  submittedCount: number;
+  totalStudents: number;
+  dueAt: string;
+  status: "ACTIVE" | "EXPIRING_SOON" | "CLOSED" | "DRAFT";
+  durationMin: number;
+}
+
+interface ScheduleSession {
+  id: string;
+  timeRange: string;
+  className: string;
+  mode: "ONLINE" | "OFFLINE";
+  location: string;
+  status: "UPCOMING" | "IN_PROGRESS" | "COMPLETED";
+  actionType: "JOIN" | "PREPARE";
+}
+
+interface DueAssignment {
+  id: string;
+  title: string;
+  className: string;
+  dueText: string;
+  urgency: "warning" | "danger" | "normal"; // danger: <24h, warning: <48h, normal: >48h
+  submittedText: string;
+}
+
+interface StudentInNeed {
+  id: string;
+  name: string;
+  avatar: string;
+  className: string;
+  classId: string;
+  reason: string;
+  ruleType: "OVERDUE" | "GRAMMAR_MISTAKE" | "LOW_SCORE";
+  detail: string;
+  recommendedPractice: string;
+}
+
+interface QuestionItem {
+  id: string;
+  content: string;
+  type: "MULTIPLE_CHOICE" | "FILL_BLANK" | "REORDER";
+  hskLevel: number;
+  skill: "VOCABULARY" | "GRAMMAR" | "READING" | "LISTENING";
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
 export default function TeacherDashboard() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const router = useRouter();
+
+  // Navigation state (Spec Section 3: 8 menus)
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "classes" | "lessons" | "assignments" | "questions" | "reports" | "schedule" | "settings"
+  >("overview");
+
+  // Global search & filter
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modals
+  // Testing & Simulation Toggles (Unhappycase & Edgecase Verification)
+  const [simulateNoSchedule, setSimulateNoSchedule] = useState(false);
+  const [simulateNoStudentsInNeed, setSimulateNoStudentsInNeed] = useState(false);
+  const [simulateEmptyClasses, setSimulateEmptyClasses] = useState(false);
+  const [simulateEmptyAssignments, setSimulateEmptyAssignments] = useState(false);
+  const [showTestToolbar, setShowTestToolbar] = useState(false);
+
+  // Notifications State
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([
+    {
+      id: "n1",
+      title: "Học sinh nộp bài tập",
+      desc: "Trần Minh Khang vừa nộp bài 'Từ vựng HSK 3 - Bài 5'",
+      time: "10 phút trước",
+      read: false,
+    },
+    {
+      id: "n2",
+      title: "Nhắc nhở buổi dạy",
+      desc: "Lớp HSK 3A sẽ bắt đầu sau 30 phút nữa (Online)",
+      time: "25 phút trước",
+      read: false,
+    },
+    {
+      id: "n3",
+      title: "Học sinh cần trợ giúp",
+      desc: "Lê Hoàng Nam sai 6 câu liên tiếp về chủ điểm 'Câu chữ 把'",
+      time: "2 giờ trước",
+      read: true,
+    },
+  ]);
+
+  // Toast feedback
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // ============================================================================
+  // CORE DATA STATES
+  // ============================================================================
+
+  // 1. Classes List (with the 3 primary classes featuring the 3 watercolor artworks)
+  const [classesList, setClassesList] = useState<ClassItem[]>([
+    {
+      id: "c1",
+      name: "HSK 3A (Sơ - Trung cấp)",
+      track: "HSK",
+      levelText: "HSK 3.0 · Chuẩn quốc tế",
+      studentCount: 28,
+      completedLessons: 14,
+      totalLessons: 18,
+      submissionRate: 86,
+      status: "ACTIVE",
+      artwork: "/theme/dashboard/card-hsk.webp",
+      code: "HSK3A-2026",
+      description: "Chương trình ngữ pháp và 600 từ vựng cốt lõi HSK 3 mới",
+    },
+    {
+      id: "c2",
+      name: "Tiếng Trung giao tiếp cấp tốc",
+      track: "TOPIC",
+      levelText: "Theo chủ đề · Phản xạ hội thoại",
+      studentCount: 24,
+      completedLessons: 8,
+      totalLessons: 12,
+      submissionRate: 75,
+      status: "ACTIVE",
+      artwork: "/theme/dashboard/card-topic.webp",
+      code: "GT-CAP-TOC",
+      description: "Luyện phát âm, khẩu ngữ đời sống, du lịch và giao thương",
+    },
+    {
+      id: "c3",
+      name: "Tiếng Trung thương mại & Kinh tế",
+      track: "MAJOR",
+      levelText: "Chuyên ngành · Đàm phán xuất nhập khẩu",
+      studentCount: 34,
+      completedLessons: 18,
+      totalLessons: 20,
+      submissionRate: 92,
+      status: "ACTIVE",
+      artwork: "/theme/dashboard/card-major.webp",
+      code: "KT-COMM-88",
+      description: "Hợp đồng, đàm phán thương mại, thanh toán quốc tế và logistics",
+    },
+    {
+      id: "c4",
+      name: "Luyện thi HSK 4 Chuyên sâu",
+      track: "HSK",
+      levelText: "HSK 4 · Đọc hiểu & Viết luận",
+      studentCount: 22,
+      completedLessons: 6,
+      totalLessons: 24,
+      submissionRate: 80,
+      status: "ACTIVE",
+      artwork: "/theme/dashboard/card-hsk.webp",
+      code: "HSK4-INTENSE",
+      description: "Rèn kỹ năng đọc nhanh, phân tích kết cấu câu phức và viết đoạn",
+    },
+  ]);
+
+  // 2. Assignments List
+  const [assignmentsList, setAssignmentsList] = useState<AssignmentItem[]>([
+    {
+      id: "a1",
+      title: "Từ vựng HSK 3 - Bài 5: Sinh hoạt hàng ngày",
+      classId: "c1",
+      className: "HSK 3A (Sơ - Trung cấp)",
+      submittedCount: 24,
+      totalStudents: 28,
+      dueAt: "20/10/2026 23:59",
+      status: "EXPIRING_SOON",
+      durationMin: 30,
+    },
+    {
+      id: "a2",
+      title: "Ngữ pháp bổ trợ: Bổ ngữ kết quả & Bổ ngữ trạng thái",
+      classId: "c2",
+      className: "Tiếng Trung giao tiếp cấp tốc",
+      submittedCount: 18,
+      totalStudents: 24,
+      dueAt: "22/10/2026 21:00",
+      status: "EXPIRING_SOON",
+      durationMin: 45,
+    },
+    {
+      id: "a3",
+      title: "Chuyên đề: 需求与供给 (Cung cầu và Đàm phán giá)",
+      classId: "c3",
+      className: "Tiếng Trung thương mại & Kinh tế",
+      submittedCount: 31,
+      totalStudents: 34,
+      dueAt: "24/10/2026 23:59",
+      status: "ACTIVE",
+      durationMin: 60,
+    },
+    {
+      id: "a4",
+      title: "Kiểm tra giữa kỳ HSK 3 - Đề số 1",
+      classId: "c1",
+      className: "HSK 3A (Sơ - Trung cấp)",
+      submittedCount: 28,
+      totalStudents: 28,
+      dueAt: "15/10/2026 20:00",
+      status: "CLOSED",
+      durationMin: 90,
+    },
+  ]);
+
+  // 3. Schedule Sessions
+  const [scheduleList, setScheduleList] = useState<ScheduleSession[]>([
+    {
+      id: "s1",
+      timeRange: "10:00 – 11:30",
+      className: "HSK 3A (Sơ - Trung cấp)",
+      mode: "ONLINE",
+      location: "Google Meet · meet.google.com/hsk-3a-live",
+      status: "IN_PROGRESS",
+      actionType: "JOIN",
+    },
+    {
+      id: "s2",
+      timeRange: "14:00 – 15:30",
+      className: "Tiếng Trung giao tiếp cấp tốc",
+      mode: "OFFLINE",
+      location: "Phòng học 204 · Cơ sở Hanyu Studio",
+      status: "UPCOMING",
+      actionType: "PREPARE",
+    },
+    {
+      id: "s3",
+      timeRange: "19:00 – 20:30",
+      className: "Tiếng Trung thương mại & Kinh tế",
+      mode: "ONLINE",
+      location: "Phòng Zoom 888 999 66 · Pass: hanyu2026",
+      status: "UPCOMING",
+      actionType: "JOIN",
+    },
+  ]);
+
+  // 4. Due Assignments (Cột phải - Bài tập sắp đến hạn)
+  const dueAssignments: DueAssignment[] = [
+    {
+      id: "a1",
+      title: "Từ vựng HSK 3 - Bài 5: Sinh hoạt hàng ngày",
+      className: "HSK 3A (Sơ - Trung cấp)",
+      dueText: "Còn 1 ngày (Hạn 23:59)",
+      urgency: "warning",
+      submittedText: "24/28 đã nộp (86%)",
+    },
+    {
+      id: "a2",
+      title: "Ngữ pháp bổ trợ: Bổ ngữ kết quả & Trạng thái",
+      className: "Giao tiếp cấp tốc",
+      dueText: "Còn 2 ngày",
+      urgency: "warning",
+      submittedText: "18/24 đã nộp (75%)",
+    },
+    {
+      id: "a3",
+      title: "Thuật ngữ 需求与供给 (Cung cầu thương mại)",
+      className: "Tiếng Trung Kinh tế",
+      dueText: "Còn 4 ngày",
+      urgency: "normal",
+      submittedText: "31/34 đã nộp (92%)",
+    },
+  ];
+
+  // 5. Students in need of pedagogical support (Spec Section 11)
+  const [studentsInNeedList, setStudentsInNeedList] = useState<StudentInNeed[]>([
+    {
+      id: "st-1",
+      name: "Trần Minh Anh",
+      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
+      className: "HSK 3A (Sơ - Trung cấp)",
+      classId: "c1",
+      reason: "Chưa nộp 2 bài liên tiếp",
+      ruleType: "OVERDUE",
+      detail: "Học viên chưa hoàn thành bài tập Bài 4 và Bài 5. Lần đăng nhập cuối: 4 ngày trước.",
+      recommendedPractice: "Bài tập rút gọn: 10 từ vựng cốt lõi & kiểm tra phát âm qua audio",
+    },
+    {
+      id: "st-2",
+      name: "Lê Hoàng Nam",
+      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80",
+      className: "Tiếng Trung giao tiếp cấp tốc",
+      classId: "c2",
+      reason: "Sai 6/10 câu về câu chữ 把 (把字句)",
+      ruleType: "GRAMMAR_MISTAKE",
+      detail: "Thường nhầm vị trí của động từ và tân ngữ khi dùng câu chữ 把 trong ngữ cảnh phủ định.",
+      recommendedPractice: "Phiếu ôn bổ trợ: 8 bài tập điền từ & sửa lỗi câu chữ 把",
+    },
+    {
+      id: "st-3",
+      name: "Phạm Thu Hà",
+      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80",
+      className: "Tiếng Trung thương mại & Kinh tế",
+      classId: "c3",
+      reason: "Điểm 3 bài gần nhất dưới 6.0",
+      ruleType: "LOW_SCORE",
+      detail: "Điểm bài 1: 5.5, bài 2: 5.8, bài 3: 5.2. Điểm yếu chính ở phần thuật ngữ thanh toán quốc tế (L/C, T/T).",
+      recommendedPractice: "Bộ flashcard thuật ngữ thanh toán + 5 câu tình huống thực hành",
+    },
+  ]);
+
+  // 6. Question Bank (Kho câu hỏi)
+  const [questionsList, setQuestionsList] = useState<QuestionItem[]>([
+    {
+      id: "q1",
+      content: "请把这封信_____经理的办公室。(Hãy mang bức thư này đến văn phòng giám đốc)",
+      type: "MULTIPLE_CHOICE",
+      hskLevel: 3,
+      skill: "GRAMMAR",
+      options: ["A. 送到", "B. 看了", "C. 听见", "D. 知道"],
+      correctAnswer: "A",
+      explanation: "Cấu trúc 把 + tân ngữ + động từ + 到/在: biểu thị sự di chuyển của vật.",
+    },
+    {
+      id: "q2",
+      content: "我昨天买的苹果比今天的_____。(Táo hôm qua tôi mua ngọt hơn hôm nay)",
+      type: "MULTIPLE_CHOICE",
+      hskLevel: 3,
+      skill: "GRAMMAR",
+      options: ["A. 甜", "B. 很大", "C. 非常好", "D. 不太"],
+      correctAnswer: "A",
+      explanation: "Trong câu so sánh chữ 比, không dùng các phó từ chỉ mức độ như 很, 非常 trước tính từ.",
+    },
+    {
+      id: "q3",
+      content: "经过双方友好协商，我们终于_____了这项重要合同。(Qua đàm phán, chúng tôi đã ký hợp đồng)",
+      type: "FILL_BLANK",
+      hskLevel: 4,
+      skill: "VOCABULARY",
+      correctAnswer: "签署 (hoặc 签)",
+      explanation: "签署合同: ký kết hợp đồng thương mại.",
+    },
+  ]);
+
+  // ============================================================================
+  // MODALS STATE MANAGEMENT
+  // ============================================================================
+
+  // Modal 1: Create Lesson
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
+  const [lessonTitle, setLessonTitle] = useState("");
+  const [lessonTrack, setLessonTrack] = useState<"HSK" | "TOPIC" | "MAJOR">("HSK");
+  const [lessonHskLevel, setLessonHskLevel] = useState(3);
+  const [lessonVocabInput, setLessonVocabInput] = useState("");
+  const [lessonGrammarInput, setLessonGrammarInput] = useState("");
+  const [lessonErrors, setLessonErrors] = useState<Record<string, string>>({});
+
+  // Modal 2: Create Assignment
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+  const [assignTitle, setAssignTitle] = useState("");
+  const [assignClassId, setAssignClassId] = useState("c1");
+  const [assignDuration, setAssignDuration] = useState(30);
+  const [assignDueDate, setAssignDueDate] = useState("2026-10-25T23:59");
+  const [assignErrors, setAssignErrors] = useState<Record<string, string>>({});
+
+  // Modal 3: Create Class
   const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
-  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
-  const [isUploadMatModalOpen, setIsUploadMatModalOpen] = useState(false);
-
-  // Materials Library states
-  const [materialsList, setMaterialsList] = useState<any[]>([]);
-  const [materialsStats, setMaterialsStats] = useState<any>({
-    total: 0,
-    vocabulary: 0,
-    grammar: 0,
-    slide: 0,
-    textbook: 0,
-    audio: 0,
-  });
-  const [selectedMatType, setSelectedMatType] = useState("ALL");
-  const [selectedMatHsk, setSelectedMatHsk] = useState("ALL");
-  const [matSearch, setMatSearch] = useState("");
-  const [uploadingMat, setUploadingMat] = useState(false);
-
-  // Form states: Upload Material
-  const [newMatTitle, setNewMatTitle] = useState("");
-  const [newMatType, setNewMatType] = useState<"VOCABULARY" | "GRAMMAR" | "SLIDE" | "TEXTBOOK" | "AUDIO" | "OTHER">("VOCABULARY");
-  const [newMatHsk, setNewMatHsk] = useState(1);
-  const [newMatClassId, setNewMatClassId] = useState("");
-  const [newMatFileName, setNewMatFileName] = useState("");
-  const [newMatFileSize, setNewMatFileSize] = useState("5.2 MB");
-  const [newMatDesc, setNewMatDesc] = useState("");
-
-  // Class Management Workspace states
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [selectedClassData, setSelectedClassData] = useState<any | null>(null);
-  const [classSubTab, setClassSubTab] = useState<"students" | "assignments" | "materials">("students");
-
-  // Form states: Create Class
   const [newClassName, setNewClassName] = useState("");
-  const [newClassLevel, setNewClassLevel] = useState(1);
+  const [newClassTrack, setNewClassTrack] = useState<"HSK" | "TOPIC" | "MAJOR">("HSK");
+  const [newClassLevel, setNewClassLevel] = useState(3);
   const [newClassDesc, setNewClassDesc] = useState("");
+  const [classErrors, setClassErrors] = useState<Record<string, string>>({});
 
-  // Form states: Add Student
+  // Modal 4: Issue Student Account (Cấp tài khoản học viên)
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [targetClassForStudent, setTargetClassForStudent] = useState("c1");
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentUsername, setNewStudentUsername] = useState("");
-  const [newStudentPassword, setNewStudentPassword] = useState("123456");
-  const [copiedNotice, setCopiedNotice] = useState(false);
-  const [justCreatedStudent, setJustCreatedStudent] = useState<any | null>(null);
+  const [newStudentPassword, setNewStudentPassword] = useState("Hanyu123@");
+  const [studentFormErrors, setStudentFormErrors] = useState<Record<string, string>>({});
+  const [issuedStudentSuccess, setIssuedStudentSuccess] = useState<any | null>(null);
 
-  // Form states: Create Lesson & Assignment & Question
-  const [newLessonTitle, setNewLessonTitle] = useState("");
-  const [newLessonHsk, setNewLessonHsk] = useState(1);
-  const [newAssignTitle, setNewAssignTitle] = useState("");
-  const [newAssignClassId, setNewAssignClassId] = useState("");
+  // Modal 5: View Assignment Submissions
+  const [selectedAssignmentForView, setSelectedAssignmentForView] = useState<AssignmentItem | null>(null);
+
+  // Modal 6: Student Support Diagnostic & Tailored Homework
+  const [selectedStudentForSupport, setSelectedStudentForSupport] = useState<StudentInNeed | null>(null);
+  const [assignedRemedialNotice, setAssignedRemedialNotice] = useState(false);
+
+  // Modal 7: Create Question
+  const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const [newQContent, setNewQContent] = useState("");
-  const [newQCorrect, setNewQCorrect] = useState("A");
-  const [newQSkill, setNewQSkill] = useState("VOCABULARY");
+  const [newQType, setNewQType] = useState<"MULTIPLE_CHOICE" | "FILL_BLANK" | "REORDER">("MULTIPLE_CHOICE");
+  const [newQHsk, setNewQHsk] = useState(3);
+  const [newQSkill, setNewQSkill] = useState<"VOCABULARY" | "GRAMMAR" | "READING" | "LISTENING">("GRAMMAR");
+  const [newQCorrect, setNewQCorrect] = useState("");
+  const [newQExpl, setNewQExpl] = useState("");
+  const [questionErrors, setQuestionErrors] = useState<Record<string, string>>({});
 
-  // Data states from DB
-  const [overviewData, setOverviewData] = useState<any>(null);
-  const [classesList, setClassesList] = useState<any[]>([]);
-  const [lessonsList, setLessonsList] = useState<any[]>([]);
-  const [assignmentsList, setAssignmentsList] = useState<any[]>([]);
-  const [questionsList, setQuestionsList] = useState<any[]>([]);
-  const [studentsList, setStudentsList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Active Class Detail Workspace (when clicked a class card)
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [classSubTab, setClassSubTab] = useState<"students" | "assignments" | "materials">("students");
 
-  // Fetch initial data
-  const fetchData = async () => {
-    try {
-      const [resOverview, resClasses, resLessons, resAssignments] = await Promise.all([
-        fetch("/api/v1/reports/overview").then((r) => r.json()),
-        fetch("/api/v1/classes").then((r) => r.json()),
-        fetch("/api/v1/lessons").then((r) => r.json()),
-        fetch("/api/v1/assignments").then((r) => r.json()),
-      ]);
+  // ============================================================================
+  // FORM HANDLERS & VALIDATIONS (HAPPY CASE & UNHAPPY CASE)
+  // ============================================================================
 
-      if (resOverview.success) setOverviewData(resOverview.data);
-      if (resClasses.success) {
-        setClassesList(resClasses.items);
-        if (resClasses.items.length > 0 && !newAssignClassId) {
-          setNewAssignClassId(resClasses.items[0].id);
-        }
-      }
-      if (resLessons.success) setLessonsList(resLessons.items);
-      if (resAssignments.success) setAssignmentsList(resAssignments.items);
-
-      setLoading(false);
-    } catch (e) {
-      console.error(e);
-      setLoading(false);
+  // 1. Submit New Lesson
+  const handleSaveLesson = (isDraft: boolean) => {
+    const errors: Record<string, string> = {};
+    if (!lessonTitle.trim()) {
+      errors.title = "Vui lòng nhập tiêu đề bài học.";
     }
-  };
-
-  const fetchMaterials = async () => {
-    try {
-      const q = new URLSearchParams();
-      if (selectedMatType !== "ALL") q.set("type", selectedMatType);
-      if (selectedMatHsk !== "ALL") q.set("hskLevel", selectedMatHsk);
-      if (matSearch) q.set("search", matSearch);
-
-      const res = await fetch(`/api/v1/materials?${q.toString()}`).then((r) => r.json());
-      if (res.success) {
-        setMaterialsList(res.items);
-        if (res.stats) setMaterialsStats(res.stats);
-      }
-    } catch (e) {
-      console.error("fetchMaterials error:", e);
+    if (lessonTitle.trim().length > 0 && lessonTitle.trim().length < 5) {
+      errors.title = "Tiêu đề bài học quá ngắn (tối thiểu 5 ký tự).";
     }
-  };
 
-  useEffect(() => {
-    fetchData();
-    fetchMaterials();
-  }, []);
-
-  useEffect(() => {
-    fetchMaterials();
-  }, [selectedMatType, selectedMatHsk, matSearch, activeTab]);
-
-  // Fetch tab-specific data when tab changes
-  useEffect(() => {
-    if (activeTab === "questions" || activeTab === "create-question") {
-      fetch("/api/v1/questions")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success) setQuestionsList(data.items);
-        });
-    } else if (activeTab === "students") {
-      fetch("/api/v1/students")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success) setStudentsList(data.items);
-        });
+    if (Object.keys(errors).length > 0) {
+      setLessonErrors(errors);
+      return;
     }
-  }, [activeTab]);
 
-  const handleCreateMaterial = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setUploadingMat(true);
-    try {
-      const res = await fetch("/api/v1/materials", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newMatTitle,
-          type: newMatType,
-          hskLevel: newMatHsk,
-          classId: newMatClassId || null,
-          fileName: newMatFileName || `${newMatTitle.replace(/\s+/g, "_")}.${newMatType === "SLIDE" ? "pptx" : newMatType === "VOCABULARY" ? "xlsx" : newMatType === "AUDIO" ? "mp3" : "pdf"}`,
-          fileSize: newMatFileSize || "5.2 MB",
-          description: newMatDesc,
-          uploadedBy: "Cô Ning Ning",
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsUploadMatModalOpen(false);
-        setNewMatTitle("");
-        setNewMatDesc("");
-        setNewMatFileName("");
-        fetchMaterials();
-        alert("🎉 Đã lưu tài liệu thành công vào Kho thư viện!");
-      } else {
-        alert("Lỗi: " + data.message);
-      }
-    } catch {
-      alert("Lỗi kết nối khi tải lên tài liệu.");
-    } finally {
-      setUploadingMat(false);
+    // Happy Case
+    setLessonErrors({});
+    setIsLessonModalOpen(false);
+    showToast(
+      isDraft
+        ? `📝 Đã lưu nháp bài học: "${lessonTitle}"`
+        : `🎉 Đã xuất bản bài học mới: "${lessonTitle}" cho hệ thống!`
+    );
+    setLessonTitle("");
+    setLessonVocabInput("");
+    setLessonGrammarInput("");
+  };
+
+  // 2. Submit New Assignment
+  const handleSaveAssignment = () => {
+    const errors: Record<string, string> = {};
+    if (!assignTitle.trim()) {
+      errors.title = "Vui lòng nhập tên bài tập / đề kiểm tra.";
     }
-  };
-
-  const handleDeleteMaterial = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này khỏi thư viện?")) return;
-    try {
-      setMaterialsList((prev) => prev.filter((m) => m.id !== id));
-      const res = await fetch(`/api/v1/materials?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        await fetchMaterials();
-      } else {
-        alert("Lỗi khi xóa: " + data.message);
-        await fetchMaterials();
-      }
-    } catch (e) {
-      console.error("handleDeleteMaterial error:", e);
-      alert("Lỗi kết nối khi xóa tài liệu.");
-      await fetchMaterials();
+    if (!assignClassId) {
+      errors.classId = "Vui lòng chọn lớp học tiếp nhận.";
     }
-  };
-
-  // Open class detail workspace
-  const handleOpenClass = async (classId: string) => {
-    setSelectedClassId(classId);
-    setClassSubTab("students");
-    setJustCreatedStudent(null);
-    try {
-      const res = await fetch(`/api/v1/classes/${classId}`);
-      const data = await res.json();
-      if (data.success) {
-        setSelectedClassData(data.class);
-      }
-    } catch {}
-  };
-
-  const handleBackToClassesList = () => {
-    setSelectedClassId(null);
-    setSelectedClassData(null);
-    setJustCreatedStudent(null);
-  };
-
-  // Create class handler
-  const handleCreateClass = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/api/v1/classes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newClassName,
-          level: Number(newClassLevel),
-          description: newClassDesc,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsCreateClassModalOpen(false);
-        setNewClassName("");
-        setNewClassDesc("");
-        const cRes = await fetch("/api/v1/classes").then((r) => r.json());
-        if (cRes.success) setClassesList(cRes.items);
-        handleOpenClass(data.item.id);
-      }
-    } catch {
-      alert("Lỗi kết nối khi tạo lớp học.");
+    if (!assignDueDate) {
+      errors.dueDate = "Vui lòng thiết lập hạn nộp bài.";
     }
-  };
 
-  // Add student handler
-  const handleAddStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedClassId) return;
-
-    try {
-      const res = await fetch(`/api/v1/classes/${selectedClassId}/students`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newStudentName,
-          username: newStudentUsername,
-          password: newStudentPassword,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setJustCreatedStudent(data.student);
-        setIsAddStudentModalOpen(false);
-        setNewStudentName("");
-        setNewStudentUsername("");
-        setNewStudentPassword("123456");
-
-        const clRes = await fetch(`/api/v1/classes/${selectedClassId}`).then((r) => r.json());
-        if (clRes.success) setSelectedClassData(clRes.class);
-
-        const allClRes = await fetch("/api/v1/classes").then((r) => r.json());
-        if (allClRes.success) setClassesList(allClRes.items);
-      } else {
-        alert("Lỗi: " + data.message);
-      }
-    } catch {
-      alert("Lỗi kết nối khi cấp tài khoản học sinh.");
+    if (Object.keys(errors).length > 0) {
+      setAssignErrors(errors);
+      return;
     }
+
+    const targetClass = classesList.find((c) => c.id === assignClassId);
+    const newAss: AssignmentItem = {
+      id: `a-${Date.now()}`,
+      title: assignTitle.trim(),
+      classId: assignClassId,
+      className: targetClass ? targetClass.name : "Lớp học",
+      submittedCount: 0,
+      totalStudents: targetClass ? targetClass.studentCount : 25,
+      dueAt: assignDueDate.replace("T", " "),
+      status: "ACTIVE",
+      durationMin: Number(assignDuration) || 30,
+    };
+
+    setAssignmentsList([newAss, ...assignmentsList]);
+    setAssignErrors({});
+    setIsAssignModalOpen(false);
+    setAssignTitle("");
+    showToast(`✅ Đã giao bài tập "${newAss.title}" cho lớp ${newAss.className}!`);
   };
 
-  // Copy credentials helper
-  const handleCopyCredentials = (s: any) => {
-    const text = `🎉 Chào em ${s.name}! Cô Ning Ning gửi em thông tin tài khoản đăng nhập vào lớp tiếng Trung:\n🔗 Link đăng nhập: http://localhost:3000/login\n👤 Tên đăng nhập: ${s.username}\n🔑 Mật khẩu: ${s.password || "123456"}\nChúc em học tập thật tốt cùng cô nhé! 加油!💪`;
+  // 3. Submit New Class
+  const handleSaveClass = () => {
+    const errors: Record<string, string> = {};
+    if (!newClassName.trim()) {
+      errors.name = "Vui lòng nhập tên lớp học.";
+    }
+    if (classesList.some((c) => c.name.toLowerCase() === newClassName.trim().toLowerCase())) {
+      errors.name = "Tên lớp này đã tồn tại trong danh sách lớp của cô.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setClassErrors(errors);
+      return;
+    }
+
+    const uniqueCode = `${newClassTrack === "HSK" ? "HSK" + newClassLevel : newClassTrack}-${Math.floor(
+      1000 + Math.random() * 9000
+    )}`;
+
+    const newCl: ClassItem = {
+      id: `c-${Date.now()}`,
+      name: newClassName.trim(),
+      track: newClassTrack,
+      levelText:
+        newClassTrack === "HSK"
+          ? `HSK ${newClassLevel} · Chuẩn quốc tế`
+          : newClassTrack === "TOPIC"
+          ? "Theo chủ đề · Giao tiếp"
+          : "Chuyên ngành thương mại",
+      studentCount: 0,
+      completedLessons: 0,
+      totalLessons: 15,
+      submissionRate: 0,
+      status: "ACTIVE",
+      artwork:
+        newClassTrack === "HSK"
+          ? "/theme/dashboard/card-hsk.webp"
+          : newClassTrack === "TOPIC"
+          ? "/theme/dashboard/card-topic.webp"
+          : "/theme/dashboard/card-major.webp",
+      code: uniqueCode,
+      description: newClassDesc || "Lớp học mới được khởi tạo",
+    };
+
+    setClassesList([newCl, ...classesList]);
+    setClassErrors({});
+    setIsCreateClassModalOpen(false);
+    setNewClassName("");
+    setNewClassDesc("");
+    showToast(`🎉 Đã tạo lớp mới thành công! Mã tham gia lớp: ${uniqueCode}`);
+  };
+
+  // 4. Issue Student Account
+  const handleIssueStudent = () => {
+    const errors: Record<string, string> = {};
+    if (!newStudentName.trim()) {
+      errors.name = "Vui lòng nhập họ và tên học viên.";
+    }
+    if (!newStudentUsername.trim()) {
+      errors.username = "Vui lòng nhập tên đăng nhập (username).";
+    } else if (/\s/.test(newStudentUsername.trim())) {
+      errors.username = "Tên đăng nhập không được chứa khoảng trắng.";
+    }
+    if (!newStudentPassword || newStudentPassword.length < 6) {
+      errors.password = "Mật khẩu tối thiểu 6 ký tự.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setStudentFormErrors(errors);
+      return;
+    }
+
+    const targetClass = classesList.find((c) => c.id === targetClassForStudent);
+    const issued = {
+      name: newStudentName.trim(),
+      username: newStudentUsername.trim().toLowerCase(),
+      password: newStudentPassword,
+      className: targetClass?.name || "Lớp HSK",
+      classCode: targetClass?.code || "HSK3-2026",
+      createdAt: new Date().toLocaleDateString("vi-VN"),
+    };
+
+    // Increase student count in that class
+    setClassesList((prev) =>
+      prev.map((c) => (c.id === targetClassForStudent ? { ...c, studentCount: c.studentCount + 1 } : c))
+    );
+
+    setStudentFormErrors({});
+    setIssuedStudentSuccess(issued);
+    setNewStudentName("");
+    setNewStudentUsername("");
+    showToast(`✅ Cấp tài khoản cho học viên ${issued.name} thành công!`);
+  };
+
+  // 5. Submit New Question
+  const handleSaveQuestion = () => {
+    const errors: Record<string, string> = {};
+    if (!newQContent.trim()) {
+      errors.content = "Nội dung câu hỏi không được để trống.";
+    }
+    if (!newQCorrect.trim()) {
+      errors.correct = "Vui lòng chỉ định đáp án chính xác.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setQuestionErrors(errors);
+      return;
+    }
+
+    const qItem: QuestionItem = {
+      id: `q-${Date.now()}`,
+      content: newQContent.trim(),
+      type: newQType,
+      hskLevel: newQHsk,
+      skill: newQSkill,
+      correctAnswer: newQCorrect.trim(),
+      explanation: newQExpl.trim() || "Chưa có lời giải thích chi tiết.",
+    };
+
+    setQuestionsList([qItem, ...questionsList]);
+    setQuestionErrors({});
+    setIsQuestionModalOpen(false);
+    setNewQContent("");
+    setNewQCorrect("");
+    setNewQExpl("");
+    showToast("🎉 Đã thêm câu hỏi vào Kho câu hỏi của tôi!");
+  };
+
+  // Copy helper
+  const copyToClipboard = (text: string, noticeText: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedNotice(true);
-    setTimeout(() => setCopiedNotice(false), 3000);
+    showToast(noticeText);
   };
 
-  const handleCreateLesson = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/api/v1/lessons", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newLessonTitle,
-          hskLevel: Number(newLessonHsk),
-          lessonNumber: lessonsList.length + 1,
-        }),
-      });
-      if (res.ok) {
-        setIsLessonModalOpen(false);
-        setNewLessonTitle("");
-        const lRes = await fetch("/api/v1/lessons").then((r) => r.json());
-        if (lRes.success) setLessonsList(lRes.items);
-      }
-    } catch {
-      setIsLessonModalOpen(false);
-    }
-  };
+  // Filtered lists for search
+  const visibleClasses = simulateEmptyClasses
+    ? []
+    : classesList.filter(
+        (c) =>
+          c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.code.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
-  const handleCreateAssign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const targetClass = selectedClassId || newAssignClassId || (classesList[0] && classesList[0].id);
-      const res = await fetch("/api/v1/assignments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newAssignTitle,
-          classId: targetClass,
-          durationMin: 30,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsAssignModalOpen(false);
-        setNewAssignTitle("");
-        const aRes = await fetch("/api/v1/assignments").then((r) => r.json());
-        if (aRes.success) setAssignmentsList(aRes.items);
+  const visibleAssignments = simulateEmptyAssignments
+    ? []
+    : assignmentsList.filter(
+        (a) =>
+          a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          a.className.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
-        if (selectedClassId) {
-          const clRes = await fetch(`/api/v1/classes/${selectedClassId}`).then((r) => r.json());
-          if (clRes.success) setSelectedClassData(clRes.class);
-        }
-      } else {
-        alert("Lỗi: " + data.message);
-      }
-    } catch {
-      alert("Lỗi kết nối máy chủ.");
-    }
-  };
+  const visibleSchedule = simulateNoSchedule ? [] : scheduleList;
+  const visibleStudentsInNeed = simulateNoStudentsInNeed ? [] : studentsInNeedList;
+
+  // Selected Class Object
+  const currentSelectedClass = classesList.find((c) => c.id === selectedClassId);
 
   return (
-    <div className="min-h-screen bg-[#f7f4ee] text-[#1e2e22] flex font-sans antialiased selection:bg-[#1a3d2f] selection:text-white">
-      {/* ===================== SIDEBAR (Matching Mockup 2) ===================== */}
-      <aside className="w-64 bg-[#fbf9f4] border-r border-[#e6decb] flex flex-col justify-between shrink-0 fixed inset-y-0 left-0 z-40 hidden lg:flex">
-        <div>
+    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6] flex">
+      {/* ========================================================================= */}
+      {/* 1. SIDEBAR TRÁI: DÙNG PHONG CẢNH THỦY MẶC DƯỚI MENU (GIỐNG HỌC SINH & SPEC) */}
+      {/* ========================================================================= */}
+      <aside className="fixed inset-y-0 left-0 w-64 bg-[#F8F5ED] border-r border-[#E5DEC9] z-40 hidden lg:flex flex-col justify-between shadow-xs overflow-hidden">
+        {/* Background Artwork: phong_cảnh_thủy_mặc_giữa_sương_mờ.png spanning full sidebar */}
+        <div
+          className="absolute inset-0 w-full h-full pointer-events-none z-0 bg-bottom bg-no-repeat bg-cover opacity-85 mix-blend-multiply transition-opacity duration-300"
+          style={{ backgroundImage: `url('/theme/dashboard/sidebar-bg.webp')` }}
+        />
+
+        {/* Content Container (z-10 ensures no text/buttons are obscured) */}
+        <div className="relative z-10 flex flex-col flex-1">
           {/* Logo Brand Header */}
-          <div className="h-24 px-6 flex flex-col justify-center border-b border-[#eee8dc]">
-            <Link href="/" className="flex items-center gap-2 mb-1">
-              <span className="font-serif font-black text-2xl text-[#1a3d2f] tracking-tight">
-                Hanyu
-              </span>
-              <div className="w-6 h-6 rounded-md bg-[#b91c1c] text-white flex items-center justify-center text-[10px] font-serif font-bold shadow-2xs">
-                汉语
+          <div className="h-20 px-6 flex items-center gap-3 border-b border-[#E5DEC9]/60">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="w-9 h-9 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-lg font-bold shadow-xs group-hover:scale-105 transition-transform">
+                <span>宁</span>
+              </div>
+              <div className="leading-tight">
+                <div className="font-serif font-bold text-lg text-[#204434] tracking-tight">Hanyu Teacher</div>
+                <div className="text-[9px] text-[#315E48] font-bold tracking-[0.16em] uppercase">
+                  KHÔNG GIAN GIÁO VIÊN
+                </div>
               </div>
             </Link>
-            <span className="text-[11px] text-[#6b8271] block font-sans">
-              Tiếng Trung dễ hơn với phương pháp hiện đại
-            </span>
           </div>
 
-          {/* Navigation Links (Matching Mockup 2 Menu Items) */}
-          <nav className="p-3.5 space-y-1 text-[13px] font-medium">
-            <button
-              onClick={() => {
-                setActiveTab("overview");
-                setSelectedClassId(null);
-              }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition cursor-pointer font-bold ${
-                activeTab === "overview" && !selectedClassId
-                  ? "bg-[#1a3d2f] text-white shadow-sm"
-                  : "text-[#5c7363] hover:bg-[#eee8dc] hover:text-[#1a3d2f]"
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Trang chủ</span>
-            </button>
-
+          {/* Nav List (Spec Section 3: 8 menus) */}
+          <nav className="p-3.5 space-y-1 text-xs font-medium">
             {[
-              { id: "classes", label: "Lớp học", icon: Users },
-              { id: "materials", label: "Thư viện tài liệu", icon: FolderArchive, badge: materialsStats.total },
+              { id: "overview", label: "Tổng quan", icon: Home },
+              { id: "classes", label: "Lớp học", icon: Users, badge: classesList.length },
               { id: "lessons", label: "Kho bài học", icon: BookOpen },
-              { id: "questions", label: "Ngân hàng câu hỏi", icon: HelpCircle },
-              { id: "create-question", label: "Tự tạo câu hỏi", icon: PenTool },
-              { id: "assignments", label: "Bài tập & kiểm tra", icon: FileCheck2 },
-              { id: "assign-quick", label: "Giao bài", icon: Send },
-              { id: "reports", label: "Kết quả học tập", icon: BarChart3 },
-              { id: "notifications", label: "Thông báo", icon: Bell, badge: 3 },
-              { id: "account", label: "Tài khoản", icon: User },
+              { id: "assignments", label: "Bài tập & Kiểm tra", icon: FileCheck2, badge: assignmentsList.length },
+              { id: "questions", label: "Kho câu hỏi của tôi", icon: HelpCircle, badge: questionsList.length },
+              { id: "reports", label: "Báo cáo học tập", icon: BarChart3 },
+              { id: "schedule", label: "Lịch dạy & Hạn nộp", icon: Calendar, badge: 3 },
+              { id: "settings", label: "Hồ sơ & Cài đặt", icon: Settings },
             ].map((item) => {
               const Icon = item.icon;
-              const isSelected = activeTab === item.id;
+              const isSelected = activeTab === item.id && !selectedClassId;
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => {
-                    if (item.id === "assign-quick") {
-                      setIsAssignModalOpen(true);
-                    } else if (item.id === "create-question") {
-                      setIsQuestionModalOpen(true);
-                    } else {
-                      setActiveTab(item.id);
-                      if (item.id !== "classes") setSelectedClassId(null);
-                    }
+                    setActiveTab(item.id as any);
+                    setSelectedClassId(null);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl transition cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition cursor-pointer text-left ${
                     isSelected
-                      ? "bg-[#1a3d2f] text-white font-bold shadow-sm"
-                      : "text-[#5c7363] hover:bg-[#eee8dc] hover:text-[#1a3d2f]"
+                      ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                      : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 stroke-[1.75]" />
-                    <span>{item.label}</span>
+                    <Icon className="w-4 h-4 stroke-[1.9]" />
+                    <span className="text-xs font-semibold">{item.label}</span>
                   </div>
-                  {item.badge && (
-                    <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  {item.badge !== undefined && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        isSelected ? "bg-white/20 text-white" : "bg-[#204434]/10 text-[#204434]"
+                      }`}
+                    >
                       {item.badge}
                     </span>
                   )}
@@ -467,71 +769,137 @@ export default function TeacherDashboard() {
               );
             })}
           </nav>
+
+          {/* Quick Privacy Notice for Teacher (Spec Section 1 & 13) */}
+          <div className="mx-3.5 mt-2 p-3 rounded-2xl bg-white/70 border border-[#E5DEC9] text-[10px] text-[#315E48] leading-relaxed shadow-2xs backdrop-blur-xs">
+            <div className="flex items-center gap-1.5 font-bold text-[#204434] mb-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#204434]" />
+              <span>Quyền riêng tư lớp học</span>
+            </div>
+            Giáo viên chỉ quản lý kết quả học tập thuộc lớp mình phụ trách; không xem hoạt động tự học riêng của học viên.
+          </div>
         </div>
 
-        {/* Bottom Profile Info */}
-        <div className="p-4 border-t border-[#eee8dc]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full overflow-hidden bg-emerald-100 border border-[#bfe4ca] relative shrink-0">
+        {/* User Card & Logout (Bottom of Sidebar) */}
+        <div className="relative z-10 p-3.5 pt-0">
+          <div className="p-2.5 rounded-2xl bg-[#FFFCF6]/95 border border-[#E5DEC9] shadow-xs flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-full overflow-hidden bg-[#204434]/10 border border-[#BC9B6B]/40 relative shrink-0">
                 <Image
                   src="/theme/avatar-teacher.jpg"
-                  alt="Cô Lan"
+                  alt="Teacher"
                   fill
                   className="object-cover object-top"
                 />
               </div>
-              <div className="leading-tight">
-                <span className="font-bold text-xs text-[#1e2e22] block">Cô Ning Ning</span>
-                <span className="text-[10px] text-[#6b8271] block">Giáo viên phụ trách</span>
+              <div className="leading-tight truncate">
+                <span className="font-bold text-xs text-[#204434] block truncate">Cô Nguyễn Thị Ninh</span>
+                <span className="text-[10px] text-[#315E48] block">Giáo viên · Hanyu</span>
               </div>
             </div>
-            <Link
-              href="/login"
-              className="text-xs font-semibold text-red-700 hover:underline"
-              title="Đăng xuất"
+            <button
+              onClick={() => setActiveTab("settings")}
+              className="text-[#315E48] hover:text-[#204434] p-1 cursor-pointer"
+              title="Cài đặt tài khoản"
             >
-              Thoát
-            </Link>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
+
+          <Link
+            href="/login"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#9D493E] hover:bg-white/80 transition cursor-pointer border border-transparent hover:border-[#E5DEC9]"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Đăng xuất khỏi hệ thống</span>
+          </Link>
         </div>
       </aside>
 
-      {/* ===================== MAIN CONTENT ===================== */}
+      {/* ========================================================================= */}
+      {/* MAIN CONTENT AREA */}
+      {/* ========================================================================= */}
       <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
-        {/* Top Header */}
-        <header className="h-20 bg-[#fbf9f4]/80 backdrop-blur-md border-b border-[#e6decb] px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30">
-          {/* Search bar */}
-          <div className="relative w-72 lg:w-96 hidden sm:block">
-            <Search className="w-4 h-4 text-[#8ea394] absolute left-3.5 top-1/2 -translate-y-1/2" />
+        {/* Top Header (Spec Section 4: Search, Bell, Profile) */}
+        <header className="h-20 bg-[#F8F5ED]/90 backdrop-blur-md border-b border-[#E5DEC9] px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30">
+          {/* Search bar with permission scope */}
+          <div className="relative w-80 lg:w-[420px]">
+            <Search className="w-4 h-4 text-[#315E48] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm lớp học, bài học, học viên..."
-              className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] focus:bg-white rounded-xl pl-10 pr-4 py-2 text-xs text-[#1e2e22] placeholder-[#8ea394] outline-none transition"
+              placeholder="🔍 Tìm lớp học, học sinh, bài học, câu hỏi..."
+              className="w-full bg-[#FFFCF6] border border-[#E5DEC9] focus:border-[#204434] focus:ring-1 focus:ring-[#204434] rounded-2xl pl-10 pr-4 py-2.5 text-xs text-[#204434] placeholder-[#8ea394] outline-none transition shadow-2xs"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Right Header User Avatar */}
-          <div className="flex items-center gap-4 ml-auto">
-            <Link
-              href="/"
-              className="text-xs text-[#5c7363] hover:text-[#1a3d2f] font-semibold px-2 py-1 transition hidden sm:inline"
-            >
-              Về Trang chủ
-            </Link>
-
+          {/* Right Header: Notification Bell & Quick Actions */}
+          <div className="flex items-center gap-3">
+            {/* Quick Testing Bar Trigger */}
             <button
-              type="button"
-              className="relative w-9 h-9 rounded-xl bg-[#f4eee4] text-[#5c7363] hover:text-[#1a3d2f] flex items-center justify-center transition border border-[#e2dac9]"
+              onClick={() => setShowTestToolbar(!showTestToolbar)}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#E5DEC9]/50 hover:bg-[#E5DEC9] text-[#204434] text-[11px] font-semibold transition"
+              title="Mở thanh kiểm thử Happycase & Unhappycase"
             >
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-600" />
+              <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+              <span>Kiểm thử Cases</span>
             </button>
 
-            <div className="flex items-center gap-2.5 pl-2 border-l border-[#e2dac9]">
-              <div className="w-9 h-9 rounded-full overflow-hidden border border-[#bfe4ca] relative shrink-0">
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="w-10 h-10 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center relative transition cursor-pointer shadow-2xs"
+                title="Thông báo"
+              >
+                <Bell className="w-4 h-4" />
+                {notifications.some((n) => !n.read) && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#9D493E] absolute top-2.5 right-2.5 border-2 border-[#FFFCF6]" />
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-lg p-3 z-50">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E5DEC9]">
+                    <span className="font-bold text-xs text-[#204434]">Thông báo mới ({notifications.length})</span>
+                    <button
+                      onClick={() =>
+                        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+                      }
+                      className="text-[10px] text-[#315E48] hover:underline"
+                    >
+                      Đánh dấu đã đọc
+                    </button>
+                  </div>
+                  <div className="divide-y divide-[#E5DEC9]/50 max-h-64 overflow-y-auto">
+                    {notifications.map((n) => (
+                      <div key={n.id} className="py-2.5 px-1 hover:bg-[#F8F5ED] rounded-lg transition">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="font-bold text-xs text-[#204434]">{n.title}</span>
+                          <span className="text-[10px] text-[#8ea394]">{n.time}</span>
+                        </div>
+                        <p className="text-[11px] text-[#315E48]">{n.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Teacher Pill */}
+            <div className="flex items-center gap-2.5 pl-2 border-l border-[#E5DEC9]">
+              <div className="w-9 h-9 rounded-full overflow-hidden border border-[#BC9B6B]/40 relative shrink-0">
                 <Image
                   src="/theme/avatar-teacher.jpg"
                   alt="Teacher"
@@ -540,1055 +908,1196 @@ export default function TeacherDashboard() {
                 />
               </div>
               <div className="leading-tight hidden sm:block">
-                <span className="font-bold text-xs text-[#1e2e22] block">Cô Ning Ning</span>
-                <span className="text-[10px] text-[#6b8271] block">Giáo viên</span>
+                <span className="font-bold text-xs text-[#204434] block">Cô Nguyễn Thị Ninh</span>
+                <span className="text-[10px] text-[#315E48] block">Giáo viên phụ trách</span>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Dashboard Body */}
-        <main className="p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          {/* TAB: OVERVIEW (Matching Mockup 2 exactly) */}
+        {/* Test Toolbar (Simulation for Happy & Unhappy Cases) */}
+        {showTestToolbar && (
+          <div className="bg-[#204434] text-white px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shadow-inner animate-fadeIn">
+            <div className="flex items-center gap-2 font-bold">
+              <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+              <span>Bảng công cụ Test Happycase & Unhappycase:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setSimulateNoSchedule(!simulateNoSchedule)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  simulateNoSchedule ? "bg-[#9D493E] text-white" : "bg-white/10 hover:bg-white/20"
+                }`}
+              >
+                {simulateNoSchedule ? "❌ Bỏ mô phỏng: Không có lịch dạy" : "Mô phỏng: Không có lịch dạy"}
+              </button>
+              <button
+                onClick={() => setSimulateNoStudentsInNeed(!simulateNoStudentsInNeed)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  simulateNoStudentsInNeed ? "bg-[#9D493E] text-white" : "bg-white/10 hover:bg-white/20"
+                }`}
+              >
+                {simulateNoStudentsInNeed ? "❌ Bỏ mô phỏng: Mọi HS đều tốt" : "Mô phỏng: Mọi HS đều tốt"}
+              </button>
+              <button
+                onClick={() => setSimulateEmptyClasses(!simulateEmptyClasses)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  simulateEmptyClasses ? "bg-[#9D493E] text-white" : "bg-white/10 hover:bg-white/20"
+                }`}
+              >
+                {simulateEmptyClasses ? "❌ Bỏ mô phỏng: Lớp trống" : "Mô phỏng: Lớp trống"}
+              </button>
+              <button
+                onClick={() => setSimulateEmptyAssignments(!simulateEmptyAssignments)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  simulateEmptyAssignments ? "bg-[#9D493E] text-white" : "bg-white/10 hover:bg-white/20"
+                }`}
+              >
+                {simulateEmptyAssignments ? "❌ Bỏ mô phỏng: Bài tập trống" : "Mô phỏng: Bài tập trống"}
+              </button>
+            </div>
+            <button
+              onClick={() => setShowTestToolbar(false)}
+              className="text-white/60 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Global Toast Notification */}
+        {toastMessage && (
+          <div className="fixed bottom-6 right-6 z-50 bg-[#204434] text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-semibold animate-slideUp">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* ===================================================================== */}
+        {/* DASHBOARD BODY */}
+        {/* ===================================================================== */}
+        <main className="p-6 lg:p-8 space-y-6 max-w-[1780px] w-full mx-auto">
+          {/* =================================================================== */}
+          {/* TAB 1: OVERVIEW (LƯỚI 12 CỘT: 8 CỘT TRÁI | 4 CỘT PHẢI - SPEC SEC 2) */}
+          {/* =================================================================== */}
           {activeTab === "overview" && !selectedClassId && (
-            <>
-              {/* Greeting Banner */}
-              <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#efeae0] via-[#f5f0e6] to-[#e8efe9] border border-[#e2dac9] p-7 sm:p-9 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="max-w-xl z-10">
-                  <h1 className="text-2xl sm:text-3xl font-serif font-black text-[#1a3d2f] tracking-tight mb-2">
-                    Xin chào, cô Ning Ning 🍃
-                  </h1>
-                  <p className="text-xs sm:text-sm text-[#5c7363] leading-relaxed">
-                    Hôm nay là một ngày tuyệt vời để truyền cảm hứng học tập.
-                  </p>
-                </div>
-
-                <div className="relative w-64 h-28 rounded-2xl overflow-hidden border border-white/60 shadow-sm hidden md:block shrink-0">
-                  <Image
-                    src="/theme/bg-tea-study.jpg"
-                    alt="Classical scholar study desk"
-                    fill
-                    className="object-cover object-center filter saturate-95"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#1a3d2f]/20 to-transparent" />
-                </div>
-              </div>
-
-              {/* Row 1: 4 Key Metric Cards (Matching Mockup 2) */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                {/* Stat 1 */}
-                <div
-                  onClick={() => setActiveTab("classes")}
-                  className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs hover:border-[#1a3d2f] transition cursor-pointer flex items-center justify-between"
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* --------------------------------------------------------------- */}
+              {/* CỘT TRÁI (~70% WIDTH - 8 COLS) */}
+              {/* --------------------------------------------------------------- */}
+              <div className="lg:col-span-8 space-y-6">
+                {/* 1. BANNER CHÀO MỪNG (SỬ DỤNG phong_cảnh_thủy_mặc_bên_hồ_sương_sớm.png) */}
+                <section
+                  className="relative rounded-3xl border border-[#E5DEC9] shadow-xs overflow-hidden min-h-[220px] sm:min-h-[240px] flex items-center bg-[#F8F5ED]"
+                  style={{
+                    backgroundImage: `url('/theme/dashboard/banner-bg.webp')`,
+                    backgroundPosition: "right center",
+                    backgroundSize: "cover",
+                    backgroundRepeat: "no-repeat",
+                  }}
                 >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-[#eaf4ed] text-[#1a3d2f] flex items-center justify-center shrink-0">
-                      <Users className="w-5 h-5 stroke-[2]" />
+                  {/* Soft gradient overlay on left for high contrast & readability */}
+                  <div className="w-full h-full p-6 sm:p-8 flex flex-col justify-center bg-gradient-to-r from-[#F8F5ED]/95 via-[#F8F5ED]/85 to-transparent sm:max-w-2xl">
+                    <div className="text-xs text-[#315E48] font-medium mb-1.5 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Thứ hai, 20 tháng 10 · Kỳ học 2026</span>
                     </div>
-                    <div>
-                      <span className="text-[11px] text-[#64796a] font-medium block">Lớp đang quản lý</span>
-                      <div className="text-2xl font-black text-[#1a3d2f] leading-none mt-1">
-                        {classesList.length || 5} <span className="text-xs font-normal text-[#64796a]">lớp</span>
-                      </div>
+
+                    <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1A3D2F] tracking-tight">
+                      Chào mừng trở lại, cô giáo! 🌱
+                    </h1>
+
+                    <p className="text-xs sm:text-sm text-[#315E48] leading-relaxed mt-2 max-w-lg">
+                      Hôm nay cô có <span className="font-bold text-[#204434]">3 buổi dạy</span> và{" "}
+                      <span className="font-bold text-[#204434]">2 bài tập</span> sắp đến hạn nộp. Chúc cô một ngày dạy học tràn đầy năng lượng!
+                    </p>
+
+                    {/* 2 Main Action Buttons (Spec Section 5) */}
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLessonErrors({});
+                          setIsLessonModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Tạo bài học mới</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAssignErrors({});
+                          setIsAssignModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/95 hover:bg-white text-[#204434] text-xs font-semibold border border-[#E5DEC9] shadow-2xs transition cursor-pointer"
+                      >
+                        <FileCheck2 className="w-4 h-4" />
+                        <span>Tạo bài tập</span>
+                      </button>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394]" />
-                </div>
+                </section>
 
-                {/* Stat 2 */}
-                <div
-                  onClick={() => setActiveTab("students")}
-                  className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs hover:border-[#1a3d2f] transition cursor-pointer flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-[#eaf4ed] text-[#1a3d2f] flex items-center justify-center shrink-0">
-                      <Users className="w-5 h-5 stroke-[2]" />
-                    </div>
+                {/* 2. BỐN THẺ THỐNG KÊ NHANH (SPEC SECTION 6) */}
+                <section className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                  {/* Thẻ 1: Lớp đang quản lý */}
+                  <div
+                    onClick={() => setActiveTab("classes")}
+                    className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition cursor-pointer flex items-center justify-between group"
+                  >
                     <div>
-                      <span className="text-[11px] text-[#64796a] font-medium block">Số học viên</span>
-                      <div className="text-2xl font-black text-[#1a3d2f] leading-none mt-1">
-                        {overviewData?.summary?.totalStudents || 68} <span className="text-xs font-normal text-[#64796a]">học viên</span>
+                      <span className="text-[11px] text-[#315E48] font-medium block">Lớp đang quản lý</span>
+                      <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
+                        {visibleClasses.length}{" "}
+                        <span className="text-xs font-normal text-[#315E48]">lớp</span>
                       </div>
                     </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394]" />
-                </div>
-
-                {/* Stat 3 */}
-                <div
-                  onClick={() => setActiveTab("assignments")}
-                  className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs hover:border-[#1a3d2f] transition cursor-pointer flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-[#f5ede4] text-[#854d0e] flex items-center justify-center shrink-0">
-                      <FileCheck2 className="w-5 h-5 stroke-[2]" />
+                    <div className="w-9 h-9 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Users className="w-4 h-4" />
                     </div>
+                  </div>
+
+                  {/* Thẻ 2: Tổng học sinh */}
+                  <div
+                    onClick={() => {
+                      setActiveTab("classes");
+                      if (classesList.length > 0) setSelectedClassId(classesList[0].id);
+                    }}
+                    className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition cursor-pointer flex items-center justify-between group"
+                  >
                     <div>
-                      <span className="text-[11px] text-[#64796a] font-medium block">Bài tập chờ nộp</span>
-                      <div className="text-2xl font-black text-[#1a3d2f] leading-none mt-1">
-                        {assignmentsList.length || 12} <span className="text-xs font-normal text-[#64796a]">bài</span>
+                      <span className="text-[11px] text-[#315E48] font-medium block">Tổng học sinh</span>
+                      <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
+                        {visibleClasses.reduce((acc, c) => acc + c.studentCount, 0)}{" "}
+                        <span className="text-xs font-normal text-[#315E48]">học viên</span>
                       </div>
                     </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394]" />
-                </div>
-
-                {/* Stat 4 */}
-                <div className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs flex items-center justify-between">
-                  <div className="flex items-center gap-3.5">
-                    <div className="relative w-11 h-11 flex items-center justify-center shrink-0 font-bold text-xs text-[#1a3d2f]">
-                      <span className="text-sm font-black">85%</span>
+                    <div className="w-9 h-9 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <UserPlus className="w-4 h-4" />
                     </div>
+                  </div>
+
+                  {/* Thẻ 3: Bài tập đang giao */}
+                  <div
+                    onClick={() => setActiveTab("assignments")}
+                    className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition cursor-pointer flex items-center justify-between group"
+                  >
                     <div>
-                      <span className="text-[11px] text-[#64796a] font-medium block">Tỷ lệ hoàn thành</span>
-                      <div className="text-xs font-bold text-[#1a3d2f] mt-1">
-                        Cao hơn 12% <span className="font-normal text-[10px] text-[#64796a]">so với tuần trước</span>
+                      <span className="text-[11px] text-[#315E48] font-medium block">Bài tập đang giao</span>
+                      <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
+                        {visibleAssignments.length}{" "}
+                        <span className="text-xs font-normal text-[#315E48]">bài</span>
                       </div>
                     </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394]" />
-                </div>
-              </div>
-
-              {/* Row 2: 3 Main Action Cards (Matching Mockup 2) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <div
-                  onClick={() => setIsLessonModalOpen(true)}
-                  className="p-6 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] hover:border-[#1a3d2f] hover:shadow-md transition cursor-pointer flex items-center justify-between group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-[#eaf4ed] text-[#1a3d2f] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <BookOpen className="w-6 h-6 stroke-[1.75]" />
+                    <div className="w-9 h-9 rounded-xl bg-[#BC9B6B]/20 text-[#854d0e] flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <FileCheck2 className="w-4 h-4" />
                     </div>
+                  </div>
+
+                  {/* Thẻ 4: Tỷ lệ hoàn thành */}
+                  <div
+                    onClick={() => setActiveTab("reports")}
+                    className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition cursor-pointer flex items-center justify-between group"
+                  >
                     <div>
-                      <h3 className="font-bold text-sm text-[#1a3d2f] mb-1">Tạo bài học</h3>
-                      <p className="text-xs text-[#64796a] leading-relaxed">
-                        Thiết kế bài học theo chủ đề, thêm nội dung, hình ảnh, bài tập.
+                      <span className="text-[11px] text-[#315E48] font-medium block">Tỷ lệ hoàn thành</span>
+                      <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
+                        78% <span className="text-xs font-normal text-emerald-600">↑ 12%</span>
+                      </div>
+                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
+                      78%
+                    </div>
+                  </div>
+                </section>
+
+                {/* 3. LỚP HỌC CỦA TÔI (3 CARDS VỚI 3 ẢNH THỦY MẶC - SPEC SECTION 7) */}
+                <section className="space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#204434]" />
+                      <h3 className="font-bold text-sm text-[#204434]">Lớp học của tôi</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setClassErrors({});
+                          setIsCreateClassModalOpen(true);
+                        }}
+                        className="text-xs text-[#204434] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tạo lớp</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("classes")}
+                        className="text-xs text-[#315E48] hover:text-[#204434] font-medium flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Xem tất cả ({classesList.length})</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Empty state (Unhappy Case) */}
+                  {visibleClasses.length === 0 ? (
+                    <div className="p-8 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] text-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center mx-auto">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-bold text-sm text-[#204434]">Chưa có lớp học nào</h4>
+                      <p className="text-xs text-[#315E48] max-w-sm mx-auto">
+                        Cô chưa tạo lớp học nào hoặc không tìm thấy kết quả tìm kiếm phù hợp. Nhấn nút bên dưới để tạo lớp học đầu tiên nhé!
                       </p>
+                      <button
+                        onClick={() => setIsCreateClassModalOpen(true)}
+                        className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs"
+                      >
+                        + Tạo lớp học mới
+                      </button>
                     </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:text-[#1a3d2f] transition shrink-0 ml-2" />
-                </div>
+                  ) : (
+                    /* 3 Cards displaying the 3 Chinese Watercolor Artworks */
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                      {visibleClasses.slice(0, 3).map((cl) => (
+                        <div
+                          key={cl.id}
+                          onClick={() => {
+                            setSelectedClassId(cl.id);
+                            setActiveTab("classes");
+                          }}
+                          className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[160px] group hover:border-[#204434]/60 transition cursor-pointer bg-[#FFFCF6]"
+                          style={{
+                            backgroundImage: `url('${cl.artwork}')`,
+                            backgroundPosition: "right bottom",
+                            backgroundSize: "contain",
+                            backgroundRepeat: "no-repeat",
+                          }}
+                        >
+                          {/* Content on the left */}
+                          <div className="relative z-10 max-w-[65%] space-y-1">
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-[#204434]/10 text-[#204434] text-[10px] font-bold">
+                              {cl.track === "HSK" ? "HSK 3.0" : cl.track === "TOPIC" ? "Theo chủ đề" : "Chuyên ngành"}
+                            </span>
+                            <h4 className="font-serif font-bold text-sm text-[#204434] leading-tight group-hover:text-[#183629] transition">
+                              {cl.name}
+                            </h4>
+                            <p className="text-[11px] text-[#315E48]">
+                              {cl.studentCount} học viên · {cl.completedLessons}/{cl.totalLessons} bài học
+                            </p>
+                          </div>
 
-                <div
-                  onClick={() => setIsQuestionModalOpen(true)}
-                  className="p-6 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] hover:border-[#1a3d2f] hover:shadow-md transition cursor-pointer flex items-center justify-between group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-[#f5ede4] text-[#854d0e] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <PenTool className="w-6 h-6 stroke-[1.75]" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-[#1a3d2f] mb-1">Tự tạo câu hỏi</h3>
-                      <p className="text-xs text-[#64796a] leading-relaxed">
-                        Soạn câu hỏi theo nhu cầu, đa dạng dạng bài và mức độ.
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:text-[#854d0e] transition shrink-0 ml-2" />
-                </div>
-
-                <div
-                  onClick={() => setIsAssignModalOpen(true)}
-                  className="p-6 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] hover:border-[#1a3d2f] hover:shadow-md transition cursor-pointer flex items-center justify-between group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-[#eaf4ed] text-[#1a3d2f] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <FileCheck2 className="w-6 h-6 stroke-[1.75]" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-[#1a3d2f] mb-1">Giao bài kiểm tra</h3>
-                      <p className="text-xs text-[#64796a] leading-relaxed">
-                        Giao bài tập, kiểm tra cho lớp một cách nhanh chóng.
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:text-[#1a3d2f] transition shrink-0 ml-2" />
-                </div>
-              </div>
-
-              {/* Row 3: 4-Step Pedagogical Workflow Tracker */}
-              <div className="bg-[#fcfaf7] rounded-3xl p-6 border border-[#e6decb] shadow-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {[
-                    {
-                      num: 1,
-                      title: "Tạo nội dung giảng dạy",
-                      desc: "Tạo bài học với văn bản, hình ảnh, âm thanh, bài tập và sắp xếp theo chủ đề.",
-                    },
-                    {
-                      num: 2,
-                      title: "Soạn câu hỏi riêng",
-                      desc: "Tự tạo câu hỏi theo mục tiêu giảng dạy, chọn dạng bài và mức độ phù hợp.",
-                    },
-                    {
-                      num: 3,
-                      title: "Giao bài cho lớp",
-                      desc: "Chọn lớp, thiết lập thời hạn, giao bài tập hoặc bài kiểm tra chỉ với vài thao tác.",
-                    },
-                    {
-                      num: 4,
-                      title: "Theo dõi kết quả",
-                      desc: "Xem thống kê, chi tiết làm bài và tiến độ học tập của từng học viên.",
-                    },
-                  ].map((st) => (
-                    <div key={st.num} className="flex items-start gap-3">
-                      <div className="w-6 h-6 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                        {st.num}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs sm:text-sm text-[#1e2e22] mb-1">{st.title}</h4>
-                        <p className="text-[11px] text-[#64796a] leading-relaxed">{st.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Row 4: Bài tập gần đây & Tiến độ học tập của học viên */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left: Bài tập gần đây */}
-                <div className="lg:col-span-7 bg-[#fcfaf7] rounded-3xl p-6 border border-[#e6decb] shadow-xs">
-                  <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#eee8dc]">
-                    <h3 className="font-bold text-sm text-[#1a3d2f]">Bài tập gần đây</h3>
-                    <button
-                      onClick={() => setActiveTab("assignments")}
-                      className="text-xs text-[#64796a] hover:text-[#1a3d2f] font-semibold flex items-center gap-1"
-                    >
-                      <span>Xem tất cả</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#f8f5ee] text-[#64796a] font-bold text-[11px]">
-                        <tr>
-                          <th className="py-2.5 px-3 rounded-l-xl">Tên bài tập</th>
-                          <th className="py-2.5 px-3">Lớp</th>
-                          <th className="py-2.5 px-3">Hạn nộp</th>
-                          <th className="py-2.5 px-3">Đã nộp</th>
-                          <th className="py-2.5 px-3 rounded-r-xl">Trạng thái</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#eee8dc]">
-                        {[
-                          { title: "Bài tập từ vựng HSK 3", cls: "Lớp B1", due: "2026-10-25", submitted: "28/32", status: "Đang diễn ra", isLive: true },
-                          { title: "Kiểm tra ngữ pháp (Bài 5)", cls: "Lớp A2", due: "2026-10-22", submitted: "30/30", status: "Đã đóng", isLive: false },
-                          { title: "Luyện đọc hiểu", cls: "Lớp B2", due: "2026-10-20", submitted: "24/28", status: "Đang diễn ra", isLive: true },
-                          { title: "Bài tập nghe HSK 4", cls: "Lớp C1", due: "2026-10-18", submitted: "22/25", status: "Đã đóng", isLive: false },
-                          { title: "Viết đoạn văn", cls: "Lớp A1", due: "2026-10-15", submitted: "18/20", status: "Đã đóng", isLive: false },
-                        ].map((row, idx) => (
-                          <tr key={idx} className="hover:bg-[#f8f5ee]/50 transition">
-                            <td className="py-3 px-3 font-semibold text-[#1e2e22]">{row.title}</td>
-                            <td className="py-3 px-3 text-[#64796a]">{row.cls}</td>
-                            <td className="py-3 px-3 text-[#64796a] font-mono">{row.due}</td>
-                            <td className="py-3 px-3 font-mono font-medium text-[#1a3d2f]">{row.submitted}</td>
-                            <td className="py-3 px-3">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  row.isLive
-                                    ? "bg-[#eaf4ed] text-[#1a3d2f]"
-                                    : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {row.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Right: Tiến độ học tập của học viên */}
-                <div className="lg:col-span-5 bg-[#fcfaf7] rounded-3xl p-6 border border-[#e6decb] shadow-xs flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#eee8dc]">
-                      <h3 className="font-bold text-sm text-[#1a3d2f]">Tiến độ học tập của học viên</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-[#64796a] bg-[#f4eee4] px-2 py-0.5 rounded border border-[#e2dac9]">
-                          Lớp B1
-                        </span>
-                        <span className="text-[10px] text-[#64796a] bg-[#f4eee4] px-2 py-0.5 rounded border border-[#e2dac9]">
-                          30 ngày qua
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-xs font-bold text-[#5c7363] mb-2 flex items-center justify-between">
-                      <span>Tỷ lệ hoàn thành bài tập (%)</span>
-                      <span className="text-sm font-black text-[#1a3d2f]">85%</span>
-                    </div>
-
-                    {/* Stylized Bar Chart */}
-                    <div className="h-28 flex items-end gap-1.5 pt-2 pb-2 border-b border-[#eee8dc]">
-                      {[40, 50, 65, 80, 55, 70, 85, 75, 90, 85, 60, 78, 85, 92].map((val, i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
-                          <div
-                            style={{ height: `${val}%` }}
-                            className={`w-full rounded-t-sm transition-all duration-300 ${
-                              i === 12 ? "bg-[#1a3d2f] shadow-sm" : "bg-[#8ea394]/60 group-hover:bg-[#1a3d2f]"
-                            }`}
-                          />
+                          {/* Bottom info */}
+                          <div className="relative z-10 pt-4 flex items-center justify-between text-xs text-[#315E48] font-medium">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-[#315E48]">Tỷ lệ nộp bài:</span>
+                              <span className="font-bold text-[#204434] text-xs">{cl.submissionRate}%</span>
+                            </div>
+                            <span className="text-xs font-semibold text-[#204434] flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                              Vào lớp <ArrowRight className="w-3.5 h-3.5" />
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
+                  )}
+                </section>
 
-                    {/* Bottom 4 Indicators */}
-                    <div className="grid grid-cols-4 gap-2 pt-4 text-center">
-                      <div>
-                        <div className="text-sm font-black text-[#1a3d2f]">68</div>
-                        <div className="text-[10px] text-[#64796a]">Tổng học viên</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-black text-emerald-700">58</div>
-                        <div className="text-[10px] text-[#64796a]">Hoàn thành</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-black text-orange-600">7</div>
-                        <div className="text-[10px] text-[#64796a]">Đang làm</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-black text-gray-500">3</div>
-                        <div className="text-[10px] text-[#64796a]">Chưa bắt đầu</div>
-                      </div>
+                {/* 4. BẢNG BÀI TẬP GẦN ĐÂY (SPEC SECTION 8) */}
+                <section className="space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileCheck2 className="w-4 h-4 text-[#204434]" />
+                      <h3 className="font-bold text-sm text-[#204434]">Bài tập gần đây</h3>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* TAB: LỚP HỌC (HIERARCHICAL CLASS WORKSPACE) */}
-          {activeTab === "classes" && (
-            <div>
-              {!selectedClassId ? (
-                <div className="bg-[#fcfaf7] rounded-3xl p-6 lg:p-8 border border-[#e6decb] shadow-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[#eee8dc]">
-                    <div>
-                      <h3 className="text-xl font-bold text-[#1a3d2f]">Danh sách Lớp học phụ trách</h3>
-                      <p className="text-xs text-[#64796a] mt-0.5">Chọn một lớp học để cấp tài khoản học sinh, giao bài tập hoặc thêm tài liệu</p>
-                    </div>
-
                     <button
-                      onClick={() => setIsCreateClassModalOpen(true)}
-                      className="px-5 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shadow-md shadow-emerald-950/15 flex items-center gap-2 self-start sm:self-auto cursor-pointer"
+                      onClick={() => {
+                        setAssignErrors({});
+                        setIsAssignModalOpen(true);
+                      }}
+                      className="text-xs text-[#204434] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Tạo lớp học mới</span>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Giao bài tập</span>
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {classesList.map((cls) => (
-                      <div
-                        key={cls.id}
-                        className="p-6 rounded-3xl bg-[#f8f5ee] border border-[#e2dac9] hover:border-[#1a3d2f] hover:shadow-md transition duration-200 flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="px-3 py-1 rounded-full bg-[#eaf4ed] text-[#1a3d2f] font-bold text-xs font-mono">
-                              HSK {cls.level}
-                            </span>
-                            <span className="text-xs text-[#64796a] font-medium">Đang hoạt động</span>
-                          </div>
+                  {visibleAssignments.length === 0 ? (
+                    <div className="p-8 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] text-center space-y-2">
+                      <FileCheck2 className="w-8 h-8 text-[#315E48] mx-auto opacity-60" />
+                      <p className="text-xs text-[#315E48]">Hiện chưa có bài tập nào đang diễn ra.</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-[#E5DEC9] bg-[#F8F5ED]/60 text-[#315E48] font-semibold text-[11px]">
+                              <th className="py-3 px-4">Tên bài tập</th>
+                              <th className="py-3 px-4">Lớp tiếp nhận</th>
+                              <th className="py-3 px-4">Đã nộp</th>
+                              <th className="py-3 px-4">Hạn nộp</th>
+                              <th className="py-3 px-4">Trạng thái</th>
+                              <th className="py-3 px-4 text-right">Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E5DEC9]/50">
+                            {visibleAssignments.map((a) => (
+                              <tr key={a.id} className="hover:bg-[#F8F5ED]/40 transition">
+                                <td className="py-3.5 px-4 font-bold text-[#204434]">{a.title}</td>
+                                <td className="py-3.5 px-4 text-[#315E48]">{a.className}</td>
+                                <td className="py-3.5 px-4">
+                                  <span className="font-bold text-[#204434]">
+                                    {a.submittedCount}/{a.totalStudents}
+                                  </span>
+                                  <span className="text-[10px] text-[#315E48] ml-1">
+                                    ({Math.round((a.submittedCount / a.totalStudents) * 100)}%)
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-[#315E48]">{a.dueAt}</td>
+                                <td className="py-3.5 px-4">
+                                  {a.status === "ACTIVE" && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                      Đang diễn ra
+                                    </span>
+                                  )}
+                                  {a.status === "EXPIRING_SOON" && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                      Sắp hết hạn
+                                    </span>
+                                  )}
+                                  {a.status === "CLOSED" && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
+                                      Đã đóng
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-4 text-right">
+                                  <button
+                                    onClick={() => setSelectedAssignmentForView(a)}
+                                    className="px-3 py-1.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-white font-semibold text-xs transition cursor-pointer"
+                                  >
+                                    Xem kết quả
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </div>
 
-                          <h4 className="text-xl font-bold text-[#1e2e22] mb-1.5">{cls.name}</h4>
-                          <p className="text-xs text-[#64796a] mb-6 line-clamp-2">
-                            {cls.description || "Lớp tiếng Trung HSK chuẩn cô Ning Ning trực tiếp giảng dạy"}
-                          </p>
-                        </div>
+              {/* --------------------------------------------------------------- */}
+              {/* CỘT PHẢI (~30% WIDTH - 4 COLS - SPEC SEC 9, 10, 11) */}
+              {/* --------------------------------------------------------------- */}
+              <div className="lg:col-span-4 space-y-6">
+                {/* 1. LỊCH DẠY HÔM NAY (SPEC SECTION 9) */}
+                <section className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E5DEC9]/60">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[#204434]" />
+                      <h3 className="font-bold text-sm text-[#204434]">Lịch dạy hôm nay</h3>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("schedule")}
+                      className="text-xs text-[#315E48] hover:text-[#204434] font-medium"
+                    >
+                      Xem lịch
+                    </button>
+                  </div>
 
-                        <div>
-                          <div className="pt-4 border-t border-[#e2dac9] flex items-center justify-between text-xs font-medium text-[#475569] mb-4">
-                            <span>👥 {cls.totalStudents} học sinh</span>
-                            <span>📝 {cls.totalAssignments} bài tập</span>
+                  {visibleSchedule.length === 0 ? (
+                    <div className="py-6 text-center space-y-2">
+                      <Calendar className="w-8 h-8 text-[#315E48]/50 mx-auto" />
+                      <p className="text-xs text-[#315E48]">Hôm nay chưa có lịch dạy. Thư giãn hoặc chuẩn bị giáo án nhé! 🌱</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {visibleSchedule.map((s) => (
+                        <div
+                          key={s.id}
+                          className="p-3 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/70 flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-[10px] text-[#315E48] font-semibold">
+                              <span>{s.timeRange}</span>
+                              <span className="w-1 h-1 rounded-full bg-[#BC9B6B]" />
+                              <span className={s.mode === "ONLINE" ? "text-emerald-700" : "text-blue-700"}>
+                                {s.mode}
+                              </span>
+                            </div>
+                            <h4 className="font-bold text-xs text-[#204434] truncate mt-0.5">{s.className}</h4>
+                            <p className="text-[10px] text-[#8ea394] truncate">{s.location}</p>
                           </div>
 
                           <button
-                            onClick={() => handleOpenClass(cls.id)}
-                            className="w-full py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                            onClick={() => {
+                              if (s.mode === "ONLINE") {
+                                window.open("https://meet.google.com", "_blank");
+                              } else {
+                                showToast(`Đã mở giáo án chuẩn bị cho lớp ${s.className}`);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition ${
+                              s.actionType === "JOIN"
+                                ? "bg-[#204434] hover:bg-[#183629] text-white shadow-2xs"
+                                : "bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#204434] hover:text-white"
+                            }`}
                           >
-                            <span>Vào quản lý lớp</span>
-                            <ChevronRight className="w-4 h-4" />
+                            {s.actionType === "JOIN" ? "Vào lớp" : "Chuẩn bị"}
                           </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {/* 2. BÀI TẬP SẮP ĐẾN HẠN (SPEC SECTION 10) */}
+                <section className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E5DEC9]/60">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-[#BC9B6B]" />
+                      <h3 className="font-bold text-sm text-[#204434]">Bài tập sắp đến hạn</h3>
+                    </div>
+                    <span className="text-xs text-[#315E48] font-medium">{dueAssignments.length} bài</span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {dueAssignments.map((da) => (
+                      <div
+                        key={da.id}
+                        onClick={() => {
+                          const target = assignmentsList.find((a) => a.id === da.id);
+                          if (target) setSelectedAssignmentForView(target);
+                        }}
+                        className="p-3 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/70 hover:border-[#204434] transition cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-xs text-[#204434] truncate max-w-[200px]">
+                            {da.title}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              da.urgency === "warning"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            {da.dueText}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-[#315E48]">
+                          <span>{da.className}</span>
+                          <span className="font-semibold text-[#204434]">{da.submittedText}</span>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Top Breadcrumb */}
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={handleBackToClassesList}
-                      className="inline-flex items-center gap-2 text-xs font-bold text-[#5c7363] hover:text-[#1a3d2f] transition px-3 py-1.5 rounded-xl bg-[#fcfaf7] border border-[#e2dac9] shadow-2xs"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      <span>Về danh sách lớp</span>
-                    </button>
+                </section>
 
-                    <div className="flex items-center gap-2 text-xs text-[#64796a]">
-                      <span>Quản lý lớp</span>
-                      <span>/</span>
-                      <strong className="text-[#1a3d2f]">{selectedClassData?.name || "Đang tải..."}</strong>
+                {/* 3. HỌC SINH CẦN HỖ TRỢ (SPEC SECTION 11) */}
+                <section className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E5DEC9]/60">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-[#9D493E]" />
+                      <h3 className="font-bold text-sm text-[#204434]">Học sinh cần hỗ trợ</h3>
+                    </div>
+                    <span className="text-[10px] text-[#9D493E] bg-[#9D493E]/10 px-2 py-0.5 rounded-full font-bold">
+                      {visibleStudentsInNeed.length} học viên
+                    </span>
+                  </div>
+
+                  {visibleStudentsInNeed.length === 0 ? (
+                    <div className="py-6 text-center space-y-2">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                      <p className="text-xs text-[#315E48]">Tất cả học sinh đều đang theo kịp tiến độ học tập! Tuyệt vời 🌱</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {visibleStudentsInNeed.map((st) => (
+                        <div
+                          key={st.id}
+                          className="p-3 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/70 flex items-center justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-full overflow-hidden bg-white border border-[#BC9B6B]/40 relative shrink-0">
+                              <Image
+                                src={st.avatar}
+                                alt={st.name}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0 leading-tight">
+                              <span className="font-bold text-xs text-[#204434] block truncate">{st.name}</span>
+                              <span className="text-[10px] text-[#9D493E] font-medium block truncate mt-0.5">
+                                {st.reason}
+                              </span>
+                              <span className="text-[9px] text-[#8ea394] block truncate">{st.className}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setSelectedStudentForSupport(st);
+                              setAssignedRemedialNotice(false);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#204434] text-[#204434] hover:text-white border border-[#E5DEC9] text-xs font-semibold shrink-0 transition cursor-pointer shadow-2xs"
+                          >
+                            Xem
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================== */}
+          {/* TAB 2: CLASSES (QUẢN LÝ LỚP HỌC & CLASS DETAIL WORKSPACE) */}
+          {/* =================================================================== */}
+          {(activeTab === "classes" || selectedClassId) && (
+            <div className="space-y-6">
+              {/* If a class is selected, show Class Detail Workspace */}
+              {selectedClassId && currentSelectedClass ? (
+                <div className="space-y-6">
+                  {/* Top Bar with Back Button */}
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <button
+                      onClick={() => setSelectedClassId(null)}
+                      className="inline-flex items-center gap-2 text-xs font-semibold text-[#315E48] hover:text-[#204434] bg-white px-3 py-2 rounded-xl border border-[#E5DEC9]"
+                    >
+                      <span>← Quay lại danh sách lớp</span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setTargetClassForStudent(currentSelectedClass.id);
+                          setStudentFormErrors({});
+                          setIssuedStudentSuccess(null);
+                          setIsAddStudentModalOpen(true);
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Cấp tài khoản mới</span>
+                      </button>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(
+                            currentSelectedClass.code,
+                            `Đã sao chép mã tham gia lớp: ${currentSelectedClass.code}`
+                          )
+                        }
+                        className="px-3.5 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Sao chép mã lớp: {currentSelectedClass.code}</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Class Workspace Card */}
-                  <div className="bg-[#fcfaf7] rounded-3xl p-6 lg:p-8 border border-[#e6decb] shadow-xs">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#eee8dc]">
-                      <div>
-                        <div className="flex items-center gap-2.5 mb-1.5">
-                          <span className="px-3 py-1 rounded-full bg-[#eaf4ed] text-[#1a3d2f] font-bold text-xs font-mono">
-                            HSK {selectedClassData?.level}
-                          </span>
-                          <h2 className="text-2xl font-black text-[#1a3d2f]">{selectedClassData?.name}</h2>
-                        </div>
-                        <p className="text-xs text-[#64796a]">
-                          {selectedClassData?.description || "Lớp tiếng Trung HSK chuẩn cô Ning Ning trực tiếp giảng dạy"}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button
-                          onClick={() => {
-                            setJustCreatedStudent(null);
-                            setIsAddStudentModalOpen(true);
-                          }}
-                          className="px-4 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shadow-md shadow-emerald-950/15 flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                          <span>+ Cấp tài khoản học sinh</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setNewAssignClassId(selectedClassId);
-                            setIsAssignModalOpen(true);
-                          }}
-                          className="px-4 py-2.5 rounded-xl bg-[#f4eee4] border border-[#bedac5] text-[#1a3d2f] text-xs font-bold hover:bg-white transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          <span>Giao bài cho lớp này</span>
-                        </button>
+                  {/* Class Banner Card */}
+                  <div
+                    className="p-6 rounded-3xl border border-[#E5DEC9] shadow-xs relative overflow-hidden bg-[#FFFCF6]"
+                    style={{
+                      backgroundImage: `url('${currentSelectedClass.artwork}')`,
+                      backgroundPosition: "right bottom",
+                      backgroundSize: "contain",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  >
+                    <div className="max-w-xl space-y-2">
+                      <span className="inline-block px-2.5 py-1 rounded-md bg-[#204434]/10 text-[#204434] text-xs font-bold">
+                        {currentSelectedClass.levelText}
+                      </span>
+                      <h2 className="text-2xl font-serif font-bold text-[#204434]">{currentSelectedClass.name}</h2>
+                      <p className="text-xs text-[#315E48] leading-relaxed">{currentSelectedClass.description}</p>
+                      <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-medium text-[#315E48]">
+                        <span>👥 Sĩ số: <strong>{currentSelectedClass.studentCount} học viên</strong></span>
+                        <span>📚 Tiến độ: <strong>{currentSelectedClass.completedLessons}/{currentSelectedClass.totalLessons} bài học</strong></span>
+                        <span>📊 Tỷ lệ nộp bài: <strong>{currentSelectedClass.submissionRate}%</strong></span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Recently Created Student Credential Notification */}
-                    {justCreatedStudent && (
-                      <div className="my-6 p-4 rounded-2xl bg-[#eaf4ed] border border-[#a7f3d0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 text-xs font-bold text-[#065f46] mb-1">
-                            <CheckCircle2 className="w-4 h-4 text-[#10b981]" />
-                            <span>Đã cấp tài khoản thành công cho em {justCreatedStudent.name}!</span>
-                          </div>
-                          <div className="text-xs text-[#047857] flex flex-wrap items-center gap-3 font-mono">
-                            <span>Tên đăng nhập: <strong>{justCreatedStudent.username}</strong></span>
-                            <span>•</span>
-                            <span>Mật khẩu: <strong>{justCreatedStudent.password || "123456"}</strong></span>
-                          </div>
-                        </div>
+                  {/* Subtabs inside class: Students / Assignments / Materials */}
+                  <div className="flex items-center gap-2 border-b border-[#E5DEC9] pb-3">
+                    {[
+                      { id: "students", label: "Danh sách học viên", count: currentSelectedClass.studentCount },
+                      { id: "assignments", label: "Bài tập của lớp", count: 4 },
+                      { id: "materials", label: "Kho tài liệu giảng dạy", count: 8 },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setClassSubTab(tab.id as any)}
+                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                          classSubTab === tab.id
+                            ? "bg-[#204434] text-white"
+                            : "bg-white text-[#315E48] hover:text-[#204434] border border-[#E5DEC9]"
+                        }`}
+                      >
+                        {tab.label} ({tab.count})
+                      </button>
+                    ))}
+                  </div>
 
-                        <button
-                          onClick={() => handleCopyCredentials(justCreatedStudent)}
-                          className="px-4 py-2 rounded-xl bg-white border border-[#a7f3d0] text-xs font-bold text-[#065f46] hover:bg-[#d1fae5] transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>{copiedNotice ? "✓ Đã sao chép!" : "Sao chép gửi Zalo/Phụ huynh"}</span>
-                        </button>
-                      </div>
-                    )}
+                  {/* Subtab Content: Students */}
+                  {classSubTab === "students" && (
+                    <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] overflow-hidden">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-[#E5DEC9] bg-[#F8F5ED]/60 text-[#315E48] font-semibold text-[11px]">
+                            <th className="py-3 px-4">Họ và tên</th>
+                            <th className="py-3 px-4">Tên đăng nhập</th>
+                            <th className="py-3 px-4">Số bài đã nộp</th>
+                            <th className="py-3 px-4">Điểm TB</th>
+                            <th className="py-3 px-4">Trạng thái</th>
+                            <th className="py-3 px-4 text-right">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5DEC9]/50">
+                          {[
+                            { name: "Trần Minh Khang", username: "khang.tran", submitted: "14/14", avg: "8.8", status: "Chăm chỉ" },
+                            { name: "Nguyễn Lê Bảo Hân", username: "baohan.nguyen", submitted: "13/14", avg: "8.2", status: "Bình thường" },
+                            { name: "Trần Minh Anh", username: "minhanh.tran", submitted: "11/14", avg: "6.5", status: "Cần hỗ trợ" },
+                            { name: "Hoàng Gia Huy", username: "giahuy.hoang", submitted: "14/14", avg: "9.0", status: "Xuất sắc" },
+                          ].map((st, i) => (
+                            <tr key={i} className="hover:bg-[#F8F5ED]/40 transition">
+                              <td className="py-3.5 px-4 font-bold text-[#204434]">{st.name}</td>
+                              <td className="py-3.5 px-4 text-[#315E48] font-mono text-[11px]">{st.username}</td>
+                              <td className="py-3.5 px-4 text-[#204434] font-semibold">{st.submitted}</td>
+                              <td className="py-3.5 px-4 font-bold text-emerald-800">{st.avg}</td>
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    st.status === "Cần hỗ trợ"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-emerald-100 text-emerald-800"
+                                  }`}
+                                >
+                                  {st.status}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-right">
+                                <button
+                                  onClick={() =>
+                                    copyToClipboard(
+                                      `Tài khoản: ${st.username} | Lớp: ${currentSelectedClass.name}`,
+                                      `Đã sao chép thông tin của ${st.name}`
+                                    )
+                                  }
+                                  className="text-xs text-[#315E48] hover:text-[#204434] font-semibold"
+                                >
+                                  Gửi thông báo
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                    {/* Subtabs */}
-                    <div className="flex items-center gap-2 pt-6 mb-6 border-b border-[#eee8dc]">
-                      {[
-                        { id: "students", label: `Học sinh của lớp (${selectedClassData?.students?.length || 0})`, icon: Users },
-                        { id: "assignments", label: `Bài tập & Đề thi (${selectedClassData?.assignments?.length || 0})`, icon: FileCheck2 },
-                        { id: "materials", label: `Tài liệu & Bài học HSK (${selectedClassData?.lessons?.length || 0})`, icon: BookMarked },
-                      ].map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = classSubTab === tab.id;
-                        return (
-                          <button
-                            key={tab.id}
-                            onClick={() => setClassSubTab(tab.id as any)}
-                            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold transition border-b-2 cursor-pointer ${
-                              isActive
-                                ? "border-[#1a3d2f] text-[#1a3d2f]"
-                                : "border-transparent text-[#64796a] hover:text-[#1e2e22]"
-                            }`}
+                  {/* Subtab Content: Assignments */}
+                  {classSubTab === "assignments" && (
+                    <div className="space-y-3">
+                      {assignmentsList
+                        .filter((a) => a.classId === currentSelectedClass.id)
+                        .map((a) => (
+                          <div
+                            key={a.id}
+                            className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] flex items-center justify-between"
                           >
-                            <Icon className="w-4 h-4" />
-                            <span>{tab.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* SUBTAB 1: STUDENTS */}
-                    {classSubTab === "students" && (
-                      <div className="space-y-4">
-                        {selectedClassData?.students?.length === 0 ? (
-                          <div className="text-center py-12 bg-[#f8f5ee] rounded-2xl border border-dashed border-[#dce8e0]">
-                            <div className="text-4xl mb-2">👤</div>
-                            <h4 className="text-sm font-bold text-[#1e2e22] mb-1">Chưa có học sinh nào trong lớp này</h4>
-                            <p className="text-xs text-[#64796a] mb-4">Cô Ning Ning hãy bấm nút dưới đây để tạo và cấp tài khoản cho học sinh</p>
+                            <div>
+                              <h4 className="font-bold text-xs text-[#204434]">{a.title}</h4>
+                              <p className="text-[11px] text-[#315E48] mt-0.5">
+                                Đã nộp: {a.submittedCount}/{a.totalStudents} · Hạn: {a.dueAt}
+                              </p>
+                            </div>
                             <button
-                              onClick={() => setIsAddStudentModalOpen(true)}
-                              className="px-5 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shadow-sm inline-flex items-center gap-1.5"
+                              onClick={() => setSelectedAssignmentForView(a)}
+                              className="px-3 py-1.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-white font-semibold text-xs transition"
                             >
-                              <UserPlus className="w-4 h-4" />
-                              <span>Cấp tài khoản học sinh đầu tiên</span>
+                              Xem danh sách nộp
                             </button>
                           </div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-[#f8f5ee] text-[#64796a] font-bold text-[11px] border-b border-[#eee8dc]">
-                                <tr>
-                                  <th className="py-3 px-4">Họ và tên</th>
-                                  <th className="py-3 px-4">Tên đăng nhập</th>
-                                  <th className="py-3 px-4">Điểm tích lũy</th>
-                                  <th className="py-3 px-4">Chuỗi học</th>
-                                  <th className="py-3 px-4">Lỗi sai cần kèm</th>
-                                  <th className="py-3 px-4 text-right">Thao tác</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[#eee8dc]">
-                                {selectedClassData?.students?.map((s: any) => (
-                                  <tr key={s.id} className="hover:bg-[#f8f5ee]/50 transition">
-                                    <td className="py-3 px-4 font-bold text-[#1e2e22] flex items-center gap-2.5">
-                                      <div className="w-7 h-7 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                                        {s.name.charAt(0)}
-                                      </div>
-                                      <span>{s.name}</span>
-                                    </td>
-                                    <td className="py-3 px-4 font-mono font-medium text-[#5c7363]">{s.username}</td>
-                                    <td className="py-3 px-4">
-                                      <span className="font-bold text-[#1a3d2f] bg-[#eaf4ed] px-2 py-0.5 rounded">
-                                        {s.totalXp} XP
-                                      </span>
-                                    </td>
-                                    <td className="py-3 px-4 text-orange-600 font-semibold">🔥 {s.streakDays} ngày</td>
-                                    <td className="py-3 px-4">
-                                      {s.wrongCount > 0 ? (
-                                        <span className="text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded font-bold">
-                                          {s.wrongCount} câu
-                                        </span>
-                                      ) : (
-                                        <span className="text-emerald-700 font-medium">0 câu</span>
-                                      )}
-                                    </td>
-                                    <td className="py-3 px-4 text-right">
-                                      <button
-                                        onClick={() => handleCopyCredentials(s)}
-                                        className="text-[#1a3d2f] font-bold hover:underline inline-flex items-center gap-1"
-                                      >
-                                        <Copy className="w-3.5 h-3.5" />
-                                        <span>Gửi thông tin</span>
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                        ))}
+                    </div>
+                  )}
 
-                    {/* SUBTAB 2: ASSIGNMENTS */}
-                    {classSubTab === "assignments" && (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between pb-2">
-                          <span className="text-xs text-[#64796a]">Bài tập đã giao riêng cho lớp này</span>
-                          <button
-                            onClick={() => {
-                              setNewAssignClassId(selectedClassId);
-                              setIsAssignModalOpen(true);
-                            }}
-                            className="px-3.5 py-1.5 rounded-lg bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shadow-xs flex items-center gap-1.5"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Giao bài mới</span>
-                          </button>
-                        </div>
-
-                        <div className="space-y-3">
-                          {selectedClassData?.assignments?.map((a: any) => (
-                            <div key={a.id} className="p-4 rounded-xl border border-[#e2dac9] bg-[#f8f5ee] flex items-center justify-between">
-                              <div>
-                                <h4 className="font-bold text-sm text-[#1e2e22]">{a.title}</h4>
-                                <span className="text-xs text-[#64796a]">Thời lượng: {a.durationMin} phút · Hạn nộp: {new Date(a.dueAt).toLocaleDateString("vi-VN")}</span>
-                              </div>
-                              <span className="text-xs font-bold text-[#1a3d2f] bg-[#eaf4ed] px-3 py-1 rounded-lg">
-                                {a.submittedCount} em đã nộp bài
-                              </span>
+                  {/* Subtab Content: Materials */}
+                  {classSubTab === "materials" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[
+                        { title: "Giáo trình HSK 3 Chuẩn (PDF)", size: "14.2 MB", type: "PDF" },
+                        { title: "Audio bài tập nghe 50 mẫu câu", size: "28.5 MB", type: "AUDIO" },
+                        { title: "Slide bài giảng: Ngữ pháp câu chữ 把", size: "8.1 MB", type: "SLIDE" },
+                        { title: "Bảng từ vựng và ví dụ minh họa", size: "3.4 MB", type: "EXCEL" },
+                      ].map((m, i) => (
+                        <div key={i} className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center font-bold text-xs">
+                              {m.type}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* SUBTAB 3: MATERIALS (TỪ VỰNG, NGỮ PHÁP, SLIDE, SÁCH GIÁO KHOA) */}
-                    {classSubTab === "materials" && (
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between pb-2 border-b border-[#e2dac9]">
-                          <div>
-                            <span className="font-bold text-xs text-[#1a3d2f] block">Tài liệu học tập của lớp {selectedClassData?.name}</span>
-                            <span className="text-[11px] text-[#64796a]">Bao gồm Từ vựng, Ngữ pháp, Slide bài giảng và Sách giáo khoa HSK {selectedClassData?.level}</span>
+                            <div>
+                              <h5 className="font-bold text-xs text-[#204434]">{m.title}</h5>
+                              <span className="text-[10px] text-[#315E48]">{m.size}</span>
+                            </div>
                           </div>
                           <button
-                            type="button"
-                            onClick={() => {
-                              setNewMatClassId(selectedClassId || "");
-                              setNewMatHsk(selectedClassData?.level || 1);
-                              setIsUploadMatModalOpen(true);
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#132e23] transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                            onClick={() => showToast(`Bắt đầu tải về: ${m.title}`)}
+                            className="p-2 rounded-xl text-[#315E48] hover:text-[#204434] hover:bg-[#F8F5ED]"
+                            title="Tải về"
                           >
-                            <UploadCloud className="w-3.5 h-3.5" />
-                            <span>+ Tải lên tài liệu cho lớp này</span>
+                            <Download className="w-4 h-4" />
                           </button>
                         </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Class Cards List View */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                      <h2 className="text-xl font-serif font-bold text-[#204434]">Danh sách lớp học phụ trách</h2>
+                      <p className="text-xs text-[#315E48]">Quản lý học sinh, cấp tài khoản và theo dõi tiến độ từng lớp.</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setClassErrors({});
+                        setIsCreateClassModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Tạo lớp học mới</span>
+                    </button>
+                  </div>
 
-                        {/* Uploaded Materials for this class / level */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {materialsList
-                            .filter((m) => m.classId === selectedClassId || (!m.classId && m.hskLevel === selectedClassData?.level))
-                            .map((m) => {
-                              const typeConfig = {
-                                VOCABULARY: { label: "Từ vựng", icon: FileSpreadsheet, badge: "bg-[#e2ebe4] text-[#3d7b56] border-[#a4c5ae]" },
-                                GRAMMAR: { label: "Ngữ pháp", icon: FileText, badge: "bg-[#fef3c7] text-[#b45309] border-[#fde68a]" },
-                                SLIDE: { label: "Slide bài giảng", icon: Presentation, badge: "bg-[#ffedd5] text-[#c2410c] border-[#fed7aa]" },
-                                TEXTBOOK: { label: "Sách giáo khoa", icon: BookOpen, badge: "bg-[#dbeafe] text-[#1d4ed8] border-[#bfdbfe]" },
-                                AUDIO: { label: "File Audio", icon: Music, badge: "bg-[#f3e8ff] text-[#7e22ce] border-[#e9d5ff]" },
-                                OTHER: { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" },
-                              }[m.type as string] || { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" };
-                              const TypeIcon = typeConfig.icon;
-
-                              return (
-                                <div key={m.id} className="p-4 rounded-2xl bg-[#fcfaf7] border border-[#e6decb] flex items-center justify-between hover:border-[#1a3d2f] transition shadow-xs">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-[#f0eee6] flex items-center justify-center text-[#1a3d2f] shrink-0 border border-[#d8ceb9]">
-                                      <TypeIcon className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                      <div className="flex items-center gap-1.5 mb-0.5">
-                                        <span className={`text-[10px] font-bold px-2 py-0.2 rounded border ${typeConfig.badge}`}>
-                                          {typeConfig.label}
-                                        </span>
-                                        <span className="text-[10px] text-[#8c9a8f]">{m.fileSize}</span>
-                                      </div>
-                                      <h4 className="font-bold text-xs text-[#1e2e22] line-clamp-1">{m.title}</h4>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => alert(`Tải xuống: ${m.fileName} (${m.fileSize})`)}
-                                      className="p-1.5 rounded-lg bg-[#1a3d2f] text-white hover:bg-[#122b21] transition shadow-xs"
-                                      title="Tải về"
-                                    >
-                                      <Download className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteMaterial(m.id)}
-                                      className="p-1.5 rounded-lg bg-[#fef2f2] text-[#991b1b] hover:bg-[#fee2e2] transition border border-[#fecaca]"
-                                      title="Xóa"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-
-                        {/* Lessons breakdown */}
-                        <div className="pt-4 border-t border-[#e2dac9]">
-                          <span className="text-xs font-bold text-[#64796a] uppercase tracking-wider block mb-3">
-                            Bài học giáo trình chuẩn (HSK {selectedClassData?.level})
-                          </span>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {selectedClassData?.lessons?.map((l: any) => (
-                              <div key={l.id} className="p-4 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9] flex items-center justify-between">
-                                <div>
-                                  <span className="text-[11px] font-bold text-[#1a3d2f] bg-white px-2 py-0.5 rounded border border-[#dae6dc]">
-                                    Bài {l.lessonNumber}
-                                  </span>
-                                  <h4 className="font-bold text-sm text-[#1e2e22] mt-1">{l.title}</h4>
-                                  <span className="text-xs text-[#64796a]">{l.vocabCount} từ vựng · {l.grammarCount} ngữ pháp</span>
-                                </div>
-                                <Link
-                                  href="/s/review"
-                                  className="px-3 py-1.5 rounded-lg bg-white border border-[#bedac5] text-[#1a3d2f] font-bold text-xs hover:bg-[#eaf4ed] transition"
-                                >
-                                  Xem trước
-                                </Link>
-                              </div>
-                            ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {visibleClasses.map((cl) => (
+                      <div
+                        key={cl.id}
+                        className="rounded-3xl border border-[#E5DEC9] bg-[#FFFCF6] overflow-hidden shadow-xs hover:border-[#204434] transition flex flex-col justify-between"
+                      >
+                        <div
+                          className="h-32 w-full relative p-4 flex flex-col justify-between bg-cover bg-no-repeat bg-right-bottom"
+                          style={{ backgroundImage: `url('${cl.artwork}')` }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="px-2 py-0.5 rounded-md bg-white/90 text-[#204434] text-[10px] font-bold shadow-2xs">
+                              {cl.track}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-[#204434] text-white text-[10px] font-bold">
+                              Mã: {cl.code}
+                            </span>
                           </div>
                         </div>
+
+                        <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                          <div>
+                            <h3 className="font-serif font-bold text-base text-[#204434]">{cl.name}</h3>
+                            <p className="text-xs text-[#315E48] line-clamp-2 mt-1">{cl.description}</p>
+                          </div>
+
+                          <div className="pt-2 border-t border-[#E5DEC9]/60 flex items-center justify-between text-xs text-[#315E48]">
+                            <span>👥 {cl.studentCount} học viên</span>
+                            <span>📊 {cl.submissionRate}% nộp bài</span>
+                          </div>
+
+                          <button
+                            onClick={() => setSelectedClassId(cl.id)}
+                            className="w-full py-2.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-white font-semibold text-xs transition cursor-pointer text-center"
+                          >
+                            Vào quản lý lớp
+                          </button>
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* ===================== TAB: THƯ VIỆN TÀI LIỆU (TỪ VỰNG, NGỮ PHÁP, SLIDE, SÁCH GIÁO KHOA, AUDIO) ===================== */}
-          {activeTab === "materials" && (
-            <div className="space-y-6">
-              {/* Header Banner */}
-              <div className="p-6 sm:p-8 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-[#991b1b] text-white flex items-center justify-center font-serif text-2xl font-bold shadow-md shrink-0">
-                    库
-                  </div>
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#f0eee6] border border-[#d8ceb9] text-[11px] font-bold text-[#1a3d2f] mb-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#3d7b56]" />
-                      <span>HỆ THỐNG KHO HỌC LIỆU SỐ HSK 3.0</span>
-                    </div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-[#1a3d2f] font-serif">
-                      Kho Thư Viện Tài Liệu Học Tập
-                    </h2>
-                    <p className="text-xs sm:text-sm text-[#5c7363] mt-0.5">
-                      Tải lên, quản lý và phân loại tài liệu Từ vựng, Ngữ pháp, Slide bài giảng, Sách giáo khoa & File nghe Audio.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsUploadMatModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-                >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>+ Tải lên tài liệu mới</span>
-                </button>
-              </div>
-
-              {/* 6 Category Filter Badges */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {[
-                  { id: "ALL", label: "Tất cả", count: materialsStats.total, icon: Layers, color: "text-[#1a3d2f]" },
-                  { id: "VOCABULARY", label: "Từ vựng", count: materialsStats.vocabulary, icon: FileSpreadsheet, color: "text-[#3d7b56]" },
-                  { id: "GRAMMAR", label: "Ngữ pháp", count: materialsStats.grammar, icon: FileText, color: "text-[#b45309]" },
-                  { id: "SLIDE", label: "Slide bài giảng", count: materialsStats.slide, icon: Presentation, color: "text-[#c2410c]" },
-                  { id: "TEXTBOOK", label: "Sách giáo khoa", count: materialsStats.textbook, icon: BookOpen, color: "text-[#1d4ed8]" },
-                  { id: "AUDIO", label: "File Audio", count: materialsStats.audio, icon: Music, color: "text-[#7e22ce]" },
-                ].map((cat) => {
-                  const Icon = cat.icon;
-                  const isSelected = selectedMatType === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedMatType(cat.id)}
-                      className={`p-3.5 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
-                        isSelected
-                          ? "bg-[#1a3d2f] text-white border-[#1a3d2f] shadow-xs"
-                          : "bg-[#fcfaf7] border-[#e6decb] text-[#5c7363] hover:border-[#1a3d2f] hover:bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <Icon className={`w-4 h-4 ${isSelected ? "text-white" : cat.color}`} />
-                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isSelected ? "bg-white/20 text-white" : "bg-[#f0eee6] text-[#1a3d2f]"}`}>
-                          {cat.count}
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold truncate">{cat.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Search & HSK Level Filter Controls */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-[#fcfaf7] border border-[#e6decb]">
-                <div className="relative w-full sm:w-80">
-                  <Search className="w-4 h-4 text-[#8c9a8f] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={matSearch}
-                    onChange={(e) => setMatSearch(e.target.value)}
-                    placeholder="Tìm theo tên tài liệu, ghi chú, định dạng file..."
-                    className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl pl-9 pr-4 py-2 text-xs text-[#1a3d2f] placeholder-[#8c9a8f] outline-none"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <span className="text-xs text-[#64796a] font-medium shrink-0">Lọc HSK:</span>
-                  <div className="flex items-center gap-1 overflow-x-auto">
-                    {["ALL", "1", "2", "3", "4", "5", "6"].map((lvl) => (
-                      <button
-                        key={lvl}
-                        type="button"
-                        onClick={() => setSelectedMatHsk(lvl)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          selectedMatHsk === lvl
-                            ? "bg-[#1a3d2f] text-white shadow-xs"
-                            : "bg-[#f0eee6] text-[#5c7363] hover:bg-[#e4ded0]"
-                        }`}
-                      >
-                        {lvl === "ALL" ? "Tất cả" : `HSK ${lvl}`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Materials Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {materialsList.length === 0 ? (
-                  <div className="col-span-full text-center py-12 rounded-3xl bg-[#fcfaf7] border border-[#e6decb]">
-                    <FolderArchive className="w-12 h-12 text-[#8c9a8f] mx-auto mb-3 stroke-[1.5]" />
-                    <h3 className="text-base font-bold text-[#1a3d2f]">Chưa có tài liệu phù hợp</h3>
-                    <p className="text-xs text-[#64796a] mt-1 mb-4">
-                      Bạn có thể bấm tải lên tài liệu mới để bổ sung Từ vựng, Ngữ pháp, Slide hoặc Sách giáo khoa.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setIsUploadMatModalOpen(true)}
-                      className="px-4 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs"
-                    >
-                      + Tải lên ngay
-                    </button>
-                  </div>
-                ) : (
-                  materialsList.map((m) => {
-                    const typeConfig = {
-                      VOCABULARY: { label: "Từ vựng", icon: FileSpreadsheet, badge: "bg-[#e2ebe4] text-[#3d7b56] border-[#a4c5ae]" },
-                      GRAMMAR: { label: "Ngữ pháp", icon: FileText, badge: "bg-[#fef3c7] text-[#b45309] border-[#fde68a]" },
-                      SLIDE: { label: "Slide bài giảng", icon: Presentation, badge: "bg-[#ffedd5] text-[#c2410c] border-[#fed7aa]" },
-                      TEXTBOOK: { label: "Sách giáo khoa", icon: BookOpen, badge: "bg-[#dbeafe] text-[#1d4ed8] border-[#bfdbfe]" },
-                      AUDIO: { label: "File Audio", icon: Music, badge: "bg-[#f3e8ff] text-[#7e22ce] border-[#e9d5ff]" },
-                      OTHER: { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" },
-                    }[m.type as string] || { label: "Tài liệu", icon: File, badge: "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]" };
-
-                    const TypeIcon = typeConfig.icon;
-
-                    return (
-                      <div
-                        key={m.id}
-                        className="p-5 rounded-3xl bg-[#fcfaf7] border border-[#e6decb] shadow-xs hover:border-[#1a3d2f] hover:shadow-md transition-all flex flex-col justify-between group"
-                      >
-                        <div>
-                          {/* Top Badges */}
-                          <div className="flex items-center justify-between gap-2 mb-3">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${typeConfig.badge}`}>
-                              <TypeIcon className="w-3 h-3" />
-                              <span>{typeConfig.label}</span>
-                            </span>
-
-                            <span className="text-[11px] font-bold text-[#1a3d2f] bg-[#f0eee6] border border-[#d8ceb9] px-2 py-0.5 rounded-md">
-                              HSK {m.hskLevel}
-                            </span>
-                          </div>
-
-                          {/* Title */}
-                          <h4 className="font-bold text-sm text-[#1a3d2f] mb-1.5 leading-snug line-clamp-2 font-serif group-hover:text-[#3d7b56] transition-colors">
-                            {m.title}
-                          </h4>
-
-                          {/* Description */}
-                          {m.description && (
-                            <p className="text-xs text-[#64796a] line-clamp-2 mb-3 leading-relaxed">
-                              {m.description}
-                            </p>
-                          )}
-
-                          {/* File info */}
-                          <div className="p-2.5 rounded-xl bg-[#f7f4ee] border border-[#e6decb] flex items-center justify-between text-[11px] text-[#5c7363] mb-4">
-                            <span className="truncate max-w-[150px] font-mono">{m.fileName}</span>
-                            <span className="font-bold text-[#1a3d2f]">{m.fileSize}</span>
-                          </div>
-                        </div>
-
-                        {/* Bottom Actions */}
-                        <div className="pt-3 border-t border-[#e6decb] flex items-center justify-between">
-                          <span className="text-[10px] text-[#8c9a8f]">
-                            Bởi {m.uploadedBy}
-                          </span>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                alert(`Tải xuống tệp: ${m.fileName} (${m.fileSize})`);
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs flex items-center gap-1 cursor-pointer"
-                              title="Tải về"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>Tải về</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMaterial(m.id)}
-                              className="w-8 h-8 rounded-xl bg-[#fef2f2] text-[#991b1b] hover:bg-[#fee2e2] transition flex items-center justify-center cursor-pointer border border-[#fecaca]"
-                              title="Xóa tài liệu này"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB: KHO BÀI HỌC */}
+          {/* =================================================================== */}
+          {/* TAB 3: LESSONS (KHO BÀI HỌC) */}
+          {/* =================================================================== */}
           {activeTab === "lessons" && (
-            <div className="bg-[#fcfaf7] rounded-3xl p-6 lg:p-8 border border-[#e6decb] shadow-xs">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#eee8dc]">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-[#1a3d2f]">Kho bài học giáo trình</h3>
-                  <p className="text-xs text-[#64796a]">Toàn bộ bài giảng, từ vựng và ngữ pháp đã được số hóa</p>
+                  <h2 className="text-xl font-serif font-bold text-[#204434]">Kho bài học giảng dạy</h2>
+                  <p className="text-xs text-[#315E48]">Kho nội dung chung theo HSK 3.0, Theo chủ đề và Chuyên ngành kinh tế.</p>
                 </div>
                 <button
-                  onClick={() => setIsLessonModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                  onClick={() => {
+                    setLessonErrors({});
+                    setIsLessonModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tạo bài học mới</span>
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tạo bài học mới</span>
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {lessonsList.map((l) => (
-                  <div key={l.id} className="p-4 rounded-2xl border border-[#e2dac9] bg-[#f8f5ee] flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-[#1a3d2f] bg-[#eaf4ed] px-2 py-0.5 rounded mr-2">
-                        HSK {l.hskLevel}
-                      </span>
-                      <strong className="text-sm font-bold text-[#1e2e22]">{l.title}</strong>
+              {/* 3 Categories / Tracks */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {[
+                  {
+                    title: "HSK 3.0 Tiêu chuẩn",
+                    count: "18 bài học",
+                    desc: "Hệ thống từ vựng, ngữ pháp theo 9 bậc chuẩn mới nhất của Bộ Giáo dục Trung Quốc.",
+                    art: "/theme/dashboard/card-hsk.webp",
+                  },
+                  {
+                    title: "Giao tiếp theo chủ đề",
+                    count: "12 bài học",
+                    desc: "Khẩu ngữ đời sống, ẩm thực, mua sắm, đặt phòng và văn hóa bản địa.",
+                    art: "/theme/dashboard/card-topic.webp",
+                  },
+                  {
+                    title: "Chuyên ngành thương mại",
+                    count: "20 bài học",
+                    desc: "Thuật ngữ kinh tế, hợp đồng ngoại thương, logistics và thanh toán quốc tế.",
+                    art: "/theme/dashboard/card-major.webp",
+                  },
+                ].map((track, idx) => (
+                  <div
+                    key={idx}
+                    className="p-5 rounded-3xl border border-[#E5DEC9] bg-[#FFFCF6] shadow-xs hover:border-[#204434] transition flex flex-col justify-between min-h-[170px]"
+                    style={{
+                      backgroundImage: `url('${track.art}')`,
+                      backgroundPosition: "right bottom",
+                      backgroundSize: "contain",
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  >
+                    <div className="max-w-[70%] space-y-1.5">
+                      <span className="text-[10px] font-bold text-[#BC9B6B] uppercase tracking-wider">{track.count}</span>
+                      <h3 className="font-serif font-bold text-base text-[#204434]">{track.title}</h3>
+                      <p className="text-xs text-[#315E48] leading-relaxed">{track.desc}</p>
                     </div>
-                    <span className="text-xs text-[#64796a]">{l.vocabCount || 5} từ vựng · {l.grammarCount || 1} ngữ pháp</span>
+                    <div className="pt-4">
+                      <button
+                        onClick={() => showToast(`Đang lọc bài học thuộc: ${track.title}`)}
+                        className="text-xs font-bold text-[#204434] hover:underline flex items-center gap-1"
+                      >
+                        Khám phá bài học <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* TAB: NGÂN HÀNG CÂU HỎI */}
-          {(activeTab === "questions" || activeTab === "create-question") && (
-            <div className="bg-[#fcfaf7] rounded-3xl p-6 lg:p-8 border border-[#e6decb] shadow-xs">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#eee8dc]">
+          {/* =================================================================== */}
+          {/* TAB 4: ASSIGNMENTS (BÀI TẬP & KIỂM TRA) */}
+          {/* =================================================================== */}
+          {activeTab === "assignments" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-[#1a3d2f]">Ngân hàng câu hỏi HSK 3.0</h3>
-                  <p className="text-xs text-[#64796a]">Kho câu hỏi trắc nghiệm, pinyin và phản xạ từ vựng</p>
+                  <h2 className="text-xl font-serif font-bold text-[#204434]">Quản lý Bài tập & Kiểm tra</h2>
+                  <p className="text-xs text-[#315E48]">Giao bài, thiết lập thời hạn nộp, chấm và xem bảng điểm chi tiết.</p>
                 </div>
                 <button
-                  onClick={() => setIsQuestionModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                  onClick={() => {
+                    setAssignErrors({});
+                    setIsAssignModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tự tạo câu hỏi</span>
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tạo bài tập mới</span>
                 </button>
               </div>
 
+              {/* Assignment Table */}
+              <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-[#E5DEC9] bg-[#F8F5ED]/60 text-[#315E48] font-semibold text-[11px]">
+                      <th className="py-3 px-4">Tên bài tập</th>
+                      <th className="py-3 px-4">Lớp nhận</th>
+                      <th className="py-3 px-4">Thời lượng</th>
+                      <th className="py-3 px-4">Đã nộp / Tổng số</th>
+                      <th className="py-3 px-4">Hạn nộp</th>
+                      <th className="py-3 px-4">Trạng thái</th>
+                      <th className="py-3 px-4 text-right">Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E5DEC9]/50">
+                    {visibleAssignments.map((a) => (
+                      <tr key={a.id} className="hover:bg-[#F8F5ED]/40 transition">
+                        <td className="py-3.5 px-4 font-bold text-[#204434]">{a.title}</td>
+                        <td className="py-3.5 px-4 text-[#315E48]">{a.className}</td>
+                        <td className="py-3.5 px-4 text-[#315E48]">{a.durationMin} phút</td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-[#204434]">{a.submittedCount}/{a.totalStudents}</span>
+                          <span className="text-[10px] text-[#315E48] ml-1">
+                            ({Math.round((a.submittedCount / a.totalStudents) * 100)}%)
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#315E48]">{a.dueAt}</td>
+                        <td className="py-3.5 px-4">
+                          {a.status === "ACTIVE" && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Đang diễn ra
+                            </span>
+                          )}
+                          {a.status === "EXPIRING_SOON" && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                              Sắp hết hạn
+                            </span>
+                          )}
+                          {a.status === "CLOSED" && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
+                              Đã đóng
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => setSelectedAssignmentForView(a)}
+                            className="px-3 py-1.5 rounded-xl bg-[#204434] text-white font-semibold text-xs shadow-2xs hover:bg-[#183629] transition"
+                          >
+                            Xem kết quả
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================== */}
+          {/* TAB 5: QUESTIONS (KHO CÂU HỎI CỦA TÔI) */}
+          {/* =================================================================== */}
+          {activeTab === "questions" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h2 className="text-xl font-serif font-bold text-[#204434]">Kho câu hỏi của tôi</h2>
+                  <p className="text-xs text-[#315E48]">Ngân hàng câu hỏi trắc nghiệm, điền từ và sắp xếp câu tự biên soạn.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setQuestionErrors({});
+                    setIsQuestionModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tạo câu hỏi mới</span>
+                </button>
+              </div>
+
+              {/* Questions list */}
               <div className="space-y-3">
                 {questionsList.map((q, idx) => (
-                  <div key={q.id} className="p-4 rounded-2xl border border-[#e2dac9] bg-[#f8f5ee] space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#1a3d2f] bg-white px-2 py-0.5 rounded border border-[#dae6dc]">
-                        Câu {idx + 1} · {q.skill}
-                      </span>
-                      <span className="font-mono font-bold text-[#1a3d2f]">Đáp án: {q.correctAnswer}</span>
+                  <div key={q.id} className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-[#204434] text-white text-xs font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#204434]/10 text-[#204434] text-[10px] font-bold">
+                          HSK {q.hskLevel} · {q.skill}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#315E48] font-semibold">{q.type}</span>
                     </div>
-                    <p className="text-sm font-bold text-[#1e2e22]">{q.content}</p>
-                    {q.explanation && (
-                      <p className="text-xs text-[#065f46] bg-[#eaf4ed] p-2 rounded-xl">
-                        💡 {q.explanation}
-                      </p>
+
+                    <p className="text-sm font-semibold text-[#204434]">{q.content}</p>
+
+                    {q.options && (
+                      <div className="grid grid-cols-2 gap-2 text-xs text-[#315E48] pt-1">
+                        {q.options.map((opt, oIdx) => (
+                          <div
+                            key={oIdx}
+                            className={`p-2 rounded-xl border ${
+                              opt.startsWith(q.correctAnswer)
+                                ? "bg-emerald-50 border-emerald-300 font-bold text-emerald-900"
+                                : "bg-[#F8F5ED] border-[#E5DEC9]"
+                            }`}
+                          >
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
                     )}
+
+                    <div className="pt-2 text-[11px] text-[#315E48] border-t border-[#E5DEC9]/50">
+                      💡 <strong>Giải thích:</strong> {q.explanation}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* TAB: BÀI TẬP & KIỂM TRA */}
-          {activeTab === "assignments" && (
-            <div className="bg-[#fcfaf7] rounded-3xl p-6 lg:p-8 border border-[#e6decb] shadow-xs">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#eee8dc]">
-                <div>
-                  <h3 className="text-xl font-bold text-[#1a3d2f]">Bài tập & Kiểm tra đã giao</h3>
-                  <p className="text-xs text-[#64796a]">Theo dõi hạn nộp và tỷ lệ làm bài của học sinh</p>
+          {/* =================================================================== */}
+          {/* TAB 6: REPORTS (BÁO CÁO HỌC TẬP) */}
+          {/* =================================================================== */}
+          {activeTab === "reports" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-serif font-bold text-[#204434]">Báo cáo kết quả học tập theo lớp</h2>
+                <p className="text-xs text-[#315E48]">Tổng hợp tỷ lệ hoàn thành bài tập, điểm trung bình và phân tích lỗi sai phổ biến.</p>
+              </div>
+
+              {/* Summary Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9]">
+                  <span className="text-xs text-[#315E48] font-medium">Tỷ lệ hoàn thành trung bình</span>
+                  <div className="text-3xl font-bold font-serif text-[#204434] mt-1">84.3%</div>
+                  <span className="text-[11px] text-emerald-700 font-semibold">Tăng 6.2% so với tháng trước</span>
                 </div>
+                <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9]">
+                  <span className="text-xs text-[#315E48] font-medium">Điểm kiểm tra trung bình</span>
+                  <div className="text-3xl font-bold font-serif text-[#204434] mt-1">8.1 / 10</div>
+                  <span className="text-[11px] text-[#315E48]">Dựa trên 4 bài kiểm tra gần nhất</span>
+                </div>
+                <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9]">
+                  <span className="text-xs text-[#315E48] font-medium">Chủ điểm ngữ pháp cần củng cố</span>
+                  <div className="text-lg font-bold text-[#9D493E] mt-1">Câu chữ 把 & Bổ ngữ kết quả</div>
+                  <span className="text-[11px] text-[#315E48]">28% học viên nhầm lẫn cấu trúc</span>
+                </div>
+              </div>
+
+              {/* Export button */}
+              <div className="flex justify-end">
                 <button
-                  onClick={() => setIsAssignModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                  onClick={() => showToast("Đã xuất báo cáo học tập định dạng PDF thành công!")}
+                  className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center gap-2 shadow-2xs"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Giao bài tập mới</span>
+                  <Download className="w-4 h-4" />
+                  <span>Xuất báo cáo PDF</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================== */}
+          {/* TAB 7: SCHEDULE (LỊCH DẠY & HẠN NỘP) */}
+          {/* =================================================================== */}
+          {activeTab === "schedule" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-serif font-bold text-[#204434]">Lịch dạy & Hạn nộp bài</h2>
+                <p className="text-xs text-[#315E48]">Toàn bộ lịch dạy trong tuần và các mốc hạn nộp bài tập của học viên.</p>
               </div>
 
               <div className="space-y-3">
-                {assignmentsList.map((a) => (
-                  <div key={a.id} className="p-4 rounded-xl border border-[#e2dac9] bg-[#f8f5ee] flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-sm text-[#1e2e22]">{a.title}</h4>
-                      <p className="text-xs text-[#64796a]">Lớp: <strong>{a.className}</strong> · Hạn: {new Date(a.dueAt).toLocaleDateString("vi-VN")}</p>
+                {scheduleList.map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center font-bold text-xs">
+                        {s.mode}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 text-xs text-[#315E48]">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{s.timeRange}</span>
+                        </div>
+                        <h4 className="font-bold text-sm text-[#204434] mt-0.5">{s.className}</h4>
+                        <p className="text-xs text-[#8ea394]">{s.location}</p>
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-[#1a3d2f] bg-[#eaf4ed] px-3 py-1 rounded-lg">
-                      {a.submittedCount || 1} em đã nộp bài
-                    </span>
+
+                    <button
+                      onClick={() => {
+                        if (s.mode === "ONLINE") {
+                          window.open("https://meet.google.com", "_blank");
+                        } else {
+                          showToast(`Đã mở tài liệu chuẩn bị cho lớp ${s.className}`);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-2xs hover:bg-[#183629]"
+                    >
+                      {s.actionType === "JOIN" ? "Vào lớp ngay" : "Xem giáo án"}
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* TAB: KẾT QUẢ HỌC TẬP (REPORTS) */}
-          {activeTab === "reports" && (
-            <div className="bg-[#fcfaf7] rounded-3xl p-6 lg:p-8 border border-[#e6decb] shadow-xs space-y-6">
+          {/* =================================================================== */}
+          {/* TAB 8: SETTINGS (HỒ SƠ & CÀI ĐẶT) */}
+          {/* =================================================================== */}
+          {activeTab === "settings" && (
+            <div className="max-w-2xl space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-[#1a3d2f]">Báo cáo & Phân tích lớp học</h3>
-                <p className="text-xs text-[#64796a]">Số liệu tổng hợp giúp cô Ning Ning giảng giải đúng điểm yếu của học sinh</p>
+                <h2 className="text-xl font-serif font-bold text-[#204434]">Hồ sơ & Cài đặt giảng dạy</h2>
+                <p className="text-xs text-[#315E48]">Cập nhật thông tin giảng viên, mật khẩu và thông báo hệ thống.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-5 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9]">
-                  <h4 className="font-bold text-sm text-[#1e2e22] mb-3">Các câu hỏi học sinh làm sai nhiều</h4>
-                  <div className="space-y-3">
-                    {overviewData?.atRiskStudents?.map((item: any, idx: number) => (
-                      <div key={idx} className="p-3 rounded-xl bg-white border border-[#e2dac9] text-xs">
-                        <span className="font-bold text-[#c2410c]">{item.name} ({item.className})</span>
-                        <p className="text-[#64796a] mt-0.5">{item.reason}</p>
-                      </div>
-                    ))}
+              <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#BC9B6B]/40 relative shrink-0">
+                    <Image
+                      src="/theme/avatar-teacher.jpg"
+                      alt="Avatar"
+                      fill
+                      className="object-cover object-top"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-base text-[#204434]">Cô Nguyễn Thị Ninh</h3>
+                    <p className="text-xs text-[#315E48]">Giảng viên Tiếng Trung & Luyện thi HSK chuẩn</p>
+                    <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full inline-block mt-1">
+                      Tài khoản hoạt động chính thức
+                    </span>
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[#f8f5ee] border border-[#e2dac9]">
-                  <h4 className="font-bold text-sm text-[#1e2e22] mb-3">Đánh giá kỹ năng lớp HSK 1A</h4>
-                  <div className="space-y-3">
-                    {overviewData?.skillRadar?.map((sk: any, idx: number) => (
-                      <div key={idx}>
-                        <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span>{sk.skill}</span>
-                          <span className="text-[#1a3d2f]">{sk.score}%</span>
-                        </div>
-                        <div className="w-full bg-[#e2dac9] h-2 rounded-full overflow-hidden">
-                          <div style={{ width: `${sk.score}%` }} className="bg-[#1a3d2f] h-full" />
-                        </div>
-                      </div>
-                    ))}
+                <div className="space-y-3 pt-3 border-t border-[#E5DEC9]">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#204434] mb-1">Email giảng viên</label>
+                    <input
+                      type="text"
+                      disabled
+                      value="coningning@ningning.edu.vn"
+                      className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 text-xs text-gray-600 outline-none"
+                    />
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#204434] mb-1">Mật khẩu mới</label>
+                    <input
+                      type="password"
+                      placeholder="Nhập mật khẩu mới nếu muốn đổi..."
+                      className="w-full bg-white border border-[#E5DEC9] rounded-xl px-3.5 py-2 text-xs text-[#204434] outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={() => showToast("Đã lưu cập nhật cài đặt thành công!")}
+                    className="px-5 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-2xs hover:bg-[#183629]"
+                  >
+                    Lưu thay đổi
+                  </button>
                 </div>
               </div>
             </div>
@@ -1596,439 +2105,788 @@ export default function TeacherDashboard() {
         </main>
       </div>
 
-      {/* ===================== MODAL: TẠO LỚP HỌC MỚI ===================== */}
-      {isCreateClassModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#fcfaf7] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#e6decb]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#eee8dc] mb-5">
-              <div>
-                <h3 className="font-bold text-base text-[#1a3d2f]">Tạo Lớp học mới</h3>
-                <p className="text-xs text-[#64796a]">Tạo không gian lớp học để cấp tài khoản và giao bài</p>
-              </div>
-              <button
-                onClick={() => setIsCreateClassModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-[#f4eee4] flex items-center justify-center text-[#5c7363] hover:bg-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateClass} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Tên lớp học</label>
-                <input
-                  type="text"
-                  required
-                  value={newClassName}
-                  onChange={(e) => setNewClassName(e.target.value)}
-                  placeholder="Ví dụ: HSK 1B, HSK 2A, Lớp Cấp Tốc T3-T5..."
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Cấp độ HSK 3.0</label>
-                <select
-                  value={newClassLevel}
-                  onChange={(e) => setNewClassLevel(Number(e.target.value))}
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                >
-                  <option value={1}>HSK 1 (Sơ cấp - 500 từ)</option>
-                  <option value={2}>HSK 2 (Sơ cấp - 1.272 từ)</option>
-                  <option value={3}>HSK 3 (Sơ cấp - 2.245 từ)</option>
-                  <option value={4}>HSK 4 (Trung cấp - 3.245 từ)</option>
-                  <option value={5}>HSK 5 (Trung cấp - 4.316 từ)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Mô tả / Lịch học</label>
-                <input
-                  type="text"
-                  value={newClassDesc}
-                  onChange={(e) => setNewClassDesc(e.target.value)}
-                  placeholder="Ví dụ: Lớp tối Thứ 3 và Thứ 5 hàng tuần (19h30 - 21h00)"
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                />
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateClassModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#e2dac9] text-xs font-semibold text-[#5c7363]"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-semibold shadow-md"
-                >
-                  Tạo lớp ngay
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ===================== MODAL: CẤP TÀI KHOẢN HỌC SINH MỚI ===================== */}
-      {isAddStudentModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#fcfaf7] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#e6decb]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#eee8dc] mb-5">
-              <div>
-                <h3 className="font-bold text-base text-[#1a3d2f]">Cấp tài khoản học sinh</h3>
-                <p className="text-xs text-[#64796a]">Tạo tài khoản và ghi danh em vào lớp {selectedClassData?.name}</p>
-              </div>
-              <button
-                onClick={() => setIsAddStudentModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-[#f4eee4] flex items-center justify-center text-[#5c7363] hover:bg-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddStudent} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Họ và tên học sinh</label>
-                <input
-                  type="text"
-                  required
-                  value={newStudentName}
-                  onChange={(e) => {
-                    setNewStudentName(e.target.value);
-                    if (!newStudentUsername) {
-                      const slug = e.target.value
-                        .toLowerCase()
-                        .normalize("NFD")
-                        .replace(/[\u0300-\u036f]/g, "")
-                        .replace(/[^a-z0-9]/g, "");
-                      if (slug) setNewStudentUsername(slug);
-                    }
-                  }}
-                  placeholder="Ví dụ: Nguyễn Minh Anh"
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Tên đăng nhập (Username)</label>
-                <input
-                  type="text"
-                  required
-                  value={newStudentUsername}
-                  onChange={(e) => setNewStudentUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-                  placeholder="Ví dụ: minhanh_hsk1"
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Mật khẩu cấp cho em</label>
-                <input
-                  type="text"
-                  required
-                  value={newStudentPassword}
-                  onChange={(e) => setNewStudentPassword(e.target.value)}
-                  placeholder="Mặc định: 123456"
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none font-mono"
-                />
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddStudentModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#e2dac9] text-xs font-semibold text-[#5c7363]"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold shadow-md"
-                >
-                  Tạo & Cấp tài khoản
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ===================== MODAL: TẠO BÀI HỌC ===================== */}
+      {/* ======================================================================= */}
+      {/* MODAL 1: TẠO BÀI HỌC MỚI (HAPPY CASE & UNHAPPY CASE VALIDATION) */}
+      {/* ======================================================================= */}
       {isLessonModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#fcfaf7] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#e6decb]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#eee8dc] mb-5">
-              <h3 className="font-bold text-base text-[#1a3d2f]">Tạo bài học mới</h3>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-[#204434]" />
+                <h3 className="font-serif font-bold text-base text-[#204434]">Tạo bài học mới</h3>
+              </div>
               <button
                 onClick={() => setIsLessonModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-[#f4eee4] flex items-center justify-center text-[#5c7363] hover:bg-slate-200"
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateLesson} className="space-y-4">
+            <div className="space-y-3.5 text-xs">
+              {/* Track Selector */}
               <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Tên bài học</label>
-                <input
-                  type="text"
-                  required
-                  value={newLessonTitle}
-                  onChange={(e) => setNewLessonTitle(e.target.value)}
-                  placeholder="Ví dụ: Bài 6 · 点菜 (Gọi món ăn)"
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Cấp độ HSK 3.0</label>
-                <select
-                  value={newLessonHsk}
-                  onChange={(e) => setNewLessonHsk(Number(e.target.value))}
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                >
-                  <option value={1}>HSK 1 (Sơ cấp)</option>
-                  <option value={2}>HSK 2 (Sơ cấp)</option>
-                  <option value={3}>HSK 3 (Sơ cấp)</option>
-                  <option value={4}>HSK 4 (Trung cấp)</option>
-                </select>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsLessonModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#e2dac9] text-xs font-semibold text-[#5c7363]"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-semibold shadow-md"
-                >
-                  Lưu vào SQLite
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ===================== MODAL: GIAO BÀI TẬP ===================== */}
-      {isAssignModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#fcfaf7] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[#e6decb]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#eee8dc] mb-5">
-              <h3 className="font-bold text-base text-[#1a3d2f]">Giao bài tập cho học sinh</h3>
-              <button
-                onClick={() => setIsAssignModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-[#f4eee4] flex items-center justify-center text-[#5c7363] hover:bg-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateAssign} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Tên bài tập</label>
-                <input
-                  type="text"
-                  required
-                  value={newAssignTitle}
-                  onChange={(e) => setNewAssignTitle(e.target.value)}
-                  placeholder="Ví dụ: Ôn tập từ vựng & Điền chữ Hán Bài 5"
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#1a3d2f] block mb-1.5">Chọn lớp học</label>
-                <select
-                  value={newAssignClassId}
-                  onChange={(e) => setNewAssignClassId(e.target.value)}
-                  className="w-full bg-[#f4eee4] border border-[#e2dac9] focus:border-[#1a3d2f] rounded-xl px-4 py-2.5 text-xs outline-none"
-                >
-                  {classesList.map((cls) => (
-                    <option key={cls.id} value={cls.id}>
-                      {cls.name} (HSK {cls.level})
-                    </option>
+                <label className="block font-semibold text-[#204434] mb-1">Chương trình đào tạo</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "HSK", label: "HSK 3.0" },
+                    { id: "TOPIC", label: "Theo chủ đề" },
+                    { id: "MAJOR", label: "Chuyên ngành" },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setLessonTrack(t.id as any)}
+                      className={`py-2 rounded-xl text-xs font-semibold transition ${
+                        lessonTrack === t.id
+                          ? "bg-[#204434] text-white"
+                          : "bg-[#F8F5ED] text-[#315E48] hover:bg-[#E5DEC9]"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
-              <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAssignModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[#e2dac9] text-xs font-semibold text-[#5c7363]"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-semibold shadow-md"
-                >
-                  Giao bài ngay
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ===================== MODAL: TẢI LÊN TÀI LIỆU THƯ VIỆN ===================== */}
-      {isUploadMatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-[#fcfaf7] border border-[#e6decb] rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setIsUploadMatModalOpen(false)}
-              className="absolute top-5 right-5 text-[#8c9a8f] hover:text-[#1a3d2f] p-1 rounded-full transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-[#1a3d2f] text-white flex items-center justify-center font-bold">
-                <UploadCloud className="w-5 h-5" />
-              </div>
+              {/* Title input with unhappycase error */}
               <div>
-                <h3 className="font-bold text-base text-[#1a3d2f] font-serif">
-                  Tải lên tài liệu thư viện mới
-                </h3>
-                <p className="text-xs text-[#5c7363]">
-                  Học sinh có thể tải về ôn tập hoặc cô gắn vào từng lớp học
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateMaterial} className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-[#1a3d2f] block mb-1">
-                  Tiêu đề tài liệu <span className="text-red-600">*</span>
+                <label className="block font-semibold text-[#204434] mb-1">
+                  Tiêu đề bài học <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
-                  value={newMatTitle}
-                  onChange={(e) => setNewMatTitle(e.target.value)}
-                  placeholder="Ví dụ: Giáo trình Chuẩn HSK 1 (PDF), 150 Từ vựng HSK 1, Slide Ngữ pháp câu chữ 把..."
-                  className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs text-[#1a3d2f] outline-none"
+                  value={lessonTitle}
+                  onChange={(e) => {
+                    setLessonTitle(e.target.value);
+                    if (lessonErrors.title) setLessonErrors({});
+                  }}
+                  placeholder="Ví dụ: Bài 6: Đặt món ăn tại nhà hàng Trung Hoa (点菜)"
+                  className={`w-full bg-[#F8F5ED] border rounded-xl px-3.5 py-2.5 outline-none transition ${
+                    lessonErrors.title ? "border-red-500 bg-red-50/30" : "border-[#E5DEC9] focus:border-[#204434]"
+                  }`}
                 />
+                {lessonErrors.title && (
+                  <p className="text-[11px] text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{lessonErrors.title}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Vocabularies */}
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">Từ vựng trọng tâm (cách nhau bởi dấu phẩy)</label>
+                <input
+                  type="text"
+                  value={lessonVocabInput}
+                  onChange={(e) => setLessonVocabInput(e.target.value)}
+                  placeholder="Ví dụ: 菜单 (thực đơn), 买单 (thanh toán), 好吃 (ngon)..."
+                  className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 outline-none focus:border-[#204434]"
+                />
+              </div>
+
+              {/* Grammar rules */}
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">Điểm ngữ pháp & mẫu câu chính</label>
+                <textarea
+                  rows={3}
+                  value={lessonGrammarInput}
+                  onChange={(e) => setLessonGrammarInput(e.target.value)}
+                  placeholder="Ví dụ: Cấu trúc câu chữ 把: Chủ ngữ + 把 + Tân ngữ + Động từ + Thành phần khác..."
+                  className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl p-3 outline-none focus:border-[#204434]"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleSaveLesson(true)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] text-xs font-semibold cursor-pointer"
+              >
+                Lưu bản nháp
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveLesson(false)}
+                className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer"
+              >
+                Xuất bản bài học
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL 2: TẠO BÀI TẬP (HAPPY CASE & UNHAPPY CASE VALIDATION) */}
+      {/* ======================================================================= */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+              <div className="flex items-center gap-2">
+                <FileCheck2 className="w-5 h-5 text-[#204434]" />
+                <h3 className="font-serif font-bold text-base text-[#204434]">Tạo bài tập & Kiểm tra</h3>
+              </div>
+              <button
+                onClick={() => setIsAssignModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">
+                  Tên bài tập <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={assignTitle}
+                  onChange={(e) => {
+                    setAssignTitle(e.target.value);
+                    if (assignErrors.title) setAssignErrors({});
+                  }}
+                  placeholder="Ví dụ: Ôn tập Từ vựng & Ngữ pháp HSK 3 - Đề số 2"
+                  className={`w-full bg-[#F8F5ED] border rounded-xl px-3.5 py-2.5 outline-none transition ${
+                    assignErrors.title ? "border-red-500 bg-red-50/30" : "border-[#E5DEC9] focus:border-[#204434]"
+                  }`}
+                />
+                {assignErrors.title && (
+                  <p className="text-[11px] text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{assignErrors.title}</span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">Lớp học nhận bài</label>
+                <select
+                  value={assignClassId}
+                  onChange={(e) => setAssignClassId(e.target.value)}
+                  className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2.5 outline-none focus:border-[#204434]"
+                >
+                  {classesList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.studentCount} học viên)
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-[#1a3d2f] block mb-1">
-                    Phân loại tài liệu <span className="text-red-600">*</span>
-                  </label>
+                  <label className="block font-semibold text-[#204434] mb-1">Thời lượng (phút)</label>
+                  <input
+                    type="number"
+                    value={assignDuration}
+                    onChange={(e) => setAssignDuration(Number(e.target.value))}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 outline-none focus:border-[#204434]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#204434] mb-1">Hạn nộp</label>
+                  <input
+                    type="datetime-local"
+                    value={assignDueDate}
+                    onChange={(e) => setAssignDueDate(e.target.value)}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 outline-none focus:border-[#204434]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsAssignModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] text-xs font-semibold cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAssignment}
+                className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer"
+              >
+                Giao bài cho lớp ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL 3: TẠO LỚP HỌC MỚI (VỚI TỰ SINH MÃ LỚP DUY NHẤT) */}
+      {/* ======================================================================= */}
+      {isCreateClassModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#204434]" />
+                <h3 className="font-serif font-bold text-base text-[#204434]">Tạo lớp học mới</h3>
+              </div>
+              <button
+                onClick={() => setIsCreateClassModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">
+                  Tên lớp học <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newClassName}
+                  onChange={(e) => {
+                    setNewClassName(e.target.value);
+                    if (classErrors.name) setClassErrors({});
+                  }}
+                  placeholder="Ví dụ: HSK 3 Bứt phá điểm số - Khóa 2026"
+                  className={`w-full bg-[#F8F5ED] border rounded-xl px-3.5 py-2.5 outline-none transition ${
+                    classErrors.name ? "border-red-500 bg-red-50/30" : "border-[#E5DEC9] focus:border-[#204434]"
+                  }`}
+                />
+                {classErrors.name && (
+                  <p className="text-[11px] text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{classErrors.name}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#204434] mb-1">Chương trình</label>
                   <select
-                    value={newMatType}
-                    onChange={(e: any) => setNewMatType(e.target.value)}
-                    className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3 py-2 text-xs text-[#1a3d2f] outline-none"
+                    value={newClassTrack}
+                    onChange={(e) => setNewClassTrack(e.target.value as any)}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 outline-none focus:border-[#204434]"
                   >
-                    <option value="VOCABULARY">📝 Từ vựng (Excel / Word)</option>
-                    <option value="GRAMMAR">💡 Ngữ pháp & Cấu trúc (PDF)</option>
-                    <option value="SLIDE">🖥️ Slide bài giảng (PPTX / PDF)</option>
-                    <option value="TEXTBOOK">📚 Sách giáo khoa & Bài tập</option>
-                    <option value="AUDIO">🎧 File Audio luyện nghe (MP3)</option>
-                    <option value="OTHER">📁 Tài liệu học tập khác</option>
+                    <option value="HSK">HSK 3.0</option>
+                    <option value="TOPIC">Theo chủ đề</option>
+                    <option value="MAJOR">Chuyên ngành kinh tế</option>
                   </select>
                 </div>
-
                 <div>
-                  <label className="font-bold text-[#1a3d2f] block mb-1">
-                    Trình độ HSK
-                  </label>
+                  <label className="block font-semibold text-[#204434] mb-1">Cấp độ HSK</label>
                   <select
-                    value={newMatHsk}
-                    onChange={(e) => setNewMatHsk(Number(e.target.value))}
-                    className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3 py-2 text-xs text-[#1a3d2f] outline-none"
+                    value={newClassLevel}
+                    onChange={(e) => setNewClassLevel(Number(e.target.value))}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 outline-none focus:border-[#204434]"
                   >
-                    {[1, 2, 3, 4, 5, 6].map((lvl) => (
-                      <option key={lvl} value={lvl}>
-                        HSK {lvl}
+                    <option value={1}>HSK 1</option>
+                    <option value={2}>HSK 2</option>
+                    <option value={3}>HSK 3</option>
+                    <option value={4}>HSK 4</option>
+                    <option value={5}>HSK 5</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">Mô tả mục tiêu lớp</label>
+                <textarea
+                  rows={2}
+                  value={newClassDesc}
+                  onChange={(e) => setNewClassDesc(e.target.value)}
+                  placeholder="Mô tả ngắn gọn về đối tượng học viên và mục tiêu đầu ra..."
+                  className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl p-3 outline-none focus:border-[#204434]"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsCreateClassModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] text-xs font-semibold cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveClass}
+                className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer"
+              >
+                Khởi tạo lớp & Sinh mã
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL 4: CẤP TÀI KHOẢN HỌC VIÊN (SPEC SECTION 7 & 13) */}
+      {/* ======================================================================= */}
+      {isAddStudentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-[#204434]" />
+                <h3 className="font-serif font-bold text-base text-[#204434]">Cấp tài khoản học viên mới</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAddStudentModalOpen(false);
+                  setIssuedStudentSuccess(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {issuedStudentSuccess ? (
+              /* Success card with 1-click copy */
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-emerald-900 text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    <span>Đã tạo tài khoản thành công!</span>
+                  </div>
+                  <p className="text-emerald-800">
+                    Học viên <strong>{issuedStudentSuccess.name}</strong> đã được thêm vào lớp{" "}
+                    <strong>{issuedStudentSuccess.className}</strong>.
+                  </p>
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 space-y-1 font-mono text-[11px] text-[#204434]">
+                    <div>👤 Tên đăng nhập: <strong>{issuedStudentSuccess.username}</strong></div>
+                    <div>🔑 Mật khẩu tạm: <strong>{issuedStudentSuccess.password}</strong></div>
+                    <div>🏷️ Mã lớp học: <strong>{issuedStudentSuccess.classCode}</strong></div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => {
+                      const msg = `🎉 Chào em ${issuedStudentSuccess.name}! Cô Ninh gửi em tài khoản vào lớp ${issuedStudentSuccess.className}:\n🔗 Web: http://localhost:3000/login\n👤 Tên đăng nhập: ${issuedStudentSuccess.username}\n🔑 Mật khẩu: ${issuedStudentSuccess.password}\nChúc em học tốt nhé! 加油!💪`;
+                      copyToClipboard(msg, "Đã sao chép tin nhắn gửi học viên!");
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Sao chép tin nhắn gửi học viên</span>
+                  </button>
+                  <button
+                    onClick={() => setIssuedStudentSuccess(null)}
+                    className="px-4 py-2.5 rounded-xl bg-white border border-[#E5DEC9] text-xs font-semibold text-[#315E48]"
+                  >
+                    Thêm em khác
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Form */
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-[#204434] mb-1">Lớp tiếp nhận</label>
+                  <select
+                    value={targetClassForStudent}
+                    onChange={(e) => setTargetClassForStudent(e.target.value)}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 outline-none focus:border-[#204434]"
+                  >
+                    {classesList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
 
+                <div>
+                  <label className="block font-semibold text-[#204434] mb-1">
+                    Họ và tên học viên <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newStudentName}
+                    onChange={(e) => {
+                      setNewStudentName(e.target.value);
+                      if (studentFormErrors.name) setStudentFormErrors({});
+                    }}
+                    placeholder="Ví dụ: Trần Minh Khang"
+                    className={`w-full bg-[#F8F5ED] border rounded-xl px-3.5 py-2.5 outline-none transition ${
+                      studentFormErrors.name ? "border-red-500 bg-red-50/30" : "border-[#E5DEC9] focus:border-[#204434]"
+                    }`}
+                  />
+                  {studentFormErrors.name && (
+                    <p className="text-[11px] text-red-600 mt-1">{studentFormErrors.name}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-[#204434] mb-1">
+                      Tên đăng nhập <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newStudentUsername}
+                      onChange={(e) => {
+                        setNewStudentUsername(e.target.value);
+                        if (studentFormErrors.username) setStudentFormErrors({});
+                      }}
+                      placeholder="minhkhang2026"
+                      className={`w-full bg-[#F8F5ED] border rounded-xl px-3.5 py-2 outline-none transition ${
+                        studentFormErrors.username
+                          ? "border-red-500 bg-red-50/30"
+                          : "border-[#E5DEC9] focus:border-[#204434]"
+                      }`}
+                    />
+                    {studentFormErrors.username && (
+                      <p className="text-[11px] text-red-600 mt-1">{studentFormErrors.username}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#204434] mb-1">Mật khẩu tạm</label>
+                    <input
+                      type="text"
+                      value={newStudentPassword}
+                      onChange={(e) => setNewStudentPassword(e.target.value)}
+                      className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 outline-none focus:border-[#204434]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddStudentModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] text-xs font-semibold cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleIssueStudent}
+                    className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer"
+                  >
+                    Tạo tài khoản & Cấp quyền
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL 5: XEM KẾT QUẢ BÀI TẬP (SPEC SECTION 8) */}
+      {/* ======================================================================= */}
+      {selectedAssignmentForView && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
               <div>
-                <label className="font-bold text-[#1a3d2f] block mb-1">
-                  Áp dụng cho Lớp học
-                </label>
-                <select
-                  value={newMatClassId}
-                  onChange={(e) => setNewMatClassId(e.target.value)}
-                  className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl px-3 py-2 text-xs text-[#1a3d2f] outline-none"
-                >
-                  <option value="">🌐 Chung cho toàn bộ học sinh</option>
-                  {classesList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} (HSK {c.level})
-                    </option>
+                <span className="text-[10px] text-[#BC9B6B] font-bold uppercase">{selectedAssignmentForView.className}</span>
+                <h3 className="font-serif font-bold text-base text-[#204434]">
+                  Kết quả bài tập: {selectedAssignmentForView.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedAssignmentForView(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-[#315E48] bg-[#F8F5ED] p-3 rounded-2xl border border-[#E5DEC9]">
+              <span>📊 Đã nộp: <strong>{selectedAssignmentForView.submittedCount}/{selectedAssignmentForView.totalStudents} học sinh</strong></span>
+              <span>⏰ Hạn nộp: <strong>{selectedAssignmentForView.dueAt}</strong></span>
+              <button
+                onClick={() => showToast("Đã gia hạn thêm 48 giờ cho học sinh chưa nộp!")}
+                className="px-2.5 py-1 rounded-lg bg-[#204434] text-white text-[11px] font-semibold"
+              >
+                Gia hạn bài
+              </button>
+            </div>
+
+            {/* Submissions Table */}
+            <div className="max-h-72 overflow-y-auto rounded-2xl border border-[#E5DEC9]">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-[#F8F5ED] text-[#315E48] font-semibold text-[11px] sticky top-0">
+                    <th className="py-2.5 px-3">Học sinh</th>
+                    <th className="py-2.5 px-3">Thời gian nộp</th>
+                    <th className="py-2.5 px-3">Điểm số</th>
+                    <th className="py-2.5 px-3">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5DEC9]/60">
+                  {[
+                    { name: "Trần Minh Khang", time: "20/10 14:20", score: "9.5 / 10", status: "Đúng hạn" },
+                    { name: "Nguyễn Lê Bảo Hân", time: "20/10 15:10", score: "8.5 / 10", status: "Đúng hạn" },
+                    { name: "Hoàng Gia Huy", time: "20/10 16:45", score: "9.0 / 10", status: "Đúng hạn" },
+                    { name: "Lê Hoàng Nam", time: "20/10 18:02", score: "6.0 / 10", status: "Nộp muộn" },
+                    { name: "Trần Minh Anh", time: "Chưa nộp", score: "—", status: "Chưa nộp" },
+                  ].map((sub, idx) => (
+                    <tr key={idx} className="hover:bg-[#F8F5ED]/40 transition">
+                      <td className="py-2.5 px-3 font-semibold text-[#204434]">{sub.name}</td>
+                      <td className="py-2.5 px-3 text-[#315E48]">{sub.time}</td>
+                      <td className="py-2.5 px-3 font-bold text-emerald-800">{sub.score}</td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            sub.status === "Chưa nộp"
+                              ? "bg-red-100 text-red-800"
+                              : sub.status === "Nộp muộn"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}
+                        >
+                          {sub.status}
+                        </span>
+                      </td>
+                    </tr>
                   ))}
-                </select>
-              </div>
+                </tbody>
+              </table>
+            </div>
 
-              {/* Upload Dropzone simulation */}
-              <div>
-                <label className="font-bold text-[#1a3d2f] block mb-1">
-                  Tệp đính kèm (PDF, PPTX, XLSX, DOCX, MP3)
-                </label>
-                <div
-                  onClick={() => {
-                    const simulatedName = newMatTitle
-                      ? `${newMatTitle.replace(/\s+/g, "_")}.${newMatType === "SLIDE" ? "pptx" : newMatType === "VOCABULARY" ? "xlsx" : newMatType === "AUDIO" ? "mp3" : "pdf"}`
-                      : "Tai_Lieu_HSK_CoNingNing.pdf";
-                    setNewMatFileName(simulatedName);
-                  }}
-                  className="p-4 rounded-2xl border-2 border-dashed border-[#d8ceb9] bg-[#f7f4ee] hover:bg-[#ede7da] text-center cursor-pointer transition"
-                >
-                  <UploadCloud className="w-6 h-6 text-[#1a3d2f] mx-auto mb-1.5" />
-                  <p className="text-xs font-semibold text-[#1a3d2f]">
-                    {newMatFileName ? `Đã chọn tệp: ${newMatFileName}` : "Nhấp để chọn tệp hoặc kéo thả file vào đây"}
-                  </p>
-                  <p className="text-[11px] text-[#8c9a8f] mt-0.5">
-                    Hỗ trợ file PDF, PowerPoint, Excel, Word, Audio tối đa 100MB
-                  </p>
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setSelectedAssignmentForView(null)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs font-semibold text-[#204434]"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL 6: HỌC SINH CẦN HỖ TRỢ & GIAO BÀI ÔN BỔ TRỢ (SPEC SECTION 11) */}
+      {/* ======================================================================= */}
+      {selectedStudentForSupport && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-[#9D493E]" />
+                <h3 className="font-serif font-bold text-base text-[#204434]">Chẩn đoán sư phạm học sinh</h3>
+              </div>
+              <button
+                onClick={() => setSelectedStudentForSupport(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]">
+                <div className="w-12 h-12 rounded-full overflow-hidden bg-white border border-[#BC9B6B]/40 relative shrink-0">
+                  <Image
+                    src={selectedStudentForSupport.avatar}
+                    alt={selectedStudentForSupport.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <h4 className="font-serif font-bold text-sm text-[#204434]">{selectedStudentForSupport.name}</h4>
+                  <span className="text-[11px] text-[#315E48]">{selectedStudentForSupport.className}</span>
+                  <div className="text-[10px] text-[#9D493E] font-bold mt-0.5">
+                    ⚠️ {selectedStudentForSupport.reason}
+                  </div>
                 </div>
               </div>
 
               <div>
-                <label className="font-bold text-[#1a3d2f] block mb-1">
-                  Mô tả / Hướng dẫn học cho học viên
+                <label className="block font-bold text-[#204434] mb-1">Chi tiết phân tích lỗi sai:</label>
+                <p className="p-3 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] leading-relaxed">
+                  {selectedStudentForSupport.detail}
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#204434] mb-1">Đề xuất bài ôn bổ trợ riêng:</label>
+                <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 text-emerald-900 leading-relaxed font-medium">
+                  {selectedStudentForSupport.recommendedPractice}
+                </div>
+              </div>
+
+              {assignedRemedialNotice && (
+                <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                  <span>Đã giao bài ôn bổ trợ thành công đến hòm thư học viên!</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSelectedStudentForSupport(null)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] text-xs font-semibold cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAssignedRemedialNotice(true);
+                  showToast(`Đã giao bài ôn bổ trợ riêng cho em ${selectedStudentForSupport.name}!`);
+                  setTimeout(() => {
+                    setSelectedStudentForSupport(null);
+                  }, 1800);
+                }}
+                className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Giao bài ôn bổ trợ riêng</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL 7: TẠO CÂU HỎI MỚI VÀO KHO */}
+      {/* ======================================================================= */}
+      {isQuestionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-[#204434]" />
+                <h3 className="font-serif font-bold text-base text-[#204434]">Soạn câu hỏi mới vào kho</h3>
+              </div>
+              <button
+                onClick={() => setIsQuestionModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-semibold text-[#204434] mb-1">Dạng câu hỏi</label>
+                  <select
+                    value={newQType}
+                    onChange={(e) => setNewQType(e.target.value as any)}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-2.5 py-2 outline-none"
+                  >
+                    <option value="MULTIPLE_CHOICE">Trắc nghiệm</option>
+                    <option value="FILL_BLANK">Điền từ</option>
+                    <option value="REORDER">Sắp xếp câu</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#204434] mb-1">Cấp độ HSK</label>
+                  <select
+                    value={newQHsk}
+                    onChange={(e) => setNewQHsk(Number(e.target.value))}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-2.5 py-2 outline-none"
+                  >
+                    <option value={1}>HSK 1</option>
+                    <option value={2}>HSK 2</option>
+                    <option value={3}>HSK 3</option>
+                    <option value={4}>HSK 4</option>
+                    <option value={5}>HSK 5</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#204434] mb-1">Kỹ năng</label>
+                  <select
+                    value={newQSkill}
+                    onChange={(e) => setNewQSkill(e.target.value as any)}
+                    className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-2.5 py-2 outline-none"
+                  >
+                    <option value="GRAMMAR">Ngữ pháp</option>
+                    <option value="VOCABULARY">Từ vựng</option>
+                    <option value="READING">Đọc hiểu</option>
+                    <option value="LISTENING">Nghe hiểu</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">
+                  Nội dung câu hỏi <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows={2}
-                  value={newMatDesc}
-                  onChange={(e) => setNewMatDesc(e.target.value)}
-                  placeholder="Ghi chú thêm về nội dung, bài tập cần làm hoặc phần trọng tâm..."
-                  className="w-full bg-[#f7f4ee] border border-[#e6decb] focus:border-[#1a3d2f] focus:bg-white rounded-xl p-3 text-xs text-[#1a3d2f] outline-none resize-none"
+                  value={newQContent}
+                  onChange={(e) => {
+                    setNewQContent(e.target.value);
+                    if (questionErrors.content) setQuestionErrors({});
+                  }}
+                  placeholder="Ví dụ: 请把这本中文书_____到图书馆。(Hãy mang cuốn sách tiếng Trung này đến thư viện)"
+                  className={`w-full bg-[#F8F5ED] border rounded-xl p-3 outline-none ${
+                    questionErrors.content ? "border-red-500 bg-red-50/30" : "border-[#E5DEC9] focus:border-[#204434]"
+                  }`}
                 />
+                {questionErrors.content && (
+                  <p className="text-[11px] text-red-600 mt-1">{questionErrors.content}</p>
+                )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#e6decb]">
-                <button
-                  type="button"
-                  onClick={() => setIsUploadMatModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-[#e6decb] text-xs font-bold text-[#5c7363] hover:bg-[#ede7da] transition"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploadingMat}
-                  className="px-5 py-2 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  <span>{uploadingMat ? "Đang lưu..." : "Lưu vào kho tài liệu"}</span>
-                </button>
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">
+                  Đáp án chính xác <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newQCorrect}
+                  onChange={(e) => {
+                    setNewQCorrect(e.target.value);
+                    if (questionErrors.correct) setQuestionErrors({});
+                  }}
+                  placeholder="Ví dụ: 送 / 还 (hoặc A nếu trắc nghiệm)"
+                  className={`w-full bg-[#F8F5ED] border rounded-xl px-3.5 py-2 outline-none ${
+                    questionErrors.correct ? "border-red-500 bg-red-50/30" : "border-[#E5DEC9] focus:border-[#204434]"
+                  }`}
+                />
+                {questionErrors.correct && (
+                  <p className="text-[11px] text-red-600 mt-1">{questionErrors.correct}</p>
+                )}
               </div>
-            </form>
+
+              <div>
+                <label className="block font-semibold text-[#204434] mb-1">Giải thích đáp án</label>
+                <textarea
+                  rows={2}
+                  value={newQExpl}
+                  onChange={(e) => setNewQExpl(e.target.value)}
+                  placeholder="Giải thích vì sao chọn đáp án này để học viên xem sau khi nộp bài..."
+                  className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl p-2.5 outline-none focus:border-[#204434]"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsQuestionModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] text-xs font-semibold cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuestion}
+                className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer"
+              >
+                Lưu vào kho câu hỏi
+              </button>
+            </div>
           </div>
         </div>
       )}
