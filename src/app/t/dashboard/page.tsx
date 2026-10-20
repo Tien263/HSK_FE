@@ -43,6 +43,7 @@ import {
   RefreshCw,
   Send,
 } from "lucide-react";
+import ClassesWorkspace from "@/components/teacher/ClassesWorkspace";
 
 // ============================================================================
 // TYPES & MOCK DATA DEFINITIONS
@@ -124,6 +125,15 @@ export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "classes" | "lessons" | "assignments" | "questions" | "reports" | "schedule" | "settings"
   >("overview");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab && ["overview", "classes", "lessons", "assignments", "questions", "reports", "schedule", "settings"].includes(tab)) {
+        setActiveTab(tab as any);
+      }
+    }
+  }, []);
 
   // Global search & filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -1464,271 +1474,8 @@ export default function TeacherDashboard() {
           {/* =================================================================== */}
           {/* TAB 2: CLASSES (QUẢN LÝ LỚP HỌC & CLASS DETAIL WORKSPACE) */}
           {/* =================================================================== */}
-          {(activeTab === "classes" || selectedClassId) && (
-            <div className="space-y-6">
-              {/* If a class is selected, show Class Detail Workspace */}
-              {selectedClassId && currentSelectedClass ? (
-                <div className="space-y-6">
-                  {/* Top Bar with Back Button */}
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <button
-                      onClick={() => setSelectedClassId(null)}
-                      className="inline-flex items-center gap-2 text-xs font-semibold text-[#315E48] hover:text-[#204434] bg-white px-3 py-2 rounded-xl border border-[#E5DEC9]"
-                    >
-                      <span>← Quay lại danh sách lớp</span>
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setTargetClassForStudent(currentSelectedClass.id);
-                          setStudentFormErrors({});
-                          setIssuedStudentSuccess(null);
-                          setIsAddStudentModalOpen(true);
-                        }}
-                        className="px-3.5 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Cấp tài khoản mới</span>
-                      </button>
-                      <button
-                        onClick={() =>
-                          copyToClipboard(
-                            currentSelectedClass.code,
-                            `Đã sao chép mã tham gia lớp: ${currentSelectedClass.code}`
-                          )
-                        }
-                        className="px-3.5 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Sao chép mã lớp: {currentSelectedClass.code}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Class Banner Card */}
-                  <div
-                    className="p-6 rounded-3xl border border-[#E5DEC9] shadow-xs relative overflow-hidden bg-[#FFFCF6]"
-                    style={{
-                      backgroundImage: `url('${currentSelectedClass.artwork}')`,
-                      backgroundPosition: "right bottom",
-                      backgroundSize: "contain",
-                      backgroundRepeat: "no-repeat",
-                    }}
-                  >
-                    <div className="max-w-xl space-y-2">
-                      <span className="inline-block px-2.5 py-1 rounded-md bg-[#204434]/10 text-[#204434] text-xs font-bold">
-                        {currentSelectedClass.levelText}
-                      </span>
-                      <h2 className="text-2xl font-serif font-bold text-[#204434]">{currentSelectedClass.name}</h2>
-                      <p className="text-xs text-[#315E48] leading-relaxed">{currentSelectedClass.description}</p>
-                      <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-medium text-[#315E48]">
-                        <span>👥 Sĩ số: <strong>{currentSelectedClass.studentCount} học viên</strong></span>
-                        <span>📚 Tiến độ: <strong>{currentSelectedClass.completedLessons}/{currentSelectedClass.totalLessons} bài học</strong></span>
-                        <span>📊 Tỷ lệ nộp bài: <strong>{currentSelectedClass.submissionRate}%</strong></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Subtabs inside class: Students / Assignments / Materials */}
-                  <div className="flex items-center gap-2 border-b border-[#E5DEC9] pb-3">
-                    {[
-                      { id: "students", label: "Danh sách học viên", count: currentSelectedClass.studentCount },
-                      { id: "assignments", label: "Bài tập của lớp", count: 4 },
-                      { id: "materials", label: "Kho tài liệu giảng dạy", count: 8 },
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setClassSubTab(tab.id as any)}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                          classSubTab === tab.id
-                            ? "bg-[#204434] text-white"
-                            : "bg-white text-[#315E48] hover:text-[#204434] border border-[#E5DEC9]"
-                        }`}
-                      >
-                        {tab.label} ({tab.count})
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Subtab Content: Students */}
-                  {classSubTab === "students" && (
-                    <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] overflow-hidden">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-[#E5DEC9] bg-[#F8F5ED]/60 text-[#315E48] font-semibold text-[11px]">
-                            <th className="py-3 px-4">Họ và tên</th>
-                            <th className="py-3 px-4">Tên đăng nhập</th>
-                            <th className="py-3 px-4">Số bài đã nộp</th>
-                            <th className="py-3 px-4">Điểm TB</th>
-                            <th className="py-3 px-4">Trạng thái</th>
-                            <th className="py-3 px-4 text-right">Thao tác</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#E5DEC9]/50">
-                          {[
-                            { name: "Trần Minh Khang", username: "khang.tran", submitted: "14/14", avg: "8.8", status: "Chăm chỉ" },
-                            { name: "Nguyễn Lê Bảo Hân", username: "baohan.nguyen", submitted: "13/14", avg: "8.2", status: "Bình thường" },
-                            { name: "Trần Minh Anh", username: "minhanh.tran", submitted: "11/14", avg: "6.5", status: "Cần hỗ trợ" },
-                            { name: "Hoàng Gia Huy", username: "giahuy.hoang", submitted: "14/14", avg: "9.0", status: "Xuất sắc" },
-                          ].map((st, i) => (
-                            <tr key={i} className="hover:bg-[#F8F5ED]/40 transition">
-                              <td className="py-3.5 px-4 font-bold text-[#204434]">{st.name}</td>
-                              <td className="py-3.5 px-4 text-[#315E48] font-mono text-[11px]">{st.username}</td>
-                              <td className="py-3.5 px-4 text-[#204434] font-semibold">{st.submitted}</td>
-                              <td className="py-3.5 px-4 font-bold text-emerald-800">{st.avg}</td>
-                              <td className="py-3.5 px-4">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    st.status === "Cần hỗ trợ"
-                                      ? "bg-amber-100 text-amber-800"
-                                      : "bg-emerald-100 text-emerald-800"
-                                  }`}
-                                >
-                                  {st.status}
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-4 text-right">
-                                <button
-                                  onClick={() =>
-                                    copyToClipboard(
-                                      `Tài khoản: ${st.username} | Lớp: ${currentSelectedClass.name}`,
-                                      `Đã sao chép thông tin của ${st.name}`
-                                    )
-                                  }
-                                  className="text-xs text-[#315E48] hover:text-[#204434] font-semibold"
-                                >
-                                  Gửi thông báo
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Subtab Content: Assignments */}
-                  {classSubTab === "assignments" && (
-                    <div className="space-y-3">
-                      {assignmentsList
-                        .filter((a) => a.classId === currentSelectedClass.id)
-                        .map((a) => (
-                          <div
-                            key={a.id}
-                            className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] flex items-center justify-between"
-                          >
-                            <div>
-                              <h4 className="font-bold text-xs text-[#204434]">{a.title}</h4>
-                              <p className="text-[11px] text-[#315E48] mt-0.5">
-                                Đã nộp: {a.submittedCount}/{a.totalStudents} · Hạn: {a.dueAt}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => setSelectedAssignmentForView(a)}
-                              className="px-3 py-1.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-white font-semibold text-xs transition"
-                            >
-                              Xem danh sách nộp
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-
-                  {/* Subtab Content: Materials */}
-                  {classSubTab === "materials" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[
-                        { title: "Giáo trình HSK 3 Chuẩn (PDF)", size: "14.2 MB", type: "PDF" },
-                        { title: "Audio bài tập nghe 50 mẫu câu", size: "28.5 MB", type: "AUDIO" },
-                        { title: "Slide bài giảng: Ngữ pháp câu chữ 把", size: "8.1 MB", type: "SLIDE" },
-                        { title: "Bảng từ vựng và ví dụ minh họa", size: "3.4 MB", type: "EXCEL" },
-                      ].map((m, i) => (
-                        <div key={i} className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center font-bold text-xs">
-                              {m.type}
-                            </div>
-                            <div>
-                              <h5 className="font-bold text-xs text-[#204434]">{m.title}</h5>
-                              <span className="text-[10px] text-[#315E48]">{m.size}</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => showToast(`Bắt đầu tải về: ${m.title}`)}
-                            className="p-2 rounded-xl text-[#315E48] hover:text-[#204434] hover:bg-[#F8F5ED]"
-                            title="Tải về"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Class Cards List View */
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                      <h2 className="text-xl font-serif font-bold text-[#204434]">Danh sách lớp học phụ trách</h2>
-                      <p className="text-xs text-[#315E48]">Quản lý học sinh, cấp tài khoản và theo dõi tiến độ từng lớp.</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setClassErrors({});
-                        setIsCreateClassModalOpen(true);
-                      }}
-                      className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>+ Tạo lớp học mới</span>
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {visibleClasses.map((cl) => (
-                      <div
-                        key={cl.id}
-                        className="rounded-3xl border border-[#E5DEC9] bg-[#FFFCF6] overflow-hidden shadow-xs hover:border-[#204434] transition flex flex-col justify-between"
-                      >
-                        <div
-                          className="h-32 w-full relative p-4 flex flex-col justify-between bg-cover bg-no-repeat bg-right-bottom"
-                          style={{ backgroundImage: `url('${cl.artwork}')` }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 rounded-md bg-white/90 text-[#204434] text-[10px] font-bold shadow-2xs">
-                              {cl.track}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-md bg-[#204434] text-white text-[10px] font-bold">
-                              Mã: {cl.code}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                          <div>
-                            <h3 className="font-serif font-bold text-base text-[#204434]">{cl.name}</h3>
-                            <p className="text-xs text-[#315E48] line-clamp-2 mt-1">{cl.description}</p>
-                          </div>
-
-                          <div className="pt-2 border-t border-[#E5DEC9]/60 flex items-center justify-between text-xs text-[#315E48]">
-                            <span>👥 {cl.studentCount} học viên</span>
-                            <span>📊 {cl.submissionRate}% nộp bài</span>
-                          </div>
-
-                          <button
-                            onClick={() => setSelectedClassId(cl.id)}
-                            className="w-full py-2.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-white font-semibold text-xs transition cursor-pointer text-center"
-                          >
-                            Vào quản lý lớp
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+          {activeTab === "classes" && (
+            <ClassesWorkspace />
           )}
 
           {/* =================================================================== */}
