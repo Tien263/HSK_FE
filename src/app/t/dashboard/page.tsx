@@ -44,6 +44,7 @@ import {
   Send,
 } from "lucide-react";
 import ClassesWorkspace from "@/components/teacher/ClassesWorkspace";
+import { getClassArtwork } from "@/lib/class-helper";
 
 // ============================================================================
 // TYPES & MOCK DATA DEFINITIONS
@@ -162,25 +163,24 @@ export default function TeacherDashboard() {
       if (resClasses.ok) {
         const data = await resClasses.json();
         if (data.success && Array.isArray(data.items)) {
-          const artworks = [
-            "/theme/dashboard/card-hsk.webp",
-            "/theme/dashboard/card-topic.webp",
-            "/theme/dashboard/card-major.webp",
-          ];
-          const loadedClasses: ClassItem[] = data.items.map((c: any, index: number) => ({
-            id: c.id,
-            name: c.name,
-            track: c.level <= 3 ? "HSK" : c.level === 4 ? "TOPIC" : "MAJOR",
-            levelText: `HSK ${c.level} · Quản lý bởi ${c.teacherName || user.name}`,
-            studentCount: c.totalStudents || 0,
-            completedLessons: 0,
-            totalLessons: 10,
-            submissionRate: 0,
-            status: c.isActive ? "ACTIVE" : "ARCHIVED",
-            artwork: artworks[index % artworks.length],
-            code: c.code || c.id.slice(-6).toUpperCase(),
-            description: c.description || "",
-          }));
+          const loadedClasses: ClassItem[] = data.items.map((c: any, index: number) => {
+            const trackType = c.track || (c.level <= 3 ? "HSK" : c.level === 4 ? "TOPIC" : "MAJOR");
+            const art = getClassArtwork(trackType, c.level, index, c.name);
+            return {
+              id: c.id,
+              name: c.name,
+              track: trackType,
+              levelText: `HSK ${c.level} · Quản lý bởi ${c.teacherName || user.name}`,
+              studentCount: c.totalStudents || 0,
+              completedLessons: 0,
+              totalLessons: 10,
+              submissionRate: 0,
+              status: c.status === "PAUSED" ? "ACTIVE" : c.isActive ? "ACTIVE" : "ARCHIVED",
+              artwork: art,
+              code: c.code || c.id.slice(-6).toUpperCase(),
+              description: c.description || "",
+            };
+          });
           setClassesList(loadedClasses);
         }
       }
@@ -458,7 +458,7 @@ export default function TeacherDashboard() {
     showToast(`✅ Đã giao bài tập "${newAss.title}" cho lớp ${newAss.className}!`);
   };
 
-  // 3. Submit New Class
+  // 3. Submit New Class (Strict Backend Persistence - No temporary fake state)
   const handleSaveClass = async () => {
     const errors: Record<string, string> = {};
     if (!newClassName.trim()) {
@@ -473,71 +473,42 @@ export default function TeacherDashboard() {
       return;
     }
 
-    try {
-      if (currentUser?.id) {
-        const res = await fetch("/api/v1/classes", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-user-id": currentUser.id,
-          },
-          body: JSON.stringify({
-            name: newClassName.trim(),
-            level: Number(newClassLevel) || 1,
-            description: newClassDesc.trim(),
-            teacherId: currentUser.id,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast(`Đã tạo lớp "${newClassName.trim()}" thành công!`);
-          setClassErrors({});
-          setIsCreateClassModalOpen(false);
-          setNewClassName("");
-          setNewClassDesc("");
-          fetchTeacherData(currentUser);
-          return;
-        }
-      }
-    } catch (e) {
-      console.error(e);
+    if (!currentUser?.id) {
+      showToast("Vui lòng đăng nhập lại để tạo lớp học.");
+      return;
     }
 
-    const uniqueCode = `${newClassTrack === "HSK" ? "HSK" + newClassLevel : newClassTrack}-${Math.floor(
-      1000 + Math.random() * 9000
-    )}`;
+    try {
+      const res = await fetch("/api/v1/classes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({
+          name: newClassName.trim(),
+          level: Number(newClassLevel) || 1,
+          track: newClassTrack,
+          description: newClassDesc.trim(),
+          teacherId: currentUser.id,
+        }),
+      });
 
-    const newCl: ClassItem = {
-      id: `c-${Date.now()}`,
-      name: newClassName.trim(),
-      track: newClassTrack,
-      levelText:
-        newClassTrack === "HSK"
-          ? `HSK ${newClassLevel} · Chuẩn quốc tế`
-          : newClassTrack === "TOPIC"
-          ? "Theo chủ đề · Giao tiếp"
-          : "Chuyên ngành thương mại",
-      studentCount: 0,
-      completedLessons: 0,
-      totalLessons: 15,
-      submissionRate: 0,
-      status: "ACTIVE",
-      artwork:
-        newClassTrack === "HSK"
-          ? "/theme/dashboard/card-hsk.webp"
-          : newClassTrack === "TOPIC"
-          ? "/theme/dashboard/card-topic.webp"
-          : "/theme/dashboard/card-major.webp",
-      code: uniqueCode,
-      description: newClassDesc || "Lớp học mới được khởi tạo",
-    };
-
-    setClassesList([newCl, ...classesList]);
-    setClassErrors({});
-    setIsCreateClassModalOpen(false);
-    setNewClassName("");
-    setNewClassDesc("");
-    showToast(`🎉 Đã tạo lớp mới thành công! Mã tham gia lớp: ${uniqueCode}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`🎉 Đã tạo lớp "${newClassName.trim()}" thành công!`);
+        setClassErrors({});
+        setIsCreateClassModalOpen(false);
+        setNewClassName("");
+        setNewClassDesc("");
+        await fetchTeacherData(currentUser);
+      } else {
+        showToast(data.message || "Lỗi tạo lớp học trên máy chủ.");
+      }
+    } catch (e) {
+      console.error("Save class error:", e);
+      showToast("Lỗi kết nối máy chủ khi tạo lớp. Vui lòng thử lại.");
+    }
   };
 
   // 4. Issue Student Account

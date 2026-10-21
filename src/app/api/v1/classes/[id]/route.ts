@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
+import { decodeClassDescription, encodeClassDescription, normalizeDMY } from "@/lib/class-helper";
 
-export const dynamic = "force-dynamic";
 
 export async function GET(
   request: Request,
@@ -15,7 +15,9 @@ export async function GET(
     const classData = await prisma.class.findUnique({
       where: { id: classId },
       include: {
-        teacher: { select: { id: true, name: true, username: true, email: true, avatar: true } },
+        teacher: {
+          select: { id: true, name: true, username: true, email: true, avatar: true },
+        },
         students: {
           include: {
             student: {
@@ -24,6 +26,7 @@ export async function GET(
                 name: true,
                 username: true,
                 email: true,
+                avatar: true,
                 totalXp: true,
                 streakDays: true,
                 status: true,
@@ -33,13 +36,16 @@ export async function GET(
               },
             },
           },
+          orderBy: { joinedAt: "desc" },
         },
         assignments: {
           include: {
-            quizSet: { select: { id: true, title: true } },
-            _count: { select: { attempts: true } },
+            quizSet: true,
+            _count: {
+              select: { attempts: true },
+            },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: { dueAt: "desc" },
         },
       },
     });
@@ -48,36 +54,27 @@ export async function GET(
       return NextResponse.json({ success: false, message: "Không tìm thấy lớp học." }, { status: 404 });
     }
 
-    // Kiểm tra quyền truy cập: Giáo viên chỉ được xem lớp của chính mình
-    if (authUser) {
-      if (authUser.role === "TEACHER" && classData.teacherId !== authUser.id) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Bạn không có quyền truy cập dữ liệu của lớp học này (lớp thuộc giáo viên khác).",
-          },
-          { status: 403 }
-        );
-      }
-      if (authUser.role === "STUDENT") {
-        const isEnrolled = classData.students.some((cs) => cs.student.id === authUser.id);
-        if (!isEnrolled) {
-          return NextResponse.json(
-            { success: false, message: "Bạn chưa tham gia lớp học này." },
-            { status: 403 }
-          );
-        }
-      }
+    // Bảo mật: Nếu là giáo viên, chỉ được xem lớp của chính mình
+    if (authUser && authUser.role === "TEACHER" && classData.teacherId !== authUser.id) {
+      return NextResponse.json(
+        { success: false, message: "Bạn không có quyền quản lý lớp học này." },
+        { status: 403 }
+      );
     }
 
-    // Lấy bài học tương ứng với cấp độ HSK của lớp để hiển thị kho tài liệu
+    // Lấy danh sách bài học thuộc level của lớp này
     const lessons = await prisma.lesson.findMany({
       where: { level: { hskLevel: classData.level } },
       include: {
-        _count: { select: { vocabularies: true, grammarPoints: true } },
+        _count: {
+          select: { vocabularies: true, grammarPoints: true },
+        },
       },
       orderBy: { lessonNumber: "asc" },
+      take: 20,
     });
+
+    const meta = decodeClassDescription(classData.description, classData.createdAt, classData.isActive, classData.level);
 
     return NextResponse.json({
       success: true,
@@ -85,15 +82,23 @@ export async function GET(
         id: classData.id,
         name: classData.name,
         level: classData.level,
-        description: classData.description,
+        description: meta.text,
+        startDate: meta.startDate,
+        endDate: meta.endDate,
+        status: meta.status,
+        statusText: meta.statusText,
+        track: meta.track,
         code: classData.id.slice(-6).toUpperCase(),
         teacherId: classData.teacherId,
         teacher: classData.teacher,
+        totalStudents: classData.students.length,
+        totalAssignments: classData.assignments.length,
         students: classData.students.map((cs) => ({
           id: cs.student.id,
           name: cs.student.name,
           username: cs.student.username,
           email: cs.student.email,
+          avatar: cs.student.avatar,
           totalXp: cs.student.totalXp,
           streakDays: cs.student.streakDays,
           status: cs.student.status,
@@ -152,19 +157,51 @@ export async function PATCH(
       );
     }
 
+    // Decode existing description to merge changes
+    const currentMeta = decodeClassDescription(targetClass.description, targetClass.createdAt, targetClass.isActive, targetClass.level);
+
+    const mergedText = body.description !== undefined ? body.description.trim() : currentMeta.text;
+    const mergedStart = body.startDate ? normalizeDMY(body.startDate) : currentMeta.startDate;
+    const mergedEnd = body.endDate ? normalizeDMY(body.endDate) : currentMeta.endDate;
+    const mergedStatus = body.status !== undefined ? body.status : currentMeta.status;
+    const mergedTrack = body.track !== undefined ? body.track : currentMeta.track;
+
+    const newPackedDescription = encodeClassDescription({
+      text: mergedText,
+      startDate: mergedStart,
+      endDate: mergedEnd,
+      status: mergedStatus,
+      track: mergedTrack,
+    });
+
+    const isEnded = mergedStatus === "ENDED" || (body.isActive !== undefined ? !body.isActive : false);
+
     const updated = await prisma.class.update({
       where: { id: classId },
       data: {
         ...(body.name ? { name: body.name.trim() } : {}),
-        ...(body.description !== undefined ? { description: body.description.trim() } : {}),
-        ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
+        description: newPackedDescription,
+        isActive: !isEnded,
       },
     });
+
+    const updatedMeta = decodeClassDescription(updated.description, updated.createdAt, updated.isActive, updated.level);
 
     return NextResponse.json({
       success: true,
       message: "Cập nhật lớp thành công!",
-      item: updated,
+      item: {
+        id: updated.id,
+        name: updated.name,
+        level: updated.level,
+        description: updatedMeta.text,
+        startDate: updatedMeta.startDate,
+        endDate: updatedMeta.endDate,
+        status: updatedMeta.status,
+        statusText: updatedMeta.statusText,
+        track: updatedMeta.track,
+        isActive: updated.isActive,
+      },
     });
   } catch (error) {
     console.error("PATCH /classes/[id] error:", error);

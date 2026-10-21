@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
+import { decodeClassDescription, encodeClassDescription, normalizeDMY } from "@/lib/class-helper";
 
-export const dynamic = "force-dynamic";
 
 // GET /api/v1/classes - Lấy danh sách lớp theo quyền giáo viên hiện tại
 export async function GET(request: Request) {
@@ -52,21 +52,30 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       teacher: authUser ? { id: authUser.id, name: authUser.name, email: authUser.email } : null,
-      items: classes.map((c) => ({
-        id: c.id,
-        name: c.name,
-        level: c.level,
-        description: c.description,
-        totalStudents: c._count.students,
-        totalAssignments: c._count.assignments,
-        isActive: c.isActive,
-        code: c.id.slice(-6).toUpperCase(),
-        teacherId: c.teacherId,
-        teacherName: c.teacher?.name || "Giáo viên",
-        teacherEmail: c.teacher?.email,
-        teacherAvatar: c.teacher?.avatar,
-        createdAt: c.createdAt,
-      })),
+      items: classes.map((c) => {
+        const meta = decodeClassDescription(c.description, c.createdAt, c.isActive, c.level);
+
+        return {
+          id: c.id,
+          name: c.name,
+          level: c.level,
+          description: meta.text,
+          startDate: meta.startDate,
+          endDate: meta.endDate,
+          status: meta.status,
+          statusText: meta.statusText,
+          track: meta.track,
+          totalStudents: c._count.students,
+          totalAssignments: c._count.assignments,
+          isActive: c.isActive,
+          code: c.id.slice(-6).toUpperCase(),
+          teacherId: c.teacherId,
+          teacherName: c.teacher?.name || "Giáo viên",
+          teacherEmail: c.teacher?.email,
+          teacherAvatar: c.teacher?.avatar,
+          createdAt: c.createdAt,
+        };
+      }),
     });
   } catch (error) {
     console.error("GET /classes error:", error);
@@ -79,7 +88,16 @@ export async function POST(request: Request) {
   try {
     const authUser = await getAuthUser(request);
     const body = await request.json();
-    const { name, level, description, teacherId: bodyTeacherId } = body;
+    const {
+      name,
+      level,
+      description,
+      startDate,
+      endDate,
+      status,
+      track,
+      teacherId: bodyTeacherId,
+    } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json({ success: false, message: "Vui lòng nhập tên lớp học." }, { status: 400 });
@@ -115,13 +133,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Đóng gói mô tả cùng startDate, endDate, status, track dạng JSON
+    const packedDescription = encodeClassDescription({
+      text: description?.trim() || `Lớp học do ${teacherUser.name} phụ trách.`,
+      startDate: startDate ? normalizeDMY(startDate) : normalizeDMY(new Date()),
+      endDate: endDate ? normalizeDMY(endDate) : normalizeDMY(new Date(Date.now() + 180 * 86400000)),
+      status: status || undefined,
+      track: track || (Number(level) <= 3 ? "HSK" : Number(level) === 4 ? "TOPIC" : "MAJOR"),
+    });
+
     const newClass = await prisma.class.create({
       data: {
         name: name.trim(),
         level: Number(level) || 1,
-        description: description?.trim() || `Lớp học do ${teacherUser.name} phụ trách.`,
+        description: packedDescription,
         teacherId: teacherUser.id,
-        isActive: true,
+        isActive: status === "ENDED" ? false : true,
       },
       include: {
         teacher: {
@@ -131,6 +158,7 @@ export async function POST(request: Request) {
     });
 
     const formattedCode = newClass.id.slice(-6).toUpperCase();
+    const meta = decodeClassDescription(newClass.description, newClass.createdAt, newClass.isActive, newClass.level);
 
     return NextResponse.json(
       {
@@ -140,19 +168,25 @@ export async function POST(request: Request) {
           id: newClass.id,
           name: newClass.name,
           level: newClass.level,
-          description: newClass.description,
+          description: meta.text,
+          startDate: meta.startDate,
+          endDate: meta.endDate,
+          status: meta.status,
+          statusText: meta.statusText,
+          track: meta.track,
           totalStudents: 0,
           totalAssignments: 0,
           isActive: newClass.isActive,
           code: formattedCode,
           teacherId: newClass.teacherId,
           teacherName: newClass.teacher?.name,
+          createdAt: newClass.createdAt,
         },
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("POST /classes error:", error);
-    return NextResponse.json({ success: false, message: "Lỗi tạo lớp học mới." }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Lỗi tạo lớp học." }, { status: 500 });
   }
 }

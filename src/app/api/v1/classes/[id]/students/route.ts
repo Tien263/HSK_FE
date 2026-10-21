@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
 
-export const dynamic = "force-dynamic";
 
 // GET /api/v1/classes/[id]/students - Lấy danh sách học viên của lớp
 export async function GET(

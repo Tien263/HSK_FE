@@ -30,6 +30,7 @@ import {
   HelpCircle,
   BookOpen,
 } from "lucide-react";
+import { getClassArtwork, normalizeDMY } from "@/lib/class-helper";
 
 // ============================================================================
 // TYPES
@@ -43,10 +44,11 @@ export interface ClassDetailItem {
   status: "ACTIVE" | "PAUSED" | "UPCOMING" | "ENDED";
   statusText: string;
   studentCount: number;
+  totalAssignments?: number;
   maxStudents: number;
   startDate: string;
   endDate: string;
-  progressPercent: number;
+  progressPercent: number | null; // CLASS-002: null when 0 assignments
   code: string;
   artwork: string;
   teacherName: string;
@@ -94,7 +96,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   const [classes, setClasses] = useState<ClassDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [classFilterTab, setClassFilterTab] = useState<"ALL" | "ACTIVE" | "UPCOMING" | "ENDED">("ALL");
+  const [classFilterTab, setClassFilterTab] = useState<"ALL" | "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED">("ALL");
   const [classSearchQuery, setClassSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
 
@@ -134,8 +136,9 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   const [newClassName, setNewClassName] = useState("");
   const [newClassTrack, setNewClassTrack] = useState<"HSK" | "TOPIC" | "MAJOR">("HSK");
   const [newClassLevel, setNewClassLevel] = useState("HSK 3");
-  const [newClassStartDate, setNewClassStartDate] = useState("01/11/2026");
-  const [newClassEndDate, setNewClassEndDate] = useState("30/03/2026");
+  const [newClassStartDate, setNewClassStartDate] = useState(normalizeDMY(new Date()));
+  const [newClassEndDate, setNewClassEndDate] = useState(normalizeDMY(new Date(Date.now() + 180 * 86400000)));
+  const [newClassStatus, setNewClassStatus] = useState<"AUTO" | "ACTIVE" | "UPCOMING" | "PAUSED">("AUTO");
   const [newClassDesc, setNewClassDesc] = useState("");
   const [newClassAllowCode, setNewClassAllowCode] = useState(true);
   const [newClassRequireApproval, setNewClassRequireApproval] = useState(false);
@@ -173,27 +176,23 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
         const transformed: ClassDetailItem[] = data.items.map((c: any, index: number) => {
-          const artworkOptions = [
-            "/theme/hero-student-pavilion.jpg",
-            "/theme/tinh_vat_tra_ben_canh_hoa_mai_dao.jpg",
-            "/theme/dashboard/card-major.webp",
-            "/theme/phong_canh_thuy_mac_giua_suong_mo.jpg",
-            "/theme/dashboard/card-hsk.webp",
-          ];
-          const art = artworkOptions[index % artworkOptions.length];
+          const trackType = c.track || (c.level <= 3 ? "HSK" : c.level === 4 ? "TOPIC" : "MAJOR");
+          const art = getClassArtwork(trackType, c.level, index, c.name);
+          const hasAssignments = typeof c.totalAssignments === "number" && c.totalAssignments > 0;
 
           return {
             id: c.id,
             name: c.name,
-            track: c.level === 1 || c.level === 3 || c.level === 4 || c.level === 5 ? "HSK" : "TOPIC",
-            badgeText: `HSK ${c.level}.0`,
-            status: c.isActive ? "ACTIVE" : "ENDED",
-            statusText: c.isActive ? "Đang dạy" : "Đã kết thúc",
+            track: trackType,
+            badgeText: trackType === "HSK" ? `HSK ${c.level}.0` : trackType === "TOPIC" ? "Chủ đề" : "Chuyên ngành",
+            status: c.status || (c.isActive ? "ACTIVE" : "ENDED"),
+            statusText: c.statusText || (c.isActive ? "Đang dạy" : "Đã kết thúc"),
             studentCount: c.totalStudents || 0,
+            totalAssignments: c.totalAssignments || 0,
             maxStudents: 30,
-            startDate: new Date(c.createdAt || Date.now()).toLocaleDateString("vi-VN"),
-            endDate: "30/12/2026",
-            progressPercent: c.totalStudents > 0 ? 76 : 0,
+            startDate: c.startDate || normalizeDMY(c.createdAt),
+            endDate: c.endDate || normalizeDMY(new Date(new Date(c.createdAt || Date.now()).getTime() + 180 * 86400000)),
+            progressPercent: hasAssignments ? (c.totalStudents > 0 ? 76 : 0) : null,
             code: c.code || c.id.slice(-6).toUpperCase(),
             artwork: art,
             teacherName: c.teacherName || currentUser.name,
@@ -365,6 +364,10 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
         body: JSON.stringify({
           name: newClassName.trim(),
           level: levelNum,
+          track: newClassTrack,
+          startDate: normalizeDMY(newClassStartDate),
+          endDate: normalizeDMY(newClassEndDate),
+          status: newClassStatus !== "AUTO" ? newClassStatus : undefined,
           description: newClassDesc.trim() || `Lớp ${newClassName.trim()} do ${currentUser.name} phụ trách.`,
           teacherId: currentUser.id,
         }),
@@ -775,12 +778,13 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
       {/* 3. FILTER TABS & SEARCH BAR & VIEW TOGGLE */}
       {/* ===================================================================== */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
-        {/* Status Tabs */}
+        {/* Status Tabs (Lỗi 1: Thêm tab Tạm dừng) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {[
             { id: "ALL", label: `Tất cả lớp (${classes.length})` },
             { id: "ACTIVE", label: `Đang dạy (${classes.filter((c) => c.status === "ACTIVE").length})` },
             { id: "UPCOMING", label: `Sắp bắt đầu (${classes.filter((c) => c.status === "UPCOMING").length})` },
+            { id: "PAUSED", label: `Tạm dừng (${classes.filter((c) => c.status === "PAUSED").length})` },
             { id: "ENDED", label: `Đã kết thúc (${classes.filter((c) => c.status === "ENDED").length})` },
           ].map((tab) => (
             <button
@@ -867,7 +871,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
           </button>
         </div>
       ) : viewMode === "GRID" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredClasses.map((cl) => {
             const isSelected = cl.id === selectedClassId;
             return (
@@ -881,14 +885,14 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                 }`}
               >
                 {/* Artwork header */}
-                <div className="h-24 w-full relative overflow-hidden bg-[#F7F5EE]">
+                <div className="h-28 w-full relative overflow-hidden bg-[#F7F5EE]">
                   <Image
                     src={cl.artwork}
                     alt={cl.name}
                     fill
                     className="object-cover object-center filter saturate-90 hover:scale-105 transition duration-300"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   
                   {/* Top badges */}
                   <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10">
@@ -896,24 +900,26 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                       {cl.badgeText}
                     </span>
                     <span
-                      className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 ${
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 shadow-2xs ${
                         cl.status === "ACTIVE"
                           ? "bg-emerald-600 text-white"
+                          : cl.status === "UPCOMING"
+                          ? "bg-blue-600 text-white"
                           : cl.status === "PAUSED"
                           ? "bg-amber-600 text-white"
                           : "bg-gray-600 text-white"
                       }`}
                     >
-                      <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                      <span className={`w-1 h-1 rounded-full bg-white ${cl.status === "ACTIVE" ? "animate-pulse" : ""}`} />
                       {cl.statusText}
                     </span>
                   </div>
                 </div>
 
                 {/* Card body */}
-                <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
+                <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <h3 className="font-serif font-bold text-sm text-[#17382F] truncate">{cl.name}</h3>
                       <button
                         onClick={(e) => {
@@ -921,36 +927,43 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                           setSelectedClassId(cl.id);
                           copyToClipboard(cl.code, "mã lớp");
                         }}
-                        className="text-[#6B766D] hover:text-[#17382F] p-0.5"
+                        className="text-[#6B766D] hover:text-[#17382F] p-0.5 shrink-0"
                         title="Sao chép mã"
                       >
                         <Copy className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="mt-1 space-y-1 text-[11px] text-[#6B766D]">
+                    <div className="mt-2 space-y-1.5 text-[11px] text-[#6B766D]">
                       <div className="flex items-center gap-1.5">
-                        <Users className="w-3 h-3 text-[#1F513F]" />
+                        <Users className="w-3.5 h-3.5 text-[#1F513F] shrink-0" />
                         <span>{cl.studentCount} học sinh</span>
                       </div>
+                      {/* CLASS-003: Hiển thị đầy đủ ngày bắt đầu và ngày kết thúc DD/MM/YYYY */}
                       <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3 h-3 text-[#1F513F]" />
-                        <span>{cl.startDate}</span>
+                        <Calendar className="w-3.5 h-3.5 text-[#1F513F] shrink-0" />
+                        <span className="font-medium whitespace-nowrap">{cl.startDate} – {cl.endDate}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Progress Bar & Avatar stack */}
-                  <div className="pt-2 border-t border-[#E5DFD0]/60 space-y-2">
+                  {/* CLASS-002: Tiến độ học tập - Hiển thị "Chưa có dữ liệu tiến độ" khi 0 bài tập */}
+                  <div className="pt-2.5 border-t border-[#E5DFD0]/60 space-y-2">
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[10px] font-semibold text-[#6B766D]">
                         <span>Tiến độ</span>
-                        <span className="text-[#1F513F] font-bold">{cl.progressPercent}%</span>
+                        {cl.totalAssignments === 0 || cl.progressPercent === null ? (
+                          <span className="text-[#6B766D] italic font-normal text-[9.5px]">Chưa có dữ liệu tiến độ</span>
+                        ) : (
+                          <span className="text-[#1F513F] font-bold">{cl.progressPercent}%</span>
+                        )}
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-[#E5DFD0] overflow-hidden">
                         <div
                           className="h-full bg-[#1F513F] rounded-full transition-all duration-500"
-                          style={{ width: `${cl.progressPercent}%` }}
+                          style={{
+                            width: `${cl.totalAssignments === 0 || cl.progressPercent === null ? 0 : cl.progressPercent}%`,
+                          }}
                         />
                       </div>
                     </div>
@@ -982,7 +995,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl overflow-hidden relative shrink-0">
+                <div className="w-12 h-12 rounded-xl overflow-hidden relative shrink-0 border border-[#E5DFD0]">
                   <Image src={cl.artwork} alt={cl.name} fill className="object-cover" />
                 </div>
                 <div>
@@ -990,6 +1003,19 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                     <h4 className="font-serif font-bold text-sm text-[#17382F]">{cl.name}</h4>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#DCE8DB] text-[#1F513F]">
                       {cl.badgeText}
+                    </span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                        cl.status === "ACTIVE"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : cl.status === "UPCOMING"
+                          ? "bg-blue-100 text-blue-800"
+                          : cl.status === "PAUSED"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {cl.statusText}
                     </span>
                     <span className="text-[10px] text-[#6B766D] font-mono">Mã: {cl.code}</span>
                   </div>
@@ -999,14 +1025,18 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
 
               <div className="flex items-center gap-6 text-xs text-[#6B766D]">
                 <span>👥 {cl.studentCount} học viên</span>
-                <span>📅 {cl.startDate}</span>
-                <span className="font-bold text-[#1F513F]">{cl.progressPercent}%</span>
+                <span className="whitespace-nowrap font-medium">📅 {cl.startDate} – {cl.endDate}</span>
+                {cl.totalAssignments === 0 || cl.progressPercent === null ? (
+                  <span className="text-[#6B766D] italic text-[11px]">Chưa có dữ liệu tiến độ</span>
+                ) : (
+                  <span className="font-bold text-[#1F513F]">{cl.progressPercent}%</span>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedClassId(cl.id);
                   }}
-                  className="px-3 py-1 rounded-xl bg-[#1F513F] text-white text-xs font-semibold"
+                  className="px-3 py-1 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer hover:bg-[#17382F]"
                 >
                   Xem chi tiết
                 </button>
@@ -1090,8 +1120,28 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                           <span className="px-2 py-0.5 rounded bg-[#DCE8DB] text-[#1F513F] text-[10px] font-bold">
                             {currentClass.badgeText}
                           </span>
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${
+                              currentClass.status === "ACTIVE"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : currentClass.status === "UPCOMING"
+                                ? "bg-blue-100 text-blue-800"
+                                : currentClass.status === "PAUSED"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                currentClass.status === "ACTIVE"
+                                  ? "bg-emerald-600 animate-pulse"
+                                  : currentClass.status === "UPCOMING"
+                                  ? "bg-blue-600"
+                                  : currentClass.status === "PAUSED"
+                                  ? "bg-amber-600"
+                                  : "bg-gray-600"
+                              }`}
+                            />
                             {currentClass.statusText}
                           </span>
                         </div>
@@ -1933,6 +1983,53 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                 </div>
               </div>
 
+              {/* CLASS-001 & CLASS-003: Thời gian khóa học (Ngày bắt đầu & Ngày kết thúc) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">
+                    Ngày bắt đầu <span className="text-[#6B766D] font-normal">(DD/MM/YYYY)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newClassStartDate}
+                    onChange={(e) => setNewClassStartDate(e.target.value)}
+                    placeholder="01/11/2026"
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3.5 py-2 outline-none focus:border-[#1F513F]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">
+                    Ngày kết thúc <span className="text-[#6B766D] font-normal">(DD/MM/YYYY)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newClassEndDate}
+                    onChange={(e) => setNewClassEndDate(e.target.value)}
+                    placeholder="30/04/2027"
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3.5 py-2 outline-none focus:border-[#1F513F]"
+                  />
+                </div>
+              </div>
+
+              {/* Lỗi 1: Trạng thái ban đầu */}
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">Thiết lập trạng thái</label>
+                <select
+                  value={newClassStatus}
+                  onChange={(e) => setNewClassStatus(e.target.value as any)}
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3.5 py-2 outline-none focus:border-[#1F513F]"
+                >
+                  <option value="AUTO">Tự động (Theo ngày bắt đầu & kết thúc)</option>
+                  <option value="ACTIVE">Đang dạy</option>
+                  <option value="UPCOMING">Sắp bắt đầu</option>
+                  <option value="PAUSED">Tạm dừng</option>
+                </select>
+                <p className="text-[10px] text-[#6B766D] mt-1">
+                  Nếu chọn Tự động: ngày bắt đầu trong tương lai sẽ tự chuyển thành &quot;Sắp bắt đầu&quot;.
+                </p>
+              </div>
+
               {/* Mô tả lớp */}
               <div>
                 <label className="block font-semibold text-[#17382F] mb-1">Mô tả lớp</label>
@@ -2291,6 +2388,63 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">Ngày bắt đầu</label>
+                  <input
+                    type="text"
+                    value={currentClass.startDate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setClasses((prev) => prev.map((c) => (c.id === selectedClassId ? { ...c, startDate: val } : c)));
+                    }}
+                    placeholder="DD/MM/YYYY"
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 outline-none focus:border-[#1F513F]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">Ngày kết thúc</label>
+                  <input
+                    type="text"
+                    value={currentClass.endDate}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setClasses((prev) => prev.map((c) => (c.id === selectedClassId ? { ...c, endDate: val } : c)));
+                    }}
+                    placeholder="DD/MM/YYYY"
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 outline-none focus:border-[#1F513F]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">Trạng thái lớp</label>
+                <select
+                  value={currentClass.status}
+                  onChange={(e) => {
+                    const val = e.target.value as any;
+                    const statusTextMap: Record<string, string> = {
+                      ACTIVE: "Đang dạy",
+                      UPCOMING: "Sắp bắt đầu",
+                      PAUSED: "Tạm dừng",
+                      ENDED: "Đã kết thúc",
+                    };
+                    setClasses((prev) =>
+                      prev.map((c) =>
+                        c.id === selectedClassId ? { ...c, status: val, statusText: statusTextMap[val] || "Đang dạy" } : c
+                      )
+                    );
+                  }}
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 outline-none focus:border-[#1F513F]"
+                >
+                  <option value="ACTIVE">Đang dạy</option>
+                  <option value="UPCOMING">Sắp bắt đầu</option>
+                  <option value="PAUSED">Tạm dừng</option>
+                  <option value="ENDED">Đã kết thúc</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block font-semibold text-[#17382F] mb-1">Mô tả lớp</label>
                 <textarea
@@ -2326,6 +2480,9 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                       body: JSON.stringify({
                         name: currentClass.name,
                         description: currentClass.description,
+                        startDate: currentClass.startDate,
+                        endDate: currentClass.endDate,
+                        status: currentClass.status,
                       }),
                     });
                     showToast("Đã lưu thay đổi thông tin lớp học!");
