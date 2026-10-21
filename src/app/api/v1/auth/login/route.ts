@@ -49,6 +49,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu thường và mã hóa)
+    if (user.passwordHash && user.passwordHash !== password) {
+      return NextResponse.json(
+        { success: false, message: "Mật khẩu không chính xác. Vui lòng kiểm tra lại." },
+        { status: 401 }
+      );
+    }
+
     // Kiểm tra trạng thái tài khoản
     if (user.status === "LOCKED" || user.status === "INACTIVE") {
       return NextResponse.json(
@@ -82,10 +90,17 @@ export async function POST(request: Request) {
         })),
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Login API error:", error);
+    const errText = error?.message || String(error);
+    const isDbErr = !process.env.DATABASE_URL || errText.includes("DATABASE_URL") || errText.includes("connect") || errText.includes("database");
     return NextResponse.json(
-      { success: false, message: "Không thể kết nối đến máy chủ. Vui lòng thử lại sau." },
+      {
+        success: false,
+        message: isDbErr
+          ? "Lỗi kết nối cơ sở dữ liệu. Vui lòng kiểm tra biến DATABASE_URL trên Render."
+          : (error?.message || "Không thể kết nối đến máy chủ. Vui lòng thử lại sau."),
+      },
       { status: 500 }
     );
   }
