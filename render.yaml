@@ -16,3 +16,7 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+        value: vf56y0nk
+      - key: NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+        value: hsk_upload

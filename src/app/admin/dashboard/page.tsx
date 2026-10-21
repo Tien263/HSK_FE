@@ -34,6 +34,7 @@ import {
   HelpCircle,
   Copy,
   Check,
+  Upload,
 } from "lucide-react";
 
 interface UserItem {
@@ -659,6 +660,14 @@ export default function AdminDashboardPage() {
               <Server className="w-4 h-4" />
               <span>Cấu hình SMTP Gateway</span>
             </button>
+
+            <Link
+              href="/admin/media"
+              className="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+            >
+              <Upload className="w-4 h-4 text-[#BC9B6B]" />
+              <span>Kho Media Cloudinary</span>
+            </Link>
           </div>
 
           {activeTab === "users" && (
