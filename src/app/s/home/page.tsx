@@ -35,6 +35,8 @@ import {
   HelpCircle,
   BarChart3,
 } from "lucide-react";
+import StudentClassesWorkspace from "@/components/student/StudentClassesWorkspace";
+import { getClassArtwork } from "@/lib/class-helper";
 
 interface SummaryData {
   student: {
@@ -112,13 +114,36 @@ export default function StudentHomePage() {
   // Settings Modal State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [userEmail, setUserEmail] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [myClasses, setMyClasses] = useState<any[]>([]);
+
+  const fetchMyClasses = async (studentId: string) => {
+    if (!studentId) return;
+    try {
+      const res = await fetch(`/api/v1/classes?studentId=${encodeURIComponent(studentId)}`, {
+        cache: "no-store",
+        headers: { "x-user-id": studentId },
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.items)) {
+        const mapped = json.items.map((c: any, idx: number) => ({
+          ...c,
+          artwork: getClassArtwork(c.track || "HSK", c.level || 1, idx, c.name),
+        }));
+        setMyClasses(mapped);
+      }
+    } catch (err) {
+      console.error("Lỗi tải lớp học của học viên:", err);
+    }
+  };
 
   useEffect(() => {
-    let currentU = "ning";
+    let currentU = "student";
     try {
       const stored = localStorage.getItem("currentUser");
       if (stored) {
         const u = JSON.parse(stored);
+        setCurrentUser(u);
         if (u.username) {
           currentU = u.username;
           setUsername(u.username);
@@ -128,6 +153,9 @@ export default function StudentHomePage() {
         }
         if (u.email) {
           setUserEmail(u.email);
+        }
+        if (u.id) {
+          fetchMyClasses(u.id);
         }
       }
 
@@ -214,6 +242,7 @@ export default function StudentHomePage() {
 
       setStudyProfile(updatedProfile);
       localStorage.setItem("hanyu_study_profile", JSON.stringify(updatedProfile));
+      if (currentUser?.id) fetchMyClasses(currentUser.id);
 
       fetch(`/api/v1/my/summary?username=${username}`)
         .then((r) => r.json())
@@ -347,14 +376,18 @@ export default function StudentHomePage() {
             </a>
 
             {/* 5. Lớp học của tôi */}
-            <a
-              href="#classes"
+            <button
+              type="button"
               onClick={() => setActiveNav("classes")}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                activeNav === "classes"
+                  ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                  : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+              }`}
             >
               <Users className="w-4 h-4 stroke-[1.8]" />
               <span>Lớp học của tôi</span>
-            </a>
+            </button>
 
             {/* 6. Bài được giao */}
             <a
@@ -535,7 +568,13 @@ export default function StudentHomePage() {
         {/* DASHBOARD BODY (2 COLUMNS: LEFT 70% | RIGHT 30%) */}
         {/* ========================================================================= */}
         <main className="p-4 sm:p-7 space-y-6 max-w-[1780px] w-full mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {activeNav === "classes" ? (
+            <StudentClassesWorkspace
+              currentUser={currentUser}
+              onOpenJoinModal={() => setShowJoinModal(true)}
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* --------------------------------------------------------------------- */}
             {/* CỘT TRÁI (~70% WIDTH) */}
             {/* --------------------------------------------------------------------- */}
@@ -1177,55 +1216,100 @@ export default function StudentHomePage() {
                     <Users className="w-4 h-4 text-[#204434]" />
                     <h3 className="font-bold text-sm text-[#204434]">Lớp học của tôi</h3>
                   </div>
-                  <Link
-                    href="#classes"
-                    className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium"
+                  <button
+                    type="button"
+                    onClick={() => setActiveNav("classes")}
+                    className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
                   >
-                    <span>Xem tất cả</span>
+                    <span>Xem tất cả ({myClasses.length})</span>
                     <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
+                  </button>
                 </div>
 
-                {/* Class Card */}
-                <div className="p-3.5 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/60 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-sm font-bold shadow-2xs">
-                        HSK
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs text-[#204434]">Lớp HSK 3A</h4>
-                        <div className="text-[10px] text-[#315E48]">Giáo viên: 王老师</div>
-                        <div className="text-[10px] text-[#315E48]/80">Thứ 3 · 19:00 - 20:30</div>
-                      </div>
+                {/* Danh sách lớp học thực tế từ Neon PostgreSQL */}
+                {myClasses.length === 0 ? (
+                  <div className="p-5 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/60 text-center space-y-2">
+                    <div className="w-10 h-10 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center mx-auto">
+                      <Users className="w-5 h-5 opacity-75" />
                     </div>
-
-                    <Link
-                      href="/s/review"
-                      className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold transition shadow-2xs"
-                    >
-                      Vào lớp
-                    </Link>
+                    <h4 className="font-bold text-xs text-[#204434]">Bạn chưa tham gia lớp học nào</h4>
+                    <p className="text-[11px] text-[#315E48] max-w-xs mx-auto">
+                      Nhập mã lớp từ giáo viên để cùng tham gia làm bài tập và theo dõi tiến độ học tập.
+                    </p>
                   </div>
+                ) : (
+                  myClasses.slice(0, 2).map((cl) => {
+                    const isUpcoming = cl.status === "UPCOMING";
+                    const isPaused = cl.status === "PAUSED";
+                    const isEnded = cl.status === "ENDED";
+                    const statusBg = isPaused
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : isUpcoming
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : isEnded
+                      ? "bg-neutral-100 text-neutral-600 border-neutral-200"
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
-                  {/* Student Avatars Overlap */}
-                  <div className="flex items-center pt-1 border-t border-[#E5DEC9]/50">
-                    <div className="flex -space-x-1.5 overflow-hidden">
-                      <div className="inline-block h-5 w-5 rounded-full ring-2 ring-white bg-[#204434] text-[9px] text-white font-bold flex items-center justify-center">
-                        N
+                    return (
+                      <div
+                        key={cl.id}
+                        onClick={() => setActiveNav("classes")}
+                        className="p-3.5 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/70 space-y-3 hover:border-[#204434]/50 transition cursor-pointer relative overflow-hidden"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {/* Artwork icon */}
+                            <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 border border-[#BC9B6B]/30 relative shadow-2xs">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={cl.artwork || "/theme/card-hsk-scroll.webp"}
+                                alt={cl.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#204434]/10 text-[#204434]">
+                                  {cl.track} · Cấp {cl.level || 1}
+                                </span>
+                                <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-medium border ${statusBg}`}>
+                                  {cl.statusText || (isPaused ? "Tạm dừng" : isUpcoming ? "Sắp bắt đầu" : isEnded ? "Đã kết thúc" : "Đang học")}
+                                </span>
+                              </div>
+                              <h4 className="font-bold text-xs text-[#204434] truncate mt-0.5">{cl.name}</h4>
+                              <div className="text-[10px] text-[#315E48]">GV: {cl.teacherName}</div>
+                              {/* CLASS-003: Full dates DD/MM/YYYY – DD/MM/YYYY */}
+                              <div className="text-[10px] text-[#315E48]/80 whitespace-nowrap">
+                                {cl.startDate} – {cl.endDate}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveNav("classes");
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold transition shadow-2xs shrink-0 cursor-pointer"
+                          >
+                            Vào lớp
+                          </button>
+                        </div>
+
+                        {/* CLASS-002: Tiến độ bài tập */}
+                        <div className="pt-2 border-t border-[#E5DEC9]/50 flex items-center justify-between text-[10px]">
+                          <span className="text-[#315E48]">Tiến độ bài tập:</span>
+                          <span className={`font-bold ${cl.progressPercent === null ? "text-[#315E48]/70 italic" : "text-[#204434]"}`}>
+                            {cl.progressPercent === null || cl.totalAssignments === 0
+                              ? "Chưa có dữ liệu tiến độ"
+                              : `${cl.progressPercent}% (${cl.submittedAssignments || 0}/${cl.totalAssignments})`}
+                          </span>
+                        </div>
                       </div>
-                      <div className="inline-block h-5 w-5 rounded-full ring-2 ring-white bg-[#BC9B6B] text-[9px] text-white font-bold flex items-center justify-center">
-                        A
-                      </div>
-                      <div className="inline-block h-5 w-5 rounded-full ring-2 ring-white bg-[#9D493E] text-[9px] text-white font-bold flex items-center justify-center">
-                        T
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-[#315E48] ml-2 font-medium">
-                      +18 học viên
-                    </span>
-                  </div>
-                </div>
+                    );
+                  })
+                )}
 
                 {/* Join new class button */}
                 <button
@@ -1306,6 +1390,7 @@ export default function StudentHomePage() {
               </section>
             </div>
           </div>
+          )}
         </main>
       </div>
 

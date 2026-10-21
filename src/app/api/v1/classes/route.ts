@@ -10,10 +10,15 @@ export async function GET(request: Request) {
     const authUser = await getAuthUser(request);
     const { searchParams } = new URL(request.url);
     const filterTeacherId = searchParams.get("teacherId");
+    const filterStudentId = searchParams.get("studentId");
 
     let where: any = {};
 
-    if (authUser) {
+    if (filterStudentId) {
+      where.students = {
+        some: { studentId: filterStudentId },
+      };
+    } else if (authUser) {
       if (authUser.role === "TEACHER") {
         // Giáo viên chỉ xem được lớp của chính mình
         where.teacherId = authUser.id;
@@ -49,11 +54,38 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
+    // Lấy tiến độ làm bài nếu là học viên (CLASS-002)
+    const studentIdForProgress = filterStudentId || (authUser?.role === "STUDENT" ? authUser.id : null);
+    const studentAttempts = studentIdForProgress
+      ? await prisma.attempt.findMany({
+          where: {
+            studentId: studentIdForProgress,
+            status: { in: ["SUBMITTED", "GRADED"] },
+          },
+          select: { assignment: { select: { classId: true } } },
+        })
+      : [];
+
+    const attemptsByClass: Record<string, number> = {};
+    for (const att of studentAttempts) {
+      const cid = att.assignment?.classId;
+      if (cid) {
+        attemptsByClass[cid] = (attemptsByClass[cid] || 0) + 1;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       teacher: authUser ? { id: authUser.id, name: authUser.name, email: authUser.email } : null,
       items: classes.map((c) => {
         const meta = decodeClassDescription(c.description, c.createdAt, c.isActive, c.level);
+        const submittedCount = attemptsByClass[c.id] || 0;
+        const totalAssignments = c._count.assignments;
+
+        // CLASS-002: Chỉ tính % khi totalAssignments > 0, ngược lại là null ("Chưa có dữ liệu tiến độ")
+        const progressPercent = totalAssignments > 0
+          ? Math.min(100, Math.round((submittedCount / totalAssignments) * 100))
+          : null;
 
         return {
           id: c.id,
@@ -66,7 +98,9 @@ export async function GET(request: Request) {
           statusText: meta.statusText,
           track: meta.track,
           totalStudents: c._count.students,
-          totalAssignments: c._count.assignments,
+          totalAssignments,
+          submittedAssignments: submittedCount,
+          progressPercent,
           isActive: c.isActive,
           code: c.id.slice(-6).toUpperCase(),
           teacherId: c.teacherId,
