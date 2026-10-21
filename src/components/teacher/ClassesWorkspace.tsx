@@ -132,6 +132,11 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   const [isEditClassModalOpen, setIsEditClassModalOpen] = useState(false);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<StudentRowItem | null>(null);
 
+  // Modal & state Xóa Lớp Học
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingClass, setDeletingClass] = useState<ClassDetailItem | null>(null);
+  const [isDeletingClass, setIsDeletingClass] = useState(false);
+
   // Form states for Create Class
   const [newClassName, setNewClassName] = useState("");
   const [newClassTrack, setNewClassTrack] = useState<"HSK" | "TOPIC" | "MAJOR">("HSK");
@@ -582,6 +587,46 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   };
 
   // --------------------------------------------------------------------------
+  // DELETE CLASS HANDLER
+  // --------------------------------------------------------------------------
+  const handleDeleteClass = async () => {
+    if (!deletingClass || !currentUser?.id) return;
+    setIsDeletingClass(true);
+
+    try {
+      const res = await fetch(`/api/v1/classes/${deletingClass.id}`, {
+        method: "DELETE",
+        headers: {
+          "x-user-id": currentUser.id,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.message || "Lỗi xóa lớp học.");
+        return;
+      }
+
+      showToast(`🗑️ Đã xóa lớp học "${deletingClass.name}" thành công!`);
+      const deletedId = deletingClass.id;
+      setIsDeleteModalOpen(false);
+      setDeletingClass(null);
+
+      // Refresh list
+      await fetchClasses();
+
+      if (selectedClassId === deletedId) {
+        setSelectedClassId(null);
+      }
+    } catch (err) {
+      console.error("Delete class error:", err);
+      showToast("Lỗi kết nối máy chủ khi xóa lớp.");
+    } finally {
+      setIsDeletingClass(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
   // REMOVE STUDENT FROM CLASS
   // --------------------------------------------------------------------------
   const handleRemoveStudentFromClass = async (student: StudentRowItem) => {
@@ -921,17 +966,30 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                   <div>
                     <div className="flex items-center justify-between gap-1">
                       <h3 className="font-serif font-bold text-sm text-[#17382F] truncate">{cl.name}</h3>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedClassId(cl.id);
-                          copyToClipboard(cl.code, "mã lớp");
-                        }}
-                        className="text-[#6B766D] hover:text-[#17382F] p-0.5 shrink-0"
-                        title="Sao chép mã"
-                      >
-                        <Copy className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedClassId(cl.id);
+                            copyToClipboard(cl.code, "mã lớp");
+                          }}
+                          className="text-[#6B766D] hover:text-[#17382F] p-0.5 shrink-0 transition"
+                          title="Sao chép mã"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingClass(cl);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="text-[#6B766D] hover:text-red-600 p-0.5 shrink-0 transition cursor-pointer"
+                          title="Xóa lớp học này"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-2 space-y-1.5 text-[11px] text-[#6B766D]">
@@ -1031,15 +1089,28 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                 ) : (
                   <span className="font-bold text-[#1F513F]">{cl.progressPercent}%</span>
                 )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedClassId(cl.id);
-                  }}
-                  className="px-3 py-1 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer hover:bg-[#17382F]"
-                >
-                  Xem chi tiết
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedClassId(cl.id);
+                    }}
+                    className="px-3 py-1 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer hover:bg-[#17382F] transition"
+                  >
+                    Xem chi tiết
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingClass(cl);
+                      setIsDeleteModalOpen(true);
+                    }}
+                    className="p-1 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition cursor-pointer"
+                    title="Xóa lớp học này"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -1180,28 +1251,42 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
 
                   {/* Action buttons row */}
                   <div className="pt-4 border-t border-[#E5DFD0]/60 flex items-center justify-between gap-2 flex-wrap">
-                    <button
-                      onClick={() => setIsEditClassModalOpen(true)}
-                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-[#1F513F] text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition"
-                    >
-                      <Edit3 className="w-3 h-3 text-[#1F513F]" />
-                      <span>Chỉnh sửa lớp</span>
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => setIsEditClassModalOpen(true)}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-[#1F513F] text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Edit3 className="w-3 h-3 text-[#1F513F]" />
+                        <span>Chỉnh sửa lớp</span>
+                      </button>
+
+                      <button
+                        onClick={handleToggleEndClass}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-amber-600 text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Archive className="w-3 h-3 text-amber-700" />
+                        <span>{currentClass.status === "ENDED" ? "Mở lại lớp" : "Kết thúc lớp"}</span>
+                      </button>
+
+                      <button
+                        onClick={() => showToast("Đang mở chế độ xem với tư cách học sinh...")}
+                        className="px-3 py-1.5 rounded-xl bg-[#DCE8DB]/60 hover:bg-[#DCE8DB] text-[#1F513F] text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>Xem như học viên</span>
+                      </button>
+                    </div>
 
                     <button
-                      onClick={handleToggleEndClass}
-                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-amber-600 text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition"
+                      onClick={() => {
+                        setDeletingClass(currentClass);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-red-200 hover:border-red-500 hover:bg-red-50 text-red-600 text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      title="Xóa vĩnh viễn lớp học này"
                     >
-                      <Archive className="w-3 h-3 text-amber-700" />
-                      <span>{currentClass.status === "ENDED" ? "Mở lại lớp" : "Kết thúc lớp"}</span>
-                    </button>
-
-                    <button
-                      onClick={() => showToast("Đang mở chế độ xem với tư cách học sinh...")}
-                      className="px-3 py-1.5 rounded-xl bg-[#DCE8DB]/60 hover:bg-[#DCE8DB] text-[#1F513F] text-[11px] font-semibold flex items-center gap-1.5 transition"
-                    >
-                      <Eye className="w-3 h-3" />
-                      <span>Xem như học viên</span>
+                      <Trash2 className="w-3 h-3 text-red-600" />
+                      <span>Xóa lớp</span>
                     </button>
                   </div>
                 </div>
@@ -1886,16 +1971,35 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
 
                 <div className="pt-4 border-t border-[#E5DFD0] flex items-center justify-between">
                   <div>
-                    <h5 className="font-bold text-red-700">Lưu trữ hoặc Kết thúc lớp</h5>
+                    <h5 className="font-bold text-amber-800">Lưu trữ hoặc Kết thúc lớp</h5>
                     <p className="text-[11px] text-[#6B766D]">
                       Học viên sẽ không thể nộp thêm bài nhưng vẫn giữ tài khoản và tiến trình học.
                     </p>
                   </div>
                   <button
                     onClick={handleToggleEndClass}
-                    className="px-4 py-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold"
+                    className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold cursor-pointer transition"
                   >
                     {currentClass.status === "ENDED" ? "Mở lại lớp" : "Kết thúc lớp"}
+                  </button>
+                </div>
+
+                <div className="pt-4 border-t border-red-200 flex items-center justify-between">
+                  <div>
+                    <h5 className="font-bold text-red-700">Xóa vĩnh viễn lớp học</h5>
+                    <p className="text-[11px] text-[#6B766D]">
+                      Xóa hoàn toàn lớp học, toàn bộ bài tập và dữ liệu nộp bài của lớp này. Thao tác không thể hoàn tác.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setDeletingClass(currentClass);
+                      setIsDeleteModalOpen(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer shadow-xs flex items-center gap-1.5 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa lớp học này</span>
                   </button>
                 </div>
               </div>
@@ -2459,45 +2563,127 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#E5DFD0] flex items-center justify-end gap-2.5">
+            <div className="pt-3 border-t border-[#E5DFD0] flex items-center justify-between gap-2.5">
               <button
                 type="button"
-                onClick={() => setIsEditClassModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] text-[#6B766D] text-xs font-semibold cursor-pointer"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await fetch(`/api/v1/classes/${currentClass.id}`, {
-                      method: "PATCH",
-                      headers: {
-                        "Content-Type": "application/json",
-                        "x-user-id": currentUser?.id || "",
-                      },
-                      body: JSON.stringify({
-                        name: currentClass.name,
-                        description: currentClass.description,
-                        startDate: currentClass.startDate,
-                        endDate: currentClass.endDate,
-                        status: currentClass.status,
-                      }),
-                    });
-                    showToast("Đã lưu thay đổi thông tin lớp học!");
-                    setIsEditClassModalOpen(false);
-                    await fetchClasses();
-                  } catch {
-                    showToast("Lỗi lưu thay đổi.");
-                  }
+                onClick={() => {
+                  setIsEditClassModalOpen(false);
+                  setDeletingClass(currentClass);
+                  setIsDeleteModalOpen(true);
                 }}
-                className="px-5 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer shadow-md"
+                className="px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition border border-transparent hover:border-red-200"
               >
-                Lưu thay đổi
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa lớp học</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditClassModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] text-[#6B766D] text-xs font-semibold cursor-pointer hover:bg-[#F7F5EE]"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await fetch(`/api/v1/classes/${currentClass.id}`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "x-user-id": currentUser?.id || "",
+                        },
+                        body: JSON.stringify({
+                          name: currentClass.name,
+                          description: currentClass.description,
+                          startDate: currentClass.startDate,
+                          endDate: currentClass.endDate,
+                          status: currentClass.status,
+                        }),
+                      });
+                      showToast("Đã lưu thay đổi thông tin lớp học!");
+                      setIsEditClassModalOpen(false);
+                      await fetchClasses();
+                    } catch {
+                      showToast("Lỗi lưu thay đổi.");
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-semibold cursor-pointer shadow-md transition"
+                >
+                  Lưu thay đổi
+                </button>
+              </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 6: XÁC NHẬN XÓA LỚP HỌC */}
+      {/* ===================================================================== */}
+      {isDeleteModalOpen && deletingClass && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 flex-1">
+                <h3 className="font-serif font-bold text-base text-[#17382F]">
+                  Xác nhận xóa lớp học
+                </h3>
+                <p className="text-xs text-[#6B766D] leading-relaxed">
+                  Bạn có chắc chắn muốn xóa lớp học <strong className="text-red-700">{deletingClass.name}</strong> (Mã: {deletingClass.code}) không?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-red-50/80 border border-red-200 text-[11px] text-red-800 space-y-1.5 leading-relaxed">
+              <div className="flex items-center gap-1.5 font-bold text-red-900">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>Cảnh báo hành động không thể khôi phục:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 pl-1 opacity-90">
+                <li>Toàn bộ thông tin của lớp học sẽ bị xóa vĩnh viễn khỏi hệ thống.</li>
+                <li>Học sinh trong lớp ({deletingClass.studentCount} học viên) sẽ bị hủy liên kết khỏi lớp này.</li>
+                <li>Tất cả bài tập ({deletingClass.totalAssignments || 0} bài) và kết quả làm bài của lớp sẽ bị xóa hoàn toàn.</li>
+              </ul>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isDeletingClass}
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDeletingClass(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] hover:bg-[#F7F5EE] text-[#6B766D] text-xs font-semibold cursor-pointer transition disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingClass}
+                onClick={handleDeleteClass}
+                className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isDeletingClass ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Đang xóa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xác nhận xóa</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

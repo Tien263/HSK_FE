@@ -208,3 +208,80 @@ export async function PATCH(
     return NextResponse.json({ success: false, message: "Lỗi cập nhật lớp học." }, { status: 500 });
   }
 }
+
+// DELETE /api/v1/classes/[id] - Xóa lớp học và toàn bộ dữ liệu liên quan
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: classId } = await params;
+    const authUser = await getAuthUser(request);
+
+    const targetClass = await prisma.class.findUnique({
+      where: { id: classId },
+      include: {
+        _count: {
+          select: { students: true, assignments: true },
+        },
+      },
+    });
+
+    if (!targetClass) {
+      return NextResponse.json(
+        { success: false, message: "Không tìm thấy lớp học cần xóa." },
+        { status: 404 }
+      );
+    }
+
+    // Quyền: Chỉ giáo viên phụ trách lớp học hoặc Admin mới được xóa lớp
+    if (authUser && authUser.role === "TEACHER" && targetClass.teacherId !== authUser.id) {
+      return NextResponse.json(
+        { success: false, message: "Bạn không có quyền xóa lớp học của giáo viên khác." },
+        { status: 403 }
+      );
+    }
+
+    // Xóa an toàn theo thứ tự cascade để đảm bảo hoạt động trơn tru trên cả SQLite & PostgreSQL
+    const assignments = await prisma.assignment.findMany({
+      where: { classId },
+      select: { id: true },
+    });
+    const assignmentIds = assignments.map((a) => a.id);
+
+    await prisma.$transaction(async (tx) => {
+      if (assignmentIds.length > 0) {
+        await tx.attemptAnswer.deleteMany({
+          where: { attempt: { assignmentId: { in: assignmentIds } } },
+        });
+        await tx.attempt.deleteMany({
+          where: { assignmentId: { in: assignmentIds } },
+        });
+        await tx.assignmentTarget.deleteMany({
+          where: { assignmentId: { in: assignmentIds } },
+        });
+        await tx.assignment.deleteMany({
+          where: { classId },
+        });
+      }
+      await tx.classStudent.deleteMany({
+        where: { classId },
+      });
+      await tx.class.delete({
+        where: { id: classId },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Đã xóa lớp học "${targetClass.name}" thành công!`,
+      deletedClassId: classId,
+    });
+  } catch (error) {
+    console.error("DELETE /classes/[id] error:", error);
+    return NextResponse.json(
+      { success: false, message: "Lỗi hệ thống khi xóa lớp học." },
+      { status: 500 }
+    );
+  }
+}
