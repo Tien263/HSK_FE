@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import ClassesWorkspace from "@/components/teacher/ClassesWorkspace";
 import { LessonLibraryWorkspace } from "@/components/teacher/LessonLibraryWorkspace";
+import { AssignmentsWorkspace } from "@/components/teacher/AssignmentsWorkspace";
 import { getClassArtwork } from "@/lib/class-helper";
 
 // ============================================================================
@@ -1491,85 +1492,27 @@ export default function TeacherDashboard() {
           )}
 
           {/* =================================================================== */}
-          {/* TAB 4: ASSIGNMENTS (BÀI TẬP & KIỂM TRA) */}
+          {/* TAB 4: ASSIGNMENTS (BÀI TẬP & KIỂM TRA - ĐẶC TẢ V2.0) */}
           {/* =================================================================== */}
           {activeTab === "assignments" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <h2 className="text-xl font-serif font-bold text-[#204434]">Quản lý Bài tập & Kiểm tra</h2>
-                  <p className="text-xs text-[#315E48]">Giao bài, thiết lập thời hạn nộp, chấm và xem bảng điểm chi tiết.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setAssignErrors({});
-                    setIsAssignModalOpen(true);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Tạo bài tập mới</span>
-                </button>
-              </div>
-
-              {/* Assignment Table */}
-              <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-[#E5DEC9] bg-[#F8F5ED]/60 text-[#315E48] font-semibold text-[11px]">
-                      <th className="py-3 px-4">Tên bài tập</th>
-                      <th className="py-3 px-4">Lớp nhận</th>
-                      <th className="py-3 px-4">Thời lượng</th>
-                      <th className="py-3 px-4">Đã nộp / Tổng số</th>
-                      <th className="py-3 px-4">Hạn nộp</th>
-                      <th className="py-3 px-4">Trạng thái</th>
-                      <th className="py-3 px-4 text-right">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E5DEC9]/50">
-                    {visibleAssignments.map((a) => (
-                      <tr key={a.id} className="hover:bg-[#F8F5ED]/40 transition">
-                        <td className="py-3.5 px-4 font-bold text-[#204434]">{a.title}</td>
-                        <td className="py-3.5 px-4 text-[#315E48]">{a.className}</td>
-                        <td className="py-3.5 px-4 text-[#315E48]">{a.durationMin} phút</td>
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-[#204434]">{a.submittedCount}/{a.totalStudents}</span>
-                          <span className="text-[10px] text-[#315E48] ml-1">
-                            ({Math.round((a.submittedCount / a.totalStudents) * 100)}%)
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-[#315E48]">{a.dueAt}</td>
-                        <td className="py-3.5 px-4">
-                          {a.status === "ACTIVE" && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                              Đang diễn ra
-                            </span>
-                          )}
-                          {a.status === "EXPIRING_SOON" && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                              Sắp hết hạn
-                            </span>
-                          )}
-                          {a.status === "CLOSED" && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
-                              Đã đóng
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => setSelectedAssignmentForView(a)}
-                            className="px-3 py-1.5 rounded-xl bg-[#204434] text-white font-semibold text-xs shadow-2xs hover:bg-[#183629] transition"
-                          >
-                            Xem kết quả
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <AssignmentsWorkspace
+              currentUser={currentUser || undefined}
+              classesList={classesList.map((c) => ({
+                id: c.id,
+                name: c.name,
+                code: c.code,
+                studentCount: c.studentCount,
+              }))}
+              onBackToDashboard={() => setActiveTab("overview")}
+              initialNewAssignmentPayload={
+                assignTitle
+                  ? {
+                      lessonTitle: assignTitle,
+                      classId: assignClassId,
+                    }
+                  : undefined
+              }
+            />
           )}
 
           {/* =================================================================== */}
