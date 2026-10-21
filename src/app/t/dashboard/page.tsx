@@ -44,6 +44,7 @@ import {
   Send,
 } from "lucide-react";
 import ClassesWorkspace from "@/components/teacher/ClassesWorkspace";
+import { LessonLibraryWorkspace } from "@/components/teacher/LessonLibraryWorkspace";
 import { getClassArtwork } from "@/lib/class-helper";
 
 // ============================================================================
@@ -1467,73 +1468,26 @@ export default function TeacherDashboard() {
           {/* TAB 3: LESSONS (KHO BÀI HỌC) */}
           {/* =================================================================== */}
           {activeTab === "lessons" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <h2 className="text-xl font-serif font-bold text-[#204434]">Kho bài học giảng dạy</h2>
-                  <p className="text-xs text-[#315E48]">Kho nội dung chung theo HSK 3.0, Theo chủ đề và Chuyên ngành kinh tế.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setLessonErrors({});
-                    setIsLessonModalOpen(true);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Tạo bài học mới</span>
-                </button>
-              </div>
-
-              {/* 3 Categories / Tracks */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {[
-                  {
-                    title: "HSK 3.0 Tiêu chuẩn",
-                    count: "18 bài học",
-                    desc: "Hệ thống từ vựng, ngữ pháp theo 9 bậc chuẩn mới nhất của Bộ Giáo dục Trung Quốc.",
-                    art: "/theme/dashboard/card-hsk.webp",
-                  },
-                  {
-                    title: "Giao tiếp theo chủ đề",
-                    count: "12 bài học",
-                    desc: "Khẩu ngữ đời sống, ẩm thực, mua sắm, đặt phòng và văn hóa bản địa.",
-                    art: "/theme/dashboard/card-topic.webp",
-                  },
-                  {
-                    title: "Chuyên ngành thương mại",
-                    count: "20 bài học",
-                    desc: "Thuật ngữ kinh tế, hợp đồng ngoại thương, logistics và thanh toán quốc tế.",
-                    art: "/theme/dashboard/card-major.webp",
-                  },
-                ].map((track, idx) => (
-                  <div
-                    key={idx}
-                    className="p-5 rounded-3xl border border-[#E5DEC9] bg-[#FFFCF6] shadow-xs hover:border-[#204434] transition flex flex-col justify-between min-h-[170px]"
-                    style={{
-                      backgroundImage: `url('${track.art}')`,
-                      backgroundPosition: "right bottom",
-                      backgroundSize: "contain",
-                      backgroundRepeat: "no-repeat",
-                    }}
-                  >
-                    <div className="max-w-[70%] space-y-1.5">
-                      <span className="text-[10px] font-bold text-[#BC9B6B] uppercase tracking-wider">{track.count}</span>
-                      <h3 className="font-serif font-bold text-base text-[#204434]">{track.title}</h3>
-                      <p className="text-xs text-[#315E48] leading-relaxed">{track.desc}</p>
-                    </div>
-                    <div className="pt-4">
-                      <button
-                        onClick={() => showToast(`Đang lọc bài học thuộc: ${track.title}`)}
-                        className="text-xs font-bold text-[#204434] hover:underline flex items-center gap-1"
-                      >
-                        Khám phá bài học <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <LessonLibraryWorkspace
+              currentUser={currentUser || undefined}
+              classesList={classesList.map((c) => ({
+                id: c.id,
+                name: c.name,
+                code: c.code,
+                studentCount: c.studentCount,
+              }))}
+              onNavigateToAssignments={(payload) => {
+                showToast(`Đã chuyển ${payload.vocabList.length} từ vựng và ${payload.grammarList.length} điểm ngữ pháp sang module Bài tập!`);
+                setAssignTitle(`Bài tập củng cố: ${payload.lessonTitle}`);
+                if (payload.classId) {
+                  setAssignClassId(payload.classId);
+                }
+                setActiveTab("assignments");
+                setAssignErrors({});
+                setIsAssignModalOpen(true);
+              }}
+              onBackToDashboard={() => setActiveTab("overview")}
+            />
           )}
 
           {/* =================================================================== */}
