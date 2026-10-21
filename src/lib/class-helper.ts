@@ -4,9 +4,10 @@ export interface ClassMetadata {
   text: string;
   startDate: string;
   endDate: string;
-  status: "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED";
+  status: "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED" | "ARCHIVED";
   statusText: string;
   track: "HSK" | "TOPIC" | "MAJOR";
+  isArchived?: boolean;
 }
 
 /**
@@ -97,8 +98,12 @@ export function computeClassStatus(
   startDateStr?: string | null,
   endDateStr?: string | null,
   isActive: boolean = true,
-  customStatus?: string | null
-): { status: "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED"; statusText: string } {
+  customStatus?: string | null,
+  isArchived: boolean = false
+): { status: "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED" | "ARCHIVED"; statusText: string } {
+  if (isArchived || customStatus === "ARCHIVED") {
+    return { status: "ARCHIVED", statusText: "Đã lưu trữ" };
+  }
   const normStatus = (customStatus || "").toUpperCase();
   if (normStatus === "PAUSED" || normStatus === "TAM_DUNG") {
     return { status: "PAUSED", statusText: "Tạm dừng" };
@@ -133,13 +138,15 @@ export function encodeClassDescription(params: {
   endDate?: string;
   status?: string;
   track?: string;
+  isArchived?: boolean;
 }): string {
   const meta = {
     text: params.text || "",
     startDate: params.startDate ? normalizeDMY(params.startDate) : undefined,
     endDate: params.endDate ? normalizeDMY(params.endDate) : undefined,
-    status: params.status,
+    status: params.isArchived ? "ARCHIVED" : params.status,
     track: params.track,
+    isArchived: !!params.isArchived,
   };
   return JSON.stringify(meta);
 }
@@ -157,6 +164,7 @@ export function decodeClassDescription(
   let startDate: string | undefined;
   let endDate: string | undefined;
   let customStatus: string | undefined;
+  let isArchived: boolean = false;
   let track: "HSK" | "TOPIC" | "MAJOR" = level <= 3 ? "HSK" : level === 4 ? "TOPIC" : "MAJOR";
 
   if (rawDesc && rawDesc.trim().startsWith("{") && rawDesc.trim().endsWith("}")) {
@@ -166,10 +174,15 @@ export function decodeClassDescription(
       if (parsed.startDate) startDate = normalizeDMY(parsed.startDate);
       if (parsed.endDate) endDate = normalizeDMY(parsed.endDate);
       if (parsed.status) customStatus = parsed.status;
+      if (parsed.isArchived !== undefined) isArchived = Boolean(parsed.isArchived);
       if (parsed.track && ["HSK", "TOPIC", "MAJOR"].includes(parsed.track)) {
         track = parsed.track;
       }
     } catch {}
+  }
+
+  if (customStatus === "ARCHIVED") {
+    isArchived = true;
   }
 
   // Fallback dates if not present
@@ -183,7 +196,7 @@ export function decodeClassDescription(
     endDate = normalizeDMY(end);
   }
 
-  const { status, statusText } = computeClassStatus(startDate, endDate, isActive, customStatus);
+  const { status, statusText } = computeClassStatus(startDate, endDate, isActive, customStatus, isArchived);
 
   return {
     text,
@@ -192,6 +205,7 @@ export function decodeClassDescription(
     status,
     statusText,
     track,
+    isArchived,
   };
 }
 

@@ -29,8 +29,15 @@ import {
   Trash2,
   HelpCircle,
   BookOpen,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  CopyPlus,
+  RotateCcw,
+  Sparkles,
+  Layers,
 } from "lucide-react";
-import { getClassArtwork, normalizeDMY } from "@/lib/class-helper";
+import { getClassArtwork, normalizeDMY, parseDMY } from "@/lib/class-helper";
 
 // ============================================================================
 // TYPES
@@ -41,8 +48,9 @@ export interface ClassDetailItem {
   name: string;
   track: "HSK" | "TOPIC" | "MAJOR";
   badgeText: string;
-  status: "ACTIVE" | "PAUSED" | "UPCOMING" | "ENDED";
+  status: "ACTIVE" | "PAUSED" | "UPCOMING" | "ENDED" | "ARCHIVED";
   statusText: string;
+  isArchived?: boolean;
   studentCount: number;
   totalAssignments?: number;
   maxStudents: number;
@@ -56,6 +64,7 @@ export interface ClassDetailItem {
   autoApprove: boolean;
   requireRealName: boolean;
   avatarList: string[];
+  createdAt?: string;
 }
 
 export interface StudentRowItem {
@@ -96,8 +105,12 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   const [classes, setClasses] = useState<ClassDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [classFilterTab, setClassFilterTab] = useState<"ALL" | "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED">("ALL");
+  const [classFilterTab, setClassFilterTab] = useState<
+    "MANAGING" | "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED" | "ARCHIVED" | "ALL"
+  >("MANAGING");
   const [classSearchQuery, setClassSearchQuery] = useState("");
+  const [classSortBy, setClassSortBy] = useState<"NEWEST" | "OLDEST" | "NAME_ASC" | "NAME_DESC" | "STUDENTS_DESC">("NEWEST");
+  const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
 
   // 2. Class detail subtab
@@ -132,10 +145,33 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   const [isEditClassModalOpen, setIsEditClassModalOpen] = useState(false);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<StudentRowItem | null>(null);
 
-  // Modal & state Xóa Lớp Học
+  // Modal Xóa Lớp Học
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingClass, setDeletingClass] = useState<ClassDetailItem | null>(null);
   const [isDeletingClass, setIsDeletingClass] = useState(false);
+
+  // Modal Mở lại Lớp Học (Vấn đề 2)
+  const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
+  const [reopeningClass, setReopeningClass] = useState<ClassDetailItem | null>(null);
+  const [reopenStartDate, setReopenStartDate] = useState(normalizeDMY(new Date()));
+  const [reopenEndDate, setReopenEndDate] = useState(normalizeDMY(new Date(Date.now() + 180 * 86400000)));
+  const [reopenError, setReopenError] = useState("");
+  const [isSubmittingReopen, setIsSubmittingReopen] = useState(false);
+
+  // Modal Lưu trữ Lớp Học (Archive)
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const [archivingClass, setArchivingClass] = useState<ClassDetailItem | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  // Modal Nhân bản Lớp Học (Clone)
+  const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
+  const [cloningClass, setCloningClass] = useState<ClassDetailItem | null>(null);
+  const [cloneClassName, setCloneClassName] = useState("");
+  const [cloneStartDate, setCloneStartDate] = useState(normalizeDMY(new Date()));
+  const [cloneEndDate, setCloneEndDate] = useState(normalizeDMY(new Date(Date.now() + 180 * 86400000)));
+  const [cloneAssignments, setCloneAssignments] = useState(true);
+  const [cloneError, setCloneError] = useState("");
+  const [isSubmittingClone, setIsSubmittingClone] = useState(false);
 
   // Form states for Create Class
   const [newClassName, setNewClassName] = useState("");
@@ -192,6 +228,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
             badgeText: trackType === "HSK" ? `HSK ${c.level}.0` : trackType === "TOPIC" ? "Chủ đề" : "Chuyên ngành",
             status: c.status || (c.isActive ? "ACTIVE" : "ENDED"),
             statusText: c.statusText || (c.isActive ? "Đang dạy" : "Đã kết thúc"),
+            isArchived: Boolean(c.isArchived || c.status === "ARCHIVED"),
             studentCount: c.totalStudents || 0,
             totalAssignments: c.totalAssignments || 0,
             maxStudents: 30,
@@ -308,17 +345,59 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
     }
   };
 
-  // Filtered classes
+  // Filtered classes according to tabs and search
   const filteredClasses = classes.filter((cl) => {
-    if (classFilterTab === "ACTIVE" && cl.status !== "ACTIVE") return false;
-    if (classFilterTab === "UPCOMING" && cl.status !== "UPCOMING") return false;
-    if (classFilterTab === "ENDED" && cl.status !== "ENDED") return false;
+    // 1. Tab filter
+    if (classFilterTab === "MANAGING") {
+      // "Đang quản lý" ẩn lớp lưu trữ và lớp đã kết thúc
+      if (cl.isArchived || cl.status === "ARCHIVED" || cl.status === "ENDED") return false;
+    } else if (classFilterTab === "ACTIVE") {
+      if (cl.isArchived || cl.status !== "ACTIVE") return false;
+    } else if (classFilterTab === "UPCOMING") {
+      if (cl.isArchived || cl.status !== "UPCOMING") return false;
+    } else if (classFilterTab === "PAUSED") {
+      if (cl.isArchived || cl.status !== "PAUSED") return false;
+    } else if (classFilterTab === "ENDED") {
+      if (cl.isArchived || cl.status !== "ENDED") return false;
+    } else if (classFilterTab === "ARCHIVED") {
+      if (!cl.isArchived && cl.status !== "ARCHIVED") return false;
+    }
+
+    // 2. Search query
     if (classSearchQuery.trim()) {
       const q = classSearchQuery.toLowerCase();
-      return cl.name.toLowerCase().includes(q) || cl.code.toLowerCase().includes(q) || cl.description.toLowerCase().includes(q);
+      return (
+        cl.name.toLowerCase().includes(q) ||
+        cl.code.toLowerCase().includes(q) ||
+        cl.description.toLowerCase().includes(q)
+      );
     }
     return true;
   });
+
+  // Sorted classes
+  const sortedClasses = [...filteredClasses].sort((a, b) => {
+    if (classSortBy === "NAME_ASC") return a.name.localeCompare(b.name, "vi");
+    if (classSortBy === "NAME_DESC") return b.name.localeCompare(a.name, "vi");
+    if (classSortBy === "STUDENTS_DESC") return b.studentCount - a.studentCount;
+    if (classSortBy === "OLDEST") {
+      const aDate = parseDMY(a.startDate)?.getTime() || 0;
+      const bDate = parseDMY(b.startDate)?.getTime() || 0;
+      return aDate - bDate;
+    }
+    // Default NEWEST
+    const aDate = parseDMY(a.startDate)?.getTime() || 0;
+    const bDate = parseDMY(b.startDate)?.getTime() || 0;
+    return bDate - aDate;
+  });
+
+  // Pagination: Mặc định 12 lớp mỗi trang
+  const ITEMS_PER_PAGE = 12;
+  const totalPages = Math.max(1, Math.ceil(sortedClasses.length / ITEMS_PER_PAGE));
+  const paginatedClasses = sortedClasses.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   // Filtered students
   const filteredStudents = studentsList.filter((st) => {
@@ -334,8 +413,10 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
 
   // Real Stats calculation for current teacher
   const totalClassesCount = classes.length;
-  const activeClassesCount = classes.filter((c) => c.status === "ACTIVE").length;
-  const endedClassesCount = classes.filter((c) => c.status === "ENDED").length;
+  const managingClassesCount = classes.filter((c) => !c.isArchived && c.status !== "ARCHIVED" && c.status !== "ENDED").length;
+  const activeClassesCount = classes.filter((c) => !c.isArchived && c.status === "ACTIVE").length;
+  const endedClassesCount = classes.filter((c) => !c.isArchived && c.status === "ENDED").length;
+  const archivedClassesCount = classes.filter((c) => c.isArchived || c.status === "ARCHIVED").length;
   const totalStudentsCount = classes.reduce((sum, c) => sum + c.studentCount, 0);
 
   // --------------------------------------------------------------------------
@@ -627,6 +708,181 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   };
 
   // --------------------------------------------------------------------------
+  // ARCHIVE / UNARCHIVE CLASS HANDLER (Vấn đề 1)
+  // --------------------------------------------------------------------------
+  const handleToggleArchiveClass = async (cl: ClassDetailItem) => {
+    if (!currentUser?.id) return;
+    const willArchive = !cl.isArchived && cl.status !== "ARCHIVED";
+    setIsArchiving(true);
+    try {
+      const res = await fetch(`/api/v1/classes/${cl.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({
+          isArchived: willArchive,
+          isActive: !willArchive,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.message || "Lỗi cập nhật lưu trữ.");
+        return;
+      }
+      showToast(
+        willArchive
+          ? `📦 Đã chuyển lớp "${cl.name}" vào mục Lưu trữ (dữ liệu học tập được bảo toàn).`
+          : `✨ Đã khôi phục lớp "${cl.name}" về danh sách quản lý!`
+      );
+      setIsArchiveModalOpen(false);
+      setArchivingClass(null);
+      await fetchClasses();
+    } catch {
+      showToast("Lỗi kết nối máy chủ khi lưu trữ lớp.");
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // REOPEN CLASS HANDLERS (Vấn đề 2)
+  // --------------------------------------------------------------------------
+  const handleOpenReopenModal = (cl: ClassDetailItem) => {
+    setReopeningClass(cl);
+    setReopenStartDate(normalizeDMY(new Date()));
+    setReopenEndDate(normalizeDMY(new Date(Date.now() + 180 * 86400000)));
+    setReopenError("");
+    setIsReopenModalOpen(true);
+  };
+
+  const handleConfirmReopen = async () => {
+    if (!reopeningClass || !currentUser?.id) return;
+    const startObj = parseDMY(reopenStartDate);
+    const endObj = parseDMY(reopenEndDate);
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+
+    if (!reopenStartDate.trim() || !reopenEndDate.trim()) {
+      setReopenError("Vui lòng nhập đầy đủ ngày bắt đầu và kết thúc.");
+      return;
+    }
+
+    if (!endObj || endObj < today) {
+      setReopenError("Không thể mở lại lớp: Ngày kết thúc không được ở trong quá khứ.");
+      return;
+    }
+
+    if (startObj && endObj && endObj <= startObj) {
+      setReopenError("Ngày kết thúc phải sau ngày bắt đầu.");
+      return;
+    }
+
+    setIsSubmittingReopen(true);
+    setReopenError("");
+    try {
+      const res = await fetch(`/api/v1/classes/${reopeningClass.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({
+          isReopening: true,
+          startDate: reopenStartDate,
+          endDate: reopenEndDate,
+          isActive: true,
+          isArchived: false,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setReopenError(data.message || "Lỗi mở lại lớp học.");
+        return;
+      }
+
+      showToast(`🎉 Đã mở lại lớp "${reopeningClass.name}" thành công! Trạng thái: ${data.item.statusText}`);
+      setIsReopenModalOpen(false);
+      setReopeningClass(null);
+      await fetchClasses();
+    } catch {
+      setReopenError("Lỗi kết nối máy chủ khi mở lại lớp.");
+    } finally {
+      setIsSubmittingReopen(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // CLONE CLASS HANDLERS (Nhân bản lớp)
+  // --------------------------------------------------------------------------
+  const handleOpenCloneModal = (cl: ClassDetailItem) => {
+    setCloningClass(cl);
+    setCloneClassName(`${cl.name} (Khóa mới)`);
+    setCloneStartDate(normalizeDMY(new Date()));
+    setCloneEndDate(normalizeDMY(new Date(Date.now() + 180 * 86400000)));
+    setCloneAssignments(true);
+    setCloneError("");
+    setIsCloneModalOpen(true);
+  };
+
+  const handleConfirmClone = async () => {
+    if (!cloningClass || !currentUser?.id) return;
+    if (!cloneClassName.trim()) {
+      setCloneError("Vui lòng nhập tên lớp mới.");
+      return;
+    }
+    const startObj = parseDMY(cloneStartDate);
+    const endObj = parseDMY(cloneEndDate);
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+
+    if (endObj && endObj < today) {
+      setCloneError("Ngày kết thúc của lớp mới không được ở trong quá khứ.");
+      return;
+    }
+    if (startObj && endObj && endObj <= startObj) {
+      setCloneError("Ngày kết thúc phải sau ngày bắt đầu.");
+      return;
+    }
+
+    setIsSubmittingClone(true);
+    setCloneError("");
+    try {
+      const res = await fetch(`/api/v1/classes/${cloningClass.id}/clone`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({
+          name: cloneClassName.trim(),
+          startDate: cloneStartDate,
+          endDate: cloneEndDate,
+          cloneAssignments,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setCloneError(data.message || "Lỗi nhân bản lớp học.");
+        return;
+      }
+
+      showToast(`📋 Đã nhân bản lớp "${data.item.name}"! Mã lớp mới: ${data.item.code}`);
+      setIsCloneModalOpen(false);
+      setCloningClass(null);
+      await fetchClasses();
+      if (data.item?.id) {
+        setSelectedClassId(data.item.id);
+      }
+    } catch {
+      setCloneError("Lỗi kết nối máy chủ khi nhân bản lớp.");
+    } finally {
+      setIsSubmittingClone(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
   // REMOVE STUDENT FROM CLASS
   // --------------------------------------------------------------------------
   const handleRemoveStudentFromClass = async (student: StudentRowItem) => {
@@ -820,59 +1076,115 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
       </div>
 
       {/* ===================================================================== */}
-      {/* 3. FILTER TABS & SEARCH BAR & VIEW TOGGLE */}
+      {/* 3. FILTER TABS & SEARCH BAR & SORT & VIEW TOGGLE */}
       {/* ===================================================================== */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
-        {/* Status Tabs (Lỗi 1: Thêm tab Tạm dừng) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
+        {/* Status Tabs: Đang quản lý (Mặc định) / Đã kết thúc / Lưu trữ / Tất cả */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {[
-            { id: "ALL", label: `Tất cả lớp (${classes.length})` },
-            { id: "ACTIVE", label: `Đang dạy (${classes.filter((c) => c.status === "ACTIVE").length})` },
-            { id: "UPCOMING", label: `Sắp bắt đầu (${classes.filter((c) => c.status === "UPCOMING").length})` },
-            { id: "PAUSED", label: `Tạm dừng (${classes.filter((c) => c.status === "PAUSED").length})` },
-            { id: "ENDED", label: `Đã kết thúc (${classes.filter((c) => c.status === "ENDED").length})` },
+            {
+              id: "MANAGING",
+              label: "Đang quản lý",
+              count: managingClassesCount,
+              icon: BookOpen,
+            },
+            {
+              id: "ENDED",
+              label: "Đã kết thúc",
+              count: endedClassesCount,
+              icon: Clock,
+            },
+            {
+              id: "ARCHIVED",
+              label: "Lưu trữ",
+              count: archivedClassesCount,
+              icon: Archive,
+            },
+            {
+              id: "ALL",
+              label: "Tất cả lớp",
+              count: totalClassesCount,
+              icon: LayoutGrid,
+            },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setClassFilterTab(tab.id as any)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+              onClick={() => {
+                setClassFilterTab(tab.id as any);
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 classFilterTab === tab.id
                   ? "bg-[#1F513F] text-white shadow-xs"
                   : "bg-[#FFFCF7] text-[#6B766D] hover:text-[#17382F] border border-[#E5DFD0]"
               }`}
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  classFilterTab === tab.id
+                    ? "bg-white/20 text-white"
+                    : "bg-[#E5DFD0]/70 text-[#17382F]"
+                }`}
+              >
+                {tab.count}
+              </span>
             </button>
           ))}
         </div>
 
-        {/* Search & Layout View Mode */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex items-center">
+        {/* Search, Sort & View Toggle Controls */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Search Input */}
+          <div className="relative flex items-center flex-1 sm:flex-none">
             <Search className="w-3.5 h-3.5 text-[#6B766D] absolute left-3 pointer-events-none" />
             <input
               type="text"
               value={classSearchQuery}
-              onChange={(e) => setClassSearchQuery(e.target.value)}
-              placeholder="Tìm lớp học..."
-              className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-xl pl-9 pr-3 py-1.5 text-xs text-[#17382F] placeholder-[#6B766D]/60 focus:border-[#1F513F] outline-none w-48 sm:w-56"
+              onChange={(e) => {
+                setClassSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Tìm theo tên, mã lớp..."
+              className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-xl pl-9 pr-3 py-1.5 text-xs text-[#17382F] placeholder-[#6B766D]/60 focus:border-[#1F513F] outline-none w-full sm:w-48"
             />
           </div>
 
-          <div className="flex items-center bg-[#FFFCF7] border border-[#E5DFD0] rounded-xl p-0.5">
+          {/* Sort Dropdown */}
+          <div className="relative flex items-center shrink-0">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#6B766D] absolute left-3 pointer-events-none" />
+            <select
+              value={classSortBy}
+              onChange={(e) => {
+                setClassSortBy(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#17382F] focus:border-[#1F513F] outline-none cursor-pointer appearance-none"
+              title="Sắp xếp danh sách lớp"
+            >
+              <option value="NEWEST">Mới nhất</option>
+              <option value="OLDEST">Cũ nhất</option>
+              <option value="NAME_ASC">Tên: A → Z</option>
+              <option value="NAME_DESC">Tên: Z → A</option>
+              <option value="STUDENTS_DESC">Sĩ số: Nhiều nhất</option>
+            </select>
+          </div>
+
+          {/* View Toggle */}
+          <div className="flex items-center bg-[#FFFCF7] border border-[#E5DFD0] rounded-xl p-0.5 shrink-0">
             <button
               onClick={() => setViewMode("GRID")}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
                 viewMode === "GRID" ? "bg-[#1F513F] text-white" : "text-[#6B766D] hover:text-[#17382F]"
               }`}
-              title="Dạng thẻ"
+              title="Dạng thẻ Card"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span className="hidden sm:inline text-[11px]">Thẻ</span>
             </button>
             <button
               onClick={() => setViewMode("LIST")}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
                 viewMode === "LIST" ? "bg-[#1F513F] text-white" : "text-[#6B766D] hover:text-[#17382F]"
               }`}
               title="Dạng danh sách"
@@ -885,7 +1197,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
       </div>
 
       {/* ===================================================================== */}
-      {/* 4. CLASS CARDS (OR EMPTY STATE IF TEACHER HAS 0 CLASSES) */}
+      {/* 4. CLASS CARDS / LIST (OR EMPTY STATE) */}
       {/* ===================================================================== */}
       {loading ? (
         <div className="p-12 text-center text-xs text-[#6B766D] bg-[#FFFCF7] rounded-3xl border border-[#E5DFD0]">
@@ -893,7 +1205,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
           <span>Đang tải danh sách lớp học của bạn...</span>
         </div>
       ) : classes.length === 0 ? (
-        /* YÊU CẦU 4: Trạng thái trống chuẩn "Bạn chưa có lớp học nào" */
+        /* Empty State */
         <div className="p-10 sm:p-14 rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] text-center space-y-4 shadow-2xs">
           <div className="w-16 h-16 rounded-3xl bg-[#DCE8DB]/70 text-[#1F513F] flex items-center justify-center mx-auto">
             <BookOpen className="w-8 h-8" />
@@ -915,205 +1227,432 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
             <span>Tạo lớp học đầu tiên</span>
           </button>
         </div>
-      ) : viewMode === "GRID" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredClasses.map((cl) => {
-            const isSelected = cl.id === selectedClassId;
-            return (
-              <div
-                key={cl.id}
-                onClick={() => setSelectedClassId(cl.id)}
-                className={`rounded-2xl border transition-all cursor-pointer flex flex-col justify-between overflow-hidden bg-[#FFFCF7] shadow-2xs ${
-                  isSelected
-                    ? "border-[#1F513F] ring-2 ring-[#1F513F]/25 shadow-md scale-[1.01]"
-                    : "border-[#E5DFD0] hover:border-[#1F513F]/60"
-                }`}
-              >
-                {/* Artwork header */}
-                <div className="h-28 w-full relative overflow-hidden bg-[#F7F5EE]">
-                  <Image
-                    src={cl.artwork}
-                    alt={cl.name}
-                    fill
-                    className="object-cover object-center filter saturate-90 hover:scale-105 transition duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  
-                  {/* Top badges */}
-                  <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10">
-                    <span className="px-2 py-0.5 rounded-md bg-white/95 text-[#17382F] text-[10px] font-bold shadow-2xs">
-                      {cl.badgeText}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 shadow-2xs ${
-                        cl.status === "ACTIVE"
-                          ? "bg-emerald-600 text-white"
-                          : cl.status === "UPCOMING"
-                          ? "bg-blue-600 text-white"
-                          : cl.status === "PAUSED"
-                          ? "bg-amber-600 text-white"
-                          : "bg-gray-600 text-white"
-                      }`}
-                    >
-                      <span className={`w-1 h-1 rounded-full bg-white ${cl.status === "ACTIVE" ? "animate-pulse" : ""}`} />
-                      {cl.statusText}
-                    </span>
-                  </div>
-                </div>
+      ) : filteredClasses.length === 0 ? (
+        /* No Results for current Filter */
+        <div className="p-10 rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] text-center space-y-3 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-[#E5DFD0]/60 text-[#17382F] flex items-center justify-center mx-auto">
+            <Search className="w-6 h-6" />
+          </div>
+          <h4 className="font-serif font-bold text-base text-[#17382F]">
+            {classFilterTab === "ARCHIVED"
+              ? "Chưa có lớp học nào trong mục Lưu trữ"
+              : classFilterTab === "ENDED"
+              ? "Chưa có lớp học nào đã kết thúc"
+              : "Không tìm thấy lớp học phù hợp"}
+          </h4>
+          <p className="text-xs text-[#6B766D] max-w-sm mx-auto">
+            {classFilterTab === "ARCHIVED"
+              ? "Khi bạn lưu trữ các lớp học cũ, chúng sẽ hiển thị tại đây để bạn có thể xem lại hoặc khôi phục bất cứ lúc nào."
+              : "Hãy thử thay đổi từ khóa tìm kiếm hoặc chuyển sang bộ lọc khác."}
+          </p>
+          <button
+            onClick={() => {
+              setClassFilterTab("MANAGING");
+              setClassSearchQuery("");
+              setCurrentPage(1);
+            }}
+            className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold hover:bg-[#17382F] transition cursor-pointer"
+          >
+            Quay về lớp đang quản lý
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {viewMode === "GRID" ? (
+            /* GRID VIEW */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {paginatedClasses.map((cl) => {
+                const isSelected = cl.id === selectedClassId;
+                const isArchived = cl.isArchived || cl.status === "ARCHIVED";
+                const isEnded = cl.status === "ENDED";
 
-                {/* Card body */}
-                <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-1">
-                      <h3 className="font-serif font-bold text-sm text-[#17382F] truncate">{cl.name}</h3>
-                      <div className="flex items-center gap-1 shrink-0">
+                return (
+                  <div
+                    key={cl.id}
+                    onClick={() => setSelectedClassId(cl.id)}
+                    className={`rounded-2xl border transition-all cursor-pointer flex flex-col justify-between overflow-hidden bg-[#FFFCF7] shadow-2xs ${
+                      isSelected
+                        ? "border-[#1F513F] ring-2 ring-[#1F513F]/25 shadow-md scale-[1.01]"
+                        : "border-[#E5DFD0] hover:border-[#1F513F]/60"
+                    } ${isArchived ? "opacity-85 bg-[#FAF7F0]" : ""}`}
+                  >
+                    {/* Artwork header */}
+                    <div className="h-28 w-full relative overflow-hidden bg-[#F7F5EE]">
+                      <Image
+                        src={cl.artwork}
+                        alt={cl.name}
+                        fill
+                        className="object-cover object-center filter saturate-90 hover:scale-105 transition duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                      {/* Top badges */}
+                      <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10">
+                        <span className="px-2 py-0.5 rounded-md bg-white/95 text-[#17382F] text-[10px] font-bold shadow-2xs">
+                          {cl.badgeText}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 shadow-2xs ${
+                            isArchived
+                              ? "bg-purple-700 text-white"
+                              : cl.status === "ACTIVE"
+                              ? "bg-emerald-600 text-white"
+                              : cl.status === "UPCOMING"
+                              ? "bg-blue-600 text-white"
+                              : cl.status === "PAUSED"
+                              ? "bg-amber-600 text-white"
+                              : "bg-gray-600 text-white"
+                          }`}
+                        >
+                          <span
+                            className={`w-1 h-1 rounded-full bg-white ${
+                              cl.status === "ACTIVE" && !isArchived ? "animate-pulse" : ""
+                            }`}
+                          />
+                          {isArchived ? "Đã lưu trữ" : cl.statusText}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card body */}
+                    <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-1">
+                          <h3 className="font-serif font-bold text-sm text-[#17382F] truncate">
+                            {cl.name}
+                          </h3>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Copy code */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedClassId(cl.id);
+                                copyToClipboard(cl.code, "mã lớp");
+                              }}
+                              className="text-[#6B766D] hover:text-[#17382F] p-1 rounded-md hover:bg-white transition"
+                              title="Sao chép mã lớp"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+
+                            {/* Reopen button (if ended) */}
+                            {isEnded && !isArchived && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenReopenModal(cl);
+                                }}
+                                className="text-emerald-700 hover:text-emerald-900 p-1 rounded-md hover:bg-emerald-50 transition"
+                                title="Mở lại lớp học với thời gian mới"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                              </button>
+                            )}
+
+                            {/* Clone button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCloneModal(cl);
+                              }}
+                              className="text-amber-700 hover:text-amber-900 p-1 rounded-md hover:bg-amber-50 transition"
+                              title="Nhân bản lớp học sang khóa mới"
+                            >
+                              <CopyPlus className="w-3 h-3" />
+                            </button>
+
+                            {/* Archive / Unarchive button */}
+                            {isArchived ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleArchiveClass(cl);
+                                }}
+                                className="text-purple-700 hover:text-purple-900 p-1 rounded-md hover:bg-purple-50 transition"
+                                title="Khôi phục lớp về quản lý"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setArchivingClass(cl);
+                                  setIsArchiveModalOpen(true);
+                                }}
+                                className="text-[#6B766D] hover:text-[#17382F] p-1 rounded-md hover:bg-white transition"
+                                title="Lưu trữ lớp (ẩn khỏi danh sách chính)"
+                              >
+                                <Archive className="w-3 h-3" />
+                              </button>
+                            )}
+
+                            {/* Delete button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingClass(cl);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="text-[#6B766D] hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition cursor-pointer"
+                              title="Xóa lớp học này"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 space-y-1.5 text-[11px] text-[#6B766D]">
+                          <div className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-[#1F513F] shrink-0" />
+                            <span>{cl.studentCount} học sinh</span>
+                          </div>
+                          {/* CLASS-003: Full dates DD/MM/YYYY */}
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-[#1F513F] shrink-0" />
+                            <span className="font-medium whitespace-nowrap">
+                              {cl.startDate} – {cl.endDate}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CLASS-002: Tiến độ học tập */}
+                      <div className="pt-2.5 border-t border-[#E5DFD0]/60 space-y-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-semibold text-[#6B766D]">
+                            <span>Tiến độ</span>
+                            {cl.totalAssignments === 0 || cl.progressPercent === null ? (
+                              <span className="text-[#6B766D] italic font-normal text-[9.5px]">
+                                Chưa có dữ liệu tiến độ
+                              </span>
+                            ) : (
+                              <span className="text-[#1F513F] font-bold">{cl.progressPercent}%</span>
+                            )}
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-[#E5DFD0] overflow-hidden">
+                            <div
+                              className="h-full bg-[#1F513F] rounded-full transition-all duration-500"
+                              style={{
+                                width: `${
+                                  cl.totalAssignments === 0 || cl.progressPercent === null
+                                    ? 0
+                                    : cl.progressPercent
+                                }%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="font-mono text-[10px] text-[#1F513F] font-bold bg-[#DCE8DB]/70 px-2 py-0.5 rounded-md">
+                            Mã: {cl.code}
+                          </span>
+                          <span className="text-[10px] font-semibold text-[#6B766D]">
+                            {cl.studentCount} HV
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* LIST VIEW */
+            <div className="rounded-2xl bg-[#FFFCF7] border border-[#E5DFD0] overflow-hidden shadow-2xs divide-y divide-[#E5DFD0]">
+              {paginatedClasses.map((cl) => {
+                const isArchived = cl.isArchived || cl.status === "ARCHIVED";
+                const isEnded = cl.status === "ENDED";
+
+                return (
+                  <div
+                    key={cl.id}
+                    onClick={() => setSelectedClassId(cl.id)}
+                    className={`p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-[#F7F5EE] transition ${
+                      cl.id === selectedClassId ? "bg-[#DCE8DB]/30 font-semibold" : ""
+                    } ${isArchived ? "opacity-85" : ""}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden relative shrink-0 border border-[#E5DFD0]">
+                        <Image src={cl.artwork} alt={cl.name} fill className="object-cover" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-serif font-bold text-sm text-[#17382F] truncate">
+                            {cl.name}
+                          </h4>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#DCE8DB] text-[#1F513F]">
+                            {cl.badgeText}
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              isArchived
+                                ? "bg-purple-100 text-purple-800"
+                                : cl.status === "ACTIVE"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : cl.status === "UPCOMING"
+                                ? "bg-blue-100 text-blue-800"
+                                : cl.status === "PAUSED"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {isArchived ? "Đã lưu trữ" : cl.statusText}
+                          </span>
+                          <span className="text-[10px] text-[#6B766D] font-mono">Mã: {cl.code}</span>
+                        </div>
+                        <p className="text-xs text-[#6B766D] mt-0.5 line-clamp-1">{cl.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs text-[#6B766D] shrink-0 flex-wrap">
+                      <span>👥 {cl.studentCount} học viên</span>
+                      <span className="whitespace-nowrap font-medium">
+                        📅 {cl.startDate} – {cl.endDate}
+                      </span>
+                      {cl.totalAssignments === 0 || cl.progressPercent === null ? (
+                        <span className="text-[#6B766D] italic text-[11px]">Chưa có dữ liệu tiến độ</span>
+                      ) : (
+                        <span className="font-bold text-[#1F513F]">{cl.progressPercent}%</span>
+                      )}
+
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedClassId(cl.id);
-                            copyToClipboard(cl.code, "mã lớp");
                           }}
-                          className="text-[#6B766D] hover:text-[#17382F] p-0.5 shrink-0 transition"
-                          title="Sao chép mã"
+                          className="px-3 py-1 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer hover:bg-[#17382F] transition"
                         >
-                          <Copy className="w-3 h-3" />
+                          Xem chi tiết
                         </button>
+
+                        {/* Reopen button */}
+                        {isEnded && !isArchived && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenReopenModal(cl);
+                            }}
+                            className="p-1 rounded-xl border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer"
+                            title="Mở lại lớp học"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Clone button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCloneModal(cl);
+                          }}
+                          className="p-1 rounded-xl border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 transition cursor-pointer"
+                          title="Nhân bản lớp học"
+                        >
+                          <CopyPlus className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Archive button */}
+                        {isArchived ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleArchiveClass(cl);
+                            }}
+                            className="p-1 rounded-xl border border-purple-300 text-purple-800 bg-purple-50 hover:bg-purple-100 transition cursor-pointer"
+                            title="Khôi phục lớp về quản lý"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setArchivingClass(cl);
+                              setIsArchiveModalOpen(true);
+                            }}
+                            className="p-1 rounded-xl border border-[#E5DFD0] text-[#6B766D] hover:text-[#17382F] hover:bg-white transition cursor-pointer"
+                            title="Lưu trữ lớp"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Delete button */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeletingClass(cl);
                             setIsDeleteModalOpen(true);
                           }}
-                          className="text-[#6B766D] hover:text-red-600 p-0.5 shrink-0 transition cursor-pointer"
+                          className="p-1 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition cursor-pointer"
                           title="Xóa lớp học này"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
-
-                    <div className="mt-2 space-y-1.5 text-[11px] text-[#6B766D]">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-[#1F513F] shrink-0" />
-                        <span>{cl.studentCount} học sinh</span>
-                      </div>
-                      {/* CLASS-003: Hiển thị đầy đủ ngày bắt đầu và ngày kết thúc DD/MM/YYYY */}
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-[#1F513F] shrink-0" />
-                        <span className="font-medium whitespace-nowrap">{cl.startDate} – {cl.endDate}</span>
-                      </div>
-                    </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* CLASS-002: Tiến độ học tập - Hiển thị "Chưa có dữ liệu tiến độ" khi 0 bài tập */}
-                  <div className="pt-2.5 border-t border-[#E5DFD0]/60 space-y-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-semibold text-[#6B766D]">
-                        <span>Tiến độ</span>
-                        {cl.totalAssignments === 0 || cl.progressPercent === null ? (
-                          <span className="text-[#6B766D] italic font-normal text-[9.5px]">Chưa có dữ liệu tiến độ</span>
-                        ) : (
-                          <span className="text-[#1F513F] font-bold">{cl.progressPercent}%</span>
-                        )}
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-[#E5DFD0] overflow-hidden">
-                        <div
-                          className="h-full bg-[#1F513F] rounded-full transition-all duration-500"
-                          style={{
-                            width: `${cl.totalAssignments === 0 || cl.progressPercent === null ? 0 : cl.progressPercent}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-0.5">
-                      <span className="font-mono text-[10px] text-[#1F513F] font-bold bg-[#DCE8DB]/70 px-2 py-0.5 rounded-md">
-                        Mã: {cl.code}
-                      </span>
-                      <span className="text-[10px] font-semibold text-[#6B766D]">
-                        {cl.studentCount} HV
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* List View */
-        <div className="rounded-2xl bg-[#FFFCF7] border border-[#E5DFD0] overflow-hidden shadow-2xs divide-y divide-[#E5DFD0]">
-          {filteredClasses.map((cl) => (
-            <div
-              key={cl.id}
-              onClick={() => setSelectedClassId(cl.id)}
-              className={`p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-[#F7F5EE] transition ${
-                cl.id === selectedClassId ? "bg-[#DCE8DB]/30 font-semibold" : ""
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl overflow-hidden relative shrink-0 border border-[#E5DFD0]">
-                  <Image src={cl.artwork} alt={cl.name} fill className="object-cover" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-serif font-bold text-sm text-[#17382F]">{cl.name}</h4>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#DCE8DB] text-[#1F513F]">
-                      {cl.badgeText}
-                    </span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                        cl.status === "ACTIVE"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : cl.status === "UPCOMING"
-                          ? "bg-blue-100 text-blue-800"
-                          : cl.status === "PAUSED"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {cl.statusText}
-                    </span>
-                    <span className="text-[10px] text-[#6B766D] font-mono">Mã: {cl.code}</span>
-                  </div>
-                  <p className="text-xs text-[#6B766D] mt-0.5 line-clamp-1">{cl.description}</p>
-                </div>
+          {/* ===================================================================== */}
+          {/* PHÂN TRANG (MẶC ĐỊNH 12 LỚP MỖI TRANG) */}
+          {/* ===================================================================== */}
+          {sortedClasses.length > ITEMS_PER_PAGE && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-[#FFFCF7] border border-[#E5DFD0] text-xs text-[#6B766D] shadow-2xs">
+              <div>
+                Hiển thị{" "}
+                <span className="font-bold text-[#17382F]">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                </span>{" "}
+                -{" "}
+                <span className="font-bold text-[#17382F]">
+                  {Math.min(currentPage * ITEMS_PER_PAGE, sortedClasses.length)}
+                </span>{" "}
+                trên tổng số{" "}
+                <span className="font-bold text-[#17382F]">{sortedClasses.length}</span> lớp học
               </div>
 
-              <div className="flex items-center gap-6 text-xs text-[#6B766D]">
-                <span>👥 {cl.studentCount} học viên</span>
-                <span className="whitespace-nowrap font-medium">📅 {cl.startDate} – {cl.endDate}</span>
-                {cl.totalAssignments === 0 || cl.progressPercent === null ? (
-                  <span className="text-[#6B766D] italic text-[11px]">Chưa có dữ liệu tiến độ</span>
-                ) : (
-                  <span className="font-bold text-[#1F513F]">{cl.progressPercent}%</span>
-                )}
-                <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-xl border border-[#E5DFD0] bg-white text-[#17382F] hover:bg-[#F7F5EE] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition cursor-pointer font-medium"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Trước</span>
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedClassId(cl.id);
-                    }}
-                    className="px-3 py-1 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer hover:bg-[#17382F] transition"
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-xl font-bold transition cursor-pointer text-xs ${
+                      currentPage === page
+                        ? "bg-[#1F513F] text-white shadow-xs"
+                        : "bg-white text-[#6B766D] hover:text-[#17382F] border border-[#E5DFD0]"
+                    }`}
                   >
-                    Xem chi tiết
+                    {page}
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeletingClass(cl);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    className="p-1 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition cursor-pointer"
-                    title="Xóa lớp học này"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-xl border border-[#E5DFD0] bg-white text-[#17382F] hover:bg-[#F7F5EE] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition cursor-pointer font-medium"
+                >
+                  <span>Sau</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -1257,16 +1796,60 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                         className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-[#1F513F] text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
                       >
                         <Edit3 className="w-3 h-3 text-[#1F513F]" />
-                        <span>Chỉnh sửa lớp</span>
+                        <span>Chỉnh sửa</span>
                       </button>
 
+                      {/* If Ended -> Reopen button */}
+                      {currentClass.status === "ENDED" && !currentClass.isArchived ? (
+                        <button
+                          onClick={() => handleOpenReopenModal(currentClass)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3 text-emerald-700" />
+                          <span>Mở lại lớp</span>
+                        </button>
+                      ) : !currentClass.isArchived ? (
+                        <button
+                          onClick={handleToggleEndClass}
+                          className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-amber-600 text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                          <Archive className="w-3 h-3 text-amber-700" />
+                          <span>Kết thúc lớp</span>
+                        </button>
+                      ) : null}
+
+                      {/* Clone class button */}
                       <button
-                        onClick={handleToggleEndClass}
-                        className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-amber-600 text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                        onClick={() => handleOpenCloneModal(currentClass)}
+                        className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-900 text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                        title="Nhân bản lớp học sang khóa mới"
                       >
-                        <Archive className="w-3 h-3 text-amber-700" />
-                        <span>{currentClass.status === "ENDED" ? "Mở lại lớp" : "Kết thúc lớp"}</span>
+                        <CopyPlus className="w-3 h-3 text-amber-700" />
+                        <span>Nhân bản</span>
                       </button>
+
+                      {/* Archive / Unarchive */}
+                      {currentClass.isArchived || currentClass.status === "ARCHIVED" ? (
+                        <button
+                          onClick={() => handleToggleArchiveClass(currentClass)}
+                          className="px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-300 hover:bg-purple-100 text-purple-900 text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3 text-purple-700" />
+                          <span>Khôi phục quản lý</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setArchivingClass(currentClass);
+                            setIsArchiveModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DFD0] hover:border-purple-400 text-[#17382F] text-[11px] font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                          title="Lưu trữ lớp (ẩn khỏi danh sách chính)"
+                        >
+                          <Archive className="w-3 h-3 text-purple-700" />
+                          <span>Lưu trữ</span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() => showToast("Đang mở chế độ xem với tư cách học sinh...")}
@@ -2680,6 +3263,352 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Xác nhận xóa</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 7: MỞ LẠI LỚP HỌC (Vấn đề 2) */}
+      {/* ===================================================================== */}
+      {isReopenModalOpen && reopeningClass && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between pb-3 border-b border-[#E5DFD0]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#17382F]">
+                    Mở lại lớp học: {reopeningClass.name}
+                  </h3>
+                  <p className="text-[11px] text-[#6B766D]">
+                    Mã lớp: <strong className="font-mono text-[#1F513F]">{reopeningClass.code}</strong> · Sĩ số hiện tại: {reopeningClass.studentCount} học viên
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsReopenModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Lưu ý phân biệt Mở lại vs Nhân bản */}
+            <div className="p-3.5 rounded-2xl bg-[#DCE8DB]/40 border border-[#1F513F]/20 text-[11px] text-[#17382F] space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-[#1F513F]" />
+                <span>Tiếp tục lớp cũ hay mở khóa mới?</span>
+              </div>
+              <p className="text-[#6B766D] leading-relaxed">
+                • <strong>Mở lại lớp này:</strong> Giữ nguyên toàn bộ {reopeningClass.studentCount} học viên và điểm số cũ.<br />
+                • <strong>Khóa học mới:</strong> Hãy sử dụng{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cl = reopeningClass;
+                    setIsReopenModalOpen(false);
+                    handleOpenCloneModal(cl);
+                  }}
+                  className="text-[#1F513F] font-bold underline cursor-pointer hover:text-[#17382F]"
+                >
+                  Nhân bản lớp học
+                </button>{" "}
+                để tạo lớp mới với danh sách học viên trống, tránh trộn lẫn dữ liệu cũ.
+              </p>
+            </div>
+
+            {/* Inputs: Ngày bắt đầu lại & Ngày kết thúc mới */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">
+                  Thời điểm bắt đầu lại (DD/MM/YYYY)
+                </label>
+                <input
+                  type="text"
+                  value={reopenStartDate}
+                  onChange={(e) => {
+                    setReopenStartDate(e.target.value);
+                    setReopenError("");
+                  }}
+                  placeholder="DD/MM/YYYY"
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">
+                  Ngày kết thúc mới (DD/MM/YYYY) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={reopenEndDate}
+                  onChange={(e) => {
+                    setReopenEndDate(e.target.value);
+                    setReopenError("");
+                  }}
+                  placeholder="DD/MM/YYYY"
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Trạng thái dự kiến */}
+            {(() => {
+              const startObj = parseDMY(reopenStartDate);
+              const endObj = parseDMY(reopenEndDate);
+              const today = new Date(new Date().setHours(0, 0, 0, 0));
+              const isFuture = startObj && startObj > today;
+              const isPastEnd = endObj && endObj < today;
+              return (
+                <div className="p-3 rounded-xl bg-white border border-[#E5DFD0] flex items-center justify-between text-xs">
+                  <span className="text-[#6B766D]">Trạng thái sau kích hoạt lại:</span>
+                  {isPastEnd ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 border border-red-200">
+                      Không hợp lệ (Ngày kết thúc ở quá khứ)
+                    </span>
+                  ) : isFuture ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                      Sắp bắt đầu (UPCOMING)
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                      Đang dạy (ACTIVE)
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
+            {reopenError && (
+              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{reopenError}</span>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-[#E5DFD0] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isSubmittingReopen}
+                onClick={() => setIsReopenModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] text-[#6B766D] text-xs font-semibold cursor-pointer hover:bg-[#F7F5EE]"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingReopen}
+                onClick={handleConfirmReopen}
+                className="px-5 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-semibold cursor-pointer shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isSubmittingReopen ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Đang kích hoạt lại...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Xác nhận mở lại lớp</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 8: XÁC NHẬN LƯU TRỮ LỚP HỌC (ARCHIVE) */}
+      {/* ===================================================================== */}
+      {isArchiveModalOpen && archivingClass && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <Archive className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 flex-1">
+                <h3 className="font-serif font-bold text-base text-[#17382F]">
+                  Lưu trữ lớp học
+                </h3>
+                <p className="text-xs text-[#6B766D] leading-relaxed">
+                  Bạn có chắc muốn lưu trữ lớp học <strong className="text-[#17382F]">{archivingClass.name}</strong> không?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#DCE8DB]/50 border border-[#1F513F]/20 text-[11px] text-[#17382F] space-y-1.5 leading-relaxed">
+              <div className="flex items-center gap-1.5 font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#1F513F] shrink-0" />
+                <span>Bảo toàn toàn bộ dữ liệu:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 pl-1 text-[#6B766D]">
+                <li>Lớp sẽ ẩn khỏi danh sách quản lý chính để giao diện gọn gàng.</li>
+                <li>Toàn bộ {archivingClass.studentCount} học viên, bài tập và lịch sử điểm số vẫn được giữ nguyên.</li>
+                <li>Bạn có thể xem lại hoặc Khôi phục bất cứ lúc nào trong tab <strong>"Lưu trữ"</strong>.</li>
+              </ul>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isArchiving}
+                onClick={() => {
+                  setIsArchiveModalOpen(false);
+                  setArchivingClass(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] hover:bg-[#F7F5EE] text-[#6B766D] text-xs font-semibold cursor-pointer transition disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isArchiving}
+                onClick={() => handleToggleArchiveClass(archivingClass)}
+                className="px-5 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-semibold cursor-pointer shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isArchiving ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Đang lưu trữ...</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-3.5 h-3.5" />
+                    <span>Xác nhận lưu trữ</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 9: NHÂN BẢN LỚP HỌC SANG KHÓA MỚI (CLONE) */}
+      {/* ===================================================================== */}
+      {isCloneModalOpen && cloningClass && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between pb-3 border-b border-[#E5DFD0]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center shrink-0">
+                  <CopyPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#17382F]">
+                    Nhân bản lớp học sang khóa mới
+                  </h3>
+                  <p className="text-[11px] text-[#6B766D]">
+                    Gốc: <strong>{cloningClass.name}</strong> ({cloningClass.badgeText})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCloneModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed">
+              💡 <strong>Cách ly dữ liệu hoàn toàn:</strong> Lớp mới sẽ được tạo với mã lớp mới riêng biệt và danh sách học viên trống (0 học viên). Toàn bộ dữ liệu điểm số của khóa cũ không bị ảnh hưởng.
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">
+                  Tên lớp học mới <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={cloneClassName}
+                  onChange={(e) => {
+                    setCloneClassName(e.target.value);
+                    setCloneError("");
+                  }}
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">
+                    Ngày bắt đầu khóa mới
+                  </label>
+                  <input
+                    type="text"
+                    value={cloneStartDate}
+                    onChange={(e) => setCloneStartDate(e.target.value)}
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">
+                    Ngày kết thúc khóa mới
+                  </label>
+                  <input
+                    type="text"
+                    value={cloneEndDate}
+                    onChange={(e) => setCloneEndDate(e.target.value)}
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 p-3 rounded-xl bg-white border border-[#E5DFD0] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={cloneAssignments}
+                  onChange={(e) => setCloneAssignments(e.target.checked)}
+                  className="w-4 h-4 rounded text-[#1F513F] focus:ring-[#1F513F]"
+                />
+                <span className="text-xs text-[#17382F] font-medium">
+                  Sao chép danh mục bài tập ({cloningClass.totalAssignments || 0} bài tập) sang khóa mới
+                </span>
+              </label>
+            </div>
+
+            {cloneError && (
+              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{cloneError}</span>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-[#E5DFD0] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isSubmittingClone}
+                onClick={() => setIsCloneModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] text-[#6B766D] text-xs font-semibold cursor-pointer hover:bg-[#F7F5EE]"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingClone}
+                onClick={handleConfirmClone}
+                className="px-5 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-semibold cursor-pointer shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isSubmittingClone ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Đang nhân bản...</span>
+                  </>
+                ) : (
+                  <>
+                    <CopyPlus className="w-3.5 h-3.5" />
+                    <span>Tạo lớp nhân bản</span>
                   </>
                 )}
               </button>

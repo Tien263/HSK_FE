@@ -97,6 +97,7 @@ export async function GET(request: Request) {
           status: meta.status,
           statusText: meta.statusText,
           track: meta.track,
+          isArchived: !!meta.isArchived,
           totalStudents: c._count.students,
           totalAssignments,
           submittedAssignments: submittedCount,

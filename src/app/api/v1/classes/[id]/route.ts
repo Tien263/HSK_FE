@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
-import { decodeClassDescription, encodeClassDescription, normalizeDMY } from "@/lib/class-helper";
+import {
+  decodeClassDescription,
+  encodeClassDescription,
+  normalizeDMY,
+  parseDMY,
+} from "@/lib/class-helper";
 
 
 export async function GET(
@@ -131,7 +136,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/v1/classes/[id] - Cập nhật thông tin hoặc trạng thái lớp
+// PATCH /api/v1/classes/[id] - Cập nhật thông tin, trạng thái, lưu trữ hoặc mở lại lớp
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -163,25 +168,81 @@ export async function PATCH(
     const mergedText = body.description !== undefined ? body.description.trim() : currentMeta.text;
     const mergedStart = body.startDate ? normalizeDMY(body.startDate) : currentMeta.startDate;
     const mergedEnd = body.endDate ? normalizeDMY(body.endDate) : currentMeta.endDate;
-    const mergedStatus = body.status !== undefined ? body.status : currentMeta.status;
     const mergedTrack = body.track !== undefined ? body.track : currentMeta.track;
+    let mergedIsArchived = body.isArchived !== undefined ? Boolean(body.isArchived) : !!currentMeta.isArchived;
+
+    // Check if reopening
+    const isReopening = body.isReopening === true || (body.isActive === true && currentMeta.status === "ENDED");
+    if (isReopening) {
+      const endObj = parseDMY(mergedEnd);
+      const startObj = parseDMY(mergedStart);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (!endObj || endObj < today) {
+        return NextResponse.json(
+          { success: false, message: "Không thể mở lại lớp: Ngày kết thúc mới không được ở trong quá khứ." },
+          { status: 400 }
+        );
+      }
+
+      if (startObj && endObj <= startObj) {
+        return NextResponse.json(
+          { success: false, message: "Không thể mở lại lớp: Ngày kết thúc phải sau ngày bắt đầu." },
+          { status: 400 }
+        );
+      }
+
+      // Mở lại thì hủy trạng thái lưu trữ
+      mergedIsArchived = false;
+    }
+
+    // Tính trạng thái thực tế dựa trên thời gian và cấu hình
+    let targetActive = true;
+    let computedStatus: "ACTIVE" | "UPCOMING" | "PAUSED" | "ENDED" | "ARCHIVED" = "ACTIVE";
+
+    if (mergedIsArchived) {
+      computedStatus = "ARCHIVED";
+      targetActive = false;
+    } else if (body.status === "PAUSED") {
+      computedStatus = "PAUSED";
+      targetActive = true;
+    } else if (body.status === "ENDED" || (body.isActive === false && !isReopening)) {
+      computedStatus = "ENDED";
+      targetActive = false;
+    } else {
+      const startObj = parseDMY(mergedStart);
+      const endObj = parseDMY(mergedEnd);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (startObj && startObj > today) {
+        computedStatus = "UPCOMING";
+        targetActive = true;
+      } else if (endObj && endObj < today) {
+        computedStatus = "ENDED";
+        targetActive = false;
+      } else {
+        computedStatus = "ACTIVE";
+        targetActive = true;
+      }
+    }
 
     const newPackedDescription = encodeClassDescription({
       text: mergedText,
       startDate: mergedStart,
       endDate: mergedEnd,
-      status: mergedStatus,
+      status: computedStatus,
       track: mergedTrack,
+      isArchived: mergedIsArchived,
     });
-
-    const isEnded = mergedStatus === "ENDED" || (body.isActive !== undefined ? !body.isActive : false);
 
     const updated = await prisma.class.update({
       where: { id: classId },
       data: {
         ...(body.name ? { name: body.name.trim() } : {}),
         description: newPackedDescription,
-        isActive: !isEnded,
+        isActive: targetActive,
       },
     });
 
@@ -189,7 +250,7 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      message: "Cập nhật lớp thành công!",
+      message: isReopening ? "Đã mở lại lớp học thành công!" : "Cập nhật lớp thành công!",
       item: {
         id: updated.id,
         name: updated.name,
@@ -200,6 +261,7 @@ export async function PATCH(
         status: updatedMeta.status,
         statusText: updatedMeta.statusText,
         track: updatedMeta.track,
+        isArchived: updatedMeta.isArchived,
         isActive: updated.isActive,
       },
     });
