@@ -19,14 +19,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanUsername = username.trim();
+    const cleanUsername = username.trim().toLowerCase();
 
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { username: { equals: cleanUsername, mode: "insensitive" } },
-          { email: { equals: cleanUsername, mode: "insensitive" } },
-          ...(cleanUsername.toLowerCase() === "ningning" ? [{ username: "ning" }] : []),
+          { username: cleanUsername },
+          { email: cleanUsername },
+          ...(cleanUsername === "ningning" ? [{ username: "ning" }] : []),
         ],
       },
       include: {
