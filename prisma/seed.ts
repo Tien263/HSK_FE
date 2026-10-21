@@ -3,35 +3,13 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🧹 Xóa toàn bộ dữ liệu cũ để đồng bộ dữ liệu thật 100%...");
-  await prisma.attemptAnswer.deleteMany();
-  await prisma.attempt.deleteMany();
-  await prisma.assignmentTarget.deleteMany();
-  await prisma.assignment.deleteMany();
-  await prisma.quizSetQuestion.deleteMany();
-  await prisma.quizSet.deleteMany();
-  await prisma.question.deleteMany();
-  await prisma.vocabProgress.deleteMany();
-  await prisma.wrongQuestion.deleteMany();
-  await prisma.vocabulary.deleteMany();
-  await prisma.grammarPoint.deleteMany();
-  await prisma.listeningItem.deleteMany();
-  await prisma.readingItem.deleteMany();
-  await prisma.lesson.deleteMany();
-  await prisma.level.deleteMany();
-  await prisma.curriculum.deleteMany();
-  await prisma.classStudent.deleteMany();
-  await prisma.class.deleteMany();
-  await prisma.gameSession.deleteMany();
-  await prisma.xpLog.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.user.deleteMany();
-
-  console.log("👤 Tạo 3 tài khoản cho 3 role chuẩn...");
+  console.log("👤 Đang khởi tạo/đồng bộ 3 tài khoản mặc định...");
 
   // 1. Admin
-  const admin = await prisma.user.create({
-    data: {
+  const admin = await prisma.user.upsert({
+    where: { username: "admin" },
+    update: {},
+    create: {
       username: "admin",
       name: "Quản trị viên Hệ thống",
       email: "admin@ningning.edu.vn",
@@ -42,8 +20,10 @@ async function main() {
   });
 
   // 2. Giáo viên (Cô Ning Ning)
-  const teacher = await prisma.user.create({
-    data: {
+  const teacher = await prisma.user.upsert({
+    where: { username: "teacher" },
+    update: {},
+    create: {
       username: "teacher",
       name: "Nguyễn Thảo (Cô Ning Ning)",
       email: "coningning@ningning.edu.vn",
@@ -55,8 +35,10 @@ async function main() {
   });
 
   // 3. Học sinh (Em Minh Khang)
-  const student = await prisma.user.create({
-    data: {
+  const student = await prisma.user.upsert({
+    where: { username: "student" },
+    update: {},
+    create: {
       username: "student",
       name: "Trần Minh Khang",
       email: "student@ningning.edu.vn",

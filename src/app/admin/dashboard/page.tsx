@@ -185,8 +185,12 @@ export default function AdminDashboardPage() {
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
       if (roleFilter !== "ALL") params.set("role", roleFilter);
+      params.set("_t", Date.now().toString());
 
-      const res = await fetch(`/api/v1/admin/users?${params.toString()}`);
+      const res = await fetch(`/api/v1/admin/users?${params.toString()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const data = await res.json();
       if (data.success) {
         setUsers(data.users || []);
@@ -387,6 +391,8 @@ export default function AdminDashboardPage() {
       if (data.success) {
         showToast(data.message, "success");
         setShowCreateModal(false);
+        setRoleFilter("ALL");
+        setSearchQuery("");
         setNewUserData({
           name: "",
           username: "",

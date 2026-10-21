@@ -55,23 +55,32 @@ export async function GET(request: Request) {
       prisma.user.count({ where: { status: "LOCKED" } }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      stats: {
-        totalUsers,
-        studentCount,
-        teacherCount,
-        adminCount,
-        activeCount: totalUsers - lockedCount,
-        lockedCount,
+    return NextResponse.json(
+      {
+        success: true,
+        stats: {
+          totalUsers,
+          studentCount,
+          teacherCount,
+          adminCount,
+          activeCount: totalUsers - lockedCount,
+          lockedCount,
+        },
+        users: users.map((u) => ({
+          ...u,
+          enrolledCount: u._count.enrolledClasses,
+          taughtCount: u._count.taughtClasses,
+          attemptCount: u._count.attempts,
+        })),
       },
-      users: users.map((u) => ({
-        ...u,
-        enrolledCount: u._count.enrolledClasses,
-        taughtCount: u._count.taughtClasses,
-        attemptCount: u._count.attempts,
-      })),
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error) {
     console.error("GET /api/v1/admin/users error:", error);
     return NextResponse.json(
