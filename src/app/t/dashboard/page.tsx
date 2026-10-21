@@ -121,19 +121,118 @@ interface QuestionItem {
 export default function TeacherDashboard() {
   const router = useRouter();
 
+  // Authentication & Logged-in Teacher Profile
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    name: string;
+    username: string;
+    email?: string;
+    avatar?: string;
+    role: string;
+  } | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  // Overview stats fetched dynamically from API
+  const [overviewStats, setOverviewStats] = useState<{
+    totalClasses: number;
+    totalStudents: number;
+    activeAssignments: number;
+    completionRate: number;
+  } | null>(null);
+
   // Navigation state (Spec Section 3: 8 menus)
   const [activeTab, setActiveTab] = useState<
     "overview" | "classes" | "lessons" | "assignments" | "questions" | "reports" | "schedule" | "settings"
   >("overview");
 
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("currentUser");
+      sessionStorage.removeItem("currentUser");
+    }
+    router.push("/login");
+  };
+
+  const fetchTeacherData = async (user: { id: string; name: string }) => {
+    try {
+      // 1. Lấy danh sách lớp của riêng giáo viên này
+      const resClasses = await fetch(`/api/v1/classes?teacherId=${user.id}`, {
+        headers: { "x-user-id": user.id },
+      });
+      if (resClasses.ok) {
+        const data = await resClasses.json();
+        if (data.success && Array.isArray(data.items)) {
+          const artworks = [
+            "/theme/dashboard/card-hsk.webp",
+            "/theme/dashboard/card-topic.webp",
+            "/theme/dashboard/card-major.webp",
+          ];
+          const loadedClasses: ClassItem[] = data.items.map((c: any, index: number) => ({
+            id: c.id,
+            name: c.name,
+            track: c.level <= 3 ? "HSK" : c.level === 4 ? "TOPIC" : "MAJOR",
+            levelText: `HSK ${c.level} · Quản lý bởi ${c.teacherName || user.name}`,
+            studentCount: c.totalStudents || 0,
+            completedLessons: 0,
+            totalLessons: 10,
+            submissionRate: 0,
+            status: c.isActive ? "ACTIVE" : "ARCHIVED",
+            artwork: artworks[index % artworks.length],
+            code: c.code || c.id.slice(-6).toUpperCase(),
+            description: c.description || "",
+          }));
+          setClassesList(loadedClasses);
+        }
+      }
+
+      // 2. Lấy thống kê tổng quan của riêng giáo viên này
+      const resReports = await fetch(`/api/v1/reports/overview?teacherId=${user.id}`, {
+        headers: { "x-user-id": user.id },
+      });
+      if (resReports.ok) {
+        const data = await resReports.json();
+        if (data.success && data.data?.summary) {
+          setOverviewStats({
+            totalClasses: data.data.summary.totalClasses,
+            totalStudents: data.data.summary.totalStudents,
+            activeAssignments: data.data.summary.activeAssignments,
+            completionRate: data.data.summary.completionRate,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error loading teacher dashboard data:", err);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
+      if (!stored) {
+        router.push("/login");
+        return;
+      }
+      try {
+        const user = JSON.parse(stored);
+        if (user.role !== "TEACHER" && user.role !== "ADMIN") {
+          router.push("/login");
+          return;
+        }
+        setCurrentUser(user);
+        fetchTeacherData(user);
+      } catch (err) {
+        router.push("/login");
+        return;
+      } finally {
+        setIsLoadingAuth(false);
+      }
+
       const tab = new URLSearchParams(window.location.search).get("tab");
       if (tab && ["overview", "classes", "lessons", "assignments", "questions", "reports", "schedule", "settings"].includes(tab)) {
         setActiveTab(tab as any);
       }
     }
-  }, []);
+  }, [router]);
 
   // Global search & filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -179,212 +278,23 @@ export default function TeacherDashboard() {
   };
 
   // ============================================================================
-  // CORE DATA STATES
+  // CORE DATA STATES (Loaded dynamically according to the authenticated teacher)
   // ============================================================================
 
-  // 1. Classes List (with the 3 primary classes featuring the 3 watercolor artworks)
-  const [classesList, setClassesList] = useState<ClassItem[]>([
-    {
-      id: "c1",
-      name: "HSK 3A (Sơ - Trung cấp)",
-      track: "HSK",
-      levelText: "HSK 3.0 · Chuẩn quốc tế",
-      studentCount: 28,
-      completedLessons: 14,
-      totalLessons: 18,
-      submissionRate: 86,
-      status: "ACTIVE",
-      artwork: "/theme/dashboard/card-hsk.webp",
-      code: "HSK3A-2026",
-      description: "Chương trình ngữ pháp và 600 từ vựng cốt lõi HSK 3 mới",
-    },
-    {
-      id: "c2",
-      name: "Tiếng Trung giao tiếp cấp tốc",
-      track: "TOPIC",
-      levelText: "Theo chủ đề · Phản xạ hội thoại",
-      studentCount: 24,
-      completedLessons: 8,
-      totalLessons: 12,
-      submissionRate: 75,
-      status: "ACTIVE",
-      artwork: "/theme/dashboard/card-topic.webp",
-      code: "GT-CAP-TOC",
-      description: "Luyện phát âm, khẩu ngữ đời sống, du lịch và giao thương",
-    },
-    {
-      id: "c3",
-      name: "Tiếng Trung thương mại & Kinh tế",
-      track: "MAJOR",
-      levelText: "Chuyên ngành · Đàm phán xuất nhập khẩu",
-      studentCount: 34,
-      completedLessons: 18,
-      totalLessons: 20,
-      submissionRate: 92,
-      status: "ACTIVE",
-      artwork: "/theme/dashboard/card-major.webp",
-      code: "KT-COMM-88",
-      description: "Hợp đồng, đàm phán thương mại, thanh toán quốc tế và logistics",
-    },
-    {
-      id: "c4",
-      name: "Luyện thi HSK 4 Chuyên sâu",
-      track: "HSK",
-      levelText: "HSK 4 · Đọc hiểu & Viết luận",
-      studentCount: 22,
-      completedLessons: 6,
-      totalLessons: 24,
-      submissionRate: 80,
-      status: "ACTIVE",
-      artwork: "/theme/dashboard/card-hsk.webp",
-      code: "HSK4-INTENSE",
-      description: "Rèn kỹ năng đọc nhanh, phân tích kết cấu câu phức và viết đoạn",
-    },
-  ]);
+  // 1. Classes List (Scoped to the authenticated teacher)
+  const [classesList, setClassesList] = useState<ClassItem[]>([]);
 
-  // 2. Assignments List
-  const [assignmentsList, setAssignmentsList] = useState<AssignmentItem[]>([
-    {
-      id: "a1",
-      title: "Từ vựng HSK 3 - Bài 5: Sinh hoạt hàng ngày",
-      classId: "c1",
-      className: "HSK 3A (Sơ - Trung cấp)",
-      submittedCount: 24,
-      totalStudents: 28,
-      dueAt: "20/10/2026 23:59",
-      status: "EXPIRING_SOON",
-      durationMin: 30,
-    },
-    {
-      id: "a2",
-      title: "Ngữ pháp bổ trợ: Bổ ngữ kết quả & Bổ ngữ trạng thái",
-      classId: "c2",
-      className: "Tiếng Trung giao tiếp cấp tốc",
-      submittedCount: 18,
-      totalStudents: 24,
-      dueAt: "22/10/2026 21:00",
-      status: "EXPIRING_SOON",
-      durationMin: 45,
-    },
-    {
-      id: "a3",
-      title: "Chuyên đề: 需求与供给 (Cung cầu và Đàm phán giá)",
-      classId: "c3",
-      className: "Tiếng Trung thương mại & Kinh tế",
-      submittedCount: 31,
-      totalStudents: 34,
-      dueAt: "24/10/2026 23:59",
-      status: "ACTIVE",
-      durationMin: 60,
-    },
-    {
-      id: "a4",
-      title: "Kiểm tra giữa kỳ HSK 3 - Đề số 1",
-      classId: "c1",
-      className: "HSK 3A (Sơ - Trung cấp)",
-      submittedCount: 28,
-      totalStudents: 28,
-      dueAt: "15/10/2026 20:00",
-      status: "CLOSED",
-      durationMin: 90,
-    },
-  ]);
+  // 2. Assignments List (Scoped to the authenticated teacher)
+  const [assignmentsList, setAssignmentsList] = useState<AssignmentItem[]>([]);
 
   // 3. Schedule Sessions
-  const [scheduleList, setScheduleList] = useState<ScheduleSession[]>([
-    {
-      id: "s1",
-      timeRange: "10:00 – 11:30",
-      className: "HSK 3A (Sơ - Trung cấp)",
-      mode: "ONLINE",
-      location: "Google Meet · meet.google.com/hsk-3a-live",
-      status: "IN_PROGRESS",
-      actionType: "JOIN",
-    },
-    {
-      id: "s2",
-      timeRange: "14:00 – 15:30",
-      className: "Tiếng Trung giao tiếp cấp tốc",
-      mode: "OFFLINE",
-      location: "Phòng học 204 · Cơ sở Hanyu Studio",
-      status: "UPCOMING",
-      actionType: "PREPARE",
-    },
-    {
-      id: "s3",
-      timeRange: "19:00 – 20:30",
-      className: "Tiếng Trung thương mại & Kinh tế",
-      mode: "ONLINE",
-      location: "Phòng Zoom 888 999 66 · Pass: hanyu2026",
-      status: "UPCOMING",
-      actionType: "JOIN",
-    },
-  ]);
+  const [scheduleList, setScheduleList] = useState<ScheduleSession[]>([]);
 
   // 4. Due Assignments (Cột phải - Bài tập sắp đến hạn)
-  const dueAssignments: DueAssignment[] = [
-    {
-      id: "a1",
-      title: "Từ vựng HSK 3 - Bài 5: Sinh hoạt hàng ngày",
-      className: "HSK 3A (Sơ - Trung cấp)",
-      dueText: "Còn 1 ngày (Hạn 23:59)",
-      urgency: "warning",
-      submittedText: "24/28 đã nộp (86%)",
-    },
-    {
-      id: "a2",
-      title: "Ngữ pháp bổ trợ: Bổ ngữ kết quả & Trạng thái",
-      className: "Giao tiếp cấp tốc",
-      dueText: "Còn 2 ngày",
-      urgency: "warning",
-      submittedText: "18/24 đã nộp (75%)",
-    },
-    {
-      id: "a3",
-      title: "Thuật ngữ 需求与供给 (Cung cầu thương mại)",
-      className: "Tiếng Trung Kinh tế",
-      dueText: "Còn 4 ngày",
-      urgency: "normal",
-      submittedText: "31/34 đã nộp (92%)",
-    },
-  ];
+  const dueAssignments: DueAssignment[] = classesList.length === 0 ? [] : [];
 
   // 5. Students in need of pedagogical support (Spec Section 11)
-  const [studentsInNeedList, setStudentsInNeedList] = useState<StudentInNeed[]>([
-    {
-      id: "st-1",
-      name: "Trần Minh Anh",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      className: "HSK 3A (Sơ - Trung cấp)",
-      classId: "c1",
-      reason: "Chưa nộp 2 bài liên tiếp",
-      ruleType: "OVERDUE",
-      detail: "Học viên chưa hoàn thành bài tập Bài 4 và Bài 5. Lần đăng nhập cuối: 4 ngày trước.",
-      recommendedPractice: "Bài tập rút gọn: 10 từ vựng cốt lõi & kiểm tra phát âm qua audio",
-    },
-    {
-      id: "st-2",
-      name: "Lê Hoàng Nam",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80",
-      className: "Tiếng Trung giao tiếp cấp tốc",
-      classId: "c2",
-      reason: "Sai 6/10 câu về câu chữ 把 (把字句)",
-      ruleType: "GRAMMAR_MISTAKE",
-      detail: "Thường nhầm vị trí của động từ và tân ngữ khi dùng câu chữ 把 trong ngữ cảnh phủ định.",
-      recommendedPractice: "Phiếu ôn bổ trợ: 8 bài tập điền từ & sửa lỗi câu chữ 把",
-    },
-    {
-      id: "st-3",
-      name: "Phạm Thu Hà",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80",
-      className: "Tiếng Trung thương mại & Kinh tế",
-      classId: "c3",
-      reason: "Điểm 3 bài gần nhất dưới 6.0",
-      ruleType: "LOW_SCORE",
-      detail: "Điểm bài 1: 5.5, bài 2: 5.8, bài 3: 5.2. Điểm yếu chính ở phần thuật ngữ thanh toán quốc tế (L/C, T/T).",
-      recommendedPractice: "Bộ flashcard thuật ngữ thanh toán + 5 câu tình huống thực hành",
-    },
-  ]);
+  const [studentsInNeedList, setStudentsInNeedList] = useState<StudentInNeed[]>([]);
 
   // 6. Question Bank (Kho câu hỏi)
   const [questionsList, setQuestionsList] = useState<QuestionItem[]>([
@@ -549,18 +459,48 @@ export default function TeacherDashboard() {
   };
 
   // 3. Submit New Class
-  const handleSaveClass = () => {
+  const handleSaveClass = async () => {
     const errors: Record<string, string> = {};
     if (!newClassName.trim()) {
       errors.name = "Vui lòng nhập tên lớp học.";
     }
     if (classesList.some((c) => c.name.toLowerCase() === newClassName.trim().toLowerCase())) {
-      errors.name = "Tên lớp này đã tồn tại trong danh sách lớp của cô.";
+      errors.name = "Tên lớp này đã tồn tại trong danh sách lớp của thầy/cô.";
     }
 
     if (Object.keys(errors).length > 0) {
       setClassErrors(errors);
       return;
+    }
+
+    try {
+      if (currentUser?.id) {
+        const res = await fetch("/api/v1/classes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": currentUser.id,
+          },
+          body: JSON.stringify({
+            name: newClassName.trim(),
+            level: Number(newClassLevel) || 1,
+            description: newClassDesc.trim(),
+            teacherId: currentUser.id,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Đã tạo lớp "${newClassName.trim()}" thành công!`);
+          setClassErrors({});
+          setIsCreateClassModalOpen(false);
+          setNewClassName("");
+          setNewClassDesc("");
+          fetchTeacherData(currentUser);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error(e);
     }
 
     const uniqueCode = `${newClassTrack === "HSK" ? "HSK" + newClassLevel : newClassTrack}-${Math.floor(
@@ -601,7 +541,7 @@ export default function TeacherDashboard() {
   };
 
   // 4. Issue Student Account
-  const handleIssueStudent = () => {
+  const handleIssueStudent = async () => {
     const errors: Record<string, string> = {};
     if (!newStudentName.trim()) {
       errors.name = "Vui lòng nhập họ và tên học viên.";
@@ -618,6 +558,44 @@ export default function TeacherDashboard() {
     if (Object.keys(errors).length > 0) {
       setStudentFormErrors(errors);
       return;
+    }
+
+    try {
+      if (currentUser?.id && targetClassForStudent) {
+        const res = await fetch(`/api/v1/classes/${targetClassForStudent}/students`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": currentUser.id,
+          },
+          body: JSON.stringify({
+            name: newStudentName.trim(),
+            username: newStudentUsername.trim().toLowerCase(),
+            password: newStudentPassword,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const targetClass = classesList.find((c) => c.id === targetClassForStudent);
+          const issued = {
+            name: newStudentName.trim(),
+            username: newStudentUsername.trim().toLowerCase(),
+            password: newStudentPassword,
+            className: targetClass?.name || "Lớp học",
+            classCode: targetClass?.code || targetClassForStudent.slice(-6).toUpperCase(),
+            createdAt: new Date().toLocaleDateString("vi-VN"),
+          };
+          setStudentFormErrors({});
+          setIssuedStudentSuccess(issued);
+          setNewStudentName("");
+          setNewStudentUsername("");
+          showToast(`Cấp tài khoản cho học viên ${issued.name} thành công!`);
+          fetchTeacherData(currentUser);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error(e);
     }
 
     const targetClass = classesList.find((c) => c.id === targetClassForStudent);
@@ -704,6 +682,17 @@ export default function TeacherDashboard() {
 
   // Selected Class Object
   const currentSelectedClass = classesList.find((c) => c.id === selectedClassId);
+
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#204434] border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-[#315E48]">Đang tải không gian giảng viên...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6] flex">
@@ -796,15 +785,19 @@ export default function TeacherDashboard() {
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-full overflow-hidden bg-[#204434]/10 border border-[#BC9B6B]/40 relative shrink-0">
                 <Image
-                  src="/theme/avatar-teacher.jpg"
-                  alt="Teacher"
+                  src={currentUser?.avatar || "/theme/avatar-teacher.jpg"}
+                  alt={currentUser?.name || "Teacher"}
                   fill
                   className="object-cover object-top"
                 />
               </div>
               <div className="leading-tight truncate">
-                <span className="font-bold text-xs text-[#204434] block truncate">Cô Nguyễn Thị Ninh</span>
-                <span className="text-[10px] text-[#315E48] block">Giáo viên · Hanyu</span>
+                <span className="font-bold text-xs text-[#204434] block truncate">
+                  {currentUser?.name || "Giáo viên"}
+                </span>
+                <span className="text-[10px] text-[#315E48] block truncate">
+                  {currentUser?.email || currentUser?.username || "Giáo viên · Hanyu"}
+                </span>
               </div>
             </div>
             <button
@@ -816,13 +809,13 @@ export default function TeacherDashboard() {
             </button>
           </div>
 
-          <Link
-            href="/login"
+          <button
+            onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#9D493E] hover:bg-white/80 transition cursor-pointer border border-transparent hover:border-[#E5DEC9]"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Đăng xuất khỏi hệ thống</span>
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -911,15 +904,19 @@ export default function TeacherDashboard() {
             <div className="flex items-center gap-2.5 pl-2 border-l border-[#E5DEC9]">
               <div className="w-9 h-9 rounded-full overflow-hidden border border-[#BC9B6B]/40 relative shrink-0">
                 <Image
-                  src="/theme/avatar-teacher.jpg"
-                  alt="Teacher"
+                  src={currentUser?.avatar || "/theme/avatar-teacher.jpg"}
+                  alt={currentUser?.name || "Teacher"}
                   fill
                   className="object-cover object-top"
                 />
               </div>
               <div className="leading-tight hidden sm:block">
-                <span className="font-bold text-xs text-[#204434] block">Cô Nguyễn Thị Ninh</span>
-                <span className="text-[10px] text-[#315E48] block">Giáo viên phụ trách</span>
+                <span className="font-bold text-xs text-[#204434] block">
+                  {currentUser?.name || "Giáo viên"}
+                </span>
+                <span className="text-[10px] text-[#315E48] block">
+                  {currentUser?.role === "ADMIN" ? "Quản trị viên" : "Giáo viên phụ trách"}
+                </span>
               </div>
             </div>
           </div>
@@ -1014,12 +1011,19 @@ export default function TeacherDashboard() {
                     </div>
 
                     <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1A3D2F] tracking-tight">
-                      Chào mừng trở lại, cô giáo! 🌱
+                      Chào mừng trở lại, {currentUser?.name || "thầy/cô"}! 🌱
                     </h1>
 
                     <p className="text-xs sm:text-sm text-[#315E48] leading-relaxed mt-2 max-w-lg">
-                      Hôm nay cô có <span className="font-bold text-[#204434]">3 buổi dạy</span> và{" "}
-                      <span className="font-bold text-[#204434]">2 bài tập</span> sắp đến hạn nộp. Chúc cô một ngày dạy học tràn đầy năng lượng!
+                      Hôm nay thầy/cô có{" "}
+                      <span className="font-bold text-[#204434]">
+                        {overviewStats ? overviewStats.totalClasses : classesList.length} lớp học
+                      </span>{" "}
+                      và{" "}
+                      <span className="font-bold text-[#204434]">
+                        {overviewStats ? overviewStats.activeAssignments : 0} bài tập
+                      </span>{" "}
+                      đang diễn ra. Chúc thầy/cô một ngày giảng dạy tràn đầy năng lượng!
                     </p>
 
                     {/* 2 Main Action Buttons (Spec Section 5) */}
@@ -1061,7 +1065,7 @@ export default function TeacherDashboard() {
                     <div>
                       <span className="text-[11px] text-[#315E48] font-medium block">Lớp đang quản lý</span>
                       <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
-                        {visibleClasses.length}{" "}
+                        {overviewStats ? overviewStats.totalClasses : visibleClasses.length}{" "}
                         <span className="text-xs font-normal text-[#315E48]">lớp</span>
                       </div>
                     </div>
@@ -1081,7 +1085,9 @@ export default function TeacherDashboard() {
                     <div>
                       <span className="text-[11px] text-[#315E48] font-medium block">Tổng học sinh</span>
                       <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
-                        {visibleClasses.reduce((acc, c) => acc + c.studentCount, 0)}{" "}
+                        {overviewStats
+                          ? overviewStats.totalStudents
+                          : visibleClasses.reduce((acc, c) => acc + c.studentCount, 0)}{" "}
                         <span className="text-xs font-normal text-[#315E48]">học viên</span>
                       </div>
                     </div>
@@ -1098,7 +1104,7 @@ export default function TeacherDashboard() {
                     <div>
                       <span className="text-[11px] text-[#315E48] font-medium block">Bài tập đang giao</span>
                       <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
-                        {visibleAssignments.length}{" "}
+                        {overviewStats ? overviewStats.activeAssignments : visibleAssignments.length}{" "}
                         <span className="text-xs font-normal text-[#315E48]">bài</span>
                       </div>
                     </div>
@@ -1115,11 +1121,11 @@ export default function TeacherDashboard() {
                     <div>
                       <span className="text-[11px] text-[#315E48] font-medium block">Tỷ lệ hoàn thành</span>
                       <div className="text-2xl font-bold font-serif text-[#204434] mt-1">
-                        78% <span className="text-xs font-normal text-emerald-600">↑ 12%</span>
+                        {overviewStats ? overviewStats.completionRate : 0}%
                       </div>
                     </div>
                     <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
-                      78%
+                      {overviewStats ? overviewStats.completionRate : 0}%
                     </div>
                   </div>
                 </section>
@@ -1158,13 +1164,16 @@ export default function TeacherDashboard() {
                       <div className="w-12 h-12 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center mx-auto">
                         <Users className="w-6 h-6" />
                       </div>
-                      <h4 className="font-bold text-sm text-[#204434]">Chưa có lớp học nào</h4>
+                      <h4 className="font-bold text-sm text-[#204434]">Bạn chưa có lớp học nào</h4>
                       <p className="text-xs text-[#315E48] max-w-sm mx-auto">
-                        Cô chưa tạo lớp học nào hoặc không tìm thấy kết quả tìm kiếm phù hợp. Nhấn nút bên dưới để tạo lớp học đầu tiên nhé!
+                        Thầy/Cô chưa có lớp học nào do mình phụ trách. Hãy nhấn nút bên dưới để tạo lớp học đầu tiên nhé!
                       </p>
                       <button
-                        onClick={() => setIsCreateClassModalOpen(true)}
-                        className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs"
+                        onClick={() => {
+                          setClassErrors({});
+                          setIsCreateClassModalOpen(true);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs hover:bg-[#183629] transition"
                       >
                         + Tạo lớp học mới
                       </button>
@@ -1475,7 +1484,12 @@ export default function TeacherDashboard() {
           {/* TAB 2: CLASSES (QUẢN LÝ LỚP HỌC & CLASS DETAIL WORKSPACE) */}
           {/* =================================================================== */}
           {activeTab === "classes" && (
-            <ClassesWorkspace />
+            <ClassesWorkspace
+              currentUser={currentUser}
+              onClassCountChange={() => {
+                if (currentUser) fetchTeacherData(currentUser);
+              }}
+            />
           )}
 
           {/* =================================================================== */}
@@ -1803,15 +1817,19 @@ export default function TeacherDashboard() {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#BC9B6B]/40 relative shrink-0">
                     <Image
-                      src="/theme/avatar-teacher.jpg"
+                      src={currentUser?.avatar || "/theme/avatar-teacher.jpg"}
                       alt="Avatar"
                       fill
                       className="object-cover object-top"
                     />
                   </div>
                   <div>
-                    <h3 className="font-serif font-bold text-base text-[#204434]">Cô Nguyễn Thị Ninh</h3>
-                    <p className="text-xs text-[#315E48]">Giảng viên Tiếng Trung & Luyện thi HSK chuẩn</p>
+                    <h3 className="font-serif font-bold text-base text-[#204434]">
+                      {currentUser?.name || "Giáo viên"}
+                    </h3>
+                    <p className="text-xs text-[#315E48]">
+                      {currentUser?.role === "ADMIN" ? "Quản trị viên" : "Giảng viên Tiếng Trung & Luyện thi HSK chuẩn"}
+                    </p>
                     <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full inline-block mt-1">
                       Tài khoản hoạt động chính thức
                     </span>
@@ -1824,7 +1842,7 @@ export default function TeacherDashboard() {
                     <input
                       type="text"
                       disabled
-                      value="coningning@ningning.edu.vn"
+                      value={currentUser?.email || currentUser?.username || "teacher@hanyu.edu.vn"}
                       className="w-full bg-[#F8F5ED] border border-[#E5DEC9] rounded-xl px-3.5 py-2 text-xs text-gray-600 outline-none"
                     />
                   </div>
@@ -2218,7 +2236,9 @@ export default function TeacherDashboard() {
                 <div className="flex items-center justify-between gap-2">
                   <button
                     onClick={() => {
-                      const msg = `🎉 Chào em ${issuedStudentSuccess.name}! Cô Ninh gửi em tài khoản vào lớp ${issuedStudentSuccess.className}:\n🔗 Web: http://localhost:3000/login\n👤 Tên đăng nhập: ${issuedStudentSuccess.username}\n🔑 Mật khẩu: ${issuedStudentSuccess.password}\nChúc em học tốt nhé! 加油!💪`;
+                      const teacherGreeting = currentUser?.name || "Giáo viên";
+                      const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+                      const msg = `🎉 Chào em ${issuedStudentSuccess.name}! ${teacherGreeting} gửi em tài khoản vào lớp ${issuedStudentSuccess.className}:\n🔗 Web: ${origin}/login\n👤 Tên đăng nhập: ${issuedStudentSuccess.username}\n🔑 Mật khẩu: ${issuedStudentSuccess.password}\nChúc em học tốt nhé! 加油!💪`;
                       copyToClipboard(msg, "Đã sao chép tin nhắn gửi học viên!");
                     }}
                     className="flex-1 py-2.5 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs"

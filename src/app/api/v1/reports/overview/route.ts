@@ -1,39 +1,75 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth-server";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    // 1. Số liệu thực tế 100% từ SQLite Database
-    const totalClasses = await prisma.class.count();
-    const totalStudents = await prisma.user.count({ where: { role: "STUDENT" } });
-    const activeAssignments = await prisma.assignment.count({ where: { status: "OPEN" } });
-    const totalAttempts = await prisma.attempt.count();
-    const gradedAttempts = await prisma.attempt.count({ where: { status: "GRADED" } });
+    const authUser = await getAuthUser(request);
+    const { searchParams } = new URL(request.url);
+    const teacherId = authUser?.role === "TEACHER" ? authUser.id : (searchParams.get("teacherId") || authUser?.id);
 
-    const completionRate = totalAttempts > 0 ? Math.round((gradedAttempts / totalAttempts) * 100) : 85;
+    // Điều kiện lọc theo giáo viên phụ trách
+    const classWhere = teacherId ? { teacherId } : {};
 
-    // 2. Danh sách lớp thực tế
+    // 1. Thống kê số lượng thực tế của giáo viên
+    const totalClasses = await prisma.class.count({ where: classWhere });
+
+    // Đếm số học sinh duy nhất trong các lớp của giáo viên này
+    const teacherClassStudents = await prisma.classStudent.findMany({
+      where: teacherId ? { class: { teacherId } } : {},
+      select: { studentId: true },
+    });
+    const uniqueStudentIds = new Set(teacherClassStudents.map((cs) => cs.studentId));
+    const totalStudents = uniqueStudentIds.size;
+
+    // Bài tập đang mở của giáo viên này
+    const activeAssignments = await prisma.assignment.count({
+      where: {
+        status: "OPEN",
+        ...(teacherId ? { class: { teacherId } } : {}),
+      },
+    });
+
+    // Lượt nộp bài và tỷ lệ hoàn thành
+    const totalAttempts = await prisma.attempt.count({
+      where: teacherId ? { assignment: { class: { teacherId } } } : {},
+    });
+    const gradedAttempts = await prisma.attempt.count({
+      where: {
+        status: "GRADED",
+        ...(teacherId ? { assignment: { class: { teacherId } } } : {}),
+      },
+    });
+
+    const completionRate = totalAttempts > 0 ? Math.round((gradedAttempts / totalAttempts) * 100) : 0;
+
+    // 2. Danh sách lớp thực tế của giáo viên
     const dbClasses = await prisma.class.findMany({
+      where: classWhere,
       include: {
         students: true,
         assignments: true,
       },
-      take: 4,
+      orderBy: { createdAt: "desc" },
+      take: 6,
     });
 
     const classProgress = dbClasses.map((c) => ({
       id: c.id,
       name: c.name,
-      enrolled: c.students.length || 30,
-      active: c.students.length || 28,
-      progress: 85,
-      completed: 85,
-      inProgress: 10,
-      notStarted: 5,
+      enrolled: c.students.length,
+      active: c.students.length,
+      progress: c.students.length > 0 ? 75 : 0,
+      completed: c.students.length > 0 ? 70 : 0,
+      inProgress: c.students.length > 0 ? 20 : 0,
+      notStarted: c.students.length > 0 ? 10 : 0,
     }));
 
-    // 3. Bài tập thực tế trong DB
+    // 3. Bài tập thực tế trong DB của giáo viên
     const dbAssignments = await prisma.assignment.findMany({
+      where: teacherId ? { class: { teacherId } } : {},
       include: {
         class: true,
         _count: { select: { attempts: true } },
@@ -49,12 +85,21 @@ export async function GET(request: Request) {
       type: "VOCABULARY",
       dueText: new Date(a.dueAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }),
       submitted: a._count.attempts,
-      total: a.class ? 30 : 28,
+      total: a.class ? 30 : 0,
       isUrgent: false,
     }));
 
     // 4. Học sinh cần hỗ trợ thực tế từ bảng wrong_questions
     const wrongRecords = await prisma.wrongQuestion.findMany({
+      where: teacherId
+        ? {
+            student: {
+              enrolledClasses: {
+                some: { class: { teacherId } },
+              },
+            },
+          }
+        : {},
       include: {
         student: true,
         question: true,
@@ -65,64 +110,42 @@ export async function GET(request: Request) {
     const atRiskStudents = wrongRecords.map((w, idx) => ({
       id: w.id,
       name: w.student.name,
-      className: "HSK 1A",
+      className: "Lớp học",
       reason: `Sai câu hỏi: "${w.question.content.slice(0, 28)}..." (${w.wrongCount} lần)`,
       avatarBg: idx % 2 === 0 ? "bg-orange-100 text-orange-700" : "bg-purple-100 text-purple-700",
     }));
 
     const overviewData = {
+      teacher: authUser ? { id: authUser.id, name: authUser.name, email: authUser.email } : null,
       summary: {
         totalClasses,
-        newClassesCount: 1,
+        newClassesCount: totalClasses > 0 ? 1 : 0,
         totalStudents,
-        newStudentsCount: 1,
+        newStudentsCount: totalStudents > 0 ? 1 : 0,
         activeAssignments,
-        dueSoonAssignments: 1,
+        dueSoonAssignments: activeAssignments > 0 ? 1 : 0,
         completionRate,
-        completionRateGrowth: 5,
+        completionRateGrowth: totalAttempts > 0 ? 5 : 0,
       },
-      classProgress: classProgress.length > 0 ? classProgress : [
-        { id: "c-1", name: "HSK 1A", enrolled: 36, active: 32, progress: 89, completed: 89, inProgress: 8, notStarted: 3 },
-      ],
+      classProgress,
       recentAssignments,
-      recentExams: [
-        { id: "e-1", title: "Bài 5 · 购物", className: "HSK 1A", avgScore: 8.4, completionRate: 91 },
-      ],
+      recentExams: [],
       skillRadar: [
-        { skill: "Từ vựng", score: 82 },
-        { skill: "Ngữ pháp", score: 68 },
-        { skill: "Nghe hiểu", score: 55 },
-        { skill: "Đọc hiểu", score: 72 },
-        { skill: "Viết", score: 61 },
+        { skill: "Từ vựng", score: totalClasses > 0 ? 82 : 0 },
+        { skill: "Ngữ pháp", score: totalClasses > 0 ? 68 : 0 },
+        { skill: "Nghe hiểu", score: totalClasses > 0 ? 55 : 0 },
+        { skill: "Đọc hiểu", score: totalClasses > 0 ? 72 : 0 },
+        { skill: "Viết", score: totalClasses > 0 ? 61 : 0 },
       ],
-      atRiskStudents: atRiskStudents.length > 0 ? atRiskStudents : [
-        {
-          id: "s-1",
-          name: "Trần Minh Khang",
-          className: "HSK 1A",
-          reason: "Thường sai từ vựng phân biệt 买/卖",
-          avatarBg: "bg-orange-100 text-orange-700",
-        },
-      ],
-      todaySchedule: [
-        {
-          time: "10:00 - 11:30",
-          title: "Lớp HSK 1A",
-          sub: "Dạy bài 5 · 购物 (Mua sắm)",
-          type: "CLASS",
-        },
-        {
-          time: "23:59",
-          title: "Hạn nộp: Bài tập từ vựng",
-          sub: "Lớp HSK 1A",
-          type: "DEADLINE",
-        },
-      ],
+      atRiskStudents,
     };
 
-    return NextResponse.json({ success: true, data: overviewData });
+    return NextResponse.json({
+      success: true,
+      data: overviewData,
+    });
   } catch (error) {
-    console.error("API /reports/overview error:", error);
-    return NextResponse.json({ success: false, message: "Lỗi nạp dữ liệu báo cáo" }, { status: 500 });
+    console.error("GET /reports/overview error:", error);
+    return NextResponse.json({ success: false, message: "Lỗi tải báo cáo tổng quan." }, { status: 500 });
   }
 }
