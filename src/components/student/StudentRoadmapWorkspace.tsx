@@ -19,13 +19,44 @@ import {
 interface StudentRoadmapWorkspaceProps {
   currentUser?: any;
   onNavigateToTab?: (tab: string) => void;
+  classesCount?: number;
+  onOpenJoinModal?: () => void;
 }
 
 export default function StudentRoadmapWorkspace({
   currentUser,
   onNavigateToTab,
+  classesCount = 0,
+  onOpenJoinModal,
 }: StudentRoadmapWorkspaceProps) {
   const [selectedHskLevel, setSelectedHskLevel] = useState<number>(1);
+
+  if (classesCount === 0) {
+    return (
+      <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">
+        <div className="w-16 h-16 rounded-full bg-[#FAF7F0] text-[#315E48] border border-[#E5DEC9] flex items-center justify-center mx-auto shadow-2xs">
+          <Compass className="w-8 h-8 text-[#204434]" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-serif font-bold text-xl text-[#204434]">
+            Lộ trình học tập chưa được kích hoạt
+          </h3>
+          <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
+            Lộ trình cá nhân hóa được mở khóa và đồng bộ trực tiếp theo giáo trình của lớp bạn theo học. Hãy tham gia lớp học để mở khóa toàn bộ các chặng học tập từ HSK 1 đến HSK 6!
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => (onOpenJoinModal ? onOpenJoinModal() : onNavigateToTab?.("classes"))}
+            className="px-6 py-3 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-md shadow-[#204434]/15 inline-flex items-center gap-2 transition cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+            <span>Tham gia lớp học ngay</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Roadmap Stages for HSK 1
   const stages = [

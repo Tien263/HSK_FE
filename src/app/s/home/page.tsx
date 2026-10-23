@@ -689,26 +689,36 @@ export default function StudentHomePage() {
             <StudentAssignmentsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
+              classesCount={myClasses.length}
+              onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "roadmap" ? (
             <StudentRoadmapWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
+              classesCount={myClasses.length}
+              onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "lessons" ? (
             <StudentLessonsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
+              classesCount={myClasses.length}
+              onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "practice" ? (
             <StudentPracticeWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
+              classesCount={myClasses.length}
+              onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "results" ? (
             <StudentReportsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
+              classesCount={myClasses.length}
+              onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -716,7 +726,7 @@ export default function StudentHomePage() {
             {/* CỘT TRÁI (~70% WIDTH) */}
             {/* --------------------------------------------------------------------- */}
             <div className="lg:col-span-8 space-y-6">
-              {/* 2. BANNER CHÀO MỪNG (SỬ DỤNG phong_cảnh_thủy_mặc_bên_hồ_sương_sớm.png) */}
+              {/* 2. BANNER CHÀO MỪNG */}
               <section
                 className="relative rounded-3xl border border-[#E5DEC9] shadow-xs overflow-hidden min-h-[220px] sm:min-h-[240px] flex items-center bg-[#F8F5ED]"
                 style={{
@@ -730,7 +740,14 @@ export default function StudentHomePage() {
                 <div className="w-full h-full p-6 sm:p-8 flex flex-col justify-center bg-gradient-to-r from-[#F8F5ED]/95 via-[#F8F5ED]/85 to-transparent sm:max-w-2xl">
                   {/* Date line */}
                   <div className="text-xs text-[#315E48] font-medium mb-1.5 flex items-center gap-1.5">
-                    <span>Thứ hai, 20 tháng 10</span>
+                    <span className="capitalize">
+                      {new Date().toLocaleDateString("vi-VN", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
 
                   {/* Greeting */}
@@ -750,21 +767,35 @@ export default function StudentHomePage() {
 
                   {/* Action Buttons */}
                   <div className="mt-4 flex items-center gap-3 flex-wrap">
-                    <Link
-                      href="/s/review"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
-                    >
-                      <span>Tiếp tục học ngay</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-
-                    <Link
-                      href="/s/attempts/preview"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FAF7F0] hover:bg-white border border-[#BC9B6B] text-[#8F6D3B] text-xs font-bold shadow-2xs transition cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-600" />
-                      <span>Làm bài kiểm tra HSK</span>
-                    </Link>
+                    {myClasses.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowJoinModal(true)}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                        <span>Tham gia lớp học bằng mã ngay</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("classes")}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
+                        >
+                          <span>Vào lớp học của tôi</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("assignments")}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FAF7F0] hover:bg-white border border-[#BC9B6B] text-[#8F6D3B] text-xs font-bold shadow-2xs transition cursor-pointer"
+                        >
+                          <Sparkles className="w-4 h-4 text-amber-600" />
+                          <span>Xem bài tập & phòng thi</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </section>
@@ -778,7 +809,11 @@ export default function StudentHomePage() {
                   </div>
                   <div>
                     <div className="text-[11px] text-[#315E48]">Trình độ hiện tại</div>
-                    <div className="text-sm font-bold text-[#204434]">HSK 1</div>
+                    <div className="text-sm font-bold text-[#204434]">
+                      {myClasses.length > 0
+                        ? `${myClasses[0]?.track || "HSK"} ${myClasses[0]?.level || 1}`
+                        : "Chưa vào lớp"}
+                    </div>
                   </div>
                 </div>
 
@@ -790,7 +825,7 @@ export default function StudentHomePage() {
                   <div>
                     <div className="text-[11px] text-[#315E48]">Mục tiêu học tập</div>
                     <div className="text-sm font-bold text-[#204434] truncate">
-                      HSK 3 · Học đại học
+                      {myClasses.length > 0 ? `Lớp ${myClasses[0]?.name}` : "Chờ ghi danh lớp"}
                     </div>
                   </div>
                 </div>
@@ -803,7 +838,9 @@ export default function StudentHomePage() {
                   <div>
                     <div className="text-[11px] text-[#315E48]">Thời gian học mỗi ngày</div>
                     <div className="text-sm font-bold text-[#204434]">
-                      {studyProfile?.dailyTime || 30} phút
+                      {myClasses.length > 0
+                        ? `${studyProfile?.dailyTime || 30} phút`
+                        : "Chưa thiết lập"}
                     </div>
                   </div>
                 </div>
@@ -815,398 +852,381 @@ export default function StudentHomePage() {
                   </div>
                   <div>
                     <div className="text-[11px] text-[#315E48]">Chuỗi học tập</div>
-                    <div className="text-sm font-bold text-[#204434]">7 ngày liên tục</div>
+                    <div className="text-sm font-bold text-[#204434]">
+                      {data?.student?.streakDays || currentUser?.streakDays || 0} ngày liên tục
+                    </div>
                   </div>
                 </div>
               </section>
 
-              {/* HÀNG GIỮA: 2 CARD SONG SONG (BÀI HỌC ĐANG HỌC + KẾ HOẠCH HÔM NAY) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* CARD 1: BÀI HỌC ĐANG HỌC */}
-                <section
-                  id="current-lesson"
-                  className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs flex flex-col justify-between"
-                >
-                  <div>
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/60">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-[#204434]" />
-                        <h3 className="font-bold text-sm text-[#204434]">Bài học đang học</h3>
+              {/* PHÂN NHÁNH GIAO DIỆN CHÍNH: CHƯA VÀO LỚP VS ĐÃ VÀO LỚP */}
+              {myClasses.length === 0 ? (
+                /* ========================================================================= */
+                /* TRẠNG THÁI CHƯA VÀO LỚP: HƯỚNG DẪN GHI DANH & MỞ KHÓA TOÀN BỘ CHỨC NĂNG  */
+                /* ========================================================================= */
+                <div className="space-y-6 animate-fadeIn">
+                  {/* Hero Box: Kích hoạt hệ sinh thái học tập */}
+                  <div className="bg-[#FFFCF6] border-2 border-[#BC9B6B]/60 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#BC9B6B]/20 pb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-[#204434] text-[#BC9B6B] flex items-center justify-center shrink-0 shadow-xs">
+                          <Users className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-serif font-bold text-[#204434]">
+                            Bạn hiện chưa tham gia lớp học nào
+                          </h2>
+                          <p className="text-xs text-[#315E48] mt-0.5">
+                            Nhập mã lớp từ giáo viên hoặc trung tâm để mở khóa lộ trình học tập, kho bài học và bài tập.
+                          </p>
+                        </div>
                       </div>
-                      <Link
-                        href="/s/review"
-                        className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium"
-                      >
-                        <span>Xem tất cả</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
-
-                    {/* Lesson Content with Thumbnail */}
-                    <div className="mt-3.5 flex gap-3.5">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#204434]/10 border border-[#BC9B6B]/30 relative shrink-0">
-                        <Image
-                          src="/theme/landing-moon-desk.jpg"
-                          alt="Gia đình"
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-[#BC9B6B]/20 text-[#7A5B2E] text-[10px] font-bold mb-1">
-                          Bài 4 - Gia đình
-                        </span>
-                        <h4 className="font-serif font-bold text-sm text-[#204434] truncate">
-                          家庭 (Gia đình & Xưng hô xã hội)
-                        </h4>
-                        <p className="text-[11px] text-[#315E48] mt-0.5 line-clamp-2 leading-relaxed">
-                          12 từ vựng mới, điểm ngữ pháp câu vị ngữ hình dung từ và cấu trúc xưng hô.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between text-[11px] text-[#315E48] mb-1 font-medium">
-                        <span>Tiến độ bài học</span>
-                        <span className="font-bold text-[#204434]">70% hoàn thành</span>
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-[#E5DEC9]/60 overflow-hidden">
-                        <div
-                          className="h-full bg-[#204434] rounded-full transition-all duration-500"
-                          style={{ width: "70%" }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer Action */}
-                  <div className="pt-4 mt-4 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                    <span className="text-xs text-[#315E48]">Còn 2 bài tập nhỏ</span>
-                    <Link
-                      href="/s/review"
-                      className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <span>Tiếp tục học</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                </section>
-
-                {/* CARD 2: KẾ HOẠCH HÔM NAY */}
-                <section className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs flex flex-col justify-between">
-                  <div>
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/60">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-[#204434]" />
-                        <h3 className="font-bold text-sm text-[#204434]">Kế hoạch hôm nay</h3>
-                      </div>
-                      <span className="text-xs font-semibold text-[#315E48]">
-                        {Object.values(taskDone).filter(Boolean).length}/3 hoàn thành
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                        Chờ ghi danh lớp
                       </span>
                     </div>
 
-                    {/* 3 Tasks List */}
-                    <div className="mt-3 space-y-2.5">
-                      {/* Task 1 */}
-                      <div className="flex items-center justify-between p-2 rounded-xl bg-[#F8F5ED] border border-[#E5DEC9]/60 text-xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Quick Join Class Input */}
+                    <div className="p-5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-3">
+                      <label className="block text-xs font-bold text-[#204434]">
+                        Ghi danh nhanh bằng mã lớp học (Class Code):
+                      </label>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                        <div className="relative flex-1">
                           <input
-                            type="checkbox"
-                            checked={taskDone.task1}
-                            onChange={() =>
-                              setTaskDone((p) => ({ ...p, task1: !p.task1 }))
-                            }
-                            className="w-4 h-4 rounded text-[#204434] accent-[#204434] cursor-pointer"
+                            type="text"
+                            value={joinClassCode}
+                            onChange={(e) => setJoinClassCode(e.target.value.toUpperCase())}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleVerifyJoinCode();
+                            }}
+                            placeholder="Nhập mã lớp học (VD: HSK1A-2026, HSK2-EXP...)"
+                            className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#BC9B6B]/60 text-xs font-mono uppercase tracking-wider text-[#204434] focus:outline-none focus:ring-2 focus:ring-[#204434]"
                           />
-                          <div className="leading-tight truncate">
-                            <span
-                              className={`font-semibold block truncate text-xs ${
-                                taskDone.task1
-                                  ? "line-through text-[#315E48]/60"
-                                  : "text-[#204434]"
-                              }`}
-                            >
-                              1. Ôn 10 từ vựng Leitner
-                            </span>
-                            <span className="text-[10px] text-[#315E48]">
-                              10 phút · Ghi nhớ ngắt quãng
-                            </span>
-                          </div>
                         </div>
-                        <Link
-                          href="/s/review"
-                          className="px-2.5 py-1 rounded-lg bg-white border border-[#E5DEC9] text-[11px] font-semibold text-[#204434] hover:bg-[#204434] hover:text-white transition shrink-0 ml-2"
+                        <button
+                          type="button"
+                          onClick={handleVerifyJoinCode}
+                          disabled={checkingJoinCode || !joinClassCode.trim()}
+                          className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] disabled:opacity-50 text-white text-xs font-bold shadow-xs transition flex items-center justify-center gap-2 cursor-pointer shrink-0"
                         >
-                          Bắt đầu
-                        </Link>
+                          {checkingJoinCode ? (
+                            <>
+                              <RotateCw className="w-4 h-4 animate-spin" />
+                              <span>Đang kiểm tra...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                              <span>Tham gia lớp ngay</span>
+                            </>
+                          )}
+                        </button>
                       </div>
+                      {joinClassError && (
+                        <p className="text-xs text-red-600 font-medium flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span>{joinClassError}</span>
+                        </p>
+                      )}
+                    </div>
 
-                      {/* Task 2 */}
-                      <div className="flex items-center justify-between p-2 rounded-xl bg-[#F8F5ED] border border-[#E5DEC9]/60 text-xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={taskDone.task2}
-                            onChange={() =>
-                              setTaskDone((p) => ({ ...p, task2: !p.task2 }))
-                            }
-                            className="w-4 h-4 rounded text-[#204434] accent-[#204434] cursor-pointer"
-                          />
-                          <div className="leading-tight truncate">
-                            <span
-                              className={`font-semibold block truncate text-xs ${
-                                taskDone.task2
-                                  ? "line-through text-[#315E48]/60"
-                                  : "text-[#204434]"
-                              }`}
-                            >
-                              2. Học bài mới: Mua sắm (购物)
-                            </span>
-                            <span className="text-[10px] text-[#315E48]">
-                              12 phút · Ngữ pháp & Mẫu câu
-                            </span>
+                    {/* 4 Trụ Cột Sẽ Tự Động Kích Hoạt */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#315E48]">
+                        Các tính năng sẽ tự động mở khóa sau khi vào lớp:
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
+                          <div className="flex items-center gap-2 text-[#204434]">
+                            <Compass className="w-4 h-4 text-[#8F6D3B]" />
+                            <h5 className="font-bold text-xs">1. Lộ trình của tôi</h5>
                           </div>
+                          <p className="text-[11px] text-[#315E48] leading-relaxed">
+                            Cây tiến trình bám sát theo giáo trình chuẩn HSK 3.0 và mục tiêu của lớp.
+                          </p>
                         </div>
-                        <Link
-                          href="/s/review"
-                          className="px-2.5 py-1 rounded-lg bg-white border border-[#E5DEC9] text-[11px] font-semibold text-[#204434] hover:bg-[#204434] hover:text-white transition shrink-0 ml-2"
-                        >
-                          Bắt đầu
-                        </Link>
-                      </div>
 
-                      {/* Task 3 */}
-                      <div className="flex items-center justify-between p-2 rounded-xl bg-[#F8F5ED] border border-[#E5DEC9]/60 text-xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={taskDone.task3}
-                            onChange={() =>
-                              setTaskDone((p) => ({ ...p, task3: !p.task3 }))
-                            }
-                            className="w-4 h-4 rounded text-[#204434] accent-[#204434] cursor-pointer"
-                          />
-                          <div className="leading-tight truncate">
-                            <span
-                              className={`font-semibold block truncate text-xs ${
-                                taskDone.task3
-                                  ? "line-through text-[#315E48]/60"
-                                  : "text-[#204434]"
-                              }`}
-                            >
-                              3. Luyện 5 câu hỏi trắc nghiệm
-                            </span>
-                            <span className="text-[10px] text-[#315E48]">
-                              8 phút · Củng cố kiến thức
-                            </span>
+                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
+                          <div className="flex items-center gap-2 text-[#204434]">
+                            <BookOpen className="w-4 h-4 text-[#8F6D3B]" />
+                            <h5 className="font-bold text-xs">2. Kho bài học & Khám phá</h5>
                           </div>
+                          <p className="text-[11px] text-[#315E48] leading-relaxed">
+                            Từ vựng, ngữ pháp, audio hội thoại Bắc Kinh và slide bài giảng của từng buổi.
+                          </p>
                         </div>
-                        <Link
-                          href="/s/games"
-                          className="px-2.5 py-1 rounded-lg bg-white border border-[#E5DEC9] text-[11px] font-semibold text-[#204434] hover:bg-[#204434] hover:text-white transition shrink-0 ml-2"
-                        >
-                          Bắt đầu
-                        </Link>
+
+                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
+                          <div className="flex items-center gap-2 text-[#204434]">
+                            <FileCheck2 className="w-4 h-4 text-[#8F6D3B]" />
+                            <h5 className="font-bold text-xs">3. Bài tập & Phòng thi</h5>
+                          </div>
+                          <p className="text-[11px] text-[#315E48] leading-relaxed">
+                            Bài tập về nhà, đề kiểm tra định kỳ và phòng thi trực tuyến do giáo viên giao.
+                          </p>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
+                          <div className="flex items-center gap-2 text-[#204434]">
+                            <Dumbbell className="w-4 h-4 text-[#8F6D3B]" />
+                            <h5 className="font-bold text-xs">4. Phòng luyện & Sổ lỗi sai</h5>
+                          </div>
+                          <p className="text-[11px] text-[#315E48] leading-relaxed">
+                            Thuật toán Spaced Repetition tự động gom các câu bạn làm sai để luyện lại.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </section>
-              </div>
+                </div>
+              ) : (
+                /* ========================================================================= */
+                /* KHI ĐÃ CÓ LỚP HỌC: HIỂN THỊ NỘI DUNG HỌC TẬP THỰC TẾ                      */
+                /* ========================================================================= */
+                <div className="space-y-6">
+                  {/* HÀNG GIỮA: 2 CARD SONG SONG (LỚP HỌC HIỆN TẠI + KẾ HOẠCH HÔM NAY) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* CARD 1: LỚP HỌC ĐANG THEO HỌC */}
+                    <section
+                      id="current-lesson"
+                      className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/60">
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="w-4 h-4 text-[#204434]" />
+                            <h3 className="font-bold text-sm text-[#204434]">Lớp học của bạn</h3>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveNav("classes")}
+                            className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
+                          >
+                            <span>Chi tiết lớp</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-              {/* 3. KHÁM PHÁ BÀI HỌC (3 CARDS VỚI ẢNH MINH HỌA BÊN PHẢI) */}
-              <section id="explore" className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-[#204434]" />
-                    <h3 className="font-bold text-sm text-[#204434]">Khám phá bài học</h3>
+                        {/* Class Content */}
+                        <div className="mt-3.5 flex gap-3.5">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#204434]/10 border border-[#BC9B6B]/30 relative shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={myClasses[0]?.artwork || "/theme/card-hsk-scroll.webp"}
+                              alt={myClasses[0]?.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-[#BC9B6B]/20 text-[#7A5B2E] text-[10px] font-bold mb-1">
+                              {myClasses[0]?.track} · Cấp {myClasses[0]?.level || 1}
+                            </span>
+                            <h4 className="font-serif font-bold text-sm text-[#204434] truncate">
+                              {myClasses[0]?.name}
+                            </h4>
+                            <p className="text-[11px] text-[#315E48] mt-0.5 line-clamp-2 leading-relaxed">
+                              GV: {myClasses[0]?.teacherName} · Mã lớp: {myClasses[0]?.code}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Class info */}
+                        <div className="mt-4 p-3 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9]/60 text-xs text-[#315E48] flex items-center justify-between">
+                          <span>Thời gian học:</span>
+                          <span className="font-bold text-[#204434]">
+                            {myClasses[0]?.startDate} – {myClasses[0]?.endDate}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer Action */}
+                      <div className="pt-4 mt-4 border-t border-[#E5DEC9]/60 flex items-center justify-between">
+                        <span className="text-xs text-[#315E48]">
+                          {data?.assignments ? `${data.assignments.length} bài tập đã giao` : "Đang cập nhật"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("classes")}
+                          className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          <span>Xem lịch học</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </section>
+
+                    {/* CARD 2: KẾ HOẠCH HÔM NAY */}
+                    <section className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs flex flex-col justify-between">
+                      <div>
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/60">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-[#204434]" />
+                            <h3 className="font-bold text-sm text-[#204434]">Kế hoạch hôm nay</h3>
+                          </div>
+                          <span className="text-xs font-semibold text-[#315E48]">
+                            {data?.counts?.pendingAssignments || 0} bài cần làm
+                          </span>
+                        </div>
+
+                        {/* Task List */}
+                        <div className="mt-3 space-y-2.5">
+                          {data?.assignments && data.assignments.filter((a) => !a.hasAttempted).length > 0 ? (
+                            data.assignments
+                              .filter((a) => !a.hasAttempted)
+                              .slice(0, 3)
+                              .map((asg) => (
+                                <div
+                                  key={asg.id}
+                                  className="flex items-center justify-between p-2 rounded-xl bg-[#F8F5ED] border border-[#E5DEC9]/60 text-xs"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <Clock className="w-3.5 h-3.5 text-[#9D493E] shrink-0" />
+                                    <div className="leading-tight truncate">
+                                      <span className="font-semibold block truncate text-xs text-[#204434]">
+                                        {asg.title}
+                                      </span>
+                                      <span className="text-[10px] text-[#315E48]">
+                                        {asg.className} · {asg.durationMin} phút
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Link
+                                    href={`/s/attempts/${asg.id}`}
+                                    className="px-2.5 py-1 rounded-lg bg-[#204434] text-white text-[11px] font-semibold hover:bg-[#183629] transition shrink-0 ml-2"
+                                  >
+                                    Làm bài
+                                  </Link>
+                                </div>
+                              ))
+                          ) : (
+                            <div className="p-4 text-center text-xs text-[#315E48] space-y-2">
+                              <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+                              <p>Tuyệt vời! Bạn không có bài tập nào cần làm gấp hôm nay.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-4 mt-4 border-t border-[#E5DEC9]/60 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("assignments")}
+                          className="text-xs text-[#204434] font-bold hover:underline cursor-pointer"
+                        >
+                          Xem tất cả bài tập &rarr;
+                        </button>
+                      </div>
+                    </section>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                  {/* Card 1: HSK 3.0 (phong_cảnh_thủy_mặc_với_sách_cuộn_và_tre.png) */}
-                  <Link
-                    href="/s/review"
-                    className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6]"
-                    style={{
-                      backgroundImage: `url('/theme/dashboard/card-hsk.webp')`,
-                      backgroundPosition: "right bottom",
-                      backgroundSize: "contain",
-                      backgroundRepeat: "no-repeat",
-                    }}
-                  >
-                    {/* Content on the left */}
-                    <div className="relative z-10 max-w-[65%]">
-                      <h4 className="font-serif font-bold text-base text-[#204434]">
-                        HSK 3.0
-                      </h4>
-                      <div className="text-xs font-semibold text-[#315E48] mt-0.5">
-                        Học theo cấp độ
-                      </div>
-                      <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
-                        Từ HSK 1 – 6, bám sát đề thi mới
-                      </p>
-                    </div>
-
-                    <div className="relative z-10 pt-3">
-                      <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
-                        <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </Link>
-
-                  {/* Card 2: Theo chủ đề (tĩnh_vật_trà_bên_cành_hoa_mai_đào.png) */}
-                  <Link
-                    href="/s/review"
-                    className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6]"
-                    style={{
-                      backgroundImage: `url('/theme/dashboard/card-topic.webp')`,
-                      backgroundPosition: "right bottom",
-                      backgroundSize: "contain",
-                      backgroundRepeat: "no-repeat",
-                    }}
-                  >
-                    {/* Content on the left */}
-                    <div className="relative z-10 max-w-[65%]">
-                      <h4 className="font-serif font-bold text-base text-[#204434]">
-                        Theo chủ đề
-                      </h4>
-                      <div className="text-xs font-semibold text-[#315E48] mt-0.5">
-                        Học theo tình huống
-                      </div>
-                      <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
-                        Đời sống, du lịch, học tập, công việc...
-                      </p>
-                    </div>
-
-                    <div className="relative z-10 pt-3">
-                      <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
-                        <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </Link>
-
-                  {/* Card 3: Chuyên ngành (tĩnh_vật_thư_phòng_giữa_sơn_thủy_mờ_sương.png) */}
-                  <Link
-                    href="/s/review"
-                    className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6]"
-                    style={{
-                      backgroundImage: `url('/theme/dashboard/card-major.webp')`,
-                      backgroundPosition: "right bottom",
-                      backgroundSize: "contain",
-                      backgroundRepeat: "no-repeat",
-                    }}
-                  >
-                    {/* Content on the left */}
-                    <div className="relative z-10 max-w-[65%]">
-                      <h4 className="font-serif font-bold text-base text-[#204434]">
-                        Chuyên ngành
-                      </h4>
-                      <div className="text-xs font-semibold text-[#315E48] mt-0.5">
-                        Tiếng Trung Đại học
-                      </div>
-                      <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
-                        Kinh tế, thương mại, kỹ thuật, y học...
-                      </p>
-                    </div>
-
-                    <div className="relative z-10 pt-3">
-                      <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
-                        <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </Link>
-                </div>
-              </section>
-
-              {/* PHÒNG LUYỆN TẬP (4 CARDS) */}
-              <section id="practice" className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Dumbbell className="w-4 h-4 text-[#204434]" />
-                    <h3 className="font-bold text-sm text-[#204434]">Phòng luyện tập</h3>
-                  </div>
-                  <Link
-                    href="/s/games"
-                    className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium"
-                  >
-                    <span>Xem tất cả</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {/* Item 1 */}
-                  <Link
-                    href="/s/review"
-                    className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434]/40 transition group flex flex-col justify-between min-h-[92px]"
-                  >
+                  {/* KHÁM PHÁ BÀI HỌC */}
+                  <section id="explore" className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="w-7 h-7 rounded-lg bg-[#204434]/10 text-[#204434] flex items-center justify-center">
-                        <Layers className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-[#204434]" />
+                        <h3 className="font-bold text-sm text-[#204434]">Kho bài học của lớp</h3>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#315E48] group-hover:translate-x-0.5 transition-transform" />
+                      <button
+                        type="button"
+                        onClick={() => setActiveNav("lessons")}
+                        className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
+                      >
+                        <span>Mở kho bài học</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <div>
-                      <div className="font-bold text-xs text-[#204434]">Luyện từ vựng</div>
-                      <div className="text-[10px] text-[#315E48] mt-0.5">Flashcard, nghe - viết</div>
-                    </div>
-                  </Link>
 
-                  {/* Item 2 */}
-                  <Link
-                    href="/s/review"
-                    className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434]/40 transition group flex flex-col justify-between min-h-[92px]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-7 h-7 rounded-lg bg-[#315E48]/10 text-[#315E48] flex items-center justify-center">
-                        <BookOpen className="w-3.5 h-3.5" />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                      <div
+                        onClick={() => setActiveNav("lessons")}
+                        className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6] cursor-pointer"
+                        style={{
+                          backgroundImage: `url('/theme/dashboard/card-hsk.webp')`,
+                          backgroundPosition: "right bottom",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      >
+                        <div className="relative z-10 max-w-[65%]">
+                          <h4 className="font-serif font-bold text-base text-[#204434]">
+                            HSK 3.0
+                          </h4>
+                          <div className="text-xs font-semibold text-[#315E48] mt-0.5">
+                            Cấp độ {myClasses[0]?.level || 1}
+                          </div>
+                          <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
+                            Giáo trình và bài giảng chuẩn hóa của lớp
+                          </p>
+                        </div>
+                        <div className="relative z-10 pt-3">
+                          <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
+                            <ChevronRight className="w-4 h-4" />
+                          </div>
+                        </div>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#315E48] group-hover:translate-x-0.5 transition-transform" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-xs text-[#204434]">Luyện ngữ pháp</div>
-                      <div className="text-[10px] text-[#315E48] mt-0.5">Ghép câu, phân tích</div>
-                    </div>
-                  </Link>
 
-                  {/* Item 3 */}
-                  <Link
-                    href="/s/games"
-                    className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434]/40 transition group flex flex-col justify-between min-h-[92px]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-7 h-7 rounded-lg bg-[#BC9B6B]/20 text-[#7A5B2E] flex items-center justify-center">
-                        <FileText className="w-3.5 h-3.5" />
+                      <div
+                        onClick={() => setActiveNav("practice")}
+                        className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6] cursor-pointer"
+                        style={{
+                          backgroundImage: `url('/theme/dashboard/card-topic.webp')`,
+                          backgroundPosition: "right bottom",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      >
+                        <div className="relative z-10 max-w-[65%]">
+                          <h4 className="font-serif font-bold text-base text-[#204434]">
+                            Phòng luyện tập
+                          </h4>
+                          <div className="text-xs font-semibold text-[#315E48] mt-0.5">
+                            AI Spaced Repetition
+                          </div>
+                          <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
+                            Ôn từ vựng, flashcard & câu sai
+                          </p>
+                        </div>
+                        <div className="relative z-10 pt-3">
+                          <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
+                            <ChevronRight className="w-4 h-4" />
+                          </div>
+                        </div>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#315E48] group-hover:translate-x-0.5 transition-transform" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-xs text-[#204434]">Trắc nghiệm</div>
-                      <div className="text-[10px] text-[#315E48] mt-0.5">HSK, chủ đề, chuyên ngành</div>
-                    </div>
-                  </Link>
 
-                  {/* Item 4 */}
-                  <Link
-                    href="/s/practice/wrong"
-                    className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434]/40 transition group flex flex-col justify-between min-h-[92px]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-7 h-7 rounded-lg bg-[#9D493E]/10 text-[#9D493E] flex items-center justify-center">
-                        <AlertTriangle className="w-3.5 h-3.5" />
+                      <div
+                        onClick={() => setActiveNav("roadmap")}
+                        className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6] cursor-pointer"
+                        style={{
+                          backgroundImage: `url('/theme/dashboard/card-major.webp')`,
+                          backgroundPosition: "right bottom",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      >
+                        <div className="relative z-10 max-w-[65%]">
+                          <h4 className="font-serif font-bold text-base text-[#204434]">
+                            Lộ trình của tôi
+                          </h4>
+                          <div className="text-xs font-semibold text-[#315E48] mt-0.5">
+                            Cây kỹ năng HSK
+                          </div>
+                          <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
+                            Theo dõi mục tiêu từng chặng học
+                          </p>
+                        </div>
+                        <div className="relative z-10 pt-3">
+                          <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
+                            <ChevronRight className="w-4 h-4" />
+                          </div>
+                        </div>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#315E48] group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <div>
-                      <div className="font-bold text-xs text-[#204434]">Ôn lỗi sai</div>
-                      <div className="text-[10px] text-[#315E48] mt-0.5">Tập trung các câu làm sai</div>
-                    </div>
-                  </Link>
+                  </section>
                 </div>
-              </section>
+              )}
             </div>
 
             {/* --------------------------------------------------------------------- */}
