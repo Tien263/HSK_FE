@@ -140,6 +140,7 @@ export interface ExamQuestionItem {
   id: string;
   source: "ADMIN" | "MINE" | "TEMPLATE";
   sourceId?: string;
+  status?: "DRAFT" | "READY";
   type: QuestionType;
   title: string;
   content: string;
@@ -151,14 +152,21 @@ export interface ExamQuestionItem {
   explanation?: string;
   options?: string[];
   correctAnswer?: string | string[];
-  matchingPairs?: { left: string; right: string }[];
+  selectionMode?: "SINGLE" | "MULTIPLE";
+  matchingPairs?: { id?: string; left: string; right: string }[];
   tokens?: string[];
   correctOrder?: string[];
-  flashcard?: { front: string; backPinyin: string; backVi: string };
+  flashcard?: { front: string; backPinyin: string; backVi: string; exampleZh?: string };
   audioUrl?: string;
   maxAudioPlays?: number;
   rubric?: string;
   sampleAnswer?: string;
+  handwritingCount?: number;
+  translationDirection?: "ZH_TO_VI" | "VI_TO_ZH";
+  errorTokens?: { id: string; text: string; isError: boolean }[];
+  blanks?: { id: string; answer: string; alternatives?: string }[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
