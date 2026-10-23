@@ -18,7 +18,10 @@ import {
   GraduationCap,
   Play,
   Clock,
+  PenTool,
+  Mic,
 } from "lucide-react";
+import HanziPracticeModal from "./HanziPracticeModal";
 
 interface StudentPracticeWorkspaceProps {
   currentUser?: any;
@@ -32,6 +35,7 @@ export default function StudentPracticeWorkspace({
   const [dueVocabCount, setDueVocabCount] = useState(12);
   const [wrongQuestionCount, setWrongQuestionCount] = useState(5);
   const [loading, setLoading] = useState(true);
+  const [isHanziModalOpen, setIsHanziModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadPracticeStats() {
@@ -203,7 +207,44 @@ export default function StudentPracticeWorkspace({
           </Link>
         </div>
 
-        {/* Trạm 4: Luyện đề mô phỏng HSK 3.0 */}
+        {/* Trạm 4: Luyện viết chữ Hán & Chấm khẩu ngữ Micro AI */}
+        <div className="p-6 rounded-3xl bg-gradient-to-br from-[#FFFCF6] to-[#FFF9EE] border-2 border-[#BC9B6B]/70 shadow-2xs hover:border-[#204434] transition flex flex-col justify-between space-y-4 group">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-[#204434] text-white flex items-center justify-center">
+                <PenTool className="w-6 h-6 text-[#BC9B6B]" />
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#BC9B6B]/20 text-[#8F6D3B] border border-[#BC9B6B]/40 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Viết ô Mễ & Micro AI</span>
+              </span>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-serif font-bold text-[#204434] group-hover:text-[#183629] transition">
+                Tập viết nét chữ & Khẩu ngữ Micro AI
+              </h3>
+              <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                Tập viết chữ Hán trên ô Mễ tự cách (米), học quy tắc thuận bút và luyện nói trực tiếp vào Micro để AI nhận diện giọng đọc chuẩn Bắc Kinh.
+              </p>
+            </div>
+
+            <div className="p-3 bg-white rounded-2xl border border-[#E5DEC9] flex items-center justify-between text-xs text-[#315E48]">
+              <span>Kho chữ Hán luyện tập:</span>
+              <span className="font-bold text-[#204434]">150 chữ cốt lõi HSK 1</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsHanziModalOpen(true)}
+            className="w-full py-3 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-md shadow-[#204434]/15 flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <PenTool className="w-4 h-4 text-[#BC9B6B]" />
+            <span>Mở bàn tập viết & Micro ngay</span>
+          </button>
+        </div>
+
+        {/* Trạm 5: Luyện đề mô phỏng HSK 3.0 */}
         <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition flex flex-col justify-between space-y-4 group">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -239,6 +280,12 @@ export default function StudentPracticeWorkspace({
           </button>
         </div>
       </div>
+
+      {/* Modal Tập viết chữ Hán & Micro AI */}
+      <HanziPracticeModal
+        isOpen={isHanziModalOpen}
+        onClose={() => setIsHanziModalOpen(false)}
+      />
     </div>
   );
 }

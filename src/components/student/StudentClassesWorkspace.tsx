@@ -68,6 +68,7 @@ export default function StudentClassesWorkspace({
     "ALL" | "ACTIVE" | "PAUSED" | "UPCOMING" | "ENDED"
   >("ALL");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeSubTab, setActiveSubTab] = useState<"CLASSES" | "SCHEDULE">("CLASSES");
 
   // Selected Class Modal
   const [selectedClass, setSelectedClass] = useState<StudentClassItem | null>(null);
@@ -242,17 +243,45 @@ export default function StudentClassesWorkspace({
           </div>
         </div>
 
-        <button
-          onClick={onOpenJoinModal}
-          className="bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-[#204434]/15 transition cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tham gia lớp học mới</span>
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1 bg-[#FAF7F0] p-1 rounded-2xl border border-[#E5DEC9]">
+            <button
+              onClick={() => setActiveSubTab("CLASSES")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeSubTab === "CLASSES"
+                  ? "bg-[#204434] text-white shadow-xs"
+                  : "text-[#315E48] hover:text-[#204434]"
+              }`}
+            >
+              Danh sách lớp ({classes.length})
+            </button>
+            <button
+              onClick={() => setActiveSubTab("SCHEDULE")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                activeSubTab === "SCHEDULE"
+                  ? "bg-[#204434] text-white shadow-xs"
+                  : "text-[#315E48] hover:text-[#204434]"
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 text-[#BC9B6B]" />
+              <span>Lịch ca học tuần này</span>
+            </button>
+          </div>
+
+          <button
+            onClick={onOpenJoinModal}
+            className="bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-[#204434]/15 transition cursor-pointer self-start sm:self-auto shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tham gia lớp học mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#E5DEC9] shadow-2xs space-y-3">
+      {activeSubTab === "CLASSES" ? (
+        <>
+          <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#E5DEC9] shadow-2xs space-y-3">
         {/* Lỗi 1: Tabs bộ lọc đầy đủ gồm Tạm dừng và số đếm chính xác */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
@@ -523,6 +552,125 @@ export default function StudentClassesWorkspace({
               </div>
             );
           })}
+        </div>
+      )}
+      </>
+      ) : (
+        /* ================================================================= */
+        /* CHẾ ĐỘ: LỊCH HỌC & CA HỌC APPLE CALENDAR STYLE DÀNH CHO HỌC SINH */
+        /* ================================================================= */
+        <div className="space-y-5 animate-fadeIn">
+          {/* Thẻ ca học tiếp theo (Next upcoming live session) */}
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-[#FFFCF6] to-[#FFF9EE] border-2 border-[#BC9B6B]/70 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#204434] text-[#FFFCF6] flex flex-col items-center justify-center font-bold shrink-0 shadow-xs">
+                <span className="text-[10px] uppercase font-mono tracking-wider opacity-80">Thứ 4</span>
+                <span className="text-xl font-serif">28</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Sắp diễn ra hôm nay</span>
+                  </span>
+                  <span className="text-xs font-semibold text-[#8F6D3B]">
+                    19:30 – 21:00 (90 phút)
+                  </span>
+                </div>
+                <h3 className="font-serif font-bold text-lg text-[#204434]">
+                  Bài 5: Ôn từ vựng & Phản xạ giao tiếp mua sắm HSK 1
+                </h3>
+                <p className="text-xs text-[#315E48]">
+                  Lớp HSK 1A Tiêu chuẩn · Giảng viên: Cô Vương Lệ (Wang Li)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 sm:self-center shrink-0 flex-wrap">
+              <a
+                href="https://meet.google.com/new"
+                target="_blank"
+                rel="noreferrer"
+                className="px-5 py-2.5 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-md shadow-[#204434]/15 flex items-center gap-2 transition cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                <span>Vào lớp Google Meet ngay</span>
+              </a>
+              <button
+                onClick={() => alert("Đang tải tài liệu chuẩn bị trước buổi học...")}
+                className="px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] text-xs font-semibold shadow-2xs transition cursor-pointer"
+              >
+                Tài liệu trước buổi học
+              </button>
+            </div>
+          </div>
+
+          {/* Lịch tuần Apple Calendar Grid */}
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-6 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/70">
+              <div>
+                <h4 className="font-serif font-bold text-base text-[#204434]">
+                  Thời khóa biểu học tập tuần này
+                </h4>
+                <p className="text-xs text-[#315E48]">Các ca học trực tiếp và lịch nộp bài tập đã lên lịch</p>
+              </div>
+              <span className="text-xs font-semibold text-[#8F6D3B] bg-[#FFFBF0] px-3 py-1 rounded-full border border-[#BC9B6B]/40">
+                Tháng 10, 2026
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2.5">
+              {[
+                { day: "Thứ 2", date: "26/10", hasClass: true, time: "19:30 - 21:00", subject: "Lớp HSK 1A", room: "Meet", done: true },
+                { day: "Thứ 3", date: "27/10", hasClass: false, note: "Tự học Flashcard" },
+                { day: "Thứ 4", date: "28/10", hasClass: true, time: "19:30 - 21:00", subject: "Lớp HSK 1A", room: "Meet", isToday: true },
+                { day: "Thứ 5", date: "29/10", hasClass: false, note: "Hạn nộp Bài tập 5" },
+                { day: "Thứ 6", date: "30/10", hasClass: true, time: "19:30 - 21:00", subject: "Luyện phát âm", room: "Zoom" },
+                { day: "Thứ 7", date: "31/10", hasClass: false, note: "Game ghép từ" },
+                { day: "Chủ nhật", date: "01/11", hasClass: true, time: "09:00 - 10:30", subject: "Thi thử HSK 1", room: "Phòng thi" },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3.5 rounded-2xl border text-xs space-y-2 flex flex-col justify-between transition ${
+                    item.isToday
+                      ? "bg-[#FFFBF0] border-[#BC9B6B] ring-2 ring-[#BC9B6B]/25"
+                      : item.hasClass
+                      ? "bg-[#FAF7F0] border-[#E5DEC9]"
+                      : "bg-[#F8F5ED]/50 border-[#E5DEC9]/60 opacity-70"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#204434]">{item.day}</span>
+                    <span className="text-[10px] text-[#315E48] font-mono">{item.date}</span>
+                  </div>
+
+                  {item.hasClass ? (
+                    <div className="p-2 rounded-xl bg-white border border-[#E5DEC9]/80 space-y-1">
+                      <span className="text-[10px] font-bold text-emerald-800 block">
+                        {item.time}
+                      </span>
+                      <p className="font-bold text-[#204434] text-[11px] truncate">
+                        {item.subject}
+                      </p>
+                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-[#204434]/10 text-[#204434]">
+                        {item.room}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="p-2 text-[11px] text-[#315E48] italic">
+                      {item.note}
+                    </div>
+                  )}
+
+                  {item.isToday && (
+                    <span className="text-[9px] font-bold text-[#8F6D3B] text-center block bg-[#BC9B6B]/15 py-0.5 rounded-md">
+                      Hôm nay
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

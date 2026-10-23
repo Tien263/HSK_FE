@@ -34,6 +34,7 @@ import {
   FileText,
   HelpCircle,
   BarChart3,
+  Award,
 } from "lucide-react";
 import StudentClassesWorkspace from "@/components/student/StudentClassesWorkspace";
 import StudentAssignmentsWorkspace from "@/components/student/StudentAssignmentsWorkspace";
@@ -116,8 +117,10 @@ export default function StudentHomePage() {
   const [editingLevel, setEditingLevel] = useState<"beginner" | "intermediate" | "advanced">("beginner");
   const [editingDailyTime, setEditingDailyTime] = useState<15 | 30 | 60>(30);
 
-  // Settings Modal State
+  // Settings & Notification State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [hasUnreadNotification, setHasUnreadNotification] = useState(true);
   const [userEmail, setUserEmail] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [myClasses, setMyClasses] = useState<any[]>([]);
@@ -546,14 +549,105 @@ export default function StudentHomePage() {
           {/* Right Header Controls */}
           <div className="flex items-center gap-3 ml-4">
             {/* Notification Bell */}
-            <button
-              type="button"
-              className="w-9 h-9 rounded-full bg-[#FFFCF6] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center relative transition cursor-pointer shadow-2xs"
-              title="Thông báo"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="w-2 h-2 rounded-full bg-[#9D493E] absolute top-2 right-2 border-2 border-[#FFFCF6]" />
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  setHasUnreadNotification(false);
+                }}
+                className="w-9 h-9 rounded-full bg-[#FFFCF6] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center relative transition cursor-pointer shadow-2xs"
+                title="Thông báo hệ thống"
+              >
+                <Bell className="w-4 h-4" />
+                {hasUnreadNotification && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#9D493E] absolute top-2 right-2 border-2 border-[#FFFCF6] animate-pulse" />
+                )}
+              </button>
+
+              {/* Notification Popover Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xl p-4 z-50 space-y-3 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-[#E5DEC9]">
+                    <div className="flex items-center gap-1.5">
+                      <Bell className="w-4 h-4 text-[#8F6D3B]" />
+                      <h4 className="font-serif font-bold text-sm text-[#204434]">Thông báo mới</h4>
+                    </div>
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="text-[10px] text-[#315E48] hover:underline cursor-pointer"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-80 overflow-y-auto divide-y divide-[#E5DEC9]/50">
+                    <div
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setActiveNav("assignments");
+                      }}
+                      className="pt-2 first:pt-0 p-2 rounded-xl hover:bg-[#FAF7F0] transition cursor-pointer flex items-start gap-2.5"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-800 flex items-center justify-center shrink-0">
+                        <FileCheck2 className="w-4 h-4" />
+                      </div>
+                      <div className="text-xs">
+                        <p className="font-bold text-[#204434]">Cô Vương Lệ vừa giao bài tập mới</p>
+                        <p className="text-[11px] text-[#315E48] mt-0.5">Bài tập 5: Ôn từ vựng & phản xạ Mua sắm (HSK 1)</p>
+                        <span className="text-[10px] text-[#8F6D3B] font-mono mt-1 block">15 phút trước</span>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setActiveNav("assignments");
+                      }}
+                      className="pt-2 p-2 rounded-xl hover:bg-[#FAF7F0] transition cursor-pointer flex items-start gap-2.5"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <div className="text-xs">
+                        <p className="font-bold text-[#204434]">Đã công bố điểm bài kiểm tra</p>
+                        <p className="text-[11px] text-[#315E48] mt-0.5">Điểm số của bạn: 8.5/10 · Xếp hạng 3 toàn lớp</p>
+                        <span className="text-[10px] text-[#8F6D3B] font-mono mt-1 block">2 giờ trước</span>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setActiveNav("classes");
+                      }}
+                      className="pt-2 p-2 rounded-xl hover:bg-[#FAF7F0] transition cursor-pointer flex items-start gap-2.5"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-800 flex items-center justify-center shrink-0">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <div className="text-xs">
+                        <p className="font-bold text-[#204434]">Nhắc nhở ca học trực tuyến tối nay</p>
+                        <p className="text-[11px] text-[#315E48] mt-0.5">19:30 – 21:00: Ca học Google Meet cùng cô Vương Lệ</p>
+                        <span className="text-[10px] text-[#8F6D3B] font-mono mt-1 block">Hôm nay</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#E5DEC9] text-center">
+                    <button
+                      onClick={() => {
+                        setShowNotifications(false);
+                        setActiveNav("assignments");
+                      }}
+                      className="text-xs text-[#204434] font-bold hover:underline"
+                    >
+                      Xem toàn bộ bài tập & phòng thi &rarr;
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Student User Pill */}
             <button

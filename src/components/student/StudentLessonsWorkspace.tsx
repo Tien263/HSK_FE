@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import HanziPracticeModal from "./HanziPracticeModal";
 import {
   BookOpen,
   Search,
@@ -15,6 +16,8 @@ import {
   FileCheck2,
   X,
   Bookmark,
+  PenTool,
+  Mic,
 } from "lucide-react";
 
 interface StudentLessonsWorkspaceProps {
@@ -30,6 +33,7 @@ export default function StudentLessonsWorkspace({
   const [selectedHsk, setSelectedHsk] = useState(1);
   const [selectedLessonModal, setSelectedLessonModal] = useState<any | null>(null);
   const [lessonModalTab, setLessonModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "CULTURE">("VOCAB");
+  const [practiceWord, setPracticeWord] = useState<{ hanzi: string; pinyin: string; meaning: string } | null>(null);
 
   // Sample structured HSK lessons
   const lessons = [
@@ -355,6 +359,15 @@ export default function StudentLessonsWorkspace({
                         <p className="text-xs text-[#315E48] mt-0.5">{v.meaning}</p>
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => setPracticeWord(v)}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] hover:bg-[#204434] hover:text-white text-[#204434] text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+                      title="Luyện viết nét bút & Micro AI"
+                    >
+                      <PenTool className="w-3 h-3 text-[#BC9B6B]" />
+                      <span>Tập viết & Nói</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -429,6 +442,17 @@ export default function StudentLessonsWorkspace({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Tập viết nét chữ & Khẩu ngữ Micro AI */}
+      {practiceWord && (
+        <HanziPracticeModal
+          isOpen={true}
+          onClose={() => setPracticeWord(null)}
+          initialHanzi={practiceWord.hanzi}
+          initialPinyin={practiceWord.pinyin}
+          initialMeaning={practiceWord.meaning}
+        />
       )}
     </div>
   );

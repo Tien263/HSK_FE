@@ -19,6 +19,7 @@ import {
   Check,
   X,
   Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 
 interface QuestionItem {
@@ -210,6 +211,27 @@ function AttemptInner() {
 
   // Flashcard flip state
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+
+  // Tab-switch anti-cheat violation tracking (Proctoring)
+  const [tabSwitchViolations, setTabSwitchViolations] = useState(0);
+  const [showTabSwitchModal, setShowTabSwitchModal] = useState(false);
+
+  useEffect(() => {
+    if (loading || submitting) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchViolations((prev) => prev + 1);
+      } else {
+        setShowTabSwitchModal(true);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loading, submitting]);
 
   useEffect(() => {
     if (!attemptId) return;
@@ -425,6 +447,7 @@ function AttemptInner() {
         body: JSON.stringify({
           answers,
           durationSec: 20 * 60 - secondsRemaining,
+          tabSwitchCount: tabSwitchViolations,
         }),
       });
 
@@ -1113,6 +1136,44 @@ function AttemptInner() {
       <footer className="text-center text-xs text-[#8c9a8f] py-4 bg-[#fcfaf7] border-t border-[#e6decb]">
         Hệ thống phòng thi HSK trực tuyến · HSK Hanyu 🍃
       </footer>
+
+      {/* CẢNH BÁO GIÁM THỊ CHỐNG GIAN LẬN: PHÁT HIỆN RỜI TAB */}
+      {showTabSwitchModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-[#FFFCF6] border-2 border-red-500 w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4 animate-scaleUp text-center">
+            <div className="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-red-700 bg-red-100 px-3 py-1 rounded-full border border-red-200 uppercase tracking-wider">
+                Phát hiện chuyển Tab (Lần vi phạm: {tabSwitchViolations})
+              </span>
+              <h3 className="font-serif font-bold text-lg text-[#204434] pt-2">
+                Cảnh Báo Giám Thị Phòng Thi
+              </h3>
+              <p className="text-xs text-[#315E48] leading-relaxed">
+                Hệ thống ghi nhận bạn vừa rời khỏi màn hình bài thi. Mọi thao tác chuyển tab, tra từ điển hay mở ứng dụng ngoài đều được lưu vào nhật ký nộp bài của giáo viên.
+              </p>
+            </div>
+
+            <div className="p-3 bg-red-50 rounded-2xl border border-red-200 text-left text-xs text-red-800 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <span>⚠️ Quy định phòng thi trực tuyến:</span>
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                Sau 3 lần vi phạm chuyển tab, bài thi sẽ bị hệ thống đánh dấu vi phạm nghiêm trọng và báo cáo trực tiếp tới ban quản nhiệm lớp học.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowTabSwitchModal(false)}
+              className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+            >
+              Tôi đã hiểu và cam kết tập trung làm bài
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
