@@ -949,6 +949,26 @@ export default function QuestionBankWorkspace({
             <ExternalLink className="w-3 h-3 text-emerald-700 ml-0.5 opacity-70" />
           </a>
 
+          {questions.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm("Bạn có chắc muốn xóa tất cả câu hỏi trong ngân hàng để tự soạn lại từ đầu không?")) {
+                  setQuestions([]);
+                  setSelectedIds([]);
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("hanyu_custom_question_bank", JSON.stringify([]));
+                  }
+                  showToast("Đã xóa toàn bộ ngân hàng câu hỏi! Bạn có thể tự soạn câu hỏi mới từ đầu.");
+                }
+              }}
+              className="px-3.5 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
+              title="Xóa tất cả câu hỏi để bắt đầu tự làm lại từ đầu"
+            >
+              <Trash2 className="w-4 h-4 text-red-600" />
+              <span>Xóa tất cả</span>
+            </button>
+          )}
+
           <button
             onClick={handleOpenCreateNew}
             className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-2 transition shrink-0 cursor-pointer"

@@ -189,6 +189,19 @@ async function runTests() {
     const delMatData = await delMatRes.json();
     assert(delMatData.success === true, "Teacher successfully deleted material from Library");
 
+    // Clean up created student & class so the teacher's class list and database are never polluted
+    try {
+      await fetch(`${baseUrl}/api/v1/classes?id=${createdClassId}`, { method: "DELETE" });
+      const { PrismaClient } = require("@prisma/client");
+      const p = new PrismaClient();
+      await p.user.deleteMany({ where: { username: { in: [provStudentUsername, testUsername] } } });
+      await p.class.deleteMany({ where: { id: createdClassId } });
+      await p.$disconnect();
+      console.log(`🧹 Cleaned up test class '${newClassName}' and test students`);
+    } catch (cleanupErr) {
+      console.warn("Notice: Test cleanup minor issue:", cleanupErr.message);
+    }
+
     // -------------------------------------------------------------
     // SUMMARY
     // -------------------------------------------------------------

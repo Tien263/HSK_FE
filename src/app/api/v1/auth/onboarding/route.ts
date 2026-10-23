@@ -141,35 +141,38 @@ export async function POST(request: Request) {
           include: { teacher: true },
         });
       }
+    }
 
-      if (targetClass) {
-        await prisma.classStudent.upsert({
-          where: {
-            classId_studentId: {
-              classId: targetClass.id,
-              studentId: student.id,
-            },
-          },
-          update: {},
-          create: {
+    // Luôn ghi danh học sinh vào lớp nếu tìm thấy targetClass (bằng classId hoặc classCode)
+    if (targetClass) {
+      await prisma.classStudent.upsert({
+        where: {
+          classId_studentId: {
             classId: targetClass.id,
             studentId: student.id,
           },
-        }).catch(() => {});
+        },
+        update: {},
+        create: {
+          classId: targetClass.id,
+          studentId: student.id,
+        },
+      }).catch((e) => {
+        console.error("classStudent upsert error:", e);
+      });
 
-        enrolledClassInfo = {
-          id: targetClass.id,
-          name: targetClass.name,
-          level: targetClass.level,
-          teacherName: targetClass.teacher?.name || "Cô Ning Ning",
-          teacherAvatar: targetClass.teacher?.avatar || "/theme/avatar-teacher.jpg",
-          code: targetClass.name.includes("1A")
-            ? "HSK1A"
-            : targetClass.name.includes("HANYU3A")
-            ? "HANYU3A"
-            : targetClass.id.slice(-6).toUpperCase(),
-        };
-      }
+      enrolledClassInfo = {
+        id: targetClass.id,
+        name: targetClass.name,
+        level: targetClass.level,
+        teacherName: targetClass.teacher?.name || "Cô Ning Ning",
+        teacherAvatar: targetClass.teacher?.avatar || "/theme/avatar-teacher.jpg",
+        code: targetClass.name.includes("1A")
+          ? "HSK1A"
+          : targetClass.name.includes("HANYU3A")
+          ? "HANYU3A"
+          : targetClass.id.slice(-6).toUpperCase(),
+      };
     }
 
     // Ghi audit log hoàn thành onboarding

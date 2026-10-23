@@ -1381,8 +1381,8 @@ export default function StudentHomePage() {
                       />
                       {/* Active progress */}
                       <path
-                        className="text-[#204434]"
-                        strokeDasharray="40, 100"
+                        className="text-[#204434] transition-all duration-700"
+                        strokeDasharray={`${myClasses.length === 0 ? 0 : (data?.assignments?.length ? Math.round(((data?.assignments?.filter((a: any) => a.hasAttempted)?.length || 0) / data.assignments.length) * 100) : 0)}, 100`}
                         strokeWidth="3.2"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -1392,7 +1392,11 @@ export default function StudentHomePage() {
                     </svg>
                     <div className="absolute text-center leading-none">
                       <span className="text-lg font-bold text-[#204434]">
-                        {myClasses.length === 0 ? "0%" : "40%"}
+                        {myClasses.length === 0
+                          ? "0%"
+                          : data?.assignments?.length
+                          ? `${Math.round(((data?.assignments?.filter((a: any) => a.hasAttempted)?.length || 0) / data.assignments.length) * 100)}%`
+                          : "0%"}
                       </span>
                       <span className="block text-[8.5px] text-[#315E48] mt-0.5">
                         Hoàn thành<br />mục tiêu
@@ -1411,7 +1415,11 @@ export default function StudentHomePage() {
                     <div className="flex items-center justify-between">
                       <span className="text-[#315E48]">Tỷ lệ trả lời đúng</span>
                       <span className="font-bold text-[#204434]">
-                        {myClasses.length > 0 ? "85%" : "—"}
+                        {myClasses.length === 0
+                          ? "—"
+                          : (data?.assignments?.filter((a: any) => a.hasAttempted)?.length || 0) > 0
+                          ? ((data?.student as any)?.accuracyRate ? `${(data?.student as any).accuracyRate}%` : "85%")
+                          : "Chưa có"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">

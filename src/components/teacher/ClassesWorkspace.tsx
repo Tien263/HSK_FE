@@ -274,6 +274,12 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
     Array<{ name: string; email: string; username: string; status: string }>
   >([]);
 
+  // Real teacher overview stats from reports API
+  const [teacherOverviewStats, setTeacherOverviewStats] = useState<{
+    activeAssignments: number;
+    completionRate: number;
+  } | null>(null);
+
   // ==========================================================================
   // FETCH CLASSES DYNAMICALLY FOR THE LOGGED-IN TEACHER
   // ==========================================================================
@@ -282,11 +288,30 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
     setLoading(true);
 
     try {
+      // 1. Fetch classes
       const res = await fetch(`/api/v1/classes?teacherId=${currentUser.id}`, {
         headers: {
           "x-user-id": currentUser.id,
         },
       });
+
+      // 2. Fetch overview stats for this teacher
+      try {
+        const resStats = await fetch(`/api/v1/reports/overview?teacherId=${currentUser.id}`, {
+          headers: { "x-user-id": currentUser.id },
+        });
+        if (resStats.ok) {
+          const statsJson = await resStats.json();
+          if (statsJson.success && statsJson.data?.summary) {
+            setTeacherOverviewStats({
+              activeAssignments: statsJson.data.summary.activeAssignments || 0,
+              completionRate: statsJson.data.summary.completionRate || 0,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("fetch teacher overview stats error:", e);
+      }
 
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
@@ -1151,7 +1176,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
               </span>
             </div>
             <div className="text-2xl font-serif font-bold text-[#17382F]">
-              {totalClassesCount > 0 ? totalClassesCount * 2 : 0}
+              {teacherOverviewStats ? teacherOverviewStats.activeAssignments : 0}
             </div>
             <span className="text-[11px] text-[#6B766D]">Thuộc các lớp phụ trách</span>
           </div>
@@ -1165,10 +1190,12 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
               {totalClassesCount > 0 && <span className="text-[11px] font-bold text-emerald-700">↑ Tốt</span>}
             </div>
             <div className="text-2xl font-serif font-bold text-[#17382F] mt-1">
-              {totalStudentsCount > 0 ? "84%" : "0%"}
+              {totalStudentsCount > 0 && teacherOverviewStats ? `${teacherOverviewStats.completionRate}%` : "0%"}
             </div>
             <span className="text-[11px] text-[#6B766D]">
-              {totalStudentsCount > 0 ? "Theo thống kê bài tập" : "Chưa có dữ liệu bài nộp"}
+              {totalStudentsCount > 0 && teacherOverviewStats && teacherOverviewStats.completionRate > 0
+                ? "Theo thống kê bài tập thực tế"
+                : "Chưa có dữ liệu bài nộp"}
             </span>
           </div>
 
@@ -1184,7 +1211,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
               />
               <path
                 className="text-[#1F513F]"
-                strokeDasharray={`${totalStudentsCount > 0 ? 84 : 0}, 100`}
+                strokeDasharray={`${totalStudentsCount > 0 && teacherOverviewStats ? teacherOverviewStats.completionRate : 0}, 100`}
                 strokeWidth="3.5"
                 strokeLinecap="round"
                 stroke="currentColor"
@@ -1193,7 +1220,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
               />
             </svg>
             <span className="absolute text-[10px] font-bold text-[#17382F]">
-              {totalStudentsCount > 0 ? "84%" : "0%"}
+              {totalStudentsCount > 0 && teacherOverviewStats ? `${teacherOverviewStats.completionRate}%` : "0%"}
             </span>
           </div>
         </div>

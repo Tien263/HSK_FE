@@ -385,6 +385,22 @@ export default function AppleScheduleCalendar({
             </button>
           </div>
 
+          {/* Clear all schedules button */}
+          {events.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch dạy để làm lại từ đầu không?")) {
+                  saveEvents([]);
+                }
+              }}
+              className="px-3 py-2 rounded-2xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              title="Xóa toàn bộ lịch dạy để làm lại từ đầu"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Xóa toàn bộ lịch</span>
+            </button>
+          )}
+
           {/* Add Session Button */}
           <button
             onClick={() => {
