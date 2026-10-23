@@ -148,6 +148,7 @@ export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "classes" | "lessons" | "assignments" | "questions" | "reports" | "schedule" | "settings"
   >("overview");
+  const [targetExamToOpen, setTargetExamToOpen] = useState<string | null>(null);
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
@@ -1531,6 +1532,7 @@ export default function TeacherDashboard() {
               onNavigateToQuestionBank={(tab) => {
                 setActiveTab("questions");
               }}
+              initialExamId={targetExamToOpen}
               initialNewAssignmentPayload={
                 transferredAssignmentPayload ||
                 (assignTitle
@@ -1550,6 +1552,7 @@ export default function TeacherDashboard() {
             <QuestionBankWorkspace
               showToast={showToast}
               onNavigateToAssignments={(examId) => {
+                setTargetExamToOpen(examId || null);
                 setActiveTab("assignments");
               }}
             />

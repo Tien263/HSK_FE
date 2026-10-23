@@ -45,6 +45,8 @@ import {
   FileCheck,
   CheckSquare,
   Copy,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
 import {
   OFFICIAL_12_QUESTION_TYPES,
@@ -68,6 +70,15 @@ interface ClassOption {
   studentCount?: number;
 }
 
+export type AssignmentTabType =
+  | "ALL"
+  | "OPEN"
+  | "SUBMISSIONS"
+  | "CLOSED"
+  | "DRAFT_EXAMS"
+  | "READY_EXAMS"
+  | "ARCHIVED";
+
 interface AssignmentsWorkspaceProps {
   currentUser?: {
     id?: string;
@@ -77,6 +88,8 @@ interface AssignmentsWorkspaceProps {
   };
   classesList?: ClassOption[];
   onBackToDashboard?: () => void;
+  initialExamId?: string | null;
+  initialTab?: AssignmentTabType;
   initialNewAssignmentPayload?: {
     lessonTitle: string;
     classId: string;
@@ -91,18 +104,25 @@ export function AssignmentsWorkspace({
   currentUser,
   classesList = [],
   onBackToDashboard,
+  initialExamId,
+  initialTab,
   initialNewAssignmentPayload,
   onNavigateToQuestionBank,
 }: AssignmentsWorkspaceProps) {
   // Main view modes: "LIST" | "COMPOSER" | "GRADING_MODAL"
   const [viewMode, setViewMode] = useState<"LIST" | "COMPOSER">("LIST");
 
-  // 5 Required Tabs according to Spec Section B1:
-  // 1. Bản nháp đề | 2. Đề đã hoàn thiện | 3. Bài đã giao | 4. Bài nộp & Chấm điểm | 5. Lưu trữ
-  const [activeTab, setActiveTab] = useState<
-    "DRAFT_EXAMS" | "READY_EXAMS" | "ASSIGNED" | "SUBMISSIONS" | "ARCHIVED"
-  >("ASSIGNED");
+  // Tabs theo Đặc tả V2.0 & Đặc tả bổ sung Đề nháp (23/10/2026):
+  // Tất cả đề | Đang mở | Chờ chấm | Đã đóng | Đề nháp | Đề đã hoàn thiện | Lưu trữ
+  const [activeTab, setActiveTab] = useState<AssignmentTabType>(initialTab || "ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Quản lý trạng thái Đề nháp đang biên soạn (Spec Section 3.1 & 3.2)
+  const [currentExamId, setCurrentExamId] = useState<string | null>(null);
+  const [examSaveStatus, setExamSaveStatus] = useState<
+    "CLEAN" | "UNSAVED" | "SAVING" | "SAVED" | "FAILED"
+  >("CLEAN");
+  const [deleteConfirmPackage, setDeleteConfirmPackage] = useState<ExamPackageItem | null>(null);
 
   // Exam Packages state (persisted to localStorage)
   const [examPackages, setExamPackages] = useState<ExamPackageItem[]>(() => {
@@ -231,14 +251,28 @@ export function AssignmentsWorkspace({
   const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
   const [photoRotation, setPhotoRotation] = useState(0);
 
-  // Dynamic KPI Metrics according to Spec B2 & E1
+  // Dynamic KPI Metrics according to Spec Section 2.1 & E1
   const kpiMetrics = useMemo(() => {
+    // 1. Tổng số đề bài: Tất cả bài đã giao + đề hoàn thiện trong kho
+    const totalExams =
+      assignments.filter((a) => a.status !== "ARCHIVED").length +
+      examPackages.filter((p) => p.status === "READY").length;
+    // 2. Đang mở cho học viên
+    const totalOpen = assignments.filter((a) => a.status === "ACTIVE" || a.status === "OPEN").length;
+    // 3. Chờ chấm thủ công
+    const totalWaitingGrade = submissions.filter(
+      (s) =>
+        s.gradingStatus === "WAITING_MANUAL" ||
+        s.status === "WAITING_GRADE"
+    ).length;
+    // 4. Đã đóng hạn nộp
+    const totalClosed = assignments.filter((a) => a.status === "CLOSED").length;
+    // 5. Đề nháp
+    const totalDrafts = examPackages.filter((p) => p.status === "DRAFT").length;
+    const totalReady = examPackages.filter((p) => p.status === "READY").length;
     const totalAssigned = assignments.filter((a) => a.status !== "ARCHIVED").length;
     const totalSubmitted = submissions.filter((s) => s.submissionStatus !== "NOT_STARTED").length;
     const totalUnsubmitted = submissions.filter((s) => s.submissionStatus === "NOT_STARTED").length;
-    const totalWaitingGrade = submissions.filter(
-      (s) => s.gradingStatus === "WAITING_MANUAL" || s.status === "WAITING_GRADE"
-    ).length;
     const totalGraded = submissions.filter(
       (s) => s.gradingStatus === "GRADED" || s.gradingStatus === "PUBLISHED"
     ).length;
@@ -246,15 +280,43 @@ export function AssignmentsWorkspace({
     const totalPublished = submissions.filter((s) => s.isPublished).length;
 
     return {
+      totalExams,
+      totalOpen,
+      totalWaitingGrade,
+      totalClosed,
+      totalDrafts,
+      totalReady,
       totalAssigned,
       totalSubmitted,
       totalUnsubmitted,
-      totalWaitingGrade,
       totalGraded,
       totalResubmit,
       totalPublished,
     };
-  }, [assignments, submissions]);
+  }, [assignments, submissions, examPackages]);
+
+  // Effect to load initialExamId into Composer Step 1
+  useEffect(() => {
+    if (initialExamId) {
+      const found = examPackages.find((p) => p.id === initialExamId);
+      if (found) {
+        setCurrentExamId(found.id);
+        setExamTitle(found.title);
+        setExamDescription(found.description);
+        setExamCurriculum(found.curriculum || "HSK 3.0");
+        setExamLevel(found.hskLevel || 1);
+        if (found.questions && found.questions.length > 0) {
+          setDraftQuestions(found.questions);
+        }
+        setViewMode("COMPOSER");
+        setComposerStep(1);
+        setExamSaveStatus("CLEAN");
+        showToast(`Đã mở đề nháp "${found.title}" vào trình ghép đề!`);
+      } else {
+        setActiveTab("DRAFT_EXAMS");
+      }
+    }
+  }, [initialExamId, examPackages]);
 
   // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1343,8 +1405,100 @@ export function AssignmentsWorkspace({
     }
 
     setIsAssignModalOpen(false);
-    setActiveTab("ASSIGNED");
+    setActiveTab("ALL");
     showToast(`Đã giao đề "${newAssignmentItem.title}" thành công cho lớp ${newAssignmentItem.className}!`);
+  };
+
+  // 1. Lưu đề nháp (Spec Section 3.1 & 3.2)
+  const handleSaveDraftExam = () => {
+    setExamSaveStatus("SAVING");
+    setTimeout(() => {
+      const examId = currentExamId || `exam-draft-${Date.now()}`;
+      const title = examTitle.trim() || `Đề nháp mới (${new Date().toLocaleDateString("vi-VN")})`;
+      const nowFormatted =
+        new Date().toLocaleDateString("vi-VN") +
+        " " +
+        new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+      const updatedPkg: ExamPackageItem = {
+        id: examId,
+        title,
+        description: examDescription.trim() || "Bộ đề biên soạn từ kho câu hỏi",
+        curriculum: examCurriculum,
+        hskLevel: examLevel,
+        status: "DRAFT",
+        questionsCount: draftQuestions.length,
+        totalPoints: totalExamPoints,
+        createdAt: examPackages.find((p) => p.id === examId)?.createdAt || nowFormatted,
+        updatedAt: nowFormatted,
+        questions: [...draftQuestions],
+      };
+
+      setCurrentExamId(examId);
+      setExamPackages((prev) => {
+        const idx = prev.findIndex((p) => p.id === examId);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = updatedPkg;
+          return next;
+        }
+        return [updatedPkg, ...prev];
+      });
+
+      setExamSaveStatus("SAVED");
+      showToast(`Đã lưu đề nháp "${title}" thành công! Có thể xem trong Tab Đề nháp.`);
+    }, 200);
+  };
+
+  // 2. Hoàn thiện đề (Chuyển sang READY và mở giao bài)
+  const handleFinalizeExam = (targetPkg?: ExamPackageItem) => {
+    const questionsToFinalize = targetPkg ? targetPkg.questions || [] : draftQuestions;
+    if (questionsToFinalize.length === 0) {
+      showToast("Vui lòng thêm ít nhất 1 câu hỏi vào đề trước khi hoàn thiện/giao lớp!");
+      return;
+    }
+    const examId = targetPkg ? targetPkg.id : currentExamId || `exam-ready-${Date.now()}`;
+    const title = targetPkg ? targetPkg.title : examTitle.trim() || `Đề hoàn thiện HSK ${examLevel}`;
+    const nowFormatted =
+      new Date().toLocaleDateString("vi-VN") +
+      " " +
+      new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+    const readyPkg: ExamPackageItem = {
+      id: examId,
+      title,
+      description: targetPkg ? targetPkg.description : examDescription.trim() || "Bộ đề đã hoàn thiện",
+      curriculum: targetPkg ? targetPkg.curriculum : examCurriculum,
+      hskLevel: targetPkg ? targetPkg.hskLevel : examLevel,
+      status: "READY",
+      questionsCount: questionsToFinalize.length,
+      totalPoints: questionsToFinalize.reduce((sum, q) => sum + (q.points || 5), 0),
+      createdAt: targetPkg?.createdAt || nowFormatted,
+      updatedAt: nowFormatted,
+      questions: [...questionsToFinalize],
+    };
+
+    setExamPackages((prev) => {
+      const filtered = prev.filter((p) => p.id !== examId);
+      return [readyPkg, ...filtered];
+    });
+
+    showToast(`Đã hoàn thiện đề "${title}"! Sẵn sàng giao cho lớp.`);
+    handleOpenAssignModal(readyPkg);
+  };
+
+  // 3. Tiếp tục soạn đề nháp
+  const handleResumeDraft = (pkg: ExamPackageItem) => {
+    setCurrentExamId(pkg.id);
+    setExamTitle(pkg.title);
+    setExamDescription(pkg.description);
+    setExamCurriculum(pkg.curriculum || "HSK 3.0");
+    setExamLevel(pkg.hskLevel || 1);
+    setDraftQuestions(pkg.questions || []);
+    setViewMode("COMPOSER");
+    setComposerStep(1);
+    setExamSaveStatus("CLEAN");
+    showToast(`Đã mở đề nháp "${pkg.title}" vào trình ghép đề!`);
   };
 
   // Clone Exam Package
@@ -1363,7 +1517,7 @@ export function AssignmentsWorkspace({
 
   // Delete Exam Package
   const handleDeleteExamPackage = (pkgId: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa đề này không?")) {
+    if (confirm("Bạn có chắc chắn muốn xóa đề này không? Các câu hỏi trong kho vẫn được giữ nguyên.")) {
       setExamPackages(examPackages.filter((p) => p.id !== pkgId));
       showToast("Đã xóa đề thành công!");
     }
@@ -1451,63 +1605,72 @@ export function AssignmentsWorkspace({
               </div>
             </div>
 
-            {/* BỘ ĐẾM DỮ LIỆU ĐỘNG (KPI COUNTERS - SPEC SECTION B2 & E1) */}
+            {/* BỘ ĐẾM THỐNG KÊ CHUẨN (SPEC SECTION 2.1) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
-                <span className="text-[11px] text-[#315E48] font-medium block">Bài đã giao</span>
-                <p className="text-2xl font-serif font-bold text-[#204434]">{kpiMetrics.totalAssigned}</p>
-                <span className="text-[10px] text-[#315E48]/70">Lần giao lớp</span>
+                <span className="text-[11px] text-[#315E48] font-medium block">Tổng số đề bài</span>
+                <p className="text-2xl font-serif font-bold text-[#204434]">{kpiMetrics.totalExams}</p>
+                <span className="text-[10px] text-[#315E48]/70">Đang quản lý</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
-                <span className="text-[11px] text-[#315E48] font-medium block">Tổng bài nộp</span>
-                <p className="text-2xl font-serif font-bold text-[#204434]">{kpiMetrics.totalSubmitted}</p>
-                <span className="text-[10px] text-emerald-700 font-medium">Học viên đã nộp</span>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
-                <span className="text-[11px] text-[#315E48] font-medium block">Chưa nộp</span>
-                <p className="text-2xl font-serif font-bold text-gray-500">{kpiMetrics.totalUnsubmitted}</p>
-                <span className="text-[10px] text-gray-500">Chưa bắt đầu</span>
+                <span className="text-[11px] text-[#315E48] font-medium block">Đang mở cho học viên</span>
+                <p className="text-2xl font-serif font-bold text-emerald-700">{kpiMetrics.totalOpen}</p>
+                <span className="text-[10px] text-emerald-700 font-medium">Đang nhận bài</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#FFFCF6] to-[#FFF9EE] border border-[#BC9B6B]/60 space-y-1 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-[#8F6D3B] font-bold block">Chờ chấm tay</span>
+                  <span className="text-[11px] text-[#8F6D3B] font-bold block">Chờ chấm thủ công</span>
                   <span className="w-2 h-2 rounded-full bg-[#BC9B6B] animate-pulse" />
                 </div>
                 <p className="text-2xl font-serif font-bold text-[#8F6D3B]">{kpiMetrics.totalWaitingGrade}</p>
-                <span className="text-[10px] text-[#8F6D3B]">Tự luận, dịch, chép từ</span>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-emerald-200 space-y-1 shadow-2xs">
-                <span className="text-[11px] text-emerald-800 font-medium block">Đã chấm</span>
-                <p className="text-2xl font-serif font-bold text-emerald-700">{kpiMetrics.totalGraded}</p>
-                <span className="text-[10px] text-emerald-700">Đã có điểm</span>
+                <span className="text-[10px] text-[#8F6D3B]">Tự luận, chép từ nộp ảnh</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
-                <span className="text-[11px] text-[#315E48] font-medium block">Đã công bố</span>
+                <span className="text-[11px] text-[#315E48] font-medium block">Đã đóng hạn nộp</span>
+                <p className="text-2xl font-serif font-bold text-gray-600">{kpiMetrics.totalClosed}</p>
+                <span className="text-[10px] text-gray-500">Đã khóa bài nộp</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-amber-200 space-y-1 shadow-2xs">
+                <span className="text-[11px] text-amber-800 font-medium block">Đề nháp (Đang soạn)</span>
+                <p className="text-2xl font-serif font-bold text-amber-700">{kpiMetrics.totalDrafts}</p>
+                <span className="text-[10px] text-amber-700">Chưa giao lớp</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-emerald-200 space-y-1 shadow-2xs">
+                <span className="text-[11px] text-emerald-800 font-medium block">Đã chấm & Công bố</span>
                 <p className="text-2xl font-serif font-bold text-[#204434]">{kpiMetrics.totalPublished}</p>
-                <span className="text-[10px] text-[#315E48]">Học viên xem được</span>
+                <span className="text-[10px] text-emerald-700">Học viên đã xem</span>
               </div>
             </div>
 
-            {/* 5 TABS BẮT BUỘC (SPEC SECTION B1) */}
+            {/* THANH TAB CHUẨN THEO ĐẶC TẢ SECTION 2.1 */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                 {[
                   {
-                    id: "ASSIGNED",
-                    label: `Bài đã giao (${assignments.filter((a) => a.status !== "ARCHIVED").length})`,
+                    id: "ALL",
+                    label: `Tất cả đề (${assignments.filter((a) => a.status !== "ARCHIVED").length})`,
+                  },
+                  {
+                    id: "OPEN",
+                    label: `Đang mở (${assignments.filter((a) => a.status === "ACTIVE" || a.status === "OPEN").length})`,
                   },
                   {
                     id: "SUBMISSIONS",
-                    label: `Bài nộp & Chấm điểm (${submissions.length})`,
+                    label: `Chờ chấm (${kpiMetrics.totalWaitingGrade})`,
                     highlight: kpiMetrics.totalWaitingGrade > 0,
                   },
                   {
-                    id: "READY_EXAMS",
-                    label: `Đề đã hoàn thiện (${examPackages.filter((p) => p.status === "READY").length})`,
+                    id: "CLOSED",
+                    label: `Đã đóng (${assignments.filter((a) => a.status === "CLOSED").length})`,
                   },
                   {
                     id: "DRAFT_EXAMS",
-                    label: `Bản nháp đề (${examPackages.filter((p) => p.status === "DRAFT").length})`,
+                    label: `Đề nháp (${kpiMetrics.totalDrafts})`,
+                    isDraftTab: true,
+                  },
+                  {
+                    id: "READY_EXAMS",
+                    label: `Đề đã hoàn thiện (${kpiMetrics.totalReady})`,
                   },
                   {
                     id: "ARCHIVED",
@@ -1522,6 +1685,8 @@ export function AssignmentsWorkspace({
                         ? "bg-[#204434] text-white shadow-xs"
                         : t.highlight
                         ? "bg-[#BC9B6B]/20 text-[#8F6D3B] border border-[#BC9B6B]/40 hover:bg-[#BC9B6B]/30"
+                        : t.isDraftTab
+                        ? "bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100"
                         : "bg-[#FFFCF6] text-[#204434] border border-[#E5DEC9] hover:bg-[#F3EEDD]"
                     }`}
                   >
@@ -1545,86 +1710,131 @@ export function AssignmentsWorkspace({
             </div>
 
             {/* ------------------------------------------------------------- */}
-            {/* TAB 1: BẢN NHÁP ĐỀ (DRAFT_EXAMS) */}
+            {/* TAB: BẢN NHÁP ĐỀ (DRAFT_EXAMS) - BẢNG ĐẶC TẢ SECTION 2.1 & 2.2 */}
             {/* ------------------------------------------------------------- */}
             {activeTab === "DRAFT_EXAMS" && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {examPackages
-                    .filter((p) => p.status === "DRAFT")
-                    .map((pkg) => (
-                      <div
-                        key={pkg.id}
-                        className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-3 hover:border-[#BC9B6B] transition flex flex-col justify-between"
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                              Bản nháp
-                            </span>
-                            <span className="text-[11px] text-[#315E48]">Cập nhật: {pkg.updatedAt}</span>
-                          </div>
-                          <h4 className="font-serif font-bold text-base text-[#204434]">{pkg.title}</h4>
-                          <p className="text-xs text-[#315E48] line-clamp-2">{pkg.description}</p>
-                          <div className="flex items-center gap-3 text-xs text-[#8F6D3B] font-medium pt-1">
-                            <span>HSK {pkg.hskLevel} ({pkg.curriculum})</span>
-                            <span>•</span>
-                            <span>{pkg.questionsCount} câu hỏi</span>
-                            <span>•</span>
-                            <span>{pkg.totalPoints} điểm</span>
-                          </div>
-                        </div>
+                <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-[#E5DEC9] bg-[#FAF7F0] text-[#315E48] font-bold text-[11px]">
+                        <th className="py-3.5 px-4">Tên đề bài / Mô tả</th>
+                        <th className="py-3.5 px-4">Chương trình</th>
+                        <th className="py-3.5 px-4">Số câu / Tổng điểm</th>
+                        <th className="py-3.5 px-4">Cập nhật</th>
+                        <th className="py-3.5 px-4">Trạng thái</th>
+                        <th className="py-3.5 px-4 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E5DEC9]/50">
+                      {examPackages
+                        .filter((p) => p.status === "DRAFT")
+                        .filter((p) =>
+                          searchQuery.trim() === ""
+                            ? true
+                            : p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              p.description.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map((pkg) => (
+                          <tr key={pkg.id} className="hover:bg-[#FAF7F0]/60 transition">
+                            <td className="py-3.5 px-4 max-w-xs">
+                              <p className="font-bold text-[#204434] text-xs">{pkg.title}</p>
+                              <p className="text-[11px] text-[#315E48] line-clamp-1">{pkg.description}</p>
+                            </td>
+                            <td className="py-3.5 px-4 font-semibold text-[#8F6D3B]">
+                              HSK {pkg.hskLevel} ({pkg.curriculum})
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-[#204434]">{pkg.questionsCount} câu</span>
+                              <span className="text-[#315E48]"> · {pkg.totalPoints}đ</span>
+                            </td>
+                            <td className="py-3.5 px-4 text-[#315E48] text-[11px]">{pkg.updatedAt}</td>
+                            <td className="py-3.5 px-4">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200 inline-flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                                <span>Đang soạn</span>
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleResumeDraft(pkg)}
+                                  className="px-3 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold text-xs shadow-2xs flex items-center gap-1 transition"
+                                  title="Tiếp tục chỉnh sửa câu hỏi trong đề nháp này"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                                  <span>Tiếp tục soạn</span>
+                                </button>
+                                <button
+                                  onClick={() => setPreviewingExam(pkg)}
+                                  className="p-1.5 rounded-xl border border-[#E5DEC9] bg-white hover:bg-[#FAF7F0] text-[#315E48]"
+                                  title="Xem trước đề thi"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (pkg.questionsCount === 0) {
+                                      showToast("Đề chưa có câu hỏi nào! Hãy bấm 'Tiếp tục soạn' để thêm câu hỏi trước.");
+                                      return;
+                                    }
+                                    handleOpenAssignModal(pkg);
+                                  }}
+                                  className={`px-3 py-1.5 rounded-xl border font-bold text-xs flex items-center gap-1 transition ${
+                                    pkg.questionsCount > 0
+                                      ? "border-emerald-600 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                                      : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  }`}
+                                  title={pkg.questionsCount > 0 ? "Hoàn thiện và Giao cho lớp" : "Cần có ít nhất 1 câu hỏi để giao"}
+                                >
+                                  <Send className="w-3 h-3 text-emerald-700" />
+                                  <span>Giao lớp</span>
+                                </button>
+                                <button
+                                  onClick={() => handleCloneExamPackage(pkg)}
+                                  className="p-1.5 rounded-xl border border-[#E5DEC9] bg-white hover:bg-[#FAF7F0] text-[#315E48]"
+                                  title="Nhân bản thành đề nháp mới"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirmPackage(pkg)}
+                                  className="p-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600"
+                                  title="Xóa đề nháp an toàn (không xóa câu gốc trong kho)"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
 
-                        <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => setPreviewingExam(pkg)}
-                              className="p-1.5 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0] text-[#315E48]"
-                              title="Xem trước đề"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleCloneExamPackage(pkg)}
-                              className="p-1.5 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0] text-[#315E48]"
-                              title="Nhân bản đề nháp"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteExamPackage(pkg.id)}
-                              className="p-1.5 rounded-xl border border-red-200 hover:bg-red-50 text-red-600"
-                              title="Xóa bản nháp"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setExamTitle(pkg.title);
-                              setExamDescription(pkg.description);
-                              setExamLevel(pkg.hskLevel);
-                              setViewMode("COMPOSER");
-                              setComposerStep(1);
-                              showToast(`Đã nạp bản nháp "${pkg.title}" vào trình soạn!`);
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold text-xs shadow-2xs transition flex items-center gap-1"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-[#BC9B6B]" />
-                            <span>Tiếp tục chỉnh sửa</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                  {examPackages.filter((p) => p.status === "DRAFT").length === 0 && (
+                    <div className="p-12 text-center space-y-3">
+                      <FileText className="w-10 h-10 mx-auto text-[#BC9B6B]" />
+                      <p className="font-serif font-bold text-sm text-[#204434]">Bạn chưa có đề nháp nào</p>
+                      <p className="text-xs text-[#315E48] max-w-md mx-auto">
+                        Đề nháp được tự động lưu khi bạn bấm "+ Soạn đề bài mới" hoặc chọn "Thêm vào đề" từ Kho câu hỏi của tôi.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setCurrentExamId(null);
+                          setExamTitle("");
+                          setExamDescription("");
+                          setDraftQuestions([]);
+                          setViewMode("COMPOSER");
+                          setComposerStep(1);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold shadow-xs inline-flex items-center gap-1.5 hover:bg-[#183629]"
+                      >
+                        <Plus className="w-4 h-4 text-[#BC9B6B]" />
+                        <span>+ Tạo đề mới</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {examPackages.filter((p) => p.status === "DRAFT").length === 0 && (
-                  <div className="p-8 rounded-3xl bg-[#FFFCF6] border border-dashed border-[#E5DEC9] text-center space-y-2">
-                    <p className="text-sm font-medium text-[#204434]">Không có bản nháp đề nào</p>
-                    <p className="text-xs text-[#315E48]">
-                      Nhấn nút "+ Soạn đề bài mới" ở trên để bắt đầu tạo đề kiểm tra mới.
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1710,9 +1920,9 @@ export function AssignmentsWorkspace({
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* TAB 3: BÀI ĐÃ GIAO (ASSIGNED) */}
+            {/* TAB BÀI ĐÃ GIAO (ALL / OPEN / CLOSED) */}
             {/* ------------------------------------------------------------- */}
-            {activeTab === "ASSIGNED" && (
+            {(activeTab === "ALL" || activeTab === "OPEN" || activeTab === "CLOSED") && (
               <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead>
@@ -1731,6 +1941,11 @@ export function AssignmentsWorkspace({
                   <tbody className="divide-y divide-[#E5DEC9]/50">
                     {assignments
                       .filter((a) => a.status !== "ARCHIVED")
+                      .filter((a) => {
+                        if (activeTab === "OPEN") return a.status === "ACTIVE" || a.status === "OPEN";
+                        if (activeTab === "CLOSED") return a.status === "CLOSED";
+                        return true;
+                      })
                       .filter((a) =>
                         searchQuery.trim() === ""
                           ? true
@@ -2282,17 +2497,30 @@ export function AssignmentsWorkspace({
                       </span>
                     </div>
 
-                    {/* PRIMARY ACTION: + THÊM CÂU HỎI (Replaced old "Thêm câu mẫu") */}
-                    <button
-                      onClick={() => {
-                        setActiveFlow("CHOICE");
-                        setIsAddQuestionChoiceOpen(true);
-                      }}
-                      className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-2 transition"
-                    >
-                      <Plus className="w-4 h-4 text-[#BC9B6B]" />
-                      <span>+ Thêm câu hỏi (3 luồng)</span>
-                    </button>
+                    {/* PRIMARY ACTIONS: LƯU ĐỀ NHÁP & + THÊM CÂU HỎI */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleSaveDraftExam}
+                        disabled={examSaveStatus === "SAVING"}
+                        className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B] bg-[#FFFCF6] hover:bg-[#FAF7F0] text-[#8F6D3B] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition"
+                      >
+                        <Save className="w-4 h-4 text-[#8F6D3B]" />
+                        <span>{examSaveStatus === "SAVING" ? "Đang lưu..." : "Lưu đề nháp"}</span>
+                        {examSaveStatus === "SAVED" && <span className="text-emerald-700 font-bold ml-1">✓ Đã lưu</span>}
+                        {examSaveStatus === "UNSAVED" && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse ml-0.5" />}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveFlow("CHOICE");
+                          setIsAddQuestionChoiceOpen(true);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-2 transition"
+                      >
+                        <Plus className="w-4 h-4 text-[#BC9B6B]" />
+                        <span>+ Thêm câu hỏi (3 luồng)</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2475,23 +2703,43 @@ export function AssignmentsWorkspace({
                 </div>
 
                 {/* Bottom Step 1 Action */}
-                <div className="pt-4 border-t border-[#E5DEC9] flex items-center justify-between">
-                  <span className="text-xs text-[#315E48]">
-                    Tổng cộng: <strong>{draftQuestions.length} câu</strong> · <strong>{totalExamPoints} điểm</strong>
-                  </span>
-                  <button
-                    onClick={() => {
-                      if (draftQuestions.length === 0) {
-                        showToast("Vui lòng thêm ít nhất 1 câu hỏi vào đề!");
-                        return;
-                      }
-                      setComposerStep(2);
-                    }}
-                    className="px-6 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-2"
-                  >
-                    <span>Tiếp tục: Thiết lập giao cho lớp</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                <div className="pt-4 border-t border-[#E5DEC9] flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[#315E48]">
+                      Tổng cộng: <strong>{draftQuestions.length} câu</strong> · <strong>{totalExamPoints} điểm</strong>
+                    </span>
+                    {currentExamId && (
+                      <span className="text-[10px] text-[#8F6D3B] bg-[#BC9B6B]/15 px-2 py-0.5 rounded-md font-mono font-medium">
+                        Mã đề: {currentExamId}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSaveDraftExam}
+                      disabled={examSaveStatus === "SAVING"}
+                      className="px-4 py-2.5 rounded-xl border border-[#BC9B6B] bg-white hover:bg-[#FAF7F0] text-[#8F6D3B] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{examSaveStatus === "SAVING" ? "Đang lưu..." : "Lưu đề nháp"}</span>
+                      {examSaveStatus === "SAVED" && <span className="text-emerald-700 font-bold ml-1">✓ Đã lưu</span>}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (draftQuestions.length === 0) {
+                          showToast("Vui lòng thêm ít nhất 1 câu hỏi vào đề!");
+                          return;
+                        }
+                        setComposerStep(2);
+                      }}
+                      className="px-6 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-2"
+                    >
+                      <span>Tiếp tục: Thiết lập giao cho lớp</span>
+                      <ArrowRight className="w-4 h-4 text-[#BC9B6B]" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -6107,6 +6355,62 @@ export function AssignmentsWorkspace({
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Xác nhận yêu cầu nộp lại</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL XÁC NHẬN XÓA ĐỀ NHÁP (SPEC SECTION 2.2) */}
+        {deleteConfirmPackage && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-md w-full p-6 space-y-4 shadow-2xl animate-fade-in">
+              <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-3">
+                <div className="flex items-center gap-2 text-red-600 font-bold text-base">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <span>Xóa bản nháp đề</span>
+                </div>
+                <button
+                  onClick={() => setDeleteConfirmPackage(null)}
+                  className="p-1.5 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0] text-[#315E48]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2 text-xs text-[#315E48]">
+                <p>
+                  Bạn có chắc chắn muốn xóa bộ đề nháp:{" "}
+                  <strong className="text-[#204434]">{deleteConfirmPackage.title}</strong>?
+                </p>
+                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                    <span>Quy tắc bảo vệ dữ liệu gốc:</span>
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    Tất cả các câu hỏi thuộc đề này trong <strong>Kho câu hỏi của tôi</strong> và các bài tập đã giao hoàn toàn được bảo toàn nguyên vẹn, không bị xóa hay ảnh hưởng.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 text-xs">
+                <button
+                  onClick={() => setDeleteConfirmPackage(null)}
+                  className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] font-semibold hover:bg-[#FAF7F0]"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={() => {
+                    setExamPackages(examPackages.filter((p) => p.id !== deleteConfirmPackage.id));
+                    showToast(`Đã xóa đề nháp "${deleteConfirmPackage.title}" an toàn!`);
+                    setDeleteConfirmPackage(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-xs flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xác nhận xóa đề nháp</span>
                 </button>
               </div>
             </div>

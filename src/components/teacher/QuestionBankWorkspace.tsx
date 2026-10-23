@@ -33,6 +33,8 @@ import {
   QuestionType,
   OFFICIAL_12_QUESTION_TYPES,
   UNIFIED_QUESTION_BANK,
+  ExamPackageItem,
+  MOCK_EXAM_PACKAGES,
 } from "@/lib/assignment-data";
 
 interface QuestionBankWorkspaceProps {
@@ -99,9 +101,48 @@ export default function QuestionBankWorkspace({
   // Modal A: View Details
   const [viewQuestion, setViewQuestion] = useState<ExamQuestionItem | null>(null);
 
-  // Modal B: Add to Exam
+  // Modal B: Add to Exam (Spec Section 4)
   const [targetQuestionForExam, setTargetQuestionForExam] = useState<ExamQuestionItem | null>(null);
-  const [selectedExamId, setSelectedExamId] = useState<string>("ex-1");
+  const [targetBulkQuestionsForExam, setTargetBulkQuestionsForExam] = useState<ExamQuestionItem[] | null>(null);
+  const [selectedExamId, setSelectedExamId] = useState<string>("");
+  const [draftExamsList, setDraftExamsList] = useState<ExamPackageItem[]>([]);
+  const [examSearchTerm, setExamSearchTerm] = useState("");
+  const [isCreatingNewExamInPopup, setIsCreatingNewExamInPopup] = useState(false);
+  const [newExamTitle, setNewExamTitle] = useState("");
+  const [newExamCurriculum, setNewExamCurriculum] = useState("HSK 3.0");
+  const [newExamLevel, setNewExamLevel] = useState(1);
+  const [addedSuccessResult, setAddedSuccessResult] = useState<{
+    examId: string;
+    examTitle: string;
+    count: number;
+    totalPoints: number;
+  } | null>(null);
+
+  // Load / Refresh real draft exams from localStorage
+  const refreshDraftExamsList = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_exam_packages");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const drafts = parsed.filter((p: any) => p.status === "DRAFT");
+            setDraftExamsList(drafts);
+            if (drafts.length > 0 && !selectedExamId) {
+              setSelectedExamId(drafts[0].id);
+            }
+            return drafts;
+          }
+        }
+      } catch (e) {}
+    }
+    const defaultDrafts = MOCK_EXAM_PACKAGES.filter((p) => p.status === "DRAFT");
+    setDraftExamsList(defaultDrafts);
+    if (defaultDrafts.length > 0 && !selectedExamId) {
+      setSelectedExamId(defaultDrafts[0].id);
+    }
+    return defaultDrafts;
+  };
 
   // Modal C: View Exam Usages
   const [usageQuestion, setUsageQuestion] = useState<ExamQuestionItem | null>(null);
@@ -145,14 +186,6 @@ export default function QuestionBankWorkspace({
     exampleZh: "他去医院看病了。",
   });
   const [eHwRepeat, setEHwRepeat] = useState(5);
-
-  // Available Exams List (Mockup section 7.2)
-  const [availableExams, setAvailableExams] = useState([
-    { id: "ex-1", title: "Ôn tập HSK 1 – Bài 5", tag: "Đang soạn", count: 4, points: 25 },
-    { id: "ex-2", title: "Kiểm tra giữa kỳ", tag: "Bản nháp", count: 12, points: 60 },
-    { id: "ex-3", title: "Bài tập tuần 3", tag: "Bản nháp", count: 8, points: 40 },
-    { id: "ex-new", title: "Tạo đề mới...", tag: "Tạo mới", count: 0, points: 0 },
-  ]);
 
   // =========================================================================
   // 3. KPI COUNTERS (All = Draft + Ready | Used is subset of Ready)
@@ -428,24 +461,119 @@ export default function QuestionBankWorkspace({
   };
 
   const handleConfirmAddToExam = () => {
-    if (!targetQuestionForExam) return;
-    const exam = availableExams.find((e) => e.id === selectedExamId);
-    const examTitle = exam ? exam.title : "Đề kiểm tra mới";
+    const questionsToAdd: ExamQuestionItem[] =
+      targetBulkQuestionsForExam && targetBulkQuestionsForExam.length > 0
+        ? targetBulkQuestionsForExam
+        : targetQuestionForExam
+        ? [targetQuestionForExam]
+        : [];
 
-    // Update question's usage count and exams list
+    if (questionsToAdd.length === 0) {
+      showToast("Không có câu hỏi nào để thêm vào đề!");
+      return;
+    }
+
+    // Chặn câu chưa READY (Spec Section 4.5)
+    const draftQuestionsFound = questionsToAdd.filter((q) => q.status === "DRAFT");
+    if (draftQuestionsFound.length > 0) {
+      showToast(
+        `Có ${draftQuestionsFound.length} câu hỏi đang ở trạng thái bản nháp. Vui lòng hoàn thiện câu hỏi trước khi thêm vào đề!`
+      );
+      return;
+    }
+
+    let allPackages: ExamPackageItem[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_exam_packages");
+        if (saved) allPackages = JSON.parse(saved);
+      } catch (e) {}
+    }
+    if (allPackages.length === 0) {
+      allPackages = [...MOCK_EXAM_PACKAGES];
+    }
+
+    const nowFormatted =
+      new Date().toLocaleDateString("vi-VN") +
+      " " +
+      new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+    let targetExamId = selectedExamId;
+    let targetExamTitle = "";
+    let finalCount = 0;
+    let finalPoints = 0;
+
+    if (isCreatingNewExamInPopup) {
+      if (!newExamTitle.trim()) {
+        showToast("Vui lòng nhập tên đề kiểm tra mới!");
+        return;
+      }
+      targetExamId = `exam-draft-${Date.now()}`;
+      targetExamTitle = newExamTitle.trim();
+      finalCount = questionsToAdd.length;
+      finalPoints = questionsToAdd.reduce((sum, q) => sum + (q.points || 5), 0);
+
+      const newDraftPkg: ExamPackageItem = {
+        id: targetExamId,
+        title: targetExamTitle,
+        description: "Bộ đề tạo từ Kho câu hỏi của tôi",
+        curriculum: newExamCurriculum,
+        hskLevel: newExamLevel,
+        status: "DRAFT",
+        questionsCount: finalCount,
+        totalPoints: finalPoints,
+        createdAt: nowFormatted,
+        updatedAt: nowFormatted,
+        questions: [...questionsToAdd],
+      };
+
+      allPackages = [newDraftPkg, ...allPackages];
+    } else {
+      const pkgIdx = allPackages.findIndex((p) => p.id === targetExamId);
+      if (pkgIdx === -1) {
+        showToast("Vui lòng chọn một đề nháp hợp lệ!");
+        return;
+      }
+      const existingPkg = allPackages[pkgIdx];
+      targetExamTitle = existingPkg.title;
+      const existingQuestions = existingPkg.questions || [];
+
+      // Add questions (Spec Section 4.3)
+      const updatedQuestions = [...existingQuestions, ...questionsToAdd];
+      finalCount = updatedQuestions.length;
+      finalPoints = updatedQuestions.reduce((sum, q) => sum + (q.points || 5), 0);
+
+      allPackages[pkgIdx] = {
+        ...existingPkg,
+        questions: updatedQuestions,
+        questionsCount: finalCount,
+        totalPoints: finalPoints,
+        updatedAt: nowFormatted,
+      };
+    }
+
+    // Save to localStorage (Spec Section 4.3 & 7.3)
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("hanyu_exam_packages", JSON.stringify(allPackages));
+      } catch (e) {}
+    }
+
+    // Update question's usage count and exams list in local question bank
+    const questionIdsAdded = new Set(questionsToAdd.map((q) => q.id));
     setQuestions((prev) =>
       prev.map((q) => {
-        if (q.id === targetQuestionForExam.id) {
+        if (questionIdsAdded.has(q.id)) {
           const currentExams = q.usedInExams || [];
-          const exists = currentExams.some((e) => e.id === selectedExamId);
+          const exists = currentExams.some((e) => e.id === targetExamId);
           const updatedExams = exists
             ? currentExams
             : [
                 ...currentExams,
                 {
-                  id: selectedExamId,
-                  title: examTitle,
-                  status: exam?.tag || "Đang soạn",
+                  id: targetExamId,
+                  title: targetExamTitle,
+                  status: "Đang soạn",
                   className: "Lớp phụ trách",
                   updatedAt: new Date().toLocaleDateString("vi-VN"),
                 },
@@ -460,9 +588,17 @@ export default function QuestionBankWorkspace({
       })
     );
 
-    showToast(`Đã thêm câu hỏi vào đề "${examTitle}" thành công!`);
-    setTargetQuestionForExam(null);
-    setOpenActionMenuId(null);
+    // Refresh draft exams list
+    setDraftExamsList(allPackages.filter((p) => p.status === "DRAFT"));
+
+    // Show success view (Spec Section 4.2)
+    setAddedSuccessResult({
+      examId: targetExamId,
+      examTitle: targetExamTitle,
+      count: finalCount,
+      totalPoints: finalPoints,
+    });
+    showToast(`Đã thêm ${questionsToAdd.length} câu hỏi vào đề "${targetExamTitle}" thành công!`);
   };
 
   // Toggle select row
@@ -886,7 +1022,10 @@ export default function QuestionBankWorkspace({
                               </button>
 
                               <button
-                                onClick={() => setTargetQuestionForExam(q)}
+                                onClick={() => {
+                                  refreshDraftExamsList();
+                                  setTargetQuestionForExam(q);
+                                }}
                                 className="px-2.5 py-1 rounded-lg border border-[#204434] bg-white hover:bg-[#FAF7F0] text-[11px] font-bold text-[#204434] flex items-center gap-1 transition"
                                 title="Thêm câu hỏi vào đề kiểm tra"
                               >
@@ -942,6 +1081,12 @@ export default function QuestionBankWorkspace({
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuId(null);
+                                    if (q.status === "DRAFT") {
+                                      showToast("Câu hỏi này đang là bản nháp chưa hoàn thiện. Vui lòng hoàn thiện câu hỏi trước khi thêm vào đề!");
+                                      handleOpenEditOrDraft(q);
+                                      return;
+                                    }
+                                    refreshDraftExamsList();
                                     setTargetQuestionForExam(q);
                                   }}
                                   className="w-full px-3 py-1.5 hover:bg-[#FAF7F0] flex items-center gap-2 text-left"
@@ -1045,6 +1190,41 @@ export default function QuestionBankWorkspace({
           </div>
         </div>
       </div>
+
+      {/* FLOATING BULK ACTIONS BAR (SPEC SECTION 4.1) */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#204434] text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 text-xs font-medium border border-[#BC9B6B]/40 animate-fade-in">
+          <span>
+            Đã chọn <strong>{selectedIds.length} câu hỏi</strong>
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const picked = questions.filter((q) => selectedIds.includes(q.id));
+                const draftPicked = picked.filter((q) => q.status === "DRAFT");
+                if (draftPicked.length > 0) {
+                  showToast(
+                    `Có ${draftPicked.length} câu hỏi chưa hoàn thiện (DRAFT). Chỉ có thể thêm câu hỏi đã hoàn thiện vào đề!`
+                  );
+                  return;
+                }
+                refreshDraftExamsList();
+                setTargetBulkQuestionsForExam(picked);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-[#BC9B6B] hover:bg-[#A88755] text-white font-bold flex items-center gap-1.5 shadow-xs transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Thêm vào đề nháp</span>
+            </button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition"
+            >
+              Bỏ chọn
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* =================================================================== */}
       {/* 7. MODAL A: XEM CHI TIẾT CÂU HỎI (Mockup Chi Tiết Bên Trái Dưới) */}
@@ -1180,80 +1360,281 @@ export default function QuestionBankWorkspace({
       )}
 
       {/* =================================================================== */}
-      {/* 8. MODAL B: CHỌN ĐỀ KIỂM TRA ĐỂ THÊM CÂU HỎI (Mockup Bên Phải Dưới) */}
+      {/* 8. MODAL B: CHỌN ĐỀ NHÁP ĐỂ THÊM CÂU HỎI (SPEC SECTION 4) */}
       {/* =================================================================== */}
-      {targetQuestionForExam && (
+      {(targetQuestionForExam || (targetBulkQuestionsForExam && targetBulkQuestionsForExam.length > 0)) && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-3">
-              <h3 className="font-serif font-bold text-base text-[#204434]">
-                Chọn đề kiểm tra để thêm câu hỏi
-              </h3>
+          <div className="bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-lg w-full p-6 space-y-4 shadow-2xl animate-fade-in max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <FolderPlus className="w-5 h-5 text-[#8F6D3B]" />
+                <h3 className="font-serif font-bold text-base text-[#204434]">
+                  {addedSuccessResult ? "Thêm vào đề thành công" : "Chọn đề nháp để thêm câu hỏi"}
+                </h3>
+              </div>
               <button
-                onClick={() => setTargetQuestionForExam(null)}
-                className="p-1 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                onClick={() => {
+                  setTargetQuestionForExam(null);
+                  setTargetBulkQuestionsForExam(null);
+                  setAddedSuccessResult(null);
+                  setIsCreatingNewExamInPopup(false);
+                }}
+                className="p-1.5 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0] text-[#315E48]"
               >
                 <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
-            <p className="text-xs text-[#315E48]">
-              Câu hỏi: <strong>{targetQuestionForExam.title}</strong> ({targetQuestionForExam.points} điểm)
-            </p>
-
-            <div className="space-y-2 text-xs">
-              {availableExams.map((exam) => {
-                const isSelected = selectedExamId === exam.id;
-                return (
-                  <label
-                    key={exam.id}
-                    onClick={() => setSelectedExamId(exam.id)}
-                    className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition ${
-                      isSelected
-                        ? "bg-emerald-50/70 border-emerald-400 font-bold text-emerald-900"
-                        : "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="radio"
-                        name="exam_target"
-                        checked={isSelected}
-                        onChange={() => setSelectedExamId(exam.id)}
-                        className="text-[#204434] focus:ring-[#204434]"
-                      />
-                      <span>{exam.title}</span>
-                    </div>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${
-                        exam.tag === "Đang soạn"
-                          ? "bg-emerald-200 text-emerald-900"
-                          : exam.tag === "Tạo mới"
-                          ? "bg-[#204434] text-white"
-                          : "bg-amber-100 text-amber-900"
-                      }`}
-                    >
-                      {exam.tag}
+            {/* MÀN HÌNH SAU THÀNH CÔNG (SPEC SECTION 4.2: THÔNG BÁO + MỞ ĐỀ VỪA CẬP NHẬT) */}
+            {addedSuccessResult ? (
+              <div className="space-y-4 py-2">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-sm text-emerald-800">
+                    <Check className="w-5 h-5 text-emerald-700" />
+                    <span>Đã thêm câu hỏi vào đề kiểm tra thành công!</span>
+                  </div>
+                  <p className="text-xs text-emerald-900">
+                    Đề bài: <strong>{addedSuccessResult.examTitle}</strong>
+                  </p>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 pt-1">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 border border-emerald-300">
+                      Tổng số câu hiện tại: {addedSuccessResult.count} câu
                     </span>
-                  </label>
-                );
-              })}
-            </div>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 border border-emerald-300">
+                      Tổng điểm: {addedSuccessResult.totalPoints} điểm
+                    </span>
+                  </div>
+                </div>
 
-            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2 text-xs font-bold">
-              <button
-                onClick={() => setTargetQuestionForExam(null)}
-                className="px-4 py-2 rounded-xl border border-[#E5DEC9] bg-white text-[#315E48] hover:bg-[#FAF7F0]"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleConfirmAddToExam}
-                className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white shadow-xs flex items-center gap-1.5"
-              >
-                <span>Thêm vào đề</span>
-              </button>
-            </div>
+                <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2 text-xs font-bold">
+                  <button
+                    onClick={() => {
+                      setTargetQuestionForExam(null);
+                      setTargetBulkQuestionsForExam(null);
+                      setAddedSuccessResult(null);
+                      setIsCreatingNewExamInPopup(false);
+                      setSelectedIds([]);
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-[#E5DEC9] bg-white text-[#315E48] hover:bg-[#FAF7F0]"
+                  >
+                    Ở lại Kho câu hỏi
+                  </button>
+                  <button
+                    onClick={() => {
+                      const examId = addedSuccessResult.examId;
+                      setTargetQuestionForExam(null);
+                      setTargetBulkQuestionsForExam(null);
+                      setAddedSuccessResult(null);
+                      setIsCreatingNewExamInPopup(false);
+                      setSelectedIds([]);
+                      onNavigateToAssignments?.(examId);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white shadow-xs flex items-center gap-1.5"
+                  >
+                    <span>Mở đề vừa cập nhật</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 overflow-y-auto pr-1">
+                {/* Thông tin câu đã chọn (Spec Section 4.2) */}
+                <div className="p-3 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-1 text-xs">
+                  {targetBulkQuestionsForExam && targetBulkQuestionsForExam.length > 0 ? (
+                    <div>
+                      <p className="font-bold text-[#204434]">
+                        Đang chọn hàng loạt: <strong>{targetBulkQuestionsForExam.length} câu hỏi</strong>
+                      </p>
+                      <p className="text-[11px] text-[#8F6D3B]">
+                        Tổng điểm dự kiến thêm vào đề:{" "}
+                        <strong>
+                          {targetBulkQuestionsForExam.reduce((sum, q) => sum + (q.points || 5), 0)} điểm
+                        </strong>
+                      </p>
+                    </div>
+                  ) : targetQuestionForExam ? (
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-[#204434] line-clamp-1">{targetQuestionForExam.title}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#204434]/10 text-[#204434] shrink-0">
+                          {OFFICIAL_12_QUESTION_TYPES.find((t) => t.id === targetQuestionForExam.type)?.name ||
+                            targetQuestionForExam.type}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#315E48]">
+                        Điểm: <strong>{targetQuestionForExam.points}đ</strong> · Nguồn:{" "}
+                        {targetQuestionForExam.sourceLesson || "HSK 1 - Bài 5"}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Form Tạo đề mới ngay trong Popup (Spec Section 4.2 & 4.4) */}
+                <div className="border border-[#E5DEC9] rounded-2xl p-3 bg-white space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                      <span>Tạo một đề nháp mới</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCreatingNewExamInPopup(!isCreatingNewExamInPopup);
+                        if (!isCreatingNewExamInPopup && !newExamTitle) {
+                          setNewExamTitle(`Đề nháp mới (${new Date().toLocaleDateString("vi-VN")})`);
+                        }
+                      }}
+                      className="text-[11px] font-bold text-[#8F6D3B] hover:underline"
+                    >
+                      {isCreatingNewExamInPopup ? "Hủy tạo mới" : "+ Tạo đề mới"}
+                    </button>
+                  </div>
+
+                  {isCreatingNewExamInPopup && (
+                    <div className="pt-2 border-t border-[#E5DEC9]/60 space-y-2 text-xs animate-fade-in">
+                      <div>
+                        <label className="font-semibold text-[#204434] block mb-1">
+                          Tên đề kiểm tra <span className="text-red-500">*</span>:
+                        </label>
+                        <input
+                          type="text"
+                          value={newExamTitle}
+                          onChange={(e) => setNewExamTitle(e.target.value)}
+                          placeholder="Ví dụ: Ôn tập ngữ pháp & từ vựng tuần 3..."
+                          className="w-full px-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs font-bold text-[#204434] focus:outline-none focus:ring-1 focus:ring-[#204434]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] text-[#315E48] block mb-1">Chương trình:</label>
+                          <select
+                            value={newExamCurriculum}
+                            onChange={(e) => setNewExamCurriculum(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-xl border border-[#E5DEC9] text-xs text-[#204434]"
+                          >
+                            <option value="HSK 3.0">HSK 3.0 Tiêu chuẩn</option>
+                            <option value="Theo chủ đề">Giao tiếp theo chủ đề</option>
+                            <option value="Đại học & Ngành">Đại học & Ngành</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-[#315E48] block mb-1">Cấp độ HSK:</label>
+                          <select
+                            value={newExamLevel}
+                            onChange={(e) => setNewExamLevel(Number(e.target.value))}
+                            className="w-full px-2.5 py-1.5 rounded-xl border border-[#E5DEC9] text-xs text-[#204434]"
+                          >
+                            {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                              <option key={lvl} value={lvl}>
+                                HSK {lvl}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Chọn đề nháp có sẵn (Spec Section 4.2 & 4.3) */}
+                {!isCreatingNewExamInPopup && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#204434] block">
+                        Hoặc chọn đề nháp hiện có:
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => refreshDraftExamsList()}
+                        className="text-[11px] text-[#315E48] hover:text-[#204434] flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Làm mới</span>
+                      </button>
+                    </div>
+
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#315E48]" />
+                      <input
+                        type="text"
+                        value={examSearchTerm}
+                        onChange={(e) => setExamSearchTerm(e.target.value)}
+                        placeholder="Tìm đề nháp theo tên..."
+                        className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs bg-white text-[#204434]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {draftExamsList
+                        .filter((p) =>
+                          examSearchTerm.trim() === ""
+                            ? true
+                            : p.title.toLowerCase().includes(examSearchTerm.toLowerCase())
+                        )
+                        .map((exam) => {
+                          const isSelected = selectedExamId === exam.id;
+                          return (
+                            <label
+                              key={exam.id}
+                              onClick={() => setSelectedExamId(exam.id)}
+                              className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition text-xs ${
+                                isSelected
+                                  ? "bg-emerald-50/80 border-emerald-400 font-bold text-emerald-950"
+                                  : "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="radio"
+                                  name="exam_target"
+                                  checked={isSelected}
+                                  onChange={() => setSelectedExamId(exam.id)}
+                                  className="text-[#204434] focus:ring-[#204434]"
+                                />
+                                <div>
+                                  <p className="font-bold text-[#204434]">{exam.title}</p>
+                                  <p className="text-[10px] text-[#315E48]">
+                                    HSK {exam.hskLevel} ({exam.curriculum}) · {exam.questionsCount || 0} câu · {exam.totalPoints || 0}đ
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                                Đang soạn
+                              </span>
+                            </label>
+                          );
+                        })}
+
+                      {draftExamsList.length === 0 && (
+                        <div className="p-4 rounded-xl border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48]">
+                          Chưa có đề nháp nào. Hãy chọn tùy chọn <strong>"+ Tạo đề mới"</strong> ở trên.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Buttons */}
+                <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-2 text-xs font-bold">
+                  <button
+                    onClick={() => {
+                      setTargetQuestionForExam(null);
+                      setTargetBulkQuestionsForExam(null);
+                      setIsCreatingNewExamInPopup(false);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-[#E5DEC9] bg-white text-[#315E48] hover:bg-[#FAF7F0]"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleConfirmAddToExam}
+                    className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white shadow-xs flex items-center gap-1.5"
+                  >
+                    <span>{isCreatingNewExamInPopup ? "Tạo đề & Thêm câu" : "Xác nhận thêm vào đề"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
