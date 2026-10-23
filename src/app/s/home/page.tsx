@@ -36,6 +36,11 @@ import {
   BarChart3,
 } from "lucide-react";
 import StudentClassesWorkspace from "@/components/student/StudentClassesWorkspace";
+import StudentAssignmentsWorkspace from "@/components/student/StudentAssignmentsWorkspace";
+import StudentRoadmapWorkspace from "@/components/student/StudentRoadmapWorkspace";
+import StudentLessonsWorkspace from "@/components/student/StudentLessonsWorkspace";
+import StudentPracticeWorkspace from "@/components/student/StudentPracticeWorkspace";
+import StudentReportsWorkspace from "@/components/student/StudentReportsWorkspace";
 import { getClassArtwork } from "@/lib/class-helper";
 
 interface SummaryData {
@@ -167,6 +172,15 @@ export default function StudentHomePage() {
         setEditingMajor(parsed.major || "Kinh tế & Quản trị");
         setEditingLevel(parsed.currentLevel || "beginner");
         setEditingDailyTime(parsed.dailyTime || 30);
+      }
+
+      // Check URL query param for tab
+      if (typeof window !== "undefined") {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get("tab");
+        if (tab && ["home", "roadmap", "lessons", "classes", "assignments", "practice", "results"].includes(tab)) {
+          setActiveNav(tab);
+        }
       }
     } catch {}
 
@@ -342,40 +356,32 @@ export default function StudentHomePage() {
             {/* 2. Lộ trình của tôi */}
             <button
               type="button"
-              onClick={() => {
-                setActiveNav("roadmap");
-                setShowGoalModal(true);
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
+              onClick={() => setActiveNav("roadmap")}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                activeNav === "roadmap"
+                  ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                  : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+              }`}
             >
               <Compass className="w-4 h-4 stroke-[1.8]" />
               <span>Lộ trình của tôi</span>
             </button>
 
-            {/* 3. Khám phá bài học */}
-            <a
-              href="#explore"
-              onClick={() => setActiveNav("explore")}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3">
-                <BookOpen className="w-4 h-4 stroke-[1.8]" />
-                <span>Khám phá bài học</span>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-            </a>
-
-            {/* 4. Bài học đang học */}
-            <a
-              href="#current-lesson"
-              onClick={() => setActiveNav("current")}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
+            {/* 3. Kho bài học & Khám phá */}
+            <button
+              type="button"
+              onClick={() => setActiveNav("lessons")}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                activeNav === "lessons"
+                  ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                  : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+              }`}
             >
               <BookOpen className="w-4 h-4 stroke-[1.8]" />
-              <span>Bài học đang học</span>
-            </a>
+              <span>Kho bài học & Khám phá</span>
+            </button>
 
-            {/* 5. Lớp học của tôi */}
+            {/* 4. Lớp học của tôi */}
             <button
               type="button"
               onClick={() => setActiveNav("classes")}
@@ -389,32 +395,40 @@ export default function StudentHomePage() {
               <span>Lớp học của tôi</span>
             </button>
 
-            {/* 6. Bài được giao */}
-            <a
-              href="#assignments"
+            {/* 5. Bài tập & Phòng thi */}
+            <button
+              type="button"
               onClick={() => setActiveNav("assignments")}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                activeNav === "assignments"
+                  ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                  : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <FileCheck2 className="w-4 h-4 stroke-[1.8]" />
-                <span>Bài được giao</span>
+                <span>Bài tập & Phòng thi</span>
               </div>
               <span className="w-2 h-2 rounded-full bg-[#9D493E]" />
-            </a>
+            </button>
 
-            {/* 7. Phòng luyện tập (Dropdown menu) */}
+            {/* 6. Phòng luyện tập (Dropdown menu) */}
             <div className="pt-0.5">
-              <a
-                href="#practice"
+              <button
+                type="button"
                 onClick={() => setActiveNav("practice")}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                  activeNav === "practice"
+                    ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                    : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <Dumbbell className="w-4 h-4 stroke-[1.8]" />
                   <span>Phòng luyện tập</span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-              </a>
+              </button>
 
               {/* Sub-items */}
               <div className="pl-9 pr-2 py-0.5 space-y-1 text-[11px] text-[#315E48]/85 font-normal">
@@ -434,7 +448,7 @@ export default function StudentHomePage() {
                   href="/s/games"
                   className="block py-1 hover:text-[#204434] transition hover:translate-x-0.5"
                 >
-                  Luyện trắc nghiệm
+                  Game phản xạ HSK
                 </Link>
                 <Link
                   href="/s/practice/wrong"
@@ -445,17 +459,21 @@ export default function StudentHomePage() {
               </div>
             </div>
 
-            {/* 8. Kết quả học tập */}
-            <a
-              href="#results"
+            {/* 7. Kết quả & Báo cáo */}
+            <button
+              type="button"
               onClick={() => setActiveNav("results")}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                activeNav === "results"
+                  ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                  : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+              }`}
             >
               <RotateCw className="w-4 h-4 stroke-[1.8]" />
               <span>Kết quả học tập</span>
-            </a>
+            </button>
 
-            {/* 9. Hồ sơ & Cài đặt */}
+            {/* 8. Hồ sơ & Cài đặt */}
             <button
               type="button"
               onClick={() => setShowSettingsModal(true)}
@@ -565,13 +583,38 @@ export default function StudentHomePage() {
         </header>
 
         {/* ========================================================================= */}
-        {/* DASHBOARD BODY (2 COLUMNS: LEFT 70% | RIGHT 30%) */}
+        {/* DASHBOARD BODY (WORKSPACE BRANCHING) */}
         {/* ========================================================================= */}
         <main className="p-4 sm:p-7 space-y-6 max-w-[1780px] w-full mx-auto">
           {activeNav === "classes" ? (
             <StudentClassesWorkspace
               currentUser={currentUser}
               onOpenJoinModal={() => setShowJoinModal(true)}
+            />
+          ) : activeNav === "assignments" ? (
+            <StudentAssignmentsWorkspace
+              currentUser={currentUser}
+              onNavigateToTab={(tab) => setActiveNav(tab)}
+            />
+          ) : activeNav === "roadmap" ? (
+            <StudentRoadmapWorkspace
+              currentUser={currentUser}
+              onNavigateToTab={(tab) => setActiveNav(tab)}
+            />
+          ) : activeNav === "lessons" ? (
+            <StudentLessonsWorkspace
+              currentUser={currentUser}
+              onNavigateToTab={(tab) => setActiveNav(tab)}
+            />
+          ) : activeNav === "practice" ? (
+            <StudentPracticeWorkspace
+              currentUser={currentUser}
+              onNavigateToTab={(tab) => setActiveNav(tab)}
+            />
+          ) : activeNav === "results" ? (
+            <StudentReportsWorkspace
+              currentUser={currentUser}
+              onNavigateToTab={(tab) => setActiveNav(tab)}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -1145,13 +1188,14 @@ export default function StudentHomePage() {
                     <Clock className="w-4 h-4 text-[#9D493E]" />
                     <h3 className="font-bold text-sm text-[#204434]">Bài sắp đến hạn</h3>
                   </div>
-                  <Link
-                    href="#assignments"
-                    className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium"
+                  <button
+                    type="button"
+                    onClick={() => setActiveNav("assignments")}
+                    className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
                   >
                     <span>Xem tất cả</span>
                     <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
+                  </button>
                 </div>
 
                 <div className="space-y-2.5">
