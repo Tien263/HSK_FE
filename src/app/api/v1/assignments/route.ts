@@ -23,20 +23,37 @@ export async function GET(request: Request) {
     } else if (filterTeacherId) {
       where.class = { teacherId: filterTeacherId };
     } else if (filterStudentId) {
-      // Chỉ lấy bài tập của các lớp học sinh này đã tham gia
+      // 1. Chỉ lấy bài tập của các lớp học sinh này đã tham gia trong DB
       const enrolled = await prisma.classStudent.findMany({
         where: { studentId: filterStudentId },
         select: { classId: true },
       });
-      const classIds = enrolled.map((e) => e.classId);
-      if (classIds.length === 0) {
-        return NextResponse.json({
-          success: true,
-          items: [],
-          totalCount: 0,
-        });
+      let classIds = enrolled.map((e) => e.classId);
+
+      // 2. Bổ sung các classIds được truyền từ client (học viên vào lớp qua mã mời / profile)
+      const paramClassIds = searchParams.get("classIds");
+      if (paramClassIds) {
+        const extra = paramClassIds.split(",").map((s) => s.trim()).filter(Boolean);
+        classIds = Array.from(new Set([...classIds, ...extra]));
       }
-      where.classId = { in: classIds };
+
+      // 3. Nếu chưa có liên kết classStudent trong DB, tìm các lớp học phù hợp với level của học sinh
+      if (classIds.length === 0) {
+        const studentUser = await prisma.user.findUnique({
+          where: { id: filterStudentId },
+          select: { currentHskLevel: true },
+        });
+        const targetLevel = studentUser?.currentHskLevel || 1;
+        const matchedClasses = await prisma.class.findMany({
+          where: { level: targetLevel, isActive: true },
+          select: { id: true },
+        });
+        classIds = matchedClasses.map((c) => c.id);
+      }
+
+      if (classIds.length > 0) {
+        where.classId = { in: classIds };
+      }
     }
 
     const assignments = await prisma.assignment.findMany({
@@ -106,7 +123,14 @@ export async function POST(request: Request) {
     }
 
     if (!validQuizSetId) {
-      return NextResponse.json({ success: false, message: "Chưa có bộ câu hỏi phù hợp." }, { status: 400 });
+      const createdQuiz = await prisma.quizSet.create({
+        data: {
+          title: title.trim(),
+          mode: mode || "EXAM",
+          totalScore: 100,
+        },
+      });
+      validQuizSetId = createdQuiz.id;
     }
 
     const createdAssignments = [];
@@ -114,9 +138,22 @@ export async function POST(request: Request) {
     const dueDate = dueAt ? new Date(dueAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     for (const cId of targetClassIds) {
-      const targetClass = await prisma.class.findUnique({
+      let targetClass = await prisma.class.findUnique({
         where: { id: cId },
       });
+
+      if (!targetClass) {
+        // Fallback: Tìm lớp theo id kết thúc, theo code hoặc theo tên
+        targetClass = await prisma.class.findFirst({
+          where: {
+            OR: [
+              { id: { endsWith: cId.toLowerCase() } },
+              { id: { endsWith: cId.toUpperCase() } },
+              { name: { contains: cId } },
+            ],
+          },
+        });
+      }
 
       if (!targetClass) continue;
 
@@ -128,7 +165,7 @@ export async function POST(request: Request) {
       const newAssignment = await prisma.assignment.create({
         data: {
           title: title.trim(),
-          classId: cId,
+          classId: targetClass.id,
           quizSetId: validQuizSetId,
           openAt: openDate,
           dueAt: dueDate,

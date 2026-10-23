@@ -1128,7 +1128,10 @@ export function AssignmentsWorkspace({
     try {
       await fetch("/api/v1/assignments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
         body: JSON.stringify({
           title: newAss.title,
           classId: targetClassId,
@@ -1140,6 +1143,27 @@ export function AssignmentsWorkspace({
     } catch {
       // Fallback local persistence
     }
+
+    // Save to shared assignments and trigger student notification
+    try {
+      const sharedRaw = localStorage.getItem("hanyu_shared_assignments");
+      const sharedList = sharedRaw ? JSON.parse(sharedRaw) : [];
+      localStorage.setItem("hanyu_shared_assignments", JSON.stringify([newAss, ...sharedList]));
+
+      const notifRaw = localStorage.getItem("hanyu_student_notifications");
+      const notifList = notifRaw ? JSON.parse(notifRaw) : [];
+      const newNotif = {
+        id: "notif-" + Date.now(),
+        type: "ASSIGNMENT",
+        title: `${currentUser?.name || "Giáo viên"} vừa giao bài tập mới`,
+        content: `${newAss.title} · Hạn nộp: ${newAss.dueAt}`,
+        time: "Vừa xong",
+        assignmentTitle: newAss.title,
+        classId: newAss.classId,
+        className: newAss.className,
+      };
+      localStorage.setItem("hanyu_student_notifications", JSON.stringify([newNotif, ...notifList]));
+    } catch (e) {}
 
     setAssignments([newAss, ...assignments]);
     showToast(`Đã giao đề "${newAss.title}" thành công cho lớp ${newAss.className}!`);
@@ -1383,6 +1407,45 @@ export function AssignmentsWorkspace({
       totalQuestions: totalQ,
       totalPoints: totalPts,
     }));
+
+    // Post to backend database
+    try {
+      fetch("/api/v1/assignments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
+        body: JSON.stringify({
+          title: examName,
+          classIds: targetClasses.map((c) => c.id),
+          dueAt: `${assignDueDate}T23:59:00.000Z`,
+          durationMin: Number(assignDurationMin) || 45,
+          mode: "EXAM",
+        }),
+      }).catch((e) => console.error("Post assign error:", e));
+    } catch {}
+
+    // Save to shared assignments and trigger student notification
+    try {
+      const sharedRaw = localStorage.getItem("hanyu_shared_assignments");
+      const sharedList = sharedRaw ? JSON.parse(sharedRaw) : [];
+      localStorage.setItem("hanyu_shared_assignments", JSON.stringify([...newAssignmentItems, ...sharedList]));
+
+      const notifRaw = localStorage.getItem("hanyu_student_notifications");
+      const notifList = notifRaw ? JSON.parse(notifRaw) : [];
+      const newNotifs = newAssignmentItems.map((item) => ({
+        id: "notif-" + Date.now() + "-" + item.id,
+        type: "ASSIGNMENT",
+        title: `${currentUser?.name || "Giáo viên"} vừa giao bài tập mới`,
+        content: `${item.title} · Hạn nộp: ${item.dueAt}`,
+        time: "Vừa xong",
+        assignmentTitle: item.title,
+        classId: item.classId,
+        className: item.className,
+      }));
+      localStorage.setItem("hanyu_student_notifications", JSON.stringify([...newNotifs, ...notifList]));
+    } catch (e) {}
 
     setAssignments([...newAssignmentItems, ...assignments]);
 

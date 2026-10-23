@@ -125,10 +125,29 @@ export default function StudentHomePage() {
   // Settings & Notification State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [hasUnreadNotification, setHasUnreadNotification] = useState(true);
+  const [hasUnreadNotification, setHasUnreadNotification] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [userEmail, setUserEmail] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [myClasses, setMyClasses] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const notifRaw = localStorage.getItem("hanyu_student_notifications");
+        if (notifRaw) {
+          const list = JSON.parse(notifRaw);
+          if (Array.isArray(list) && list.length > 0) {
+            setNotifications(list);
+            setHasUnreadNotification(true);
+            return;
+          }
+        }
+      } catch (e) {}
+    }
+    setNotifications([]);
+    setHasUnreadNotification(false);
+  }, []);
 
   // Detailed Profile & Settings State
   const [settingsTab, setSettingsTab] = useState<"profile" | "learning" | "security">("profile");
@@ -743,56 +762,43 @@ export default function StudentHomePage() {
                   </div>
 
                   <div className="space-y-2 max-h-80 overflow-y-auto divide-y divide-[#E5DEC9]/50">
-                    <div
-                      onClick={() => {
-                        setShowNotifications(false);
-                        setActiveNav("assignments");
-                      }}
-                      className="pt-2 first:pt-0 p-2 rounded-xl hover:bg-[#FAF7F0] transition cursor-pointer flex items-start gap-2.5"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-800 flex items-center justify-center shrink-0">
-                        <FileCheck2 className="w-4 h-4" />
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-[#8ea394]">
+                        <Bell className="w-7 h-7 mx-auto mb-2 text-[#8ea394]/40" />
+                        <p className="font-semibold text-[#315E48]">Chưa có thông báo mới nào</p>
+                        <p className="text-[11px] text-[#8ea394] mt-0.5">
+                          Khi giáo viên giao bài tập hoặc có lịch học mới, thông báo sẽ hiển thị tại đây.
+                        </p>
                       </div>
-                      <div className="text-xs">
-                        <p className="font-bold text-[#204434]">Cô Vương Lệ vừa giao bài tập mới</p>
-                        <p className="text-[11px] text-[#315E48] mt-0.5">Bài tập 5: Ôn từ vựng & phản xạ Mua sắm (HSK 1)</p>
-                        <span className="text-[10px] text-[#8F6D3B] font-mono mt-1 block">15 phút trước</span>
-                      </div>
-                    </div>
-
-                    <div
-                      onClick={() => {
-                        setShowNotifications(false);
-                        setActiveNav("assignments");
-                      }}
-                      className="pt-2 p-2 rounded-xl hover:bg-[#FAF7F0] transition cursor-pointer flex items-start gap-2.5"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0">
-                        <Award className="w-4 h-4" />
-                      </div>
-                      <div className="text-xs">
-                        <p className="font-bold text-[#204434]">Đã công bố điểm bài kiểm tra</p>
-                        <p className="text-[11px] text-[#315E48] mt-0.5">Điểm số của bạn: 8.5/10 · Xếp hạng 3 toàn lớp</p>
-                        <span className="text-[10px] text-[#8F6D3B] font-mono mt-1 block">2 giờ trước</span>
-                      </div>
-                    </div>
-
-                    <div
-                      onClick={() => {
-                        setShowNotifications(false);
-                        setActiveNav("classes");
-                      }}
-                      className="pt-2 p-2 rounded-xl hover:bg-[#FAF7F0] transition cursor-pointer flex items-start gap-2.5"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-800 flex items-center justify-center shrink-0">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                      <div className="text-xs">
-                        <p className="font-bold text-[#204434]">Nhắc nhở ca học trực tuyến tối nay</p>
-                        <p className="text-[11px] text-[#315E48] mt-0.5">19:30 – 21:00: Ca học Google Meet cùng cô Vương Lệ</p>
-                        <span className="text-[10px] text-[#8F6D3B] font-mono mt-1 block">Hôm nay</span>
-                      </div>
-                    </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            setShowNotifications(false);
+                            setActiveNav(n.type === "CLASS" ? "classes" : "assignments");
+                          }}
+                          className="pt-2 first:pt-0 p-2 rounded-xl hover:bg-[#FAF7F0] transition cursor-pointer flex items-start gap-2.5"
+                        >
+                          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-800 flex items-center justify-center shrink-0">
+                            {n.type === "CLASS" ? (
+                              <Clock className="w-4 h-4" />
+                            ) : n.type === "GRADE" ? (
+                              <Award className="w-4 h-4" />
+                            ) : (
+                              <FileCheck2 className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className="text-xs">
+                            <p className="font-bold text-[#204434]">{n.title}</p>
+                            <p className="text-[11px] text-[#315E48] mt-0.5">{n.content}</p>
+                            <span className="text-[10px] text-[#8F6D3B] font-mono mt-1 block">
+                              {n.time || "Vừa xong"}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                   <div className="pt-2 border-t border-[#E5DEC9] text-center">
@@ -850,7 +856,8 @@ export default function StudentHomePage() {
             <StudentAssignmentsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length}
+              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
+              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "roadmap" ? (

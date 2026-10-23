@@ -42,6 +42,7 @@ interface StudentAssignmentsWorkspaceProps {
   currentUser?: any;
   onNavigateToTab?: (tab: string) => void;
   classesCount?: number;
+  myClasses?: any[];
   onOpenJoinModal?: () => void;
 }
 
@@ -49,6 +50,7 @@ export default function StudentAssignmentsWorkspace({
   currentUser,
   onNavigateToTab,
   classesCount = 0,
+  myClasses = [],
   onOpenJoinModal,
 }: StudentAssignmentsWorkspaceProps) {
   const router = useRouter();
@@ -60,70 +62,116 @@ export default function StudentAssignmentsWorkspace({
   const [roomPinInput, setRoomPinInput] = useState("");
   const [pinError, setPinError] = useState("");
 
-  if (classesCount === 0) {
-    return (
-      <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">
-        <div className="w-16 h-16 rounded-full bg-[#FAF7F0] text-[#315E48] border border-[#E5DEC9] flex items-center justify-center mx-auto shadow-2xs">
-          <FileCheck2 className="w-8 h-8 text-[#204434]" />
-        </div>
-        <div className="space-y-2">
-          <h3 className="font-serif font-bold text-xl text-[#204434]">
-            Chưa có bài tập & phòng thi
-          </h3>
-          <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
-            Bạn chưa tham gia lớp học nào nên chưa có bài tập, bài thi trắc nghiệm hay đề kiểm tra định kỳ được giao. Hãy nhập mã mời của lớp để nhận bài tập từ giáo viên!
-          </p>
-        </div>
-        <div className="pt-2">
-          <button
-            onClick={() => (onOpenJoinModal ? onOpenJoinModal() : onNavigateToTab?.("classes"))}
-            className="px-6 py-3 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-md shadow-[#204434]/15 inline-flex items-center gap-2 transition cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-            <span>Tham gia lớp học ngay</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Load real assignments from API for this specific student
   useEffect(() => {
     async function fetchAssignments() {
       try {
         setLoading(true);
         const studentId = currentUser?.id;
-        const url = studentId
-          ? `/api/v1/assignments?studentId=${encodeURIComponent(studentId)}`
-          : "/api/v1/assignments";
 
-        const res = await fetch(url, {
-          headers: studentId ? { "x-user-id": studentId } : {},
-        });
-
-        if (res.ok) {
-          const json = await res.json();
-          const list = json.items || json.data;
-          if (json.success && Array.isArray(list)) {
-            const mapped: StudentAssignmentItem[] = list.map((a: any) => ({
-              id: a.id,
-              title: a.title,
-              className: a.className || a.class?.name || "Lớp học",
-              classId: a.classId,
-              durationMin: a.durationMin || 45,
-              dueAt: a.dueAt ? new Date(a.dueAt).toLocaleDateString("vi-VN") : "Chưa có hạn",
-              totalQuestions: a.totalQuestions || a._count?.questions || 10,
-              totalPoints: a.totalPoints || 100,
-              hasAttempted: a.hasAttempted || false,
-              latestScore: a.latestScore ?? null,
-              status: a.hasAttempted ? "GRADED" : "OPEN",
-              attemptId: a.attemptId || a.id,
-            }));
-            setAssignments(mapped);
-            return;
-          }
+        // Collect class IDs and class names the student belongs to
+        const studentClassIds: string[] = [];
+        const studentClassNames: string[] = [];
+        if (Array.isArray(myClasses) && myClasses.length > 0) {
+          myClasses.forEach((c: any) => {
+            if (c.id) studentClassIds.push(c.id);
+            if (c.code) studentClassIds.push(c.code);
+            if (c.name) studentClassNames.push(c.name);
+          });
         }
-        setAssignments([]);
+
+        // Also check study profile in localStorage
+        if (typeof window !== "undefined") {
+          try {
+            const profRaw = localStorage.getItem("hanyu_study_profile");
+            if (profRaw) {
+              const prof = JSON.parse(profRaw);
+              if (prof.classInfo?.id) studentClassIds.push(prof.classInfo.id);
+              if (prof.classInfo?.code) studentClassIds.push(prof.classInfo.code);
+              if (prof.classInfo?.name) studentClassNames.push(prof.classInfo.name);
+            }
+          } catch (e) {}
+        }
+
+        const uniqueClassIds = Array.from(new Set(studentClassIds));
+        const classIdsParam = uniqueClassIds.length > 0 ? `&classIds=${encodeURIComponent(uniqueClassIds.join(","))}` : "";
+        const url = studentId
+          ? `/api/v1/assignments?studentId=${encodeURIComponent(studentId)}${classIdsParam}`
+          : `/api/v1/assignments?${classIdsParam}`;
+
+        let apiAssignments: StudentAssignmentItem[] = [];
+        try {
+          const res = await fetch(url, {
+            headers: studentId ? { "x-user-id": studentId } : {},
+          });
+
+          if (res.ok) {
+            const json = await res.json();
+            const list = json.items || json.data;
+            if (json.success && Array.isArray(list)) {
+              apiAssignments = list.map((a: any) => ({
+                id: a.id,
+                title: a.title,
+                className: a.className || a.class?.name || "Lớp học",
+                classId: a.classId,
+                durationMin: a.durationMin || 45,
+                dueAt: a.dueAt ? new Date(a.dueAt).toLocaleDateString("vi-VN") : "Chưa có hạn",
+                totalQuestions: a.totalQuestions || a._count?.questions || 10,
+                totalPoints: a.totalPoints || 100,
+                hasAttempted: a.hasAttempted || false,
+                latestScore: a.latestScore ?? null,
+                status: a.hasAttempted ? "GRADED" : "OPEN",
+                attemptId: a.attemptId || a.id,
+              }));
+            }
+          }
+        } catch (apiErr) {
+          console.error("API fetch assignments error:", apiErr);
+        }
+
+        // Merge assignments from shared & teacher storage
+        const localAssignments: StudentAssignmentItem[] = [];
+        if (typeof window !== "undefined") {
+          try {
+            const sharedRaw = localStorage.getItem("hanyu_shared_assignments");
+            const teacherRaw = localStorage.getItem("hanyu_teacher_assignments");
+            const allTeacher = [
+              ...(sharedRaw ? JSON.parse(sharedRaw) : []),
+              ...(teacherRaw ? JSON.parse(teacherRaw) : []),
+            ];
+
+            for (const tAss of allTeacher) {
+              const matchesClass =
+                uniqueClassIds.length === 0 ||
+                uniqueClassIds.includes(tAss.classId) ||
+                studentClassNames.some(
+                  (cn) =>
+                    (tAss.className || "").toLowerCase().includes(cn.toLowerCase()) ||
+                    cn.toLowerCase().includes((tAss.className || "").toLowerCase())
+                );
+
+              if (matchesClass && !apiAssignments.some((a) => a.title === tAss.title || a.id === tAss.id)) {
+                localAssignments.push({
+                  id: tAss.id,
+                  title: tAss.title,
+                  className: tAss.className || (myClasses[0]?.name || "Lớp học"),
+                  classId: tAss.classId,
+                  durationMin: tAss.durationMin || 45,
+                  dueAt: tAss.dueAt || "28/10/2026 23:59",
+                  totalQuestions: tAss.totalQuestions || 10,
+                  totalPoints: tAss.totalPoints || 100,
+                  hasAttempted: false,
+                  latestScore: null,
+                  status: "OPEN",
+                  attemptId: tAss.id,
+                });
+              }
+            }
+          } catch (e) {}
+        }
+
+        const combined = [...apiAssignments, ...localAssignments];
+        setAssignments(combined);
       } catch (err) {
         console.error("Failed to fetch assignments:", err);
         setAssignments([]);
@@ -133,7 +181,7 @@ export default function StudentAssignmentsWorkspace({
     }
 
     fetchAssignments();
-  }, [currentUser]);
+  }, [currentUser, myClasses]);
 
   // Filtered assignments
   const filteredAssignments = useMemo(() => {
@@ -210,6 +258,33 @@ export default function StudentAssignmentsWorkspace({
       router.push(`/s/attempts/preview?pin=${encodeURIComponent(cleanPin)}`);
     }
   };
+
+  if (!loading && classesCount === 0 && assignments.length === 0) {
+    return (
+      <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">
+        <div className="w-16 h-16 rounded-full bg-[#FAF7F0] text-[#315E48] border border-[#E5DEC9] flex items-center justify-center mx-auto shadow-2xs">
+          <FileCheck2 className="w-8 h-8 text-[#204434]" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-serif font-bold text-xl text-[#204434]">
+            Chưa có bài tập & phòng thi
+          </h3>
+          <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
+            Bạn chưa tham gia lớp học nào nên chưa có bài tập, bài thi trắc nghiệm hay đề kiểm tra định kỳ được giao. Hãy nhập mã mời của lớp để nhận bài tập từ giáo viên!
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => (onOpenJoinModal ? onOpenJoinModal() : onNavigateToTab?.("classes"))}
+            className="px-6 py-3 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-md shadow-[#204434]/15 inline-flex items-center gap-2 transition cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+            <span>Tham gia lớp học ngay</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
