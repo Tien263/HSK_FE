@@ -387,10 +387,13 @@ export function AssignmentsWorkspace({
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem("hanyu_custom_question_bank");
-        if (saved) return JSON.parse(saved);
+        if (saved !== null) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
       } catch (e) {}
     }
-    return UNIFIED_QUESTION_BANK;
+    return [];
   });
 
   useEffect(() => {

@@ -60,16 +60,16 @@ export default function QuestionBankWorkspace({
   const [questions, setQuestions] = useState<ExamQuestionItem[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("hanyu_custom_question_bank");
-      if (saved) {
+      if (saved !== null) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed)) return parsed;
         } catch (e) {
           console.error("Failed to parse cached questions", e);
         }
       }
     }
-    return UNIFIED_QUESTION_BANK;
+    return [];
   });
 
   // Sync to localStorage
@@ -1219,14 +1219,36 @@ export default function QuestionBankWorkspace({
               {paginatedQuestions.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-gray-500">
-                    <div className="space-y-2">
-                      <HelpCircle className="w-8 h-8 mx-auto text-[#BC9B6B]" />
+                    <div className="space-y-3">
+                      <HelpCircle className="w-10 h-10 mx-auto text-[#BC9B6B]" />
                       <p className="font-serif font-bold text-sm text-[#204434]">
-                        Không tìm thấy câu hỏi phù hợp
+                        {questions.length === 0
+                          ? "Chưa có câu hỏi nào trong ngân hàng"
+                          : "Không tìm thấy câu hỏi phù hợp"}
                       </p>
-                      <p className="text-xs text-[#315E48]">
-                        Hãy thử thay đổi từ khóa tìm kiếm hoặc bấm "Xóa bộ lọc" để xem toàn bộ kho câu hỏi.
+                      <p className="text-xs text-[#315E48] max-w-sm mx-auto">
+                        {questions.length === 0
+                          ? "Ngân hàng câu hỏi của bạn đang trống. Bạn có thể tự soạn câu hỏi mới hoặc tạo tự động bằng AI."
+                          : "Hãy thử thay đổi từ khóa tìm kiếm hoặc bấm \"Xóa bộ lọc\" để xem toàn bộ kho câu hỏi."}
                       </p>
+                      {questions.length === 0 && (
+                        <div className="pt-2 flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCreateNew()}
+                            className="px-4 py-2 rounded-xl bg-[#204434] text-[#FFFCF6] text-xs font-semibold hover:bg-[#183629] transition shadow-xs cursor-pointer"
+                          >
+                            + Soạn câu hỏi mới
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsAiModalOpen(true)}
+                            className="px-4 py-2 rounded-xl bg-[#FAF7F0] border border-[#BC9B6B] text-[#8C6D3B] text-xs font-semibold hover:bg-[#F3EEDF] transition cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" /> Tạo bằng AI
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

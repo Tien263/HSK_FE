@@ -77,15 +77,15 @@ export default function AppleScheduleCalendar({
     return `${y}-${m}-${day}`;
   };
 
-  // Pre-seed default events based on active classes or localStorage
+  // Load saved events or default to empty schedule (teacher creates from scratch)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const saved = localStorage.getItem("hanyu_teacher_schedules");
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setEvents(parsed);
           onScheduleChange?.(parsed);
           return;
@@ -95,89 +95,10 @@ export default function AppleScheduleCalendar({
       }
     }
 
-    // Auto-generate realistic schedule sessions around current week/month
-    const now = new Date();
-    const todayStr = formatYYYYMMDD(now);
-    const generated: ScheduleEvent[] = [];
-
-    // Session 1: Today
-    generated.push({
-      id: "ev-today-1",
-      classId: classes[0]?.id || "c1",
-      className: classes[0]?.name || "HSK 1 - Nhập môn",
-      levelText: "HSK 1 · Khóa nền tảng",
-      date: todayStr,
-      startTime: "19:30",
-      endTime: "21:00",
-      mode: "ONLINE",
-      location: "Google Meet · meet.google.com/hsk-a101",
-      meetUrl: "https://meet.google.com/new",
-      lessonTopic: "Bài 4: Khẩu ngữ giao tiếp & Luyện thanh điệu chuẩn",
-      studentCount: classes[0]?.studentCount || 18,
-      color: "emerald",
-    });
-
-    // Session 2: 2 days later
-    const d2 = new Date(now);
-    d2.setDate(now.getDate() + 2);
-    generated.push({
-      id: "ev-future-2",
-      classId: classes[1]?.id || classes[0]?.id || "c2",
-      className: classes[1]?.name || "HSK 3 - Chuyên sâu ngữ pháp",
-      levelText: "HSK 3 · Luyện thi",
-      date: formatYYYYMMDD(d2),
-      startTime: "18:00",
-      endTime: "19:30",
-      mode: "OFFLINE",
-      location: "Phòng học 302, Tòa nhà Hán Ngữ Trực Tuyến",
-      meetUrl: "",
-      lessonTopic: "Chuyên đề: Cấu trúc câu chữ 把 và Bổ ngữ kết quả",
-      studentCount: classes[1]?.studentCount || 22,
-      color: "amber",
-    });
-
-    // Session 3: 4 days later
-    const d3 = new Date(now);
-    d3.setDate(now.getDate() + 4);
-    generated.push({
-      id: "ev-future-3",
-      classId: classes[0]?.id || "c1",
-      className: classes[0]?.name || "HSK 1 - Nhập môn",
-      levelText: "HSK 1 · Khóa nền tảng",
-      date: formatYYYYMMDD(d3),
-      startTime: "19:30",
-      endTime: "21:00",
-      mode: "ONLINE",
-      location: "Google Meet · meet.google.com/hsk-a101",
-      meetUrl: "https://meet.google.com/new",
-      lessonTopic: "Bài 5: Gia đình và Nghề nghiệp (家庭与职业)",
-      studentCount: classes[0]?.studentCount || 18,
-      color: "emerald",
-    });
-
-    // Session 4: Yesterday (completed)
-    const dPast = new Date(now);
-    dPast.setDate(now.getDate() - 2);
-    generated.push({
-      id: "ev-past-1",
-      classId: classes[0]?.id || "c1",
-      className: classes[0]?.name || "HSK 1 - Nhập môn",
-      levelText: "HSK 1",
-      date: formatYYYYMMDD(dPast),
-      startTime: "19:30",
-      endTime: "21:00",
-      mode: "ONLINE",
-      location: "Google Meet",
-      meetUrl: "https://meet.google.com",
-      lessonTopic: "Bài 3: Hỏi giờ và lịch trình hàng ngày",
-      studentCount: 18,
-      color: "blue",
-    });
-
-    setEvents(generated);
-    localStorage.setItem("hanyu_teacher_schedules", JSON.stringify(generated));
-    onScheduleChange?.(generated);
-  }, [classes]);
+    // Start with empty schedule so teacher can manage from scratch
+    setEvents([]);
+    onScheduleChange?.([]);
+  }, []);
 
   // Persist helper
   const saveEvents = (newEvents: ScheduleEvent[]) => {

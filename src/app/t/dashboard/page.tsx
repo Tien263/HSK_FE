@@ -244,7 +244,7 @@ export default function TeacherDashboard() {
 
   // Global search & filter
   const [searchQuery, setSearchQuery] = useState("");
-  const [questionBankCount, setQuestionBankCount] = useState(24);
+  const [questionBankCount, setQuestionBankCount] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -254,6 +254,18 @@ export default function TeacherDashboard() {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) setQuestionBankCount(parsed.length);
         } catch (e) {}
+      } else {
+        setQuestionBankCount(0);
+      }
+
+      const savedSchedules = localStorage.getItem("hanyu_teacher_schedules");
+      if (savedSchedules) {
+        try {
+          const parsed = JSON.parse(savedSchedules);
+          if (Array.isArray(parsed)) setDynamicSchedules(parsed);
+        } catch (e) {}
+      } else {
+        setDynamicSchedules([]);
       }
     }
   }, [activeTab]);
@@ -279,29 +291,7 @@ export default function TeacherDashboard() {
     desc: string;
     time: string;
     read: boolean;
-  }>>([
-    {
-      id: "n1",
-      title: "Học sinh nộp bài tập",
-      desc: "Trần Minh Khang vừa nộp bài 'Từ vựng HSK 3 - Bài 5'",
-      time: "10 phút trước",
-      read: false,
-    },
-    {
-      id: "n2",
-      title: "Nhắc nhở ca dạy hôm nay",
-      desc: "Lớp HSK 1 - Nhập môn lúc 19:30 (Trực tuyến Meet)",
-      time: "25 phút trước",
-      read: false,
-    },
-    {
-      id: "n3",
-      title: "Học sinh cần trợ giúp",
-      desc: "Lê Hoàng Nam sai 6 câu liên tiếp về chủ điểm 'Câu chữ 把'",
-      time: "2 giờ trước",
-      read: true,
-    },
-  ]);
+  }>>([]);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -815,7 +805,7 @@ export default function TeacherDashboard() {
               { id: "assignments", label: "Bài tập & Kiểm tra", icon: FileCheck2, badge: assignmentsList.length },
               { id: "questions", label: "Ngân hàng câu hỏi", icon: HelpCircle, badge: questionBankCount },
               { id: "reports", label: "Báo cáo học tập", icon: BarChart3 },
-              { id: "schedule", label: "Lịch dạy & Hạn nộp", icon: Calendar, badge: 3 },
+              { id: "schedule", label: "Lịch dạy & Hạn nộp", icon: Calendar, badge: dynamicSchedules.length },
               { id: "settings", label: "Hồ sơ & Cài đặt", icon: Settings },
             ].map((item) => {
               const Icon = item.icon;
