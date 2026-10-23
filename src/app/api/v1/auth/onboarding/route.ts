@@ -46,18 +46,48 @@ export async function POST(request: Request) {
     let enrolledClassInfo = null;
     if (classCode && classCode.trim()) {
       const code = classCode.trim();
-      const normalizedCode = code.toUpperCase();
+      const normalizedCode = code.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
 
-      let targetClass = await prisma.class.findFirst({
-        where: {
-          OR: [
-            { id: code },
-            { name: { contains: code } },
-            { description: { contains: code } },
-          ],
-        },
-        include: { teacher: true },
-      });
+      let targetClass: any = null;
+
+      if (normalizedCode === "HSK1A" || normalizedCode === "HSK1") {
+        targetClass = await prisma.class.findFirst({
+          where: {
+            OR: [
+              { name: { contains: "HSK 1A" } },
+              { name: { contains: "HSK 1" } },
+            ],
+          },
+          include: { teacher: true },
+        });
+      }
+
+      if (!targetClass && (normalizedCode === "HANYU3A" || normalizedCode === "HSK3" || normalizedCode.includes("HANYU"))) {
+        targetClass = await prisma.class.findFirst({
+          where: {
+            OR: [
+              { name: { contains: "HANYU3A" } },
+              { name: { contains: "HSK 3" } },
+              { description: { contains: "HANYU3A" } },
+            ],
+          },
+          include: { teacher: true },
+        });
+      }
+
+      if (!targetClass) {
+        targetClass = await prisma.class.findFirst({
+          where: {
+            OR: [
+              { id: code },
+              { id: { endsWith: code.toLowerCase() } },
+              { name: { contains: code } },
+              { description: { contains: code } },
+            ],
+          },
+          include: { teacher: true },
+        });
+      }
 
       // Nếu là mã demo HANYU3A mà chưa có lớp, tìm hoặc tạo lớp
       if (!targetClass && (normalizedCode === "HANYU3A" || normalizedCode.includes("HANYU"))) {

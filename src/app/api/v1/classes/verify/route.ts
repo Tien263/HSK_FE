@@ -13,22 +13,58 @@ export async function GET(request: Request) {
       );
     }
 
-    const normalizedCode = code.toUpperCase();
+    const normalizedCode = code.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
 
-    // 1. Tìm lớp trong DB khớp mã hoặc tên
-    let foundClass = await prisma.class.findFirst({
-      where: {
-        OR: [
-          { id: code },
-          { name: { contains: code } },
-          { description: { contains: code } },
-        ],
-      },
-      include: {
-        teacher: true,
-        _count: { select: { students: true } },
-      },
-    });
+    // 1. Tìm lớp theo mã thông dụng hoặc trực tiếp
+    let foundClass: any = null;
+
+    if (normalizedCode === "HSK1A" || normalizedCode === "HSK1") {
+      foundClass = await prisma.class.findFirst({
+        where: {
+          OR: [
+            { name: { contains: "HSK 1A" } },
+            { name: { contains: "HSK 1" } },
+          ],
+        },
+        include: {
+          teacher: true,
+          _count: { select: { students: true } },
+        },
+      });
+    }
+
+    if (!foundClass && (normalizedCode === "HANYU3A" || normalizedCode === "HSK3" || normalizedCode.includes("HANYU"))) {
+      foundClass = await prisma.class.findFirst({
+        where: {
+          OR: [
+            { name: { contains: "HANYU3A" } },
+            { name: { contains: "HSK 3" } },
+            { description: { contains: "HANYU3A" } },
+          ],
+        },
+        include: {
+          teacher: true,
+          _count: { select: { students: true } },
+        },
+      });
+    }
+
+    if (!foundClass) {
+      foundClass = await prisma.class.findFirst({
+        where: {
+          OR: [
+            { id: code },
+            { id: { endsWith: code.toLowerCase() } },
+            { name: { contains: code } },
+            { description: { contains: code } },
+          ],
+        },
+        include: {
+          teacher: true,
+          _count: { select: { students: true } },
+        },
+      });
+    }
 
     // 2. Nếu là mã demo HANYU3A mà chưa có lớp trong DB, tự động khởi tạo lớp mẫu HSK 3
     if (!foundClass && (normalizedCode === "HANYU3A" || normalizedCode.includes("HANYU"))) {
@@ -79,7 +115,11 @@ export async function GET(request: Request) {
         name: foundClass.name,
         level: foundClass.level,
         description: foundClass.description,
-        code: normalizedCode === "HANYU3A" ? "HANYU3A" : foundClass.id.slice(-6).toUpperCase(),
+        code: foundClass.name.includes("1A")
+          ? "HSK1A"
+          : foundClass.name.includes("HANYU3A")
+          ? "HANYU3A"
+          : foundClass.id.slice(-6).toUpperCase(),
         teacherName: foundClass.teacher?.name || "Cô Ning Ning",
         teacherAvatar: foundClass.teacher?.avatar || "/theme/avatar-teacher.jpg",
         teacherEmail: foundClass.teacher?.email || "coningning@ningning.edu.vn",
