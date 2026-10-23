@@ -42,6 +42,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Send,
+  Menu,
 } from "lucide-react";
 import ClassesWorkspace from "@/components/teacher/ClassesWorkspace";
 import { LessonLibraryWorkspace } from "@/components/teacher/LessonLibraryWorkspace";
@@ -149,6 +150,7 @@ export default function TeacherDashboard() {
     "overview" | "classes" | "lessons" | "assignments" | "questions" | "reports" | "schedule" | "settings"
   >("overview");
   const [targetExamToOpen, setTargetExamToOpen] = useState<string | null>(null);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
@@ -694,7 +696,18 @@ export default function TeacherDashboard() {
       {/* ========================================================================= */}
       {/* 1. SIDEBAR TRÁI: DÙNG PHONG CẢNH THỦY MẶC DƯỚI MENU (GIỐNG HỌC SINH & SPEC) */}
       {/* ========================================================================= */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-[#F8F5ED] border-r border-[#E5DEC9] z-40 hidden lg:flex flex-col justify-between shadow-xs overflow-hidden">
+      {/* Mobile Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-xs animate-fade-in"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 w-64 bg-[#F8F5ED] border-r border-[#E5DEC9] z-50 flex flex-col justify-between shadow-xs overflow-hidden transition-transform duration-300 ${
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
         {/* Background Artwork: phong_cảnh_thủy_mặc_giữa_sương_mờ.png spanning full sidebar */}
         <div
           className="absolute inset-0 w-full h-full pointer-events-none z-0 bg-bottom bg-no-repeat bg-cover opacity-85 mix-blend-multiply transition-opacity duration-300"
@@ -704,7 +717,7 @@ export default function TeacherDashboard() {
         {/* Content Container (z-10 ensures no text/buttons are obscured) */}
         <div className="relative z-10 flex flex-col flex-1">
           {/* Logo Brand Header */}
-          <div className="h-20 px-6 flex items-center gap-3 border-b border-[#E5DEC9]/60">
+          <div className="h-20 px-6 flex items-center justify-between border-b border-[#E5DEC9]/60">
             <Link href="/" className="flex items-center gap-2.5 group">
               <div className="w-9 h-9 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-lg font-bold shadow-xs group-hover:scale-105 transition-transform">
                 <span>宁</span>
@@ -716,6 +729,15 @@ export default function TeacherDashboard() {
                 </div>
               </div>
             </Link>
+
+            {/* Mobile close button */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="lg:hidden p-1.5 rounded-xl border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Nav List (Spec Section 3: 8 menus) */}
@@ -725,7 +747,7 @@ export default function TeacherDashboard() {
               { id: "classes", label: "Lớp học", icon: Users, badge: classesList.length },
               { id: "lessons", label: "Kho bài học", icon: BookOpen },
               { id: "assignments", label: "Bài tập & Kiểm tra", icon: FileCheck2, badge: assignmentsList.length },
-              { id: "questions", label: "Kho câu hỏi của tôi", icon: HelpCircle, badge: questionBankCount },
+              { id: "questions", label: "Ngân hàng câu hỏi", icon: HelpCircle, badge: questionBankCount },
               { id: "reports", label: "Báo cáo học tập", icon: BarChart3 },
               { id: "schedule", label: "Lịch dạy & Hạn nộp", icon: Calendar, badge: 3 },
               { id: "settings", label: "Hồ sơ & Cài đặt", icon: Settings },
@@ -739,6 +761,7 @@ export default function TeacherDashboard() {
                   onClick={() => {
                     setActiveTab(item.id as any);
                     setSelectedClassId(null);
+                    setIsMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition cursor-pointer text-left ${
                     isSelected
@@ -819,25 +842,72 @@ export default function TeacherDashboard() {
       {/* ========================================================================= */}
       <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
         {/* Top Header (Spec Section 4: Search, Bell, Profile) */}
-        <header className="h-20 bg-[#F8F5ED]/90 backdrop-blur-md border-b border-[#E5DEC9] px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30">
-          {/* Search bar with permission scope */}
-          <div className="relative w-80 lg:w-[420px]">
-            <Search className="w-4 h-4 text-[#315E48] absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="🔍 Tìm lớp học, học sinh, bài học, câu hỏi..."
-              className="w-full bg-[#FFFCF6] border border-[#E5DEC9] focus:border-[#204434] focus:ring-1 focus:ring-[#204434] rounded-2xl pl-10 pr-4 py-2.5 text-xs text-[#204434] placeholder-[#8ea394] outline-none transition shadow-2xs"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+        <header className="h-20 bg-[#F8F5ED]/90 backdrop-blur-md border-b border-[#E5DEC9] px-4 sm:px-6 lg:px-10 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            {/* Hamburger button for mobile & small screens */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl border border-[#E5DEC9] bg-[#FFFCF6] text-[#204434] hover:bg-[#FAF7F0] cursor-pointer shadow-2xs"
+              title="Mở menu danh mục"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Search bar with permission scope */}
+            <div className="relative w-60 sm:w-80 lg:w-[360px]">
+              <Search className="w-4 h-4 text-[#315E48] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="🔍 Tìm lớp học, bài học, câu hỏi..."
+                className="w-full bg-[#FFFCF6] border border-[#E5DEC9] focus:border-[#204434] focus:ring-1 focus:ring-[#204434] rounded-2xl pl-10 pr-4 py-2.5 text-xs text-[#204434] placeholder-[#8ea394] outline-none transition shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Center Quick Navigation Shortcuts */}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("questions");
+                setSelectedClassId(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "questions"
+                  ? "bg-[#204434] text-white shadow-2xs"
+                  : "bg-amber-50/80 border border-amber-300/80 text-[#8F6D3B] hover:bg-amber-100"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+              <span>Ngân hàng câu hỏi</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("assignments");
+                setSelectedClassId(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "assignments"
+                  ? "bg-[#204434] text-white shadow-2xs"
+                  : "bg-[#FFFCF6] border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+              }`}
+            >
+              <FileCheck2 className="w-3.5 h-3.5" />
+              <span>Bài tập & Kiểm tra</span>
+            </button>
           </div>
 
           {/* Right Header: Notification Bell & Quick Actions */}
@@ -1584,6 +1654,96 @@ export default function TeacherDashboard() {
                   <span className="text-xs text-[#315E48] font-medium">Chủ điểm ngữ pháp cần củng cố</span>
                   <div className="text-lg font-bold text-[#9D493E] mt-1">Câu chữ 把 & Bổ ngữ kết quả</div>
                   <span className="text-[11px] text-[#315E48]">28% học viên nhầm lẫn cấu trúc</span>
+                </div>
+              </div>
+
+              {/* Phân tích năng lực 3 kỹ năng HSK: Nghe - Đọc - Viết */}
+              <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif font-bold text-[#204434] text-base">
+                    Phân tích năng lực chuẩn HSK theo 3 kỹ năng
+                  </h3>
+                  <span className="text-xs text-[#8F6D3B] font-semibold bg-[#FFFBF0] px-3 py-1 rounded-full border border-[#BC9B6B]/40">
+                    Dữ liệu lớp HSK 1 - Cơ bản
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Kỹ năng Nghe */}
+                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#204434]">1. Kỹ năng Nghe (听力)</span>
+                      <span className="font-bold text-emerald-800">86% · Đạt chuẩn</span>
+                    </div>
+                    <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-[#E5DEC9]">
+                      <div className="bg-emerald-700 h-full rounded-full" style={{ width: "86%" }} />
+                    </div>
+                    <p className="text-[11px] text-[#315E48]">
+                      Nhận diện tốt thanh điệu và từ vựng chào hỏi, hỏi giờ.
+                    </p>
+                  </div>
+
+                  {/* Kỹ năng Đọc hiểu */}
+                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#204434]">2. Kỹ năng Đọc hiểu (阅读)</span>
+                      <span className="font-bold text-[#8F6D3B]">82% · Khá</span>
+                    </div>
+                    <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-[#E5DEC9]">
+                      <div className="bg-[#BC9B6B] h-full rounded-full" style={{ width: "82%" }} />
+                    </div>
+                    <p className="text-[11px] text-[#315E48]">
+                      Tốc độ đọc câu văn ngắn đạt 65 chữ/phút, hiểu đúng ngữ cảnh.
+                    </p>
+                  </div>
+
+                  {/* Kỹ năng Viết chữ Hán */}
+                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#204434]">3. Kỹ năng Viết (书写)</span>
+                      <span className="font-bold text-amber-800">74% · Cần bổ trợ</span>
+                    </div>
+                    <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-[#E5DEC9]">
+                      <div className="bg-amber-600 h-full rounded-full" style={{ width: "74%" }} />
+                    </div>
+                    <p className="text-[11px] text-[#315E48]">
+                      Cần chú ý thứ tự nét bút và quy tắc kết cấu chữ Hán vuông vức.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bảng phân bổ điểm kiểm tra & Đề xuất hành động sư phạm */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-3">
+                  <h4 className="font-serif font-bold text-sm text-[#204434]">Phân bố điểm số bài kiểm tra</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#315E48]">Xuất sắc (9.0 - 10.0đ):</span>
+                      <span className="font-bold text-emerald-800">8 học viên (40%)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#315E48]">Khá - Giỏi (7.0 - 8.9đ):</span>
+                      <span className="font-bold text-[#204434]">9 học viên (45%)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#315E48]">Trung bình (5.0 - 6.9đ):</span>
+                      <span className="font-bold text-amber-700">3 học viên (15%)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#315E48]">Chưa đạt (&lt; 5.0đ):</span>
+                      <span className="font-bold text-red-600">0 học viên (0%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-3xl bg-[#FAF7F0] border border-[#BC9B6B]/60 space-y-3">
+                  <h4 className="font-serif font-bold text-sm text-[#8F6D3B]">Đề xuất kế hoạch học tập tiếp theo</h4>
+                  <ul className="text-xs text-[#204434] space-y-2 list-disc list-inside">
+                    <li>Giao thêm 1 đề luyện viết chữ Hán tập trung vào các bộ thủ cơ bản.</li>
+                    <li>Tăng cường bài tập nối từ và sắp xếp câu cho 3 học sinh có điểm trung bình.</li>
+                    <li>Tổ chức kiểm tra định kỳ 15 phút đầu giờ bài học số 6.</li>
+                  </ul>
                 </div>
               </div>
 

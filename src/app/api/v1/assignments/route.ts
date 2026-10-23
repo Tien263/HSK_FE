@@ -55,25 +55,19 @@ export async function POST(request: Request) {
   try {
     const authUser = await getAuthUser(request);
     const body = await request.json();
-    const { title, classId, quizSetId, dueAt, durationMin, mode } = body;
+    const { title, classId, classIds, quizSetId, openAt, dueAt, durationMin, mode } = body;
 
-    if (!title || !classId) {
-      return NextResponse.json({ success: false, message: "Thiếu thông tin bắt buộc." }, { status: 400 });
-    }
+    const targetClassIds: string[] =
+      Array.isArray(classIds) && classIds.length > 0
+        ? classIds
+        : classId
+        ? [classId]
+        : [];
 
-    const targetClass = await prisma.class.findUnique({
-      where: { id: classId },
-    });
-
-    if (!targetClass) {
-      return NextResponse.json({ success: false, message: "Không tìm thấy lớp học." }, { status: 404 });
-    }
-
-    // Bảo mật: Giáo viên chỉ được tạo bài tập cho lớp của mình
-    if (authUser && authUser.role === "TEACHER" && targetClass.teacherId !== authUser.id) {
+    if (!title || targetClassIds.length === 0) {
       return NextResponse.json(
-        { success: false, message: "Bạn không có quyền giao bài cho lớp của giáo viên khác." },
-        { status: 403 }
+        { success: false, message: "Thiếu thông tin bắt buộc hoặc chưa chọn lớp học." },
+        { status: 400 }
       );
     }
 
@@ -88,19 +82,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Chưa có bộ câu hỏi phù hợp." }, { status: 400 });
     }
 
-    const newAssignment = await prisma.assignment.create({
-      data: {
-        title: title.trim(),
-        classId,
-        quizSetId: validQuizSetId,
-        dueAt: dueAt ? new Date(dueAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        durationMin: durationMin || 45,
-        mode: mode || "EXAM",
-        status: "OPEN",
-      },
-    });
+    const createdAssignments = [];
+    const openDate = openAt ? new Date(openAt) : new Date();
+    const dueDate = dueAt ? new Date(dueAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    return NextResponse.json({ success: true, item: newAssignment }, { status: 201 });
+    for (const cId of targetClassIds) {
+      const targetClass = await prisma.class.findUnique({
+        where: { id: cId },
+      });
+
+      if (!targetClass) continue;
+
+      // Bảo mật: Giáo viên chỉ được tạo bài tập cho lớp của mình (trừ admin)
+      if (authUser && authUser.role === "TEACHER" && targetClass.teacherId !== authUser.id) {
+        continue;
+      }
+
+      const newAssignment = await prisma.assignment.create({
+        data: {
+          title: title.trim(),
+          classId: cId,
+          quizSetId: validQuizSetId,
+          openAt: openDate,
+          dueAt: dueDate,
+          durationMin: durationMin || 45,
+          mode: mode || "EXAM",
+          status: openDate > new Date() ? "SCHEDULED" : "OPEN",
+        },
+      });
+      createdAssignments.push(newAssignment);
+    }
+
+    return NextResponse.json({
+      success: true,
+      count: createdAssignments.length,
+      item: createdAssignments[0],
+      items: createdAssignments,
+    }, { status: 201 });
   } catch (error) {
     console.error("POST /assignments error:", error);
     return NextResponse.json({ success: false, message: "Lỗi tạo bài tập mới." }, { status: 500 });

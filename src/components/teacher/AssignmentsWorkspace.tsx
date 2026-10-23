@@ -230,6 +230,7 @@ export function AssignmentsWorkspace({
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assigningExam, setAssigningExam] = useState<ExamPackageItem | null>(null);
   const [assignClassId, setAssignClassId] = useState(classesList[0]?.id || "c1");
+  const [assignClassIds, setAssignClassIds] = useState<string[]>([classesList[0]?.id || "c1"]);
   const [assignOpenDate, setAssignOpenDate] = useState(new Date().toISOString().split("T")[0]);
   const [assignDueDate, setAssignDueDate] = useState(
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
@@ -382,6 +383,18 @@ export function AssignmentsWorkspace({
       } catch (e) {}
     }
   }, [questionBank]);
+
+  // Dirty State Navigation Guard (Spec Section 3.1)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (examSaveStatus === "UNSAVED" && draftQuestions.length > 0) {
+        e.preventDefault();
+        e.returnValue = "Bạn có thay đổi trong đề thi chưa lưu. Bạn có chắc muốn rời đi?";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [examSaveStatus, draftQuestions]);
 
   // Auto-switch to Composer if incoming payload transferred from Lesson Library
   useEffect(() => {
@@ -1354,28 +1367,37 @@ export function AssignmentsWorkspace({
       return;
     }
 
-    const selectedClass = classesList.find((c) => c.id === assignClassId);
+    const targetClasses = classesList.filter((c) =>
+      assignClassIds.length > 0 ? assignClassIds.includes(c.id) : c.id === assignClassId
+    );
+
+    if (targetClasses.length === 0) {
+      showToast("Vui lòng chọn ít nhất một lớp học để giao đề!");
+      return;
+    }
+
     const examName = assigningExam ? assigningExam.title : examTitle.trim() || "Bài tập mới";
     const totalQ = assigningExam ? assigningExam.questionsCount : draftQuestions.length;
     const totalPts = assigningExam ? assigningExam.totalPoints : totalExamPoints;
+    const isScheduled = assignOpenDate > new Date().toISOString().split("T")[0];
 
-    const newAssignmentItem = {
-      id: `ass-${Date.now()}`,
+    const newAssignmentItems = targetClasses.map((cls, idx) => ({
+      id: `ass-${Date.now()}-${idx}`,
       title: examName,
-      className: selectedClass?.name || "Lớp học",
-      classId: assignClassId,
+      className: cls.name || "Lớp học",
+      classId: cls.id,
       assignedAt: new Date().toLocaleDateString("vi-VN"),
       dueAt: `${assignDueDate} 23:59`,
       durationMin: Number(assignDurationMin) || 45,
       submittedCount: 0,
-      totalStudents: selectedClass?.studentCount || 20,
-      status: "ACTIVE",
+      totalStudents: cls.studentCount || 20,
+      status: isScheduled ? "SCHEDULED" : "ACTIVE",
       waitingGradeCount: 0,
       totalQuestions: totalQ,
       totalPoints: totalPts,
-    };
+    }));
 
-    setAssignments([newAssignmentItem, ...assignments]);
+    setAssignments([...newAssignmentItems, ...assignments]);
 
     // Update questions usages in question bank
     const questionsToMark = assigningExam ? assigningExam.questions : draftQuestions;
@@ -1386,16 +1408,16 @@ export function AssignmentsWorkspace({
           if (qIds.has(q.id)) {
             return {
               ...q,
-              usedInExamCount: (q.usedInExamCount || 0) + 1,
+              usedInExamCount: (q.usedInExamCount || 0) + newAssignmentItems.length,
               usedInExams: [
                 ...(q.usedInExams || []),
-                {
-                  id: newAssignmentItem.id,
-                  title: newAssignmentItem.title,
-                  status: "ACTIVE",
-                  className: newAssignmentItem.className,
+                ...newAssignmentItems.map((item) => ({
+                  id: item.id,
+                  title: item.title,
+                  status: "ACTIVE" as const,
+                  className: item.className,
                   updatedAt: new Date().toLocaleDateString("vi-VN"),
-                },
+                })),
               ],
             };
           }
@@ -1406,7 +1428,11 @@ export function AssignmentsWorkspace({
 
     setIsAssignModalOpen(false);
     setActiveTab("ALL");
-    showToast(`Đã giao đề "${newAssignmentItem.title}" thành công cho lớp ${newAssignmentItem.className}!`);
+    showToast(
+      `Đã giao đề "${examName}" thành công cho ${newAssignmentItems.length} lớp học (${targetClasses
+        .map((c) => c.name)
+        .join(", ")})!`
+    );
   };
 
   // 1. Lưu đề nháp (Spec Section 3.1 & 3.2)
@@ -1444,6 +1470,23 @@ export function AssignmentsWorkspace({
         }
         return [updatedPkg, ...prev];
       });
+
+      // Background sync to backend API
+      try {
+        fetch("/api/v1/exams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: updatedPkg.title,
+            description: updatedPkg.description,
+            curriculum: updatedPkg.curriculum,
+            hskLevel: updatedPkg.hskLevel,
+            totalScore: updatedPkg.totalPoints,
+            status: "DRAFT",
+            questions: updatedPkg.questions,
+          }),
+        }).catch(() => {});
+      } catch (e) {}
 
       setExamSaveStatus("SAVED");
       showToast(`Đã lưu đề nháp "${title}" thành công! Có thể xem trong Tab Đề nháp.`);
@@ -6119,22 +6162,61 @@ export function AssignmentsWorkspace({
               </div>
 
               <div className="space-y-4 text-xs">
-                {/* Chọn lớp thuộc quyền */}
+                {/* Chọn lớp thuộc quyền (Hỗ trợ giao cùng lúc nhiều lớp) */}
                 <div>
-                  <label className="font-bold text-[#204434] block mb-1">
-                    Chọn lớp học nhận đề:
-                  </label>
-                  <select
-                    value={assignClassId}
-                    onChange={(e) => setAssignClassId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] font-semibold"
-                  >
-                    {classesList.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.studentCount || 20} học viên)
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="font-bold text-[#204434]">
+                      Chọn lớp học nhận đề ({assignClassIds.length}/{classesList.length} lớp):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (assignClassIds.length === classesList.length) {
+                          setAssignClassIds([]);
+                        } else {
+                          setAssignClassIds(classesList.map((c) => c.id));
+                        }
+                      }}
+                      className="text-[11px] font-bold text-[#8F6D3B] hover:underline cursor-pointer"
+                    >
+                      {assignClassIds.length === classesList.length ? "Bỏ chọn tất cả" : "Chọn tất cả các lớp"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {classesList.map((c) => {
+                      const isChecked = assignClassIds.includes(c.id);
+                      return (
+                        <label
+                          key={c.id}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                            isChecked
+                              ? "bg-emerald-50/80 border-emerald-400 text-emerald-950 font-bold"
+                              : "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setAssignClassIds(assignClassIds.filter((id) => id !== c.id));
+                                } else {
+                                  setAssignClassIds([...assignClassIds, c.id]);
+                                }
+                              }}
+                              className="w-4 h-4 rounded text-[#204434] accent-[#204434]"
+                            />
+                            <span>{c.name}</span>
+                          </div>
+                          <span className="text-[10px] text-[#315E48]">
+                            HSK {(c as any).level || 1} · {c.studentCount || 20} học viên
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Thời gian mở bài & Hạn nộp */}

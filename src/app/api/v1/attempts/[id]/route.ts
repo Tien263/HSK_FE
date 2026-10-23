@@ -44,6 +44,8 @@ export async function GET(
         type: q.question.type,
         content: q.question.content,
         pinyinPrompt: q.question.pinyinPrompt,
+        audioUrl: q.question.audioUrl,
+        imageUrl: q.question.imageUrl,
         options: parsedOptions,
         points: q.points,
       };
