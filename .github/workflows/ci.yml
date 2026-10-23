@@ -15,6 +15,7 @@ jobs:
       DIRECT_URL: ${{ secrets.DIRECT_URL || 'postgresql://neondb_owner:npg_HxMtCdpEAl27@ep-dry-sunset-aoa4m5vl-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require' }}
       NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'sample-secret-key-12345' }}
       NEXTAUTH_URL: 'http://127.0.0.1:3000'
+      BASE_URL: 'http://127.0.0.1:3000'
 
     steps:
       - name: Checkout repository
@@ -23,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
