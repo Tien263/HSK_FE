@@ -46,13 +46,25 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Thống kê tổng hợp
-    const [totalUsers, studentCount, teacherCount, adminCount, lockedCount] = await Promise.all([
+    // Thống kê tổng hợp toàn hệ thống
+    const [
+      totalUsers,
+      studentCount,
+      teacherCount,
+      adminCount,
+      lockedCount,
+      totalClasses,
+      totalAssignments,
+      totalAttempts,
+    ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: "STUDENT" } }),
       prisma.user.count({ where: { role: "TEACHER" } }),
       prisma.user.count({ where: { role: "ADMIN" } }),
       prisma.user.count({ where: { status: "LOCKED" } }),
+      prisma.class.count(),
+      prisma.assignment.count(),
+      prisma.attempt.count(),
     ]);
 
     return NextResponse.json(
@@ -65,6 +77,9 @@ export async function GET(request: Request) {
           adminCount,
           activeCount: totalUsers - lockedCount,
           lockedCount,
+          totalClasses,
+          totalAssignments,
+          totalAttempts,
         },
         users: users.map((u) => ({
           ...u,

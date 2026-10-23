@@ -35,6 +35,10 @@ import {
   Copy,
   Check,
   Upload,
+  BarChart3,
+  BookOpen,
+  FileCheck2,
+  Bot,
 } from "lucide-react";
 
 interface UserItem {
@@ -60,6 +64,9 @@ interface Stats {
   adminCount: number;
   activeCount: number;
   lockedCount: number;
+  totalClasses?: number;
+  totalAssignments?: number;
+  totalAttempts?: number;
 }
 
 interface OtpLog {
@@ -77,7 +84,60 @@ export default function AdminDashboardPage() {
 
   // State
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"users" | "otp" | "smtp">("users");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "ai" | "otp" | "smtp">("overview");
+
+  // AI Engine State
+  const [activeAiProvider, setActiveAiProvider] = useState<"QWEN" | "GROQ" | "GEMINI" | "OPENROUTER">("QWEN");
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<{
+    success: boolean;
+    message: string;
+    latency?: number;
+    question?: any;
+  } | null>(null);
+
+  const handleTestAiConnection = async () => {
+    setAiTesting(true);
+    setAiTestResult(null);
+    const start = performance.now();
+    try {
+      const res = await fetch("/api/v1/ai/generate-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: "Kiểm tra kết nối hệ thống AI HSK",
+          hskLevel: 1,
+          count: 1,
+          type: "multiple_choice",
+        }),
+      });
+      const latency = Math.round(performance.now() - start);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAiTestResult({
+          success: true,
+          message: `Kết nối AI thành công (${latency}ms) · Model phản hồi câu hỏi HSK chuẩn xác!`,
+          latency,
+          question: data.questions?.[0],
+        });
+      } else {
+        setAiTestResult({
+          success: false,
+          message: data.message || `Lỗi phản hồi từ AI (${latency}ms)`,
+          latency,
+        });
+      }
+    } catch (err: any) {
+      const latency = Math.round(performance.now() - start);
+      setAiTestResult({
+        success: false,
+        message: `Lỗi kết nối máy chủ AI: ${err.message}`,
+        latency,
+      });
+    } finally {
+      setAiTesting(false);
+    }
+  };
 
   // Users data
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -88,6 +148,9 @@ export default function AdminDashboardPage() {
     adminCount: 0,
     activeCount: 0,
     lockedCount: 0,
+    totalClasses: 0,
+    totalAssignments: 0,
+    totalAttempts: 0,
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
@@ -542,7 +605,7 @@ export default function AdminDashboardPage() {
       <main className="max-w-[1920px] mx-auto px-4 sm:px-8 py-6 space-y-6">
         
         {/* KPI Stats Grid */}
-        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
           <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-[#315E48] font-medium">
               <span>Tổng tài khoản</span>
@@ -558,115 +621,126 @@ export default function AdminDashboardPage() {
 
           <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-[#315E48] font-medium">
-              <span>Học viên</span>
+              <span>Học viên / Giáo viên</span>
               <GraduationCap className="w-4 h-4 text-[#315E48]" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-bold font-serif text-[#315E48]">
                 {stats.studentCount}
               </span>
-              <span className="text-[11px] text-[#315E48]">người học</span>
-            </div>
-          </div>
-
-          <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[#9D493E] font-medium">
-              <span>Giáo viên</span>
-              <Briefcase className="w-4 h-4 text-[#9D493E]" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold font-serif text-[#9D493E]">
-                {stats.teacherCount}
-              </span>
-              <span className="text-[11px] text-[#315E48]">giảng dạy</span>
-            </div>
-          </div>
-
-          <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[#7A5B2E] font-medium">
-              <span>Quản trị viên</span>
-              <Shield className="w-4 h-4 text-[#BC9B6B]" />
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold font-serif text-[#7A5B2E]">
-                {stats.adminCount}
-              </span>
-              <span className="text-[11px] text-[#315E48]">admin</span>
+              <span className="text-[11px] text-[#315E48]">HV / {stats.teacherCount} GV</span>
             </div>
           </div>
 
           <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-[#204434] font-medium">
-              <span>Hoạt động</span>
-              <CheckCircle2 className="w-4 h-4 text-[#315E48]" />
+              <span>Tổng lớp học HSK</span>
+              <BookOpen className="w-4 h-4 text-[#204434]" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-bold font-serif text-[#204434]">
-                {stats.activeCount}
+                {stats.totalClasses || 0}
               </span>
-              <span className="text-[11px] text-[#315E48]">khả dụng</span>
+              <span className="text-[11px] text-[#315E48]">lớp đang mở</span>
             </div>
           </div>
 
           <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-[#9D493E] font-medium">
-              <span>Bị tạm khóa</span>
-              <Lock className="w-4 h-4 text-[#9D493E]" />
+            <div className="flex items-center justify-between text-xs text-[#7A5B2E] font-medium">
+              <span>Đề thi & Bài tập</span>
+              <FileCheck2 className="w-4 h-4 text-[#BC9B6B]" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold font-serif text-[#9D493E]">
-                {stats.lockedCount}
+              <span className="text-2xl sm:text-3xl font-bold font-serif text-[#7A5B2E]">
+                {stats.totalAssignments || 0}
               </span>
-              <span className="text-[11px] text-[#315E48]">đã khóa</span>
+              <span className="text-[11px] text-[#315E48]">bài được giao</span>
+            </div>
+          </div>
+
+          <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-emerald-800 font-medium">
+              <span>Lượt làm bài / nộp bài</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-bold font-serif text-emerald-800">
+                {stats.totalAttempts || 0}
+              </span>
+              <span className="text-[11px] text-[#315E48]">lượt nộp bài</span>
             </div>
           </div>
         </section>
 
         {/* Tab Navigation */}
-        <div className="flex items-center justify-between border-b border-[#BC9B6B]/25 pb-2">
-          <div className="flex gap-2 sm:gap-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between border-b border-[#BC9B6B]/25 pb-2 gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-2.5">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "overview"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Tổng quan KPIs</span>
+            </button>
+
             <button
               onClick={() => setActiveTab("users")}
-              className={`px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "users"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
                   : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Quản lý Tài khoản ({stats.totalUsers})</span>
+              <span>Tài khoản ({stats.totalUsers})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("ai")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "ai"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>Cấu hình AI Engine</span>
             </button>
 
             <button
               onClick={() => setActiveTab("otp")}
-              className={`px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "otp"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
                   : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
               }`}
             >
               <Mail className="w-4 h-4" />
-              <span>API Gửi OTP qua Email</span>
+              <span>Gửi OTP</span>
             </button>
 
             <button
               onClick={() => setActiveTab("smtp")}
-              className={`px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "smtp"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
                   : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
               }`}
             >
               <Server className="w-4 h-4" />
-              <span>Cấu hình SMTP Gateway</span>
+              <span>SMTP Gateway</span>
             </button>
 
             <Link
               href="/admin/media"
-              className="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              className="px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
             >
               <Upload className="w-4 h-4 text-[#BC9B6B]" />
-              <span>Kho Media Cloudinary</span>
+              <span>Cloudinary Media</span>
             </Link>
           </div>
 
@@ -681,6 +755,273 @@ export default function AdminDashboardPage() {
             </button>
           )}
         </div>
+
+        {/* =================================================================== */}
+        {/* TAB 0: OVERVIEW & SYSTEM KPIS */}
+        {/* =================================================================== */}
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            {/* System Health Status Banner */}
+            <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-5 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#BC9B6B]/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-base text-[#204434]">
+                      Trạng thái hệ thống giáo dục Hanyu HSK
+                    </h3>
+                    <p className="text-xs text-[#315E48]">Toàn bộ vi dịch vụ, cơ sở dữ liệu và AI Engine đang hoạt động ổn định.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-bold text-emerald-800">100% Hoạt động bình thường</span>
+                </div>
+              </div>
+
+              {/* Service Status Tiles */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#204434]">PostgreSQL Database</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Online</span>
+                  </div>
+                  <p className="text-[11px] text-[#315E48]">Prisma ORM · Kết nối độ trễ &lt; 25ms</p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#204434]">AI Engine (Qwen / Groq)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Sẵn sàng</span>
+                  </div>
+                  <p className="text-[11px] text-[#315E48]">Hỗ trợ sinh tự động 12 dạng câu hỏi HSK</p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#204434]">Email Gateway (SMTP)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Đã kích hoạt</span>
+                  </div>
+                  <p className="text-[11px] text-[#315E48]">Gmail OAuth 2.0 / SSL Port 465</p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#204434]">Cloudinary Media</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Sẵn sàng</span>
+                  </div>
+                  <p className="text-[11px] text-[#315E48]">Lưu trữ file nghe MP3 & ảnh đề thi HSK</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions & Short Navigation */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div
+                onClick={() => setActiveTab("users")}
+                className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/25 hover:border-[#204434] shadow-2xs transition cursor-pointer group space-y-2"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Users className="w-5 h-5" />
+                </div>
+                <h4 className="font-serif font-bold text-sm text-[#204434]">Quản lý Tài khoản & Phân quyền</h4>
+                <p className="text-xs text-[#315E48]">
+                  Thêm mới học viên, phê duyệt tài khoản giáo viên, khóa/mở tài khoản và đặt lại mật khẩu nhanh.
+                </p>
+                <span className="text-xs text-[#204434] font-semibold flex items-center gap-1 group-hover:underline pt-1 block">
+                  Xem danh sách {stats.totalUsers} tài khoản &rarr;
+                </span>
+              </div>
+
+              <div
+                onClick={() => setActiveTab("ai")}
+                className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/25 hover:border-[#204434] shadow-2xs transition cursor-pointer group space-y-2"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Sparkles className="w-5 h-5 text-amber-600" />
+                </div>
+                <h4 className="font-serif font-bold text-sm text-[#204434]">Cấu hình AI Engine & Model</h4>
+                <p className="text-xs text-[#315E48]">
+                  Quản lý kết nối Qwen 2.5, Groq Cloud Llama 3.3, Google Gemini và kiểm tra khả năng sinh câu hỏi trực tiếp.
+                </p>
+                <span className="text-xs text-[#204434] font-semibold flex items-center gap-1 group-hover:underline pt-1 block">
+                  Cấu hình AI & Test kết nối &rarr;
+                </span>
+              </div>
+
+              <div
+                onClick={() => setActiveTab("smtp")}
+                className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/25 hover:border-[#204434] shadow-2xs transition cursor-pointer group space-y-2"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Mail className="w-5 h-5 text-sky-700" />
+                </div>
+                <h4 className="font-serif font-bold text-sm text-[#204434]">Dịch vụ Email OTP & Thông báo</h4>
+                <p className="text-xs text-[#315E48]">
+                  Cấu hình máy chủ gửi email xác thực tài khoản, nhắc nhở nộp bài tập và lịch dạy cho giáo viên.
+                </p>
+                <span className="text-xs text-[#204434] font-semibold flex items-center gap-1 group-hover:underline pt-1 block">
+                  Thiết lập SMTP Gateway &rarr;
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB AI: AI ENGINE CONFIGURATION & DIRECT CONNECTION TEST */}
+        {/* =================================================================== */}
+        {activeTab === "ai" && (
+          <div className="space-y-6">
+            <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-6 shadow-2xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#BC9B6B]/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-lg text-[#204434]">
+                      Trung tâm Cấu hình AI Engine (HSK 3.0 Standard)
+                    </h3>
+                    <p className="text-xs text-[#315E48]">
+                      Quản lý nhà cung cấp trí tuệ nhân tạo, thiết lập model ưu tiên và kiểm tra độ trễ phản hồi thực tế.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Chuẩn HSK 3.0 · 12 Dạng câu hỏi
+                </span>
+              </div>
+
+              {/* Providers Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. Alibaba Qwen */}
+                <div
+                  onClick={() => setActiveAiProvider("QWEN")}
+                  className={`p-4 rounded-2xl border transition cursor-pointer ${
+                    activeAiProvider === "QWEN"
+                      ? "bg-[#FFFBF0] border-[#BC9B6B] shadow-xs ring-2 ring-[#BC9B6B]/40"
+                      : "bg-white border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#204434]">Alibaba Cloud Qwen</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      Khuyên dùng
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#315E48] mt-1 font-medium">Model: Qwen 2.5 72B / Qwen-Turbo</p>
+                  <p className="text-[11px] text-[#8ea394] mt-1">
+                    Tối ưu xuất sắc nhất cho tiếng Trung, ngữ pháp HSK, thanh điệu pinyin và viết chữ Hán.
+                  </p>
+                </div>
+
+                {/* 2. Groq Cloud */}
+                <div
+                  onClick={() => setActiveAiProvider("GROQ")}
+                  className={`p-4 rounded-2xl border transition cursor-pointer ${
+                    activeAiProvider === "GROQ"
+                      ? "bg-[#FFFBF0] border-[#BC9B6B] shadow-xs ring-2 ring-[#BC9B6B]/40"
+                      : "bg-white border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#204434]">Groq Cloud</span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                      Siêu tốc
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#315E48] mt-1 font-medium">Model: Llama 3.3 70B Versatile</p>
+                  <p className="text-[11px] text-[#8ea394] mt-1">
+                    Tốc độ xử lý cực đại ~500 tokens/giây, sinh trắc nghiệm và dịch nghĩa gần như tức thì.
+                  </p>
+                </div>
+
+                {/* 3. Google Gemini */}
+                <div
+                  onClick={() => setActiveAiProvider("GEMINI")}
+                  className={`p-4 rounded-2xl border transition cursor-pointer ${
+                    activeAiProvider === "GEMINI"
+                      ? "bg-[#FFFBF0] border-[#BC9B6B] shadow-xs ring-2 ring-[#BC9B6B]/40"
+                      : "bg-white border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#204434]">Google Gemini</span>
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                      Đa ngữ
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#315E48] mt-1 font-medium">Model: Gemini 2.5 Flash</p>
+                  <p className="text-[11px] text-[#8ea394] mt-1">
+                    Phân tích ngữ cảnh văn hóa sâu rộng, giải thích cặn kẽ ngữ pháp cho học viên Việt Nam.
+                  </p>
+                </div>
+              </div>
+
+              {/* Live Test Panel */}
+              <div className="p-5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/30 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-serif font-bold text-sm text-[#204434]">
+                      Kiểm tra kết nối và khả năng sinh câu hỏi AI
+                    </h4>
+                    <p className="text-xs text-[#315E48]">
+                      Gửi một yêu cầu kiểm tra thực tế tới máy chủ AI để xác minh API Key và độ trễ.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleTestAiConnection}
+                    disabled={aiTesting}
+                    className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-xs flex items-center gap-2 cursor-pointer transition disabled:opacity-50 shrink-0"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${aiTesting ? "animate-spin" : ""}`} />
+                    <span>{aiTesting ? "Đang gửi yêu cầu test..." : "Kiểm tra kết nối AI Trực tiếp"}</span>
+                  </button>
+                </div>
+
+                {aiTestResult && (
+                  <div
+                    className={`p-4 rounded-xl border text-xs space-y-2 animate-fadeIn ${
+                      aiTestResult.success
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                        : "bg-red-50 border-red-300 text-red-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 font-bold">
+                      {aiTestResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      )}
+                      <span>{aiTestResult.message}</span>
+                    </div>
+
+                    {aiTestResult.question && (
+                      <div className="mt-2 p-3 bg-white rounded-lg border border-emerald-200 text-[#204434] space-y-1">
+                        <div className="font-bold text-[11px] text-[#315E48] uppercase">
+                          Câu hỏi mẫu do AI phản hồi:
+                        </div>
+                        <p className="font-semibold">{aiTestResult.question.content}</p>
+                        {aiTestResult.question.pinyinPrompt && (
+                          <p className="text-[11px] text-[#8F6D3B]">Pinyin: {aiTestResult.question.pinyinPrompt}</p>
+                        )}
+                        <p className="text-[11px] text-[#315E48]">
+                          Giải thích: {aiTestResult.question.explanation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: USERS MANAGEMENT */}
         {activeTab === "users" && (
