@@ -12,6 +12,7 @@ export interface VocabularyItem {
   exampleZh: string;
   examplePy: string;
   exampleVi: string;
+  usageNote?: string;
 }
 
 export interface GrammarItem {
@@ -52,6 +53,12 @@ export interface ReadingItem {
   contentPy: string;
   contentVi: string;
   wordCount: number;
+  extraVocabs?: {
+    hanzi: string;
+    pinyin: string;
+    meaningVi: string;
+    tag?: string;
+  }[];
 }
 
 export interface ListeningItem {
@@ -70,13 +77,13 @@ export interface ListeningItem {
 }
 
 export interface CulturalNoteItem {
-  context: string; // A. Bối cảnh giao tiếp
-  targetAudience: string; // B. Đối tượng giao tiếp
-  naturalExpressions: { zh: string; py: string; vi: string }[]; // C. Cách nói thường dùng
-  politeExpressions: { zh: string; py: string; vi: string; note?: string }[]; // D. Cách nói lịch sự
-  cautionNotes: string[]; // E. Cách nói cần lưu ý
+  context?: string; // A. Bối cảnh giao tiếp
+  targetAudience?: string; // B. Đối tượng giao tiếp
+  naturalExpressions?: { zh: string; py: string; vi: string; usage?: string }[]; // C. Cách nói thường dùng
+  politeExpressions?: { zh: string; py: string; vi: string; note?: string }[]; // D. Cách nói lịch sự
+  cautionNotes?: string[]; // E. Cách nói cần lưu ý
   comparisonNote?: string; // F. So sánh khẩu ngữ và trang trọng
-  practiceScenario: string; // G. Tình huống thực hành
+  practiceScenario?: string; // G. Tình huống thực hành
 }
 
 export interface CulturalSelectionItem {
@@ -939,9 +946,272 @@ export const OFFICIAL_12_FACULTIES: UniversityFacultyMeta[] = [
 
 // ===========================================================================
 // SEED DETAILED LESSONS:
-// 1. HSK 1 - Bài 5: 今天我休息 (Phần 1->5 đầy đủ)
-// 2. Đại học - 政治经济学: 第一节 商品的二因素
+// 1. HSK 1 - Bài 1: AI小语，你好！ (Nội dung chuẩn 5 phần - 12 từ, 3 ngữ pháp, hội thoại, đọc hiểu, 8 văn hóa)
+// 2. HSK 1 - Bài 5: 今天我休息 (Phần 1->5 đầy đủ)
+// 3. Đại học - 政治经济学: 第一节 商品的二因素
 // ===========================================================================
+export const HSK1_LESSON_1_DETAIL: FullLessonDetail = {
+  id: "hsk1-b01",
+  orderNumber: 1,
+  trackId: "hsk",
+  levelId: "hsk1",
+  levelLabel: "HSK 1",
+  titleZh: "AI小语，你好！",
+  titlePy: "AI Xiǎoyǔ, nǐ hǎo!",
+  titleVi: "Xin chào AI Tiểu Ngữ!",
+  thumbnailArt: "lesson4",
+  description: "Bài học mở đầu giúp học sinh làm quen với AI Tiểu Ngữ, các cách chào hỏi cơ bản, phân biệt 你 và 您, hậu tố số nhiều 们 cùng văn hóa giao tiếp Trung Hoa.",
+  stats: {
+    vocabCount: 12,
+    grammarCount: 3,
+    dialogueCount: 1,
+    readingCount: 1,
+    listeningCount: 0,
+  },
+  vocabularies: [
+    {
+      id: "v-hsk1-1-1",
+      hanzi: "你好",
+      pinyin: "nǐ hǎo",
+      partOfSpeech: "cụm từ",
+      meaningVi: "Xin chào",
+      usageNote: "Lời chào cơ bản khi gặp mặt một người. Lưu ý: Hai thanh 3 đứng liền nhau, 你好 thường được phát âm thành ní hǎo.",
+      exampleZh: "你好，小语！",
+      examplePy: "Nǐ hǎo, Xiǎoyǔ!",
+      exampleVi: "Chào Tiểu Ngữ!",
+    },
+    {
+      id: "v-hsk1-1-2",
+      hanzi: "大家",
+      pinyin: "dàjiā",
+      partOfSpeech: "đại từ",
+      meaningVi: "Mọi người",
+      usageNote: "Chỉ tất cả mọi người trong một nhóm hoặc tập thể.",
+      exampleZh: "大家好！",
+      examplePy: "Dàjiā hǎo!",
+      exampleVi: "Chào mọi người!",
+    },
+    {
+      id: "v-hsk1-1-3",
+      hanzi: "好",
+      pinyin: "hǎo",
+      partOfSpeech: "tính từ",
+      meaningVi: "Tốt, khỏe",
+      usageNote: "Tính từ thể hiện trạng thái tốt hoặc tích cực, cũng xuất hiện trong các lời chào.",
+      exampleZh: "你好！",
+      examplePy: "Nǐ hǎo!",
+      exampleVi: "Xin chào!",
+    },
+    {
+      id: "v-hsk1-1-4",
+      hanzi: "学生",
+      pinyin: "xuésheng",
+      partOfSpeech: "danh từ",
+      meaningVi: "Học sinh, sinh viên",
+      usageNote: "Người đang học tập tại trường.",
+      exampleZh: "学生们，你们好！",
+      examplePy: "Xuéshengmen, nǐmen hǎo!",
+      exampleVi: "Chào các em học sinh!",
+    },
+    {
+      id: "v-hsk1-1-5",
+      hanzi: "们",
+      pinyin: "men",
+      partOfSpeech: "hậu tố",
+      meaningVi: "Hậu tố chỉ số nhiều",
+      usageNote: "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều.",
+      exampleZh: "你们好！",
+      examplePy: "Nǐmen hǎo!",
+      exampleVi: "Chào các bạn!",
+    },
+    {
+      id: "v-hsk1-1-6",
+      hanzi: "老师",
+      pinyin: "lǎoshī",
+      partOfSpeech: "danh từ",
+      meaningVi: "Thầy giáo, cô giáo",
+      usageNote: "Danh từ chỉ giáo viên, không phân biệt giới tính.",
+      exampleZh: "老师，您好！",
+      examplePy: "Lǎoshī, nín hǎo!",
+      exampleVi: "Em chào thầy/cô ạ!",
+    },
+    {
+      id: "v-hsk1-1-7",
+      hanzi: "您",
+      pinyin: "nín",
+      partOfSpeech: "đại từ",
+      meaningVi: "Đại từ kính trọng",
+      usageNote: "Cách xưng hô lịch sự với thầy cô, người lớn tuổi hoặc người cần thể hiện sự tôn trọng.",
+      exampleZh: "王老师，您好！",
+      examplePy: "Wáng lǎoshī, nín hǎo!",
+      exampleVi: "Em chào thầy/cô Vương ạ!",
+    },
+    {
+      id: "v-hsk1-1-8",
+      hanzi: "你们",
+      pinyin: "nǐmen",
+      partOfSpeech: "đại từ",
+      meaningVi: "Các bạn",
+      usageNote: "Đại từ ngôi thứ hai số nhiều, sử dụng khi nói với từ hai người trở lên.",
+      exampleZh: "你们好！",
+      examplePy: "Nǐmen hǎo!",
+      exampleVi: "Chào các bạn!",
+    },
+    {
+      id: "v-hsk1-1-9",
+      hanzi: "谢谢",
+      pinyin: "xièxie",
+      partOfSpeech: "động từ",
+      meaningVi: "Cảm ơn",
+      usageNote: "Sử dụng khi cảm ơn người khác. Âm tiết thứ hai đọc thanh nhẹ.",
+      exampleZh: "谢谢老师！",
+      examplePy: "Xièxie lǎoshī!",
+      exampleVi: "Em cảm ơn thầy/cô!",
+    },
+    {
+      id: "v-hsk1-1-10",
+      hanzi: "不客气",
+      pinyin: "bú kèqi",
+      partOfSpeech: "cụm từ",
+      meaningVi: "Không có gì",
+      usageNote: "Cách đáp lại khi người khác nói lời cảm ơn.",
+      exampleZh: "不客气！",
+      examplePy: "Bú kèqi!",
+      exampleVi: "Không có gì!",
+    },
+    {
+      id: "v-hsk1-1-11",
+      hanzi: "同学",
+      pinyin: "tóngxué",
+      partOfSpeech: "danh từ",
+      meaningVi: "Bạn học",
+      usageNote: "Người cùng học tại trường hoặc trong lớp.",
+      exampleZh: "同学们，再见！",
+      examplePy: "Tóngxuémen, zàijiàn!",
+      exampleVi: "Tạm biệt các bạn học!",
+    },
+    {
+      id: "v-hsk1-1-12",
+      hanzi: "再见",
+      pinyin: "zàijiàn",
+      partOfSpeech: "động từ",
+      meaningVi: "Tạm biệt",
+      usageNote: "Lời chào khi chia tay, kết thúc cuộc gặp hoặc kết thúc buổi học.",
+      exampleZh: "老师，再见！",
+      examplePy: "Lǎoshī, zàijiàn!",
+      exampleVi: "Tạm biệt thầy/cô ạ!",
+    },
+  ],
+  grammars: [
+    {
+      id: "g-hsk1-1-1",
+      title: "Ngữ pháp 1: Cấu trúc chào hỏi với 好",
+      structure: "Đối tượng được chào + 好！",
+      explanation: "Trong tiếng Trung, có thể kết hợp đại từ nhân xưng hoặc danh xưng với 好 để hình thành câu chào. Lưu ý phát âm: 你好 viết nǐ hǎo nhưng khi đọc thông thường biến điệu thành ní hǎo.",
+      examples: [
+        { zh: "你好！", py: "Nǐ hǎo!", vi: "Xin chào!" },
+        { zh: "您好！", py: "Nín hǎo!", vi: "Xin chào ạ!" },
+        { zh: "大家好！", py: "Dàjiā hǎo!", vi: "Chào mọi người!" },
+        { zh: "你们好！", py: "Nǐmen hǎo!", vi: "Chào các bạn!" },
+        { zh: "老师好！", py: "Lǎoshī hǎo!", vi: "Chào thầy/cô ạ!" },
+      ],
+    },
+    {
+      id: "g-hsk1-1-2",
+      title: "Ngữ pháp 2: Phân biệt 你 và 您",
+      structure: "你 (thông thường) vs 您 (kính trọng)",
+      explanation: "你 (nǐ): Bạn, sử dụng trong giao tiếp thông thường. 您 (nín): Đại từ kính trọng, sử dụng khi giao tiếp lịch sự với thầy cô, người lớn tuổi hoặc người cần thể hiện sự tôn trọng. Sự khác biệt nằm ở mức độ trang trọng và quan hệ giữa người nói với người nghe.",
+      examples: [
+        { zh: "小语，你好！", py: "Xiǎoyǔ, nǐ hǎo!", vi: "Chào Tiểu Ngữ!" },
+        { zh: "王老师，您好！", py: "Wáng lǎoshī, nín hǎo!", vi: "Em chào thầy/cô Vương ạ!" },
+      ],
+    },
+    {
+      id: "g-hsk1-1-3",
+      title: "Ngữ pháp 3: Hậu tố số nhiều 们",
+      structure: "Đại từ nhân xưng / danh từ chỉ người + 们",
+      explanation: "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều (Ví dụ: 你 + 们 = 你们, 我 + 们 = 我们, 同学 + 们 = 同学们, 学生 + 们 = 学生们). Lưu ý: Không thêm 们 ngay sau một danh từ đã có số lượng cụ thể như 三个学生.",
+      examples: [
+        { zh: "你们好！", py: "Nǐmen hǎo!", vi: "Chào các bạn!" },
+        { zh: "同学们，再见！", py: "Tóngxuémen, zàijiàn!", vi: "Tạm biệt các bạn học!" },
+      ],
+    },
+  ],
+  dialogue: {
+    id: "d-hsk1-1",
+    title: "第一天上课 – Buổi học đầu tiên",
+    situation: "Ngày đầu tiên đến lớp, thầy Vương chào cả lớp, sau đó từng học sinh và AI Tiểu Ngữ chào lại thầy giáo.",
+    audioDuration: "01:15",
+    lines: [
+      { speaker: "王老师", speakerRole: "Giáo viên", zh: "同学们好！", py: "Tóngxuémen hǎo!", vi: "Chào các em học sinh!" },
+      { speaker: "学生们", speakerRole: "Học sinh", zh: "老师好！", py: "Lǎoshī hǎo!", vi: "Chúng em chào thầy ạ!" },
+      { speaker: "王老师", speakerRole: "Giáo viên", zh: "欢迎大家来到中文课！", py: "Huānyíng dàjiā lái dào zhōngwén kè!", vi: "Chào mừng mọi người đến với lớp học tiếng Trung!" },
+      { speaker: "小语", speakerRole: "AI Trợ giảng", zh: "老师，您好！我是小语。", py: "Lǎoshī, nín hǎo! Wǒ shì Xiǎoyǔ.", vi: "Em chào thầy ạ! Em là Tiểu Ngữ." },
+      { speaker: "王老师", speakerRole: "Giáo viên", zh: "你好，小语！", py: "Nǐ hǎo, Xiǎoyǔ!", vi: "Chào em, Tiểu Ngữ!" },
+      { speaker: "学生们", speakerRole: "Học sinh", zh: "谢谢老师！", py: "Xièxie lǎoshī!", vi: "Cảm ơn thầy ạ!" },
+      { speaker: "王老师", speakerRole: "Giáo viên", zh: "不客气！", py: "Bú kèqi!", vi: "Không có gì!" },
+      { speaker: "王老师", speakerRole: "Giáo viên", zh: "同学们，再见！", py: "Tóngxuémen, zàijiàn!", vi: "Tạm biệt các em học sinh!" },
+    ],
+  },
+  reading: {
+    id: "r-hsk1-1",
+    titleZh: "第一天上课",
+    titleVi: "Buổi học đầu tiên",
+    wordCount: 88,
+    contentZh: "今天是第一天上课。王老师走进教室，对大家说：“同学们好！”学生们很高兴，一起说：“老师好！”小语也说：“王老师，您好！”下课了，老师说：“同学们，再见！”大家说：“老师，再见！谢谢老师！”",
+    contentPy: "Jīntiān shì dì-yī tiān shàngkè. Wáng lǎoshī zǒu jìn jiàoshì, duì dàjiā shuō: “Tóngxuémen hǎo!” Xuéshengmen hěn gāoxìng, yìqǐ shuō: “Lǎoshī hǎo!” Xiǎoyǔ yě shuō: “Wáng lǎoshī, nín hǎo!” Xiàkè le, lǎoshī shuō: “Tóngxuémen, zàijiàn!” Dàjiā shuō: “Lǎoshī, zàijiàn! Xièxie lǎoshī!”",
+    contentVi: "Hôm nay là buổi học đầu tiên. Thầy Vương bước vào lớp học, nói với mọi người: “Chào các em học sinh!” Các học sinh rất vui, cùng đồng thanh: “Chúng em chào thầy ạ!” Tiểu Ngữ cũng nói: “Em chào thầy Vương ạ!” Tan học rồi, thầy giáo nói: “Tạm biệt các em học sinh!” Mọi người cùng nói: “Tạm biệt thầy ạ! Em cảm ơn thầy!”",
+    extraVocabs: [
+      { hanzi: "今天", pinyin: "jīntiān", meaningVi: "Hôm nay", tag: "Từ vựng mở rộng" },
+      { hanzi: "第一天", pinyin: "dì-yī tiān", meaningVi: "Ngày đầu tiên", tag: "Từ vựng mở rộng" },
+      { hanzi: "上课", pinyin: "shàngkè", meaningVi: "Vào học, đi học", tag: "Từ vựng mở rộng" },
+      { hanzi: "说", pinyin: "shuō", meaningVi: "Nói", tag: "Từ vựng mở rộng" },
+      { hanzi: "下课", pinyin: "xiàkè", meaningVi: "Tan học", tag: "Từ vựng mở rộng" },
+    ],
+  },
+  culturalNote: {
+    naturalExpressions: [
+      {
+        zh: "你好！",
+        py: "Nǐ hǎo!",
+        vi: "Xin chào! (Lời chào phổ biến nhất khi gặp gỡ)",
+        usage: "Lời chào cơ bản khi gặp mặt một người.",
+      },
+      {
+        zh: "老师好！",
+        py: "Lǎoshī hǎo!",
+        vi: "Chào thầy/cô ạ! (Lời chào thể hiện sự kính trọng dành cho giáo viên)",
+        usage: "Lời chào thể hiện sự kính trọng dành cho thầy giáo, cô giáo.",
+      },
+    ],
+    politeExpressions: [
+      {
+        zh: "您好！",
+        py: "Nín hǎo!",
+        vi: "Xin chào ạ! (Dùng cho người lớn tuổi, thầy cô, đối tác lần đầu gặp)",
+        note: "Đại từ kính trọng biểu thị sự trang trọng và lịch thiệp.",
+      },
+      {
+        zh: "谢谢！",
+        py: "Xièxie!",
+        vi: "Cảm ơn! (Thể hiện lòng biết ơn chân thành)",
+        note: "Sử dụng khi cảm ơn người khác đã giúp đỡ mình.",
+      },
+      {
+        zh: "不客气！",
+        py: "Bú kèqi!",
+        vi: "Không có gì! (Lời đáp nhã nhặn, khiêm tốn khi nhận lời cảm ơn)",
+        note: "Cách đáp lại lịch sự khi người khác nói lời cảm ơn.",
+      },
+    ],
+    cautionNotes: [
+      "Không gọi thẳng tên giáo viên: Trong văn hóa Trung Quốc, gọi Họ + 老师 (ví dụ: 王老师) thay vì gọi thẳng tên như trong tiếng Anh.",
+      "Biến điệu của 你好: Khi hai âm tiết mang thanh 3 đi liền nhau, từ đầu tiên biến đổi thành thanh 2 (ní hǎo).",
+      "Tránh dùng 您 với bạn bè đồng trang lứa: Dùng 您 với bạn bè thân thiết sẽ tạo cảm giác xa cách, khách sáo quá mức.",
+    ],
+  },
+};
+
 export const LESSON_5_DETAIL: FullLessonDetail = {
   id: "hsk1-b5",
   orderNumber: 5,
@@ -1320,10 +1590,23 @@ export const ALL_LESSONS_INDEX: LessonSummary[] = [
 // Lookup detail by id
 export function getLessonDetailById(id: string): FullLessonDetail {
   if (id === "uni-econ-ch2-sec1") return UNIVERSITY_LESSON_DETAIL;
-  if (id === "hsk1-b5" || !id) return LESSON_5_DETAIL;
+  if (
+    id === "hsk1-b01" ||
+    id === "hsk1-b1" ||
+    id === "hsk1-01" ||
+    id === "lesson-01" ||
+    id === "lesson-1"
+  ) {
+    return HSK1_LESSON_1_DETAIL;
+  }
+  if (id === "hsk1-b5" || id === "hsk1-b05") return LESSON_5_DETAIL;
 
   const summary = ALL_LESSONS_INDEX.find((l) => l.id === id);
-  if (!summary) return LESSON_5_DETAIL;
+  if (!summary) return HSK1_LESSON_1_DETAIL;
+
+  if (summary.orderNumber === 1 && summary.trackId === "hsk" && summary.levelId === "hsk1") {
+    return HSK1_LESSON_1_DETAIL;
+  }
 
   return {
     ...summary,

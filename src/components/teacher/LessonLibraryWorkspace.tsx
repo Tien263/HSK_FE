@@ -52,6 +52,8 @@ import {
   AlertTriangle,
   Lightbulb,
   Info,
+  Edit3,
+  Plus,
 } from "lucide-react";
 import {
   LessonHeroBannerSvg,
@@ -135,9 +137,25 @@ export function LessonLibraryWorkspace({
   // HSK 3.0 Branch Screen Flow: LEVELS -> LESSONS_LIST -> LESSON_DETAIL
   const [hskScreen, setHskScreen] = useState<"LEVELS" | "LESSONS_LIST" | "LESSON_DETAIL">("LEVELS");
   const [hskSelectedLevel, setHskSelectedLevel] = useState<string>("hsk1");
-  const [hskSelectedLessonId, setHskSelectedLessonId] = useState<string>("hsk1-b5");
+  const [hskSelectedLessonId, setHskSelectedLessonId] = useState<string>("hsk1-b01");
   const [hskSearchFilter, setHskSearchFilter] = useState<string>("");
   const [hskViewMode, setHskViewMode] = useState<"grid" | "list">("grid");
+
+  // Dynamic Lesson Overrides from Teacher Edits
+  const [lessonOverrides, setLessonOverrides] = useState<Record<string, Partial<FullLessonDetail>>>({});
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("hanyu_teacher_lesson_overrides");
+        if (saved) {
+          setLessonOverrides(JSON.parse(saved));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   // Theo chủ đề Branch Screen Flow: MAJOR_TOPICS -> SUBTOPICS -> LESSONS_LIST -> LESSON_DETAIL
   const [topicScreen, setTopicScreen] = useState<"MAJOR_TOPICS" | "SUBTOPICS" | "LESSONS_LIST" | "LESSON_DETAIL">("MAJOR_TOPICS");
@@ -164,10 +182,15 @@ export function LessonLibraryWorkspace({
     return majorSelectedLessonId;
   }, [activeTrack, hskSelectedLessonId, topicSelectedLessonId, majorSelectedLessonId]);
 
-  // Current lesson detail strictly loaded from current branch
+  // Current lesson detail strictly loaded from current branch + any saved overrides
   const currentLesson: FullLessonDetail = useMemo(() => {
-    return getLessonDetailById(currentActiveLessonId);
-  }, [currentActiveLessonId]);
+    const base = getLessonDetailById(currentActiveLessonId);
+    const override = lessonOverrides[currentActiveLessonId] || lessonOverrides[base.id];
+    if (override) {
+      return { ...base, ...override };
+    }
+    return base;
+  }, [currentActiveLessonId, lessonOverrides]);
 
   // Active Major Topic & Subtopic metadata
   const currentMajorTopic = useMemo(() => {
@@ -268,24 +291,47 @@ export function LessonLibraryWorkspace({
   // SELECTIONS BASKET STATE
   // =========================================================================
   const [selectedVocabIds, setSelectedVocabIds] = useState<string[]>([
-    "v-jintian",
-    "v-mingtian",
-    "v-xiuxi",
-    "v-shengbing",
+    "v-hsk1-1-1",
+    "v-hsk1-1-2",
+    "v-hsk1-1-3",
+    "v-hsk1-1-4",
+    "v-hsk1-1-5",
+    "v-hsk1-1-6",
+    "v-hsk1-1-7",
+    "v-hsk1-1-8",
+    "v-hsk1-1-9",
+    "v-hsk1-1-10",
+    "v-hsk1-1-11",
+    "v-hsk1-1-12",
   ]);
   const [selectedGrammarIds, setSelectedGrammarIds] = useState<string[]>([
-    "g-le",
-    "g-bu",
+    "g-hsk1-1-1",
+    "g-hsk1-1-2",
+    "g-hsk1-1-3",
   ]);
   const [selectedCulturalIds, setSelectedCulturalIds] = useState<string[]>([
-    "cult-hsk1-b5-context",
-    "cult-hsk1-b5-phrase-0",
-    "cult-hsk1-b5-phrase-1",
+    "cult-hsk1-b01-phrase-0",
+    "cult-hsk1-b01-phrase-1",
+    "cult-hsk1-b01-polite-0",
+    "cult-hsk1-b01-polite-1",
+    "cult-hsk1-b01-polite-2",
+    "cult-hsk1-b01-caution-0",
+    "cult-hsk1-b01-caution-1",
+    "cult-hsk1-b01-caution-2",
   ]);
-  const [isDialogueSelected, setIsDialogueSelected] = useState<boolean>(false);
-  const [isReadingSelected, setIsReadingSelected] = useState<boolean>(false);
+  const [isDialogueSelected, setIsDialogueSelected] = useState<boolean>(true);
+  const [isReadingSelected, setIsReadingSelected] = useState<boolean>(true);
   const [isListeningSelected, setIsListeningSelected] = useState<boolean>(false);
   const [isPreviewBasketModalOpen, setIsPreviewBasketModalOpen] = useState<boolean>(false);
+
+  // Lesson Edit Modal State
+  const [isEditLessonModalOpen, setIsEditLessonModalOpen] = useState<boolean>(false);
+  const [editingLessonDraft, setEditingLessonDraft] = useState<FullLessonDetail | null>(null);
+  const [editLessonActiveTab, setEditLessonActiveTab] = useState<"vocab" | "grammar" | "dialogue" | "reading" | "culture">("vocab");
+
+  // Dialogue Display Controls
+  const [showPinyinInDialogue, setShowPinyinInDialogue] = useState<boolean>(true);
+  const [showViInDialogue, setShowViInDialogue] = useState<boolean>(true);
 
   // Target class for assignment
   const [selectedClassId, setSelectedClassId] = useState<string>(
@@ -347,6 +393,98 @@ export function LessonLibraryWorkspace({
     setActiveSpeakingText(text);
     window.speechSynthesis.speak(utterance);
   };
+
+  // Sync selection IDs when current active lesson changes to ensure selections belong to this lesson
+  useEffect(() => {
+    if (currentLesson) {
+      const vocabIds = currentLesson.vocabularies.map((v) => v.id);
+      const grammarIds = currentLesson.grammars.map((g) => g.id);
+      const cultIds = getCulturalSelectionItems(currentLesson).map((c) => c.id);
+      setSelectedVocabIds(vocabIds);
+      setSelectedGrammarIds(grammarIds);
+      setSelectedCulturalIds(cultIds);
+      setIsDialogueSelected(true);
+      setIsReadingSelected(true);
+    }
+  }, [currentLesson.id]);
+
+  const openEditLessonModal = () => {
+    setEditingLessonDraft(JSON.parse(JSON.stringify(currentLesson)));
+    setIsEditLessonModalOpen(true);
+  };
+
+  const handleSaveLessonDraft = () => {
+    if (!editingLessonDraft) return;
+    const updated = {
+      ...lessonOverrides,
+      [editingLessonDraft.id]: editingLessonDraft,
+    };
+    setLessonOverrides(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hanyu_teacher_lesson_overrides", JSON.stringify(updated));
+    }
+    setIsEditLessonModalOpen(false);
+    showToast(`Đã lưu thay đổi học liệu "${editingLessonDraft.titleVi}" vào hệ thống!`);
+  };
+
+  const handleResetLessonDraft = () => {
+    if (!currentLesson) return;
+    const updated = { ...lessonOverrides };
+    delete updated[currentLesson.id];
+    setLessonOverrides(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hanyu_teacher_lesson_overrides", JSON.stringify(updated));
+    }
+    setIsEditLessonModalOpen(false);
+    showToast(`Đã khôi phục học liệu gốc bài học!`);
+  };
+
+  // Sequential speech synthesis for full dialogue playback
+  useEffect(() => {
+    if (!isPlayingDialogueAudio) {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      return;
+    }
+
+    if (!currentLesson.dialogue?.lines || currentLesson.dialogue.lines.length === 0) {
+      setIsPlayingDialogueAudio(false);
+      return;
+    }
+
+    let currentIndex = 0;
+    const lines = currentLesson.dialogue.lines;
+
+    function playLine(index: number) {
+      if (index >= lines.length) {
+        setIsPlayingDialogueAudio(false);
+        setActiveSpeakingText(null);
+        return;
+      }
+      const line = lines[index];
+      setActiveSpeakingText(line.zh);
+      const utter = new SpeechSynthesisUtterance(line.zh);
+      utter.lang = "zh-CN";
+      utter.rate = 0.85;
+      utter.onend = () => {
+        setTimeout(() => playLine(index + 1), 600);
+      };
+      utter.onerror = () => {
+        setIsPlayingDialogueAudio(false);
+        setActiveSpeakingText(null);
+      };
+      window.speechSynthesis.speak(utter);
+    }
+
+    playLine(0);
+
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [isPlayingDialogueAudio, currentLesson]);
 
   // Cultural items in current lesson
   const availableCulturalItems = useMemo(() => {
@@ -1776,6 +1914,16 @@ export function LessonLibraryWorkspace({
 
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
+                      onClick={openEditLessonModal}
+                      className="px-3 py-1.5 rounded-xl border border-[#204434] bg-[#204434] text-white hover:bg-[#183629] text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                      title="Chỉnh sửa nội dung học liệu bài học"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Chỉnh sửa học liệu</span>
+                    </button>
+
+                    <button
                       onClick={() => {
                         const isSaved = savedHanyuLessons.some((l) => l.lessonId === currentLesson.id);
                         if (isSaved) {
@@ -2042,7 +2190,7 @@ export function LessonLibraryWorkspace({
                                   </span>
                                 </h3>
                                 <p className="text-[11px] text-[#315E48]">
-                                  Bấm vào từ vựng để chọn vào bài học tùy chỉnh hoặc bài tập
+                                  Bấm vào từ vựng để chọn vào bài học tùy chỉnh. Mỗi từ bao gồm chữ Hán, pinyin, nghĩa tiếng Việt, giải thích cách dùng và câu ví dụ.
                                 </p>
                               </div>
                             </div>
@@ -2122,10 +2270,31 @@ export function LessonLibraryWorkspace({
                                         </button>
                                       </div>
 
-                                      <div className="pt-1 border-t border-[#E5DEC9]/60">
+                                      <div className="pt-1 border-t border-[#E5DEC9]/60 space-y-1.5">
                                         <p className="text-xs font-bold text-[#204434]">{v.meaningVi}</p>
-                                        <div className="mt-1 text-[11px] bg-white/70 p-2 rounded-xl border border-[#E5DEC9]/60 space-y-0.5">
-                                          <p className="font-medium text-[#204434]">{v.exampleZh}</p>
+                                        {v.usageNote && (
+                                          <div className="text-[11px] text-[#8F6D3B] bg-[#FAF7F0] p-2 rounded-xl border border-[#E5DEC9]/50 leading-relaxed">
+                                            <span className="font-semibold text-[#204434]">Giải thích: </span>
+                                            <span>{v.usageNote}</span>
+                                          </div>
+                                        )}
+                                        <div className="text-[11px] bg-white/70 p-2 rounded-xl border border-[#E5DEC9]/60 space-y-0.5">
+                                          <div className="flex items-center justify-between">
+                                            <p className="font-medium text-[#204434]">{v.exampleZh}</p>
+                                            {v.exampleZh && (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  speakChinese(v.exampleZh);
+                                                }}
+                                                className="p-1 rounded text-gray-400 hover:text-[#204434]"
+                                                title="Nghe câu ví dụ"
+                                              >
+                                                <Volume2 className="w-3 h-3" />
+                                              </button>
+                                            )}
+                                          </div>
                                           <p className="text-[10px] text-[#8F6D3B]">{v.examplePy}</p>
                                           <p className="text-[10px] text-[#315E48]">{v.exampleVi}</p>
                                         </div>
@@ -2153,7 +2322,7 @@ export function LessonLibraryWorkspace({
                                   </span>
                                 </h3>
                                 <p className="text-[11px] text-[#315E48]">
-                                  Cấu trúc ngữ pháp trọng điểm kèm giải thích và câu mẫu
+                                  Cấu trúc ngữ pháp trọng điểm kèm giải thích rõ ràng và câu mẫu giao tiếp.
                                 </p>
                               </div>
                             </div>
@@ -2224,6 +2393,39 @@ export function LessonLibraryWorkspace({
                                         {g.structure}
                                       </code>
                                     </div>
+
+                                    {g.examples && g.examples.length > 0 && (
+                                      <div className="space-y-1.5 pt-2 border-t border-[#E5DEC9]/60">
+                                        <p className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide">
+                                          Ví dụ & Câu mẫu giao tiếp:
+                                        </p>
+                                        <div className="grid grid-cols-1 gap-1.5">
+                                          {g.examples.map((ex, exIdx) => (
+                                            <div
+                                              key={exIdx}
+                                              className="bg-white/80 p-2.5 rounded-xl border border-[#E5DEC9]/60 flex items-center justify-between gap-2"
+                                            >
+                                              <div className="space-y-0.5">
+                                                <span className="font-serif font-bold text-sm text-[#204434]">{ex.zh}</span>
+                                                <span className="text-xs text-[#8F6D3B] ml-2 italic">{ex.py}</span>
+                                                <span className="text-xs text-[#315E48] ml-2 font-medium">— {ex.vi}</span>
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  speakChinese(ex.zh);
+                                                }}
+                                                className="p-1.5 rounded-lg border border-[#E5DEC9] bg-[#FAF7F0] hover:bg-[#F3EEDD] text-[#204434] transition shrink-0"
+                                                title="Nghe câu mẫu"
+                                              >
+                                                <Volume2 className="w-3.5 h-3.5" />
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -2244,7 +2446,7 @@ export function LessonLibraryWorkspace({
                                     <span>Hội thoại thực tế</span>
                                   </h3>
                                   <p className="text-[11px] text-[#315E48]">
-                                    {currentLesson.dialogue.situation}
+                                    Tình huống giao tiếp thực tế với audio chuẩn, hỗ trợ bật tắt pinyin và nghĩa tiếng Việt.
                                   </p>
                                 </div>
                               </div>
@@ -2262,18 +2464,46 @@ export function LessonLibraryWorkspace({
                             </div>
 
                             <div className="p-5 space-y-4">
-                              {/* Audio Player Bar */}
-                              <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex items-center justify-between gap-4">
+                              {/* Situation Description Box */}
+                              <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-xs text-[#204434] flex items-start gap-2 leading-relaxed">
+                                <span className="font-bold text-[#8F6D3B] shrink-0">Tình huống:</span>
+                                <span>{currentLesson.dialogue.situation}</span>
+                              </div>
+
+                              {/* Audio Player & Toggle Bar */}
+                              <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex items-center gap-3">
                                   <button
                                     onClick={() => setIsPlayingDialogueAudio(!isPlayingDialogueAudio)}
-                                    className="w-8 h-8 rounded-full bg-[#204434] text-white flex items-center justify-center shadow-2xs hover:bg-[#183629]"
+                                    className="w-8 h-8 rounded-full bg-[#204434] text-white flex items-center justify-center shadow-2xs hover:bg-[#183629] transition"
+                                    title={isPlayingDialogueAudio ? "Tạm dừng phát" : "Phát toàn bộ hội thoại lần lượt"}
                                   >
                                     {isPlayingDialogueAudio ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
                                   </button>
-                                  <span className="text-xs font-bold text-[#204434]">Phát âm thanh hội thoại chuẩn</span>
+                                  <span className="text-xs font-bold text-[#204434]">
+                                    {isPlayingDialogueAudio ? "Đang phát hội thoại..." : "Phát toàn bộ hội thoại lần lượt"}
+                                  </span>
+                                  {currentLesson.dialogue.audioDuration && (
+                                    <span className="text-[11px] text-[#8F6D3B]">({currentLesson.dialogue.audioDuration})</span>
+                                  )}
                                 </div>
-                                <span className="text-[11px] text-[#8F6D3B]">Thời lượng: {currentLesson.dialogue.audioDuration}</span>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowPinyinInDialogue(!showPinyinInDialogue)}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#8F6D3B] hover:bg-[#F3EEDD] transition"
+                                  >
+                                    {showPinyinInDialogue ? "Ẩn Pinyin" : "Hiện Pinyin"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowViInDialogue(!showViInDialogue)}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#315E48] hover:bg-[#F3EEDD] transition"
+                                  >
+                                    {showViInDialogue ? "Ẩn bản dịch" : "Hiện bản dịch"}
+                                  </button>
+                                </div>
                               </div>
 
                               {/* Dialogue lines */}
@@ -2282,26 +2512,38 @@ export function LessonLibraryWorkspace({
                                   <div
                                     key={idx}
                                     className={`p-3.5 rounded-2xl border flex items-start gap-3 ${
-                                      line.speaker === "A"
+                                      activeSpeakingText === line.zh
+                                        ? "bg-[#F3EEDD]/90 border-[#204434] shadow-xs"
+                                        : idx % 2 === 0
                                         ? "bg-white border-[#E5DEC9]"
                                         : "bg-[#FAF7F0]/60 border-[#BC9B6B]/40"
                                     }`}
                                   >
-                                    <span className="w-6 h-6 rounded-full bg-[#204434] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+                                    <span className="px-2.5 py-1 rounded-xl bg-[#204434] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
                                       {line.speaker}
                                     </span>
-                                    <div className="space-y-1">
+                                    <div className="space-y-1 flex-1">
                                       <div className="flex items-center gap-2">
                                         <p className="font-serif font-bold text-base text-[#204434]">{line.zh}</p>
                                         <button
+                                          type="button"
                                           onClick={() => speakChinese(line.zh)}
-                                          className="p-1 rounded text-gray-400 hover:text-[#204434]"
+                                          className={`p-1 rounded transition ${
+                                            activeSpeakingText === line.zh
+                                              ? "bg-[#204434] text-white"
+                                              : "text-gray-400 hover:text-[#204434]"
+                                          }`}
+                                          title="Nghe câu này"
                                         >
                                           <Volume2 className="w-3.5 h-3.5" />
                                         </button>
                                       </div>
-                                      <p className="text-xs text-[#8F6D3B] italic">{line.py}</p>
-                                      <p className="text-xs text-[#315E48]">{line.vi}</p>
+                                      {showPinyinInDialogue && (
+                                        <p className="text-xs text-[#8F6D3B] italic">{line.py}</p>
+                                      )}
+                                      {showViInDialogue && (
+                                        <p className="text-xs text-[#315E48]">{line.vi}</p>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -2323,7 +2565,7 @@ export function LessonLibraryWorkspace({
                                     <span>Luyện đọc hiểu & Ngữ cảnh</span>
                                   </h3>
                                   <p className="text-[11px] text-[#315E48]">
-                                    Đoạn văn ngắn củng cố từ vựng và cấu trúc đã học
+                                    Đoạn văn ngắn củng cố từ vựng và cấu trúc đã học trong ngữ cảnh thực tế.
                                   </p>
                                 </div>
                               </div>
@@ -2341,41 +2583,97 @@ export function LessonLibraryWorkspace({
                             </div>
 
                             <div className="p-5 space-y-4">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-serif font-bold text-base text-[#204434]">
-                                  {currentLesson.reading.titleZh} ({currentLesson.reading.titleVi})
-                                </h4>
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-serif font-bold text-base text-[#204434]">
+                                    {currentLesson.reading.titleZh} ({currentLesson.reading.titleVi})
+                                  </h4>
+                                  <button
+                                    type="button"
+                                    onClick={() => currentLesson.reading?.contentZh && speakChinese(currentLesson.reading.contentZh)}
+                                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition ${
+                                      activeSpeakingText === currentLesson.reading?.contentZh
+                                        ? "bg-[#204434] text-white border-[#204434]"
+                                        : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#F3EEDD]"
+                                    }`}
+                                    title="Phát toàn bộ bài đọc"
+                                  >
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                    <span>Phát âm thanh toàn bài đọc</span>
+                                  </button>
+                                </div>
+
                                 <div className="flex items-center gap-2">
                                   <button
+                                    type="button"
                                     onClick={() => setShowPinyinInReading(!showPinyinInReading)}
-                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#8F6D3B]"
+                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#8F6D3B] hover:bg-[#F3EEDD] transition"
                                   >
                                     {showPinyinInReading ? "Ẩn Pinyin" : "Hiện Pinyin"}
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={() => setShowViInReading(!showViInReading)}
-                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#315E48]"
+                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#315E48] hover:bg-[#F3EEDD] transition"
                                   >
                                     {showViInReading ? "Ẩn bản dịch" : "Hiện bản dịch"}
                                   </button>
                                 </div>
                               </div>
 
-                              <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-2">
+                              <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
                                 <p className="font-serif text-base text-[#204434] leading-relaxed">
                                   {currentLesson.reading.contentZh}
                                 </p>
                                 {showPinyinInReading && (
-                                  <p className="text-xs text-[#8F6D3B] italic leading-relaxed pt-1 border-t border-[#E5DEC9]/40">
+                                  <p className="text-xs text-[#8F6D3B] italic leading-relaxed pt-2 border-t border-[#E5DEC9]/40">
                                     {currentLesson.reading.contentPy}
                                   </p>
                                 )}
                                 {showViInReading && (
-                                  <p className="text-xs text-[#315E48] leading-relaxed pt-1 border-t border-[#E5DEC9]/40">
+                                  <p className="text-xs text-[#315E48] leading-relaxed pt-2 border-t border-[#E5DEC9]/40">
                                     {currentLesson.reading.contentVi}
                                   </p>
                                 )}
                               </div>
+
+                              {/* TỪ VỰNG MỞ RỘNG TRONG BÀI ĐỌC */}
+                              {currentLesson.reading.extraVocabs && currentLesson.reading.extraVocabs.length > 0 && (
+                                <div className="space-y-2 pt-2 border-t border-[#E5DEC9]/60">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide">
+                                      Từ vựng mở rộng ({currentLesson.reading.extraVocabs.length} từ):
+                                    </span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-semibold">
+                                      Từ vựng mở rộng
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                    {currentLesson.reading.extraVocabs.map((ev, evIdx) => (
+                                      <div
+                                        key={evIdx}
+                                        className="p-2.5 rounded-xl border border-[#E5DEC9] bg-[#FAF7F0] flex items-center justify-between gap-2 shadow-2xs"
+                                      >
+                                        <div className="space-y-0.5">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-serif font-bold text-sm text-[#204434]">{ev.hanzi}</span>
+                                            <span className="text-[11px] text-[#8F6D3B] italic">{ev.pinyin}</span>
+                                          </div>
+                                          <p className="text-[11px] text-[#315E48] font-medium">{ev.meaningVi}</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => speakChinese(ev.hanzi)}
+                                          className="p-1.5 rounded-lg border border-[#E5DEC9] bg-white hover:bg-[#F3EEDD] text-[#204434] transition shrink-0"
+                                          title="Nghe phát âm"
+                                        >
+                                          <Volume2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -2390,13 +2688,13 @@ export function LessonLibraryWorkspace({
                                 </span>
                                 <div>
                                   <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
-                                    <span>Phần 5: Văn hóa giao tiếp & Cách sử dụng thực tế</span>
+                                    <span>Văn hóa giao tiếp & Cách sử dụng thực tế</span>
                                     <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] border border-[#BC9B6B]/30">
                                       {selectedCulturalItems.length}/{availableCulturalItems.length} đã chọn
                                     </span>
                                   </h3>
                                   <p className="text-[11px] text-[#315E48]">
-                                    Chọn toàn bộ hoặc từng mẫu câu, phép lịch sự & lưu ý văn hóa để đưa vào giỏ học liệu
+                                    Các quy tắc văn hóa quan trọng, lưu ý giao tiếp và mẫu câu thường dùng trong đời sống.
                                   </p>
                                 </div>
                               </div>
@@ -2521,7 +2819,7 @@ export function LessonLibraryWorkspace({
                                         <div className="flex items-center gap-2">
                                           <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide flex items-center gap-1">
                                             <span>✨</span>
-                                            <span>Mẫu câu vàng khuyên dùng</span>
+                                            <span>Nhóm 1: Mẫu câu vàng khuyên dùng</span>
                                           </span>
                                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#8F6D3B] font-semibold">
                                             {selectedPhraseCount}/{phraseItems.length} đã chọn
@@ -2615,7 +2913,7 @@ export function LessonLibraryWorkspace({
                                         <div className="flex items-center justify-between border-b border-[#204434]/15 pb-1.5">
                                           <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide flex items-center gap-1">
                                             <span>🤝</span>
-                                            <span>Cách nói lịch sự & Tôn trọng</span>
+                                            <span>Nhóm 2: Cách nói lịch sự & Tôn trọng</span>
                                           </span>
                                           <button
                                             type="button"
@@ -2696,7 +2994,7 @@ export function LessonLibraryWorkspace({
                                         <div className="flex items-center justify-between border-b border-red-200/80 pb-1.5">
                                           <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide flex items-center gap-1">
                                             <span>⚠️</span>
-                                            <span>Lưu ý & Cấm kỵ văn hóa</span>
+                                            <span>Nhóm 3: Lưu ý & Cấm kỵ văn hóa</span>
                                           </span>
                                           <button
                                             type="button"
@@ -2732,6 +3030,22 @@ export function LessonLibraryWorkspace({
                                                   {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                                                 </div>
                                                 <p className="text-red-900 text-xs leading-relaxed flex-1">{note}</p>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const match = note.match(/[\u4e00-\u9fa5]+/g);
+                                                    if (match && match.length > 0) {
+                                                      speakChinese(match.join("，"));
+                                                    } else {
+                                                      speakChinese(note);
+                                                    }
+                                                  }}
+                                                  className="p-1 rounded-md border border-red-200 bg-white hover:bg-red-100 text-red-700 transition shrink-0"
+                                                  title="Phát âm tiếng Trung trong lưu ý"
+                                                >
+                                                  <Volume2 className="w-3 h-3" />
+                                                </button>
                                               </div>
                                             );
                                           })}
@@ -3861,6 +4175,714 @@ export function LessonLibraryWorkspace({
               >
                 Hoàn tất
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL 5: CHỈNH SỬA HỌC LIỆU BÀI HỌC (TEACHER LESSON EDITOR) */}
+      {/* =================================================================== */}
+      {isEditLessonModalOpen && editingLessonDraft && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fade-in">
+          <div className="bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-4xl w-full p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#204434] text-white flex items-center justify-center font-bold shadow-2xs">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#204434]">
+                    Chỉnh sửa học liệu bài học: {editingLessonDraft.titleVi}
+                  </h3>
+                  <p className="text-xs text-[#315E48]">
+                    Thay đổi được lưu vào hệ thống dữ liệu thực tế (LocalStorage) và áp dụng ngay lập tức
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditLessonModalOpen(false)}
+                className="p-1.5 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0] text-gray-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* General Lesson Info Fields */}
+            <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-[#204434] block mb-1">
+                    Tiêu đề tiếng Trung (Hán tự):
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLessonDraft.titleZh}
+                    onChange={(e) =>
+                      setEditingLessonDraft({ ...editingLessonDraft, titleZh: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs font-serif font-bold focus:outline-none focus:border-[#204434]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-[#8F6D3B] block mb-1">
+                    Pinyin tiêu đề:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLessonDraft.titlePy}
+                    onChange={(e) =>
+                      setEditingLessonDraft({ ...editingLessonDraft, titlePy: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs italic focus:outline-none focus:border-[#204434]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-[#315E48] block mb-1">
+                    Tên hiển thị tiếng Việt:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLessonDraft.titleVi}
+                    onChange={(e) =>
+                      setEditingLessonDraft({ ...editingLessonDraft, titleVi: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs focus:outline-none focus:border-[#204434]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-[#204434] block mb-1">
+                  Mô tả bài học:
+                </label>
+                <input
+                  type="text"
+                  value={editingLessonDraft.description || ""}
+                  onChange={(e) =>
+                    setEditingLessonDraft({ ...editingLessonDraft, description: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs focus:outline-none focus:border-[#204434]"
+                />
+              </div>
+            </div>
+
+            {/* Navigation Tabs for 5 Sections */}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-[#E5DEC9] pb-2">
+              <button
+                type="button"
+                onClick={() => setEditLessonActiveTab("vocab")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  editLessonActiveTab === "vocab"
+                    ? "bg-[#204434] text-white shadow-2xs"
+                    : "bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                }`}
+              >
+                <span>01. Từ vựng ({editingLessonDraft.vocabularies.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditLessonActiveTab("grammar")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  editLessonActiveTab === "grammar"
+                    ? "bg-[#204434] text-white shadow-2xs"
+                    : "bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                }`}
+              >
+                <span>02. Ngữ pháp ({editingLessonDraft.grammars.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditLessonActiveTab("dialogue")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  editLessonActiveTab === "dialogue"
+                    ? "bg-[#204434] text-white shadow-2xs"
+                    : "bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                }`}
+              >
+                <span>03. Hội thoại ({editingLessonDraft.dialogue?.lines.length || 0})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditLessonActiveTab("reading")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  editLessonActiveTab === "reading"
+                    ? "bg-[#204434] text-white shadow-2xs"
+                    : "bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                }`}
+              >
+                <span>04. Bài đọc & Từ mở rộng</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditLessonActiveTab("culture")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  editLessonActiveTab === "culture"
+                    ? "bg-[#204434] text-white shadow-2xs"
+                    : "bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                }`}
+              >
+                <span>05. Văn hóa giao tiếp (8)</span>
+              </button>
+            </div>
+
+            {/* TAB CONTENT: 01. TỪ VỰNG */}
+            {editLessonActiveTab === "vocab" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-[#315E48] font-medium">
+                    Danh sách các từ vựng trọng điểm trong bài. Bạn có thể sửa trực tiếp hoặc thêm/bớt từ.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newId = `v-${editingLessonDraft.id}-${Date.now()}`;
+                      const newVocab = {
+                        id: newId,
+                        hanzi: "新词",
+                        pinyin: "xīncí",
+                        partOfSpeech: "danh từ",
+                        meaningVi: "Từ mới",
+                        usageNote: "Giải thích cách sử dụng từ mới.",
+                        exampleZh: "这是一个新词。",
+                        examplePy: "Zhè shì yí gè xīncí.",
+                        exampleVi: "Đây là một từ mới.",
+                      };
+                      setEditingLessonDraft({
+                        ...editingLessonDraft,
+                        vocabularies: [...editingLessonDraft.vocabularies, newVocab],
+                      });
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-[#204434] text-white text-xs font-bold flex items-center gap-1 hover:bg-[#183629]"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Thêm từ vựng mới</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                  {editingLessonDraft.vocabularies.map((v, vIdx) => (
+                    <div
+                      key={v.id || vIdx}
+                      className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#8F6D3B]">
+                          Từ vựng #{vIdx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingLessonDraft({
+                              ...editingLessonDraft,
+                              vocabularies: editingLessonDraft.vocabularies.filter((_, idx) => idx !== vIdx),
+                            });
+                          }}
+                          className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1 font-semibold"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Xóa</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                          <label className="text-[10px] font-bold text-[#204434] block">Hán tự:</label>
+                          <input
+                            type="text"
+                            value={v.hanzi}
+                            onChange={(e) => {
+                              const updated = [...editingLessonDraft.vocabularies];
+                              updated[vIdx].hanzi = e.target.value;
+                              setEditingLessonDraft({ ...editingLessonDraft, vocabularies: updated });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs font-bold font-serif"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-[#8F6D3B] block">Pinyin:</label>
+                          <input
+                            type="text"
+                            value={v.pinyin}
+                            onChange={(e) => {
+                              const updated = [...editingLessonDraft.vocabularies];
+                              updated[vIdx].pinyin = e.target.value;
+                              setEditingLessonDraft({ ...editingLessonDraft, vocabularies: updated });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs italic"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-[#315E48] block">Nghĩa tiếng Việt:</label>
+                          <input
+                            type="text"
+                            value={v.meaningVi}
+                            onChange={(e) => {
+                              const updated = [...editingLessonDraft.vocabularies];
+                              updated[vIdx].meaningVi = e.target.value;
+                              setEditingLessonDraft({ ...editingLessonDraft, vocabularies: updated });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-[#8F6D3B] block">Giải thích cách dùng & Lưu ý:</label>
+                        <input
+                          type="text"
+                          value={v.usageNote || ""}
+                          onChange={(e) => {
+                            const updated = [...editingLessonDraft.vocabularies];
+                            updated[vIdx].usageNote = e.target.value;
+                            setEditingLessonDraft({ ...editingLessonDraft, vocabularies: updated });
+                          }}
+                          placeholder="Ví dụ: Lời chào cơ bản khi gặp mặt một người..."
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-[#FAF7F0] p-2 rounded-xl">
+                        <div>
+                          <label className="text-[10px] font-bold text-[#204434] block">Câu ví dụ (Trung):</label>
+                          <input
+                            type="text"
+                            value={v.exampleZh || ""}
+                            onChange={(e) => {
+                              const updated = [...editingLessonDraft.vocabularies];
+                              updated[vIdx].exampleZh = e.target.value;
+                              setEditingLessonDraft({ ...editingLessonDraft, vocabularies: updated });
+                            }}
+                            className="w-full px-2.5 py-1 rounded-lg border border-[#E5DEC9] text-xs font-serif"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-[#8F6D3B] block">Pinyin ví dụ:</label>
+                          <input
+                            type="text"
+                            value={v.examplePy || ""}
+                            onChange={(e) => {
+                              const updated = [...editingLessonDraft.vocabularies];
+                              updated[vIdx].examplePy = e.target.value;
+                              setEditingLessonDraft({ ...editingLessonDraft, vocabularies: updated });
+                            }}
+                            className="w-full px-2.5 py-1 rounded-lg border border-[#E5DEC9] text-xs italic"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-[#315E48] block">Dịch ví dụ:</label>
+                          <input
+                            type="text"
+                            value={v.exampleVi || ""}
+                            onChange={(e) => {
+                              const updated = [...editingLessonDraft.vocabularies];
+                              updated[vIdx].exampleVi = e.target.value;
+                              setEditingLessonDraft({ ...editingLessonDraft, vocabularies: updated });
+                            }}
+                            className="w-full px-2.5 py-1 rounded-lg border border-[#E5DEC9] text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: 02. NGỮ PHÁP */}
+            {editLessonActiveTab === "grammar" && (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                {editingLessonDraft.grammars.map((g, gIdx) => (
+                  <div key={g.id || gIdx} className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] space-y-2.5">
+                    <span className="text-xs font-bold text-[#204434]">Điểm ngữ pháp #{gIdx + 1}</span>
+                    <div>
+                      <label className="text-[10px] font-bold text-[#204434] block">Tiêu đề ngữ pháp:</label>
+                      <input
+                        type="text"
+                        value={g.title}
+                        onChange={(e) => {
+                          const updated = [...editingLessonDraft.grammars];
+                          updated[gIdx].title = e.target.value;
+                          setEditingLessonDraft({ ...editingLessonDraft, grammars: updated });
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-[#8F6D3B] block">Cấu trúc:</label>
+                      <input
+                        type="text"
+                        value={g.structure}
+                        onChange={(e) => {
+                          const updated = [...editingLessonDraft.grammars];
+                          updated[gIdx].structure = e.target.value;
+                          setEditingLessonDraft({ ...editingLessonDraft, grammars: updated });
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs font-mono font-bold text-[#204434]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-[#315E48] block">Giải thích chi tiết:</label>
+                      <textarea
+                        rows={2}
+                        value={g.explanation}
+                        onChange={(e) => {
+                          const updated = [...editingLessonDraft.grammars];
+                          updated[gIdx].explanation = e.target.value;
+                          setEditingLessonDraft({ ...editingLessonDraft, grammars: updated });
+                        }}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB CONTENT: 03. HỘI THOẠI */}
+            {editLessonActiveTab === "dialogue" && editingLessonDraft.dialogue && (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8F6D3B] block mb-1">
+                    Mô tả tình huống hội thoại:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingLessonDraft.dialogue.situation}
+                    onChange={(e) => {
+                      if (!editingLessonDraft.dialogue) return;
+                      setEditingLessonDraft({
+                        ...editingLessonDraft,
+                        dialogue: { ...editingLessonDraft.dialogue, situation: e.target.value },
+                      });
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-[#204434]">Các câu thoại trong bài:</p>
+                  {editingLessonDraft.dialogue.lines.map((line, lIdx) => (
+                    <div
+                      key={lIdx}
+                      className="p-2.5 rounded-xl bg-white border border-[#E5DEC9] grid grid-cols-1 sm:grid-cols-4 gap-2 items-center"
+                    >
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-500 block">Người nói:</label>
+                        <input
+                          type="text"
+                          value={line.speaker}
+                          onChange={(e) => {
+                            if (!editingLessonDraft.dialogue) return;
+                            const updated = [...editingLessonDraft.dialogue.lines];
+                            updated[lIdx].speaker = e.target.value;
+                            setEditingLessonDraft({
+                              ...editingLessonDraft,
+                              dialogue: { ...editingLessonDraft.dialogue, lines: updated },
+                            });
+                          }}
+                          className="w-full px-2 py-1 rounded border border-[#E5DEC9] text-xs font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-[#204434] block">Tiếng Trung:</label>
+                        <input
+                          type="text"
+                          value={line.zh}
+                          onChange={(e) => {
+                            if (!editingLessonDraft.dialogue) return;
+                            const updated = [...editingLessonDraft.dialogue.lines];
+                            updated[lIdx].zh = e.target.value;
+                            setEditingLessonDraft({
+                              ...editingLessonDraft,
+                              dialogue: { ...editingLessonDraft.dialogue, lines: updated },
+                            });
+                          }}
+                          className="w-full px-2 py-1 rounded border border-[#E5DEC9] text-xs font-serif font-bold text-[#204434]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-[#8F6D3B] block">Pinyin:</label>
+                        <input
+                          type="text"
+                          value={line.py}
+                          onChange={(e) => {
+                            if (!editingLessonDraft.dialogue) return;
+                            const updated = [...editingLessonDraft.dialogue.lines];
+                            updated[lIdx].py = e.target.value;
+                            setEditingLessonDraft({
+                              ...editingLessonDraft,
+                              dialogue: { ...editingLessonDraft.dialogue, lines: updated },
+                            });
+                          }}
+                          className="w-full px-2 py-1 rounded border border-[#E5DEC9] text-xs italic"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-[#315E48] block">Dịch tiếng Việt:</label>
+                        <input
+                          type="text"
+                          value={line.vi}
+                          onChange={(e) => {
+                            if (!editingLessonDraft.dialogue) return;
+                            const updated = [...editingLessonDraft.dialogue.lines];
+                            updated[lIdx].vi = e.target.value;
+                            setEditingLessonDraft({
+                              ...editingLessonDraft,
+                              dialogue: { ...editingLessonDraft.dialogue, lines: updated },
+                            });
+                          }}
+                          className="w-full px-2 py-1 rounded border border-[#E5DEC9] text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: 04. BÀI ĐỌC & TỪ MỞ RỘNG */}
+            {editLessonActiveTab === "reading" && editingLessonDraft.reading && (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-[#204434] block">Tiêu đề đoạn văn (Hán tự):</label>
+                    <input
+                      type="text"
+                      value={editingLessonDraft.reading.titleZh}
+                      onChange={(e) => {
+                        if (!editingLessonDraft.reading) return;
+                        setEditingLessonDraft({
+                          ...editingLessonDraft,
+                          reading: { ...editingLessonDraft.reading, titleZh: e.target.value },
+                        });
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs font-bold font-serif"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-[#315E48] block">Tiêu đề tiếng Việt:</label>
+                    <input
+                      type="text"
+                      value={editingLessonDraft.reading.titleVi}
+                      onChange={(e) => {
+                        if (!editingLessonDraft.reading) return;
+                        setEditingLessonDraft({
+                          ...editingLessonDraft,
+                          reading: { ...editingLessonDraft.reading, titleVi: e.target.value },
+                        });
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#204434] block">Nội dung chữ Hán:</label>
+                  <textarea
+                    rows={3}
+                    value={editingLessonDraft.reading.contentZh}
+                    onChange={(e) => {
+                      if (!editingLessonDraft.reading) return;
+                      setEditingLessonDraft({
+                        ...editingLessonDraft,
+                        reading: { ...editingLessonDraft.reading, contentZh: e.target.value },
+                      });
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs font-serif leading-relaxed"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#8F6D3B] block">Pinyin đoạn văn:</label>
+                  <textarea
+                    rows={2}
+                    value={editingLessonDraft.reading.contentPy}
+                    onChange={(e) => {
+                      if (!editingLessonDraft.reading) return;
+                      setEditingLessonDraft({
+                        ...editingLessonDraft,
+                        reading: { ...editingLessonDraft.reading, contentPy: e.target.value },
+                      });
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs italic leading-relaxed"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#315E48] block">Dịch tiếng Việt:</label>
+                  <textarea
+                    rows={2}
+                    value={editingLessonDraft.reading.contentVi}
+                    onChange={(e) => {
+                      if (!editingLessonDraft.reading) return;
+                      setEditingLessonDraft({
+                        ...editingLessonDraft,
+                        reading: { ...editingLessonDraft.reading, contentVi: e.target.value },
+                      });
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs leading-relaxed"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: 05. VĂN HÓA GIAO TIẾP */}
+            {editLessonActiveTab === "culture" && editingLessonDraft.culturalNote && (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                <div className="p-3 rounded-xl bg-white border border-[#E5DEC9] space-y-2">
+                  <p className="text-xs font-bold text-[#204434]">Nhóm 1: Mẫu câu vàng khuyên dùng (2 mẫu)</p>
+                  {editingLessonDraft.culturalNote.naturalExpressions?.map((ne, idx) => (
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#FAF7F0] p-2 rounded-lg">
+                      <input
+                        type="text"
+                        value={ne.zh}
+                        onChange={(e) => {
+                          if (!editingLessonDraft.culturalNote?.naturalExpressions) return;
+                          const updated = [...editingLessonDraft.culturalNote.naturalExpressions];
+                          updated[idx].zh = e.target.value;
+                          setEditingLessonDraft({
+                            ...editingLessonDraft,
+                            culturalNote: { ...editingLessonDraft.culturalNote, naturalExpressions: updated },
+                          });
+                        }}
+                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs font-bold font-serif"
+                      />
+                      <input
+                        type="text"
+                        value={ne.py}
+                        onChange={(e) => {
+                          if (!editingLessonDraft.culturalNote?.naturalExpressions) return;
+                          const updated = [...editingLessonDraft.culturalNote.naturalExpressions];
+                          updated[idx].py = e.target.value;
+                          setEditingLessonDraft({
+                            ...editingLessonDraft,
+                            culturalNote: { ...editingLessonDraft.culturalNote, naturalExpressions: updated },
+                          });
+                        }}
+                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs italic"
+                      />
+                      <input
+                        type="text"
+                        value={ne.vi}
+                        onChange={(e) => {
+                          if (!editingLessonDraft.culturalNote?.naturalExpressions) return;
+                          const updated = [...editingLessonDraft.culturalNote.naturalExpressions];
+                          updated[idx].vi = e.target.value;
+                          setEditingLessonDraft({
+                            ...editingLessonDraft,
+                            culturalNote: { ...editingLessonDraft.culturalNote, naturalExpressions: updated },
+                          });
+                        }}
+                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3 rounded-xl bg-white border border-[#E5DEC9] space-y-2">
+                  <p className="text-xs font-bold text-[#204434]">Nhóm 2: Cách nói lịch sự & Tôn trọng (3 mẫu)</p>
+                  {editingLessonDraft.culturalNote.politeExpressions?.map((pe, idx) => (
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#FAF7F0] p-2 rounded-lg">
+                      <input
+                        type="text"
+                        value={pe.zh}
+                        onChange={(e) => {
+                          if (!editingLessonDraft.culturalNote?.politeExpressions) return;
+                          const updated = [...editingLessonDraft.culturalNote.politeExpressions];
+                          updated[idx].zh = e.target.value;
+                          setEditingLessonDraft({
+                            ...editingLessonDraft,
+                            culturalNote: { ...editingLessonDraft.culturalNote, politeExpressions: updated },
+                          });
+                        }}
+                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs font-bold font-serif"
+                      />
+                      <input
+                        type="text"
+                        value={pe.py}
+                        onChange={(e) => {
+                          if (!editingLessonDraft.culturalNote?.politeExpressions) return;
+                          const updated = [...editingLessonDraft.culturalNote.politeExpressions];
+                          updated[idx].py = e.target.value;
+                          setEditingLessonDraft({
+                            ...editingLessonDraft,
+                            culturalNote: { ...editingLessonDraft.culturalNote, politeExpressions: updated },
+                          });
+                        }}
+                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs italic"
+                      />
+                      <input
+                        type="text"
+                        value={pe.vi}
+                        onChange={(e) => {
+                          if (!editingLessonDraft.culturalNote?.politeExpressions) return;
+                          const updated = [...editingLessonDraft.culturalNote.politeExpressions];
+                          updated[idx].vi = e.target.value;
+                          setEditingLessonDraft({
+                            ...editingLessonDraft,
+                            culturalNote: { ...editingLessonDraft.culturalNote, politeExpressions: updated },
+                          });
+                        }}
+                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3 rounded-xl bg-white border border-red-200 space-y-2">
+                  <p className="text-xs font-bold text-red-700">Nhóm 3: Lưu ý & Cấm kỵ văn hóa (3 lưu ý)</p>
+                  {editingLessonDraft.culturalNote.cautionNotes?.map((note, idx) => (
+                    <input
+                      key={idx}
+                      type="text"
+                      value={note}
+                      onChange={(e) => {
+                        if (!editingLessonDraft.culturalNote?.cautionNotes) return;
+                        const updated = [...editingLessonDraft.culturalNote.cautionNotes];
+                        updated[idx] = e.target.value;
+                        setEditingLessonDraft({
+                          ...editingLessonDraft,
+                          culturalNote: { ...editingLessonDraft.culturalNote, cautionNotes: updated },
+                        });
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-red-200 text-xs text-red-900 bg-red-50/50"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modal Footer Actions */}
+            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleResetLessonDraft}
+                className="px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold flex items-center gap-1.5 transition"
+                title="Khôi phục về nội dung học liệu gốc mặc định"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Khôi phục dữ liệu gốc</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditLessonModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] transition"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveLessonDraft}
+                  className="px-5 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#183629] flex items-center gap-1.5 shadow-md transition"
+                >
+                  <Check className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                  <span>Lưu thay đổi bài học</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
