@@ -30,18 +30,34 @@ export default function GameCenterPage() {
   const [maxCombo, setMaxCombo] = useState(0);
   const [shuffledPinyins, setShuffledPinyins] = useState<PairItem[]>([]);
   const [isSaved, setIsSaved] = useState(false);
-  const [studentUsername, setStudentUsername] = useState("student");
+  const [studentUsername, setStudentUsername] = useState("");
 
   useEffect(() => {
+    let query = "";
+    let headers: Record<string, string> = {};
+
     try {
       const stored = localStorage.getItem("currentUser");
       if (stored) {
         const u = JSON.parse(stored);
         if (u.username) setStudentUsername(u.username);
+        if (u.id) {
+          query = `studentId=${encodeURIComponent(u.id)}`;
+          headers = { "x-user-id": u.id };
+        } else if (u.username) {
+          query = `username=${encodeURIComponent(u.username)}`;
+        }
       }
     } catch {}
 
-    fetch("/api/v1/my/vocab-review/today?username=student")
+    const url = query ? `/api/v1/my/vocab-review/today?${query}` : null;
+
+    if (!url) {
+      setShuffledPinyins([...defaultPairs].sort(() => Math.random() - 0.5));
+      return;
+    }
+
+    fetch(url, { headers })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.items && data.items.length >= 4) {

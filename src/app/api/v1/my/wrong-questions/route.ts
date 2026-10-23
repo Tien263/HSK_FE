@@ -4,11 +4,23 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const username = searchParams.get("username") || "student";
+    const userIdHeader = request.headers.get("x-user-id");
+    const studentIdParam = searchParams.get("studentId");
+    const username = searchParams.get("username");
 
-    const student = await prisma.user.findFirst({ where: { username } });
+    let student = null;
+    if (studentIdParam || userIdHeader) {
+      student = await prisma.user.findUnique({
+        where: { id: studentIdParam || userIdHeader || "" },
+      });
+    }
+
+    if (!student && username) {
+      student = await prisma.user.findFirst({ where: { username } });
+    }
+
     if (!student) {
-      return NextResponse.json({ success: false, message: "Không tìm thấy học sinh" }, { status: 404 });
+      return NextResponse.json({ success: true, items: [] });
     }
 
     const wrongList = await prisma.wrongQuestion.findMany({

@@ -24,26 +24,46 @@ export default function WrongQuestionsPracticePage() {
   const [loading, setLoading] = useState(true);
   const [earnedXpTotal, setEarnedXpTotal] = useState(0);
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; isMastered?: boolean; earnedXp?: number } | null>(null);
-  const [studentUsername, setStudentUsername] = useState("student");
+  const [studentUsername, setStudentUsername] = useState("");
 
   useEffect(() => {
+    let query = "";
+    let headers: Record<string, string> = {};
+
     try {
       const stored = localStorage.getItem("currentUser");
       if (stored) {
         const u = JSON.parse(stored);
         if (u.username) setStudentUsername(u.username);
+        if (u.id) {
+          query = `studentId=${encodeURIComponent(u.id)}`;
+          headers = { "x-user-id": u.id };
+        } else if (u.username) {
+          query = `username=${encodeURIComponent(u.username)}`;
+        }
       }
     } catch {}
 
-    fetch("/api/v1/my/wrong-questions?username=student")
+    if (!query) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/v1/my/wrong-questions?${query}`, { headers })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.items) {
           setItems(data.items);
+        } else {
+          setItems([]);
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setItems([]);
+        setLoading(false);
+      });
   }, []);
 
   const handleSelect = async (optId: string) => {

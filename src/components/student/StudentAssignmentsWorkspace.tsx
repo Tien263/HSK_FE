@@ -56,85 +56,53 @@ export default function StudentAssignmentsWorkspace({
   const [roomPinInput, setRoomPinInput] = useState("");
   const [pinError, setPinError] = useState("");
 
-  // Load real assignments from API
+  // Load real assignments from API for this specific student
   useEffect(() => {
     async function fetchAssignments() {
       try {
         setLoading(true);
-        const res = await fetch("/api/v1/assignments");
+        const studentId = currentUser?.id;
+        const url = studentId
+          ? `/api/v1/assignments?studentId=${encodeURIComponent(studentId)}`
+          : "/api/v1/assignments";
+
+        const res = await fetch(url, {
+          headers: studentId ? { "x-user-id": studentId } : {},
+        });
+
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            const mapped: StudentAssignmentItem[] = json.data.map((a: any) => ({
+          const list = json.items || json.data;
+          if (json.success && Array.isArray(list)) {
+            const mapped: StudentAssignmentItem[] = list.map((a: any) => ({
               id: a.id,
               title: a.title,
-              className: a.class?.name || "Lớp HSK 1A",
+              className: a.className || a.class?.name || "Lớp học",
               classId: a.classId,
               durationMin: a.durationMin || 45,
-              dueAt: a.dueAt ? new Date(a.dueAt).toLocaleDateString("vi-VN") : "28/10/2026",
-              totalQuestions: a._count?.questions || a.questionsCount || 10,
+              dueAt: a.dueAt ? new Date(a.dueAt).toLocaleDateString("vi-VN") : "Chưa có hạn",
+              totalQuestions: a.totalQuestions || a._count?.questions || 10,
               totalPoints: a.totalPoints || 100,
               hasAttempted: a.hasAttempted || false,
               latestScore: a.latestScore ?? null,
               status: a.hasAttempted ? "GRADED" : "OPEN",
-              attemptId: a.latestAttemptId || a.id,
+              attemptId: a.attemptId || a.id,
             }));
             setAssignments(mapped);
             return;
           }
         }
+        setAssignments([]);
       } catch (err) {
         console.error("Failed to fetch assignments:", err);
+        setAssignments([]);
       } finally {
         setLoading(false);
       }
-
-      // Fallback initial assignments
-      setAssignments([
-        {
-          id: "cmve587wy0004ucds019pk93c-1",
-          title: "Bài tập 5: Ôn từ vựng & phản xạ Mua sắm (HSK 1)",
-          className: "Lớp HSK 1A Tiêu chuẩn",
-          durationMin: 45,
-          dueAt: "28/10/2026",
-          totalQuestions: 8,
-          totalPoints: 100,
-          hasAttempted: true,
-          latestScore: 8.5,
-          status: "GRADED",
-          submittedAt: "22/10/2026 14:30",
-          attemptId: "cmve587wv0002ucdsou2hdnrj",
-        },
-        {
-          id: "ass-open-02",
-          title: "Kiểm tra giữa kỳ: Nhận diện Hán tự & Ngữ pháp câu chữ 是",
-          className: "Lớp HSK 1A Tiêu chuẩn",
-          durationMin: 60,
-          dueAt: "29/10/2026",
-          totalQuestions: 15,
-          totalPoints: 100,
-          hasAttempted: false,
-          latestScore: null,
-          status: "OPEN",
-        },
-        {
-          id: "ass-open-03",
-          title: "Luyện nghe phản xạ số đếm & giá tiền HSK 1",
-          className: "Lớp HSK 1 - K01",
-          durationMin: 30,
-          dueAt: "30/10/2026",
-          totalQuestions: 10,
-          totalPoints: 50,
-          hasAttempted: false,
-          latestScore: null,
-          status: "OPEN",
-        },
-      ]);
-      setLoading(false);
     }
 
     fetchAssignments();
-  }, []);
+  }, [currentUser]);
 
   // Filtered assignments
   const filteredAssignments = useMemo(() => {
@@ -369,22 +337,30 @@ export default function StudentAssignmentsWorkspace({
         </div>
       ) : filteredAssignments.length === 0 ? (
         <div className="p-12 text-center bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] space-y-3">
-          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-full bg-[#FAF7F0] text-[#315E48] flex items-center justify-center mx-auto">
+            <BookOpen className="w-6 h-6" />
           </div>
           <h4 className="font-serif font-bold text-base text-[#204434]">
-            Tuyệt vời! Không có bài tập nào cần làm
+            Chưa có bài tập nào được giao
           </h4>
-          <p className="text-xs text-[#315E48] max-w-md mx-auto">
-            Bạn đã hoàn thành tất cả bài tập được giao. Bạn có thể vào phòng luyện tập để tích lũy thêm XP hoặc ôn lại từ vựng!
+          <p className="text-xs text-[#315E48] max-w-md mx-auto leading-relaxed">
+            Bạn hiện chưa tham gia lớp học nào hoặc giáo viên phụ trách chưa giao bài tập mới. Hãy vào mục &quot;Lớp học của tôi&quot; để tham gia lớp hoặc nhập mã PIN phòng thi ở trên để vào thi ngay!
           </p>
-          <button
-            onClick={() => onNavigateToTab?.("practice")}
-            className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs hover:bg-[#183629] inline-flex items-center gap-1.5 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-            <span>Vào phòng luyện tập</span>
-          </button>
+          <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+            <button
+              onClick={() => onNavigateToTab?.("classes")}
+              className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs hover:bg-[#183629] inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Vào xem lớp học & tham gia lớp</span>
+            </button>
+            <button
+              onClick={() => onNavigateToTab?.("practice")}
+              className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+              <span>Phòng tự luyện tập tự do</span>
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

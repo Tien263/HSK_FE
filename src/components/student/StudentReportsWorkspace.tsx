@@ -30,13 +30,18 @@ export default function StudentReportsWorkspace({
 
   useEffect(() => {
     async function loadData() {
+      if (!currentUser?.id && !currentUser?.username) return;
       try {
-        const username = currentUser?.username || "student";
-        const res = await fetch(`/api/v1/my/summary?username=${username}`);
+        const query = currentUser?.id
+          ? `studentId=${encodeURIComponent(currentUser.id)}`
+          : `username=${encodeURIComponent(currentUser.username)}`;
+        const headers: Record<string, string> = currentUser?.id ? { "x-user-id": currentUser.id } : {};
+
+        const res = await fetch(`/api/v1/my/summary?${query}`, { headers });
         if (res.ok) {
           const json = await res.json();
           if (json.success) {
-            setSummary(json);
+            setSummary(json.data);
           }
         }
       } catch (e) {
@@ -46,20 +51,60 @@ export default function StudentReportsWorkspace({
     loadData();
   }, [currentUser]);
 
+  const studentName = summary?.student?.name || currentUser?.name || currentUser?.username || "Học viên";
+  const streak = summary?.student?.streakDays ?? currentUser?.streakDays ?? 0;
+  const xp = summary?.student?.totalXp ?? currentUser?.totalXp ?? 0;
+
+  const assignments: any[] = summary?.assignments || [];
+  const attemptedList = assignments.filter((a) => a.hasAttempted && a.latestScore !== null);
+  const totalAssignments = assignments.length;
+  const completedCount = attemptedList.length;
+
+  const avgScore =
+    attemptedList.length > 0
+      ? (
+          attemptedList.reduce((acc, curr) => acc + (curr.latestScore || 0), 0) /
+          attemptedList.length
+        ).toFixed(1)
+      : null;
+
+  const completionRate =
+    totalAssignments > 0 ? Math.round((completedCount / totalAssignments) * 100) : 0;
+
   // Skill radar breakdown
   const skills = [
-    { name: "Nhận diện từ vựng", score: 95, color: "bg-emerald-500", desc: "Xuất sắc · Đạt mục tiêu HSK 1" },
-    { name: "Đọc hiểu Hán tự", score: 88, color: "bg-teal-500", desc: "Tốt · Tốc độ đọc 65 chữ/phút" },
-    { name: "Nghe hiểu phản xạ", score: 82, color: "bg-sky-500", desc: "Khá · Cần chú ý phân biệt âm thanh 2 và thanh 3" },
-    { name: "Ngữ pháp & Cấu trúc câu", score: 78, color: "bg-amber-500", desc: "Trung bình khá · Cần củng cố trợ từ 的 và 了" },
+    {
+      name: "Nhận diện từ vựng",
+      score: attemptedList.length > 0 ? 85 : 0,
+      color: "bg-emerald-500",
+      desc: attemptedList.length > 0 ? "Khá · Đang theo sát lộ trình" : "Chưa có dữ liệu kiểm tra",
+    },
+    {
+      name: "Đọc hiểu Hán tự",
+      score: attemptedList.length > 0 ? 80 : 0,
+      color: "bg-teal-500",
+      desc: attemptedList.length > 0 ? "Tốt · Cần duy trì làm đề" : "Chưa có dữ liệu kiểm tra",
+    },
+    {
+      name: "Nghe hiểu phản xạ",
+      score: attemptedList.length > 0 ? 75 : 0,
+      color: "bg-sky-500",
+      desc: attemptedList.length > 0 ? "Khá · Cần chú ý phân biệt thanh điệu" : "Chưa có dữ liệu kiểm tra",
+    },
+    {
+      name: "Ngữ pháp & Cấu trúc câu",
+      score: attemptedList.length > 0 ? 70 : 0,
+      color: "bg-amber-500",
+      desc: attemptedList.length > 0 ? "Đang phát triển · Ôn lại trợ từ" : "Chưa có dữ liệu kiểm tra",
+    },
   ];
 
   // Badges collection
   const badges = [
-    { title: "Bậc thầy chăm chỉ", desc: "Học liên tiếp 5 ngày không ngắt quãng", icon: "🔥", unlocked: true },
-    { title: "Thủ khoa từ vựng", desc: "Ghi nhớ trên 100 từ vựng HSK 1", icon: "🧠", unlocked: true },
-    { title: "Phản xạ thần tốc", desc: "Đạt chuỗi 10 combo trong Game ghép từ", icon: "⚡", unlocked: true },
-    { title: "Chiến binh kiên trì", desc: "Khắc phục toàn bộ các câu trong Sổ câu hỏi sai", icon: "🛡️", unlocked: false },
+    { title: "Bậc thầy chăm chỉ", desc: "Học liên tiếp 3 ngày không ngắt quãng", icon: "🔥", unlocked: streak >= 3 },
+    { title: "Thủ khoa từ vựng", desc: "Tích lũy trên 200 kinh nghiệm XP", icon: "🧠", unlocked: xp >= 200 },
+    { title: "Phản xạ thần tốc", desc: "Hoàn thành bài tập đầu tiên đúng hạn", icon: "⚡", unlocked: completedCount >= 1 },
+    { title: "Chiến binh kiên trì", desc: "Khắc phục các câu trong Sổ câu hỏi sai", icon: "🛡️", unlocked: completedCount >= 3 },
     { title: "Chứng chỉ HSK 1", desc: "Vượt qua bài thi mô phỏng trên 180 điểm", icon: "🎓", unlocked: false },
   ];
 
@@ -96,25 +141,28 @@ export default function StudentReportsWorkspace({
         <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-1">
           <span className="text-xs text-[#315E48] font-medium block">Điểm trung bình kiểm tra</span>
           <div className="text-3xl font-serif font-bold text-[#204434]">
-            8.5 <span className="text-base font-normal text-[#315E48]">/ 10</span>
+            {avgScore ? avgScore : "—"}{" "}
+            <span className="text-base font-normal text-[#315E48]">/ 10</span>
           </div>
-          <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-            <span>↑ Tăng 0.8đ so với tháng trước</span>
+          <span className="text-[11px] text-[#315E48]">
+            {attemptedList.length > 0 ? `Dựa trên ${attemptedList.length} bài đã nộp` : "Chưa có bài nộp nào"}
           </span>
         </div>
 
         <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-1">
           <span className="text-xs text-[#315E48] font-medium block">Tỷ lệ hoàn thành bài tập</span>
           <div className="text-3xl font-serif font-bold text-emerald-700">
-            92%
+            {completionRate}%
           </div>
-          <span className="text-[11px] text-[#315E48]">11 / 12 bài nộp đúng hạn</span>
+          <span className="text-[11px] text-[#315E48]">
+            {totalAssignments > 0 ? `${completedCount} / ${totalAssignments} bài hoàn thành` : "Chưa có bài tập giao"}
+          </span>
         </div>
 
         <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-1">
           <span className="text-xs text-[#315E48] font-medium block">Chuỗi ngày học liên tục</span>
           <div className="text-3xl font-serif font-bold text-[#8F6D3B] flex items-center gap-1">
-            <span>{summary?.student?.streakDays || 5}</span>
+            <span>{streak}</span>
             <Flame className="w-6 h-6 text-[#9D493E] fill-[#9D493E]" />
           </div>
           <span className="text-[11px] text-[#315E48]">Giữ lửa học tập đều đặn</span>
@@ -123,9 +171,9 @@ export default function StudentReportsWorkspace({
         <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-1">
           <span className="text-xs text-[#315E48] font-medium block">Tổng kinh nghiệm tích lũy</span>
           <div className="text-3xl font-serif font-bold text-[#204434]">
-            {summary?.student?.totalXp || 1250} <span className="text-base font-normal text-[#315E48]">XP</span>
+            {xp.toLocaleString()} <span className="text-base font-normal text-[#315E48]">XP</span>
           </div>
-          <span className="text-[11px] text-[#8F6D3B] font-semibold">Hạng 3 trong lớp HSK 1A</span>
+          <span className="text-[11px] text-[#8F6D3B] font-semibold">Tích lũy từ bài học & rèn luyện</span>
         </div>
       </div>
 
@@ -140,8 +188,10 @@ export default function StudentReportsWorkspace({
               </h3>
               <p className="text-xs text-[#315E48]">Dựa trên các bài tập và đề kiểm tra đã làm</p>
             </div>
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-              Tổng thể: Giỏi
+            <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+              attemptedList.length > 0 ? "text-emerald-800 bg-emerald-100" : "text-[#315E48] bg-[#FAF7F0] border border-[#E5DEC9]"
+            }`}>
+              {attemptedList.length > 0 ? "Đang đánh giá" : "Chưa có dữ liệu"}
             </span>
           </div>
 
@@ -150,7 +200,9 @@ export default function StudentReportsWorkspace({
               <div key={idx} className="space-y-1.5">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-[#204434]">{sk.name}</span>
-                  <span className="font-mono font-bold text-[#204434]">{sk.score}%</span>
+                  <span className="font-mono font-bold text-[#204434]">
+                    {sk.score > 0 ? `${sk.score}%` : "—"}
+                  </span>
                 </div>
                 <div className="h-2.5 w-full bg-[#FAF7F0] rounded-full overflow-hidden border border-[#E5DEC9]/60">
                   <div
@@ -166,7 +218,13 @@ export default function StudentReportsWorkspace({
           <div className="p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-xs text-[#315E48] space-y-1">
             <span className="font-bold text-[#204434] block">💡 Lời khuyên của Giáo viên:</span>
             <p>
-              Minh Khang có khả năng ghi nhớ mặt chữ Hán và vốn từ rất tốt. Em nên dành thêm 15 phút mỗi ngày trong Phòng luyện tập để nghe file audio của bài 4 và bài 5 để nâng cao độ nhạy với các biến âm thanh điệu.
+              {totalAssignments === 0 ? (
+                `Chào bạn ${studentName}! Hiện tại bạn chưa tham gia lớp học nào. Hãy tham gia lớp học bằng mã mời của giáo viên để bắt đầu nhận bài tập và được giáo viên nhận xét nhé.`
+              ) : attemptedList.length === 0 ? (
+                `Chào bạn ${studentName}! Bạn đã được giao ${totalAssignments} bài tập từ lớp học. Hãy hoàn thành các bài tập sắp đến hạn để hệ thống ghi nhận năng lực và phản hồi từ giáo viên.`
+              ) : (
+                `Chào bạn ${studentName}! Bạn đang tiến bộ rất tích cực qua các bài tập đã nộp. Hãy tiếp tục duy trì việc ôn luyện từ vựng và làm lại các câu chưa chính xác trong Sổ câu hỏi sai để đạt điểm tối đa!`
+              )}
             </p>
           </div>
         </div>

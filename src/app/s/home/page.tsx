@@ -1247,7 +1247,9 @@ export default function StudentHomePage() {
                       />
                     </svg>
                     <div className="absolute text-center leading-none">
-                      <span className="text-lg font-bold text-[#204434]">40%</span>
+                      <span className="text-lg font-bold text-[#204434]">
+                        {myClasses.length === 0 ? "0%" : "40%"}
+                      </span>
                       <span className="block text-[8.5px] text-[#315E48] mt-0.5">
                         Hoàn thành<br />mục tiêu
                       </span>
@@ -1258,15 +1260,21 @@ export default function StudentHomePage() {
                   <div className="space-y-2 flex-1 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-[#315E48]">Bài đã hoàn thành</span>
-                      <span className="font-bold text-[#204434]">12</span>
+                      <span className="font-bold text-[#204434]">
+                        {data?.assignments?.filter((a: any) => a.hasAttempted)?.length || 0}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[#315E48]">Tỷ lệ trả lời đúng</span>
-                      <span className="font-bold text-[#204434]">85%</span>
+                      <span className="font-bold text-[#204434]">
+                        {myClasses.length > 0 ? "85%" : "—"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[#315E48]">Câu cần ôn</span>
-                      <span className="font-bold text-[#9D493E]">26</span>
+                      <span className="text-[#315E48]">Câu sai cần ôn</span>
+                      <span className="font-bold text-[#9D493E]">
+                        {data?.counts?.wrongQuestions || 0}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1293,76 +1301,63 @@ export default function StudentHomePage() {
                 </div>
 
                 <div className="space-y-2.5">
-                  {/* Item 1 */}
-                  <Link
-                    href="/s/attempts/preview"
-                    className="p-3 rounded-2xl bg-[#F8F5ED] hover:bg-[#FAF7F0] border border-[#E5DEC9]/60 flex items-center justify-between text-xs transition cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center shrink-0 font-bold font-serif">
-                        考
-                      </div>
-                      <div className="truncate">
-                        <div className="font-bold text-xs text-[#204434] group-hover:text-[#8F6D3B] transition truncate">
-                          Đề thi thử HSK (Đầy đủ 12 dạng chuẩn mực)
-                        </div>
-                        <div className="text-[10px] text-[#315E48]">Lớp HSK Cơ bản · Hạn: Hôm nay</div>
-                      </div>
+                  {data?.assignments && data.assignments.filter((a) => !a.hasAttempted).length > 0 ? (
+                    data.assignments
+                      .filter((a) => !a.hasAttempted)
+                      .slice(0, 3)
+                      .map((item) => (
+                        <Link
+                          key={item.id}
+                          href={`/s/attempts/${item.id}`}
+                          className="p-3 rounded-2xl bg-[#F8F5ED] hover:bg-[#FAF7F0] border border-[#E5DEC9]/60 flex items-center justify-between text-xs transition cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center shrink-0 font-bold font-serif">
+                              考
+                            </div>
+                            <div className="truncate">
+                              <div className="font-bold text-xs text-[#204434] group-hover:text-[#8F6D3B] transition truncate">
+                                {item.title}
+                              </div>
+                              <div className="text-[10px] text-[#315E48]">
+                                {item.className} · Hạn: {item.dueAt ? new Date(item.dueAt).toLocaleDateString("vi-VN") : "Hôm nay"}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <span className="px-3 py-1 rounded-xl bg-[#204434] text-white text-[11px] font-bold group-hover:bg-[#183629] transition shadow-2xs flex items-center gap-1">
+                              <span>Làm bài</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </span>
+                          </div>
+                        </Link>
+                      ))
+                  ) : (
+                    <div className="p-5 text-center bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]/60 space-y-2">
+                      <p className="text-xs text-[#315E48]">
+                        {myClasses.length === 0
+                          ? "Bạn chưa tham gia lớp học nào nên chưa có bài tập."
+                          : "Tuyệt vời! Bạn không có bài tập nào sắp đến hạn."}
+                      </p>
+                      {myClasses.length === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowJoinModal(true)}
+                          className="px-3 py-1.5 rounded-xl bg-[#204434] text-white text-[11px] font-semibold hover:bg-[#183629] transition cursor-pointer"
+                        >
+                          Tham gia lớp học ngay
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("practice")}
+                          className="text-xs text-[#204434] font-bold hover:underline cursor-pointer"
+                        >
+                          Vào phòng luyện tập tự do &rarr;
+                        </button>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="px-3 py-1 rounded-xl bg-[#204434] text-white text-[11px] font-bold group-hover:bg-[#183629] transition shadow-2xs flex items-center gap-1">
-                        <span>Làm bài</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                  </Link>
-
-                  {/* Item 2 */}
-                  <Link
-                    href="/s/attempts/preview"
-                    className="p-3 rounded-2xl bg-[#F8F5ED] hover:bg-[#FAF7F0] border border-[#E5DEC9]/60 flex items-center justify-between text-xs transition cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-800 flex items-center justify-center shrink-0 font-bold font-serif">
-                        练
-                      </div>
-                      <div className="truncate">
-                        <div className="font-bold text-xs text-[#204434] group-hover:text-[#8F6D3B] transition truncate">
-                          HSK 3 - Bài 5: Từ vựng & Ngữ pháp
-                        </div>
-                        <div className="text-[10px] text-[#315E48]">Lớp HSK 3A · Hạn: 22/10</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="px-3 py-1 rounded-xl bg-amber-600 text-white text-[11px] font-bold group-hover:bg-amber-700 transition shadow-2xs flex items-center gap-1">
-                        <span>Làm tiếp</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                  </Link>
-
-                  {/* Item 3 */}
-                  <Link
-                    href="/s/attempts/preview"
-                    className="p-3 rounded-2xl bg-[#F8F5ED] hover:bg-[#FAF7F0] border border-[#E5DEC9]/60 flex items-center justify-between text-xs transition cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-800 flex items-center justify-center shrink-0 font-bold font-serif">
-                        阅
-                      </div>
-                      <div className="truncate">
-                        <div className="font-bold text-xs text-[#204434] group-hover:text-[#8F6D3B] transition truncate">
-                          Bài tập đọc hiểu & Dịch câu
-                        </div>
-                        <div className="text-[10px] text-[#315E48]">Lớp HSK 3A · Hạn: 25/10</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="px-2.5 py-1 rounded-xl border border-[#204434] text-[#204434] text-[11px] font-bold group-hover:bg-[#204434] group-hover:text-white transition flex items-center gap-1">
-                        <span>Bắt đầu</span>
-                      </span>
-                    </div>
-                  </Link>
+                  )}
                 </div>
               </section>
 

@@ -32,24 +32,37 @@ export default function StudentPracticeWorkspace({
   currentUser,
   onNavigateToTab,
 }: StudentPracticeWorkspaceProps) {
-  const [dueVocabCount, setDueVocabCount] = useState(12);
-  const [wrongQuestionCount, setWrongQuestionCount] = useState(5);
+  const [dueVocabCount, setDueVocabCount] = useState(0);
+  const [wrongQuestionCount, setWrongQuestionCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isHanziModalOpen, setIsHanziModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadPracticeStats() {
+      if (!currentUser?.id && !currentUser?.username) {
+        setDueVocabCount(0);
+        setWrongQuestionCount(0);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const username = currentUser?.username || "student";
+        const query = currentUser?.id
+          ? `studentId=${encodeURIComponent(currentUser.id)}`
+          : `username=${encodeURIComponent(currentUser.username)}`;
+        const headers: Record<string, string> = currentUser?.id ? { "x-user-id": currentUser.id } : {};
+
         const [resVocab, resWrong] = await Promise.all([
-          fetch(`/api/v1/my/vocab-review/today?username=${username}`),
-          fetch(`/api/v1/my/wrong-questions?username=${username}`),
+          fetch(`/api/v1/my/vocab-review/today?${query}`, { headers }),
+          fetch(`/api/v1/my/wrong-questions?${query}`, { headers }),
         ]);
 
         if (resVocab.ok) {
           const vocabData = await resVocab.json();
           if (vocabData.success && vocabData.items) {
             setDueVocabCount(vocabData.items.length);
+          } else {
+            setDueVocabCount(0);
           }
         }
 
@@ -57,6 +70,8 @@ export default function StudentPracticeWorkspace({
           const wrongData = await resWrong.json();
           if (wrongData.success && wrongData.items) {
             setWrongQuestionCount(wrongData.items.length);
+          } else {
+            setWrongQuestionCount(0);
           }
         }
       } catch (err) {
@@ -68,6 +83,9 @@ export default function StudentPracticeWorkspace({
 
     loadPracticeStats();
   }, [currentUser]);
+
+  const streak = currentUser?.streakDays || 0;
+  const xp = currentUser?.totalXp || 0;
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -88,11 +106,11 @@ export default function StudentPracticeWorkspace({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs text-xs font-semibold text-[#8F6D3B]">
             <Flame className="w-4 h-4 text-[#9D493E] fill-[#9D493E]" />
-            <span>5 ngày liên tục</span>
+            <span>{streak} ngày liên tục</span>
           </div>
           <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs text-xs font-semibold text-[#204434]">
             <Trophy className="w-4 h-4 text-[#BC9B6B]" />
-            <span>+1,250 XP</span>
+            <span>+{xp.toLocaleString()} XP</span>
           </div>
         </div>
       </div>
@@ -106,8 +124,10 @@ export default function StudentPracticeWorkspace({
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center">
                 <BookOpen className="w-6 h-6" />
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                {dueVocabCount} từ cần ôn hôm nay
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                dueVocabCount > 0 ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"
+              }`}>
+                {dueVocabCount > 0 ? `${dueVocabCount} từ cần ôn hôm nay` : "Đã hoàn thành ôn tập"}
               </span>
             </div>
 
@@ -121,8 +141,10 @@ export default function StudentPracticeWorkspace({
             </div>
 
             <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
-              <span>Tiến độ ghi nhớ HSK 1:</span>
-              <span className="font-bold text-[#204434]">128 / 150 từ (85%)</span>
+              <span>Từ vựng cần ôn trong ngày:</span>
+              <span className="font-bold text-[#204434]">
+                {dueVocabCount > 0 ? `${dueVocabCount} từ đang chờ` : "0 từ cần ôn"}
+              </span>
             </div>
           </div>
 
@@ -157,8 +179,8 @@ export default function StudentPracticeWorkspace({
             </div>
 
             <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
-              <span>Kỷ lục Combo cao nhất:</span>
-              <span className="font-bold text-[#8F6D3B]">12 Combo liên tiếp (x2 XP)</span>
+              <span>Chế độ luyện tập:</span>
+              <span className="font-bold text-[#8F6D3B]">Tự do & Bảng xếp hạng</span>
             </div>
           </div>
 
@@ -178,8 +200,10 @@ export default function StudentPracticeWorkspace({
               <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-700 flex items-center justify-center">
                 <AlertTriangle className="w-6 h-6" />
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
-                {wrongQuestionCount} câu cần làm lại
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                wrongQuestionCount > 0 ? "bg-red-100 text-red-800 border-red-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"
+              }`}>
+                {wrongQuestionCount > 0 ? `${wrongQuestionCount} câu cần làm lại` : "Không có câu sai"}
               </span>
             </div>
 
@@ -193,8 +217,10 @@ export default function StudentPracticeWorkspace({
             </div>
 
             <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
-              <span>Tỷ lệ khắc phục lỗi sai:</span>
-              <span className="font-bold text-emerald-700">76% câu đã làm chủ</span>
+              <span>Tình trạng sổ câu sai:</span>
+              <span className={`font-bold ${wrongQuestionCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                {wrongQuestionCount > 0 ? `${wrongQuestionCount} câu cần khắc phục` : "Chưa có câu sai nào"}
+              </span>
             </div>
           </div>
 
@@ -266,8 +292,8 @@ export default function StudentPracticeWorkspace({
             </div>
 
             <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
-              <span>Đề thi gần nhất:</span>
-              <span className="font-bold text-[#204434]">Đề thi thử HSK 1 Đề 01 (90/100đ)</span>
+              <span>Đề thi được giao từ lớp:</span>
+              <span className="font-bold text-[#204434]">Theo dõi trong tab Bài tập</span>
             </div>
           </div>
 

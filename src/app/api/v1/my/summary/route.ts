@@ -4,45 +4,72 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const username = searchParams.get("username") || "student";
+    const userIdHeader = request.headers.get("x-user-id");
+    const studentIdParam = searchParams.get("studentId");
+    const username = searchParams.get("username");
 
-    let student = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { username },
-          { email: username },
-          ...(username === "ningning" ? [{ username: "ning" }] : []),
-        ],
-      },
-    });
+    let student = null;
+    if (studentIdParam || userIdHeader) {
+      student = await prisma.user.findUnique({
+        where: { id: studentIdParam || userIdHeader || "" },
+      });
+    }
 
-    if (!student) {
-      student = await prisma.user.findFirst({ where: { role: "STUDENT" } });
+    if (!student && username) {
+      student = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username },
+            { email: username },
+            ...(username === "ningning" ? [{ username: "ning" }] : []),
+          ],
+        },
+      });
     }
 
     if (!student) {
-      return NextResponse.json({ success: false, message: "Không tìm thấy học sinh" }, { status: 404 });
+      return NextResponse.json({
+        success: true,
+        data: {
+          student: null,
+          counts: { pendingAssignments: 0, dueVocabs: 0, wrongQuestions: 0 },
+          assignments: [],
+        },
+      });
     }
 
-    // Lấy bài tập được giao từ DB
-    const assignments = await prisma.assignment.findMany({
-      include: {
-        quizSet: {
-          select: {
-            title: true,
-            totalScore: true,
-            _count: { select: { questions: true } },
-          },
-        },
-        class: { select: { name: true } },
-        attempts: {
-          where: { studentId: student.id },
-          orderBy: { startedAt: "desc" },
-          take: 1,
-        },
-      },
-      orderBy: { dueAt: "asc" },
+    // 1. Lấy danh sách lớp mà học sinh này thực sự tham gia
+    const enrolledClasses = await prisma.classStudent.findMany({
+      where: { studentId: student.id },
+      select: { classId: true },
     });
+    const enrolledClassIds = enrolledClasses.map((c) => c.classId);
+
+    // 2. Chỉ lấy bài tập của các lớp học sinh này đã tham gia
+    const assignments =
+      enrolledClassIds.length > 0
+        ? await prisma.assignment.findMany({
+            where: {
+              classId: { in: enrolledClassIds },
+            },
+            include: {
+              quizSet: {
+                select: {
+                  title: true,
+                  totalScore: true,
+                  _count: { select: { questions: true } },
+                },
+              },
+              class: { select: { name: true } },
+              attempts: {
+                where: { studentId: student.id },
+                orderBy: { startedAt: "desc" },
+                take: 1,
+              },
+            },
+            orderBy: { dueAt: "asc" },
+          })
+        : [];
 
     // Lấy số từ cần ôn hôm nay từ DB
     const dueVocabsCount = await prisma.vocabProgress.count({

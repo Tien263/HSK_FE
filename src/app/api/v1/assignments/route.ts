@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filterClassId = searchParams.get("classId");
     const filterTeacherId = searchParams.get("teacherId");
+    const filterStudentId = searchParams.get("studentId") || (authUser?.role === "STUDENT" ? authUser.id : null);
 
     let where: any = {};
 
@@ -21,6 +22,21 @@ export async function GET(request: Request) {
       where.class = { teacherId: authUser.id };
     } else if (filterTeacherId) {
       where.class = { teacherId: filterTeacherId };
+    } else if (filterStudentId) {
+      // Chỉ lấy bài tập của các lớp học sinh này đã tham gia
+      const enrolled = await prisma.classStudent.findMany({
+        where: { studentId: filterStudentId },
+        select: { classId: true },
+      });
+      const classIds = enrolled.map((e) => e.classId);
+      if (classIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          items: [],
+          totalCount: 0,
+        });
+      }
+      where.classId = { in: classIds };
     }
 
     const assignments = await prisma.assignment.findMany({
@@ -28,13 +44,20 @@ export async function GET(request: Request) {
       include: {
         class: { select: { id: true, name: true, level: true, teacherId: true } },
         _count: { select: { attempts: true } },
+        attempts: filterStudentId
+          ? {
+              where: { studentId: filterStudentId },
+              orderBy: { startedAt: "desc" },
+              take: 1,
+            }
+          : false,
       },
       orderBy: { dueAt: "asc" },
     });
 
     return NextResponse.json({
       success: true,
-      items: assignments.map((a) => ({
+      items: assignments.map((a: any) => ({
         id: a.id,
         title: a.title,
         classId: a.classId,
@@ -42,8 +65,12 @@ export async function GET(request: Request) {
         dueAt: a.dueAt,
         status: a.status,
         durationMin: a.durationMin,
-        submittedCount: a._count.attempts,
+        submittedCount: a._count?.attempts || 0,
+        hasAttempted: a.attempts && a.attempts.length > 0,
+        latestScore: a.attempts?.[0]?.score ?? null,
+        attemptId: a.attempts?.[0]?.id || null,
       })),
+      totalCount: assignments.length,
     });
   } catch (error) {
     console.error("GET /assignments error:", error);

@@ -555,6 +555,24 @@ export default function StudentClassesWorkspace({
         </div>
       )}
       </>
+      ) : classes.length === 0 ? (
+        /* Empty state khi học sinh chưa tham gia lớp nào */
+        <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-12 text-center shadow-2xs space-y-3">
+          <div className="w-12 h-12 rounded-full bg-[#FAF7F0] text-[#315E48] flex items-center justify-center mx-auto">
+            <Calendar className="w-6 h-6" />
+          </div>
+          <h4 className="font-serif font-bold text-base text-[#204434]">Chưa có lịch ca học nào</h4>
+          <p className="text-xs text-[#315E48] max-w-sm mx-auto leading-relaxed">
+            Bạn chưa tham gia lớp học nào nên chưa có thời khóa biểu và link phòng học trực tiếp Google Meet. Hãy tham gia lớp học để cập nhật lịch nhé!
+          </p>
+          <button
+            onClick={onOpenJoinModal}
+            className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tham gia lớp học ngay</span>
+          </button>
+        </div>
       ) : (
         /* ================================================================= */
         /* CHẾ ĐỘ: LỊCH HỌC & CA HỌC APPLE CALENDAR STYLE DÀNH CHO HỌC SINH */

@@ -27,24 +27,42 @@ export default function VocabReviewPage() {
   const [masteredCount, setMasteredCount] = useState(0);
 
   useEffect(() => {
-    let username = "student";
+    let query = "";
+    let headers: Record<string, string> = {};
+
     try {
       const stored = localStorage.getItem("currentUser");
       if (stored) {
         const u = JSON.parse(stored);
-        if (u.username) username = u.username;
+        if (u.id) {
+          query = `studentId=${encodeURIComponent(u.id)}`;
+          headers = { "x-user-id": u.id };
+        } else if (u.username) {
+          query = `username=${encodeURIComponent(u.username)}`;
+        }
       }
     } catch {}
 
-    fetch(`/api/v1/my/vocab-review/today?username=${username}`)
+    if (!query) {
+      setCards([]);
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/v1/my/vocab-review/today?${query}`, { headers })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.items) {
           setCards(data.items);
+        } else {
+          setCards([]);
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setCards([]);
+        setLoading(false);
+      });
   }, []);
 
   const handleSpeak = (text: string) => {
