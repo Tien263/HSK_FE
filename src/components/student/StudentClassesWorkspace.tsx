@@ -107,19 +107,18 @@ export default function StudentClassesWorkspace({
         if (saved) return JSON.parse(saved);
       } catch (e) {}
     }
-    return INITIAL_ASSIGNED_LESSONS;
+    return [];
   });
 
   const classAssignedLessons = React.useMemo(() => {
     if (!selectedClass) return [];
-    const list = assignedLessonsList.filter((asg) => {
+    return assignedLessonsList.filter((asg) => {
       return (
         asg.classIds?.includes(selectedClass.id) ||
         asg.classIds?.includes(selectedClass.code) ||
         asg.classNames?.some((cn) => cn.toLowerCase().includes(selectedClass.name.toLowerCase()))
       );
     });
-    return list.length > 0 ? list : INITIAL_ASSIGNED_LESSONS;
   }, [selectedClass, assignedLessonsList]);
 
   // Fetch real enrolled classes for logged in student

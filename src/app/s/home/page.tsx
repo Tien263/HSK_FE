@@ -339,7 +339,8 @@ export default function StudentHomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username,
+          userId: currentUser?.id,
+          username: currentUser?.username || username || "student",
           classCode: verifiedJoinClass.code,
           classId: verifiedJoinClass.id,
           learningMode: "CLASS",
@@ -364,6 +365,42 @@ export default function StudentHomePage() {
       localStorage.setItem("hanyu_onboarding_completed", "true");
       if (currentUser?.id) {
         localStorage.setItem(`hanyu_onboarding_${currentUser.id}`, "true");
+      }
+
+      // Lưu vào danh sách học viên ghi danh của lớp (Đảm bảo giáo viên luôn thấy học sinh lập tức)
+      try {
+        const existingRegistry = localStorage.getItem("hanyu_class_enrolled_students");
+        const registry = existingRegistry ? JSON.parse(existingRegistry) : {};
+        const studentRecord = {
+          id: currentUser?.id || "student-id-" + Date.now(),
+          name: currentUser?.name || studentName || "Trần Minh Khang",
+          username: currentUser?.username || username || "student",
+          email: currentUser?.email || userEmail || "student@hanyu.edu.vn",
+          status: "LEARNING",
+          statusText: "Đang học",
+          progressPercent: 0,
+          submittedAssignments: 0,
+          totalAssignments: 10,
+          joinedDate: new Date().toLocaleDateString("vi-VN"),
+          avatar: currentUser?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+        };
+        const cId = verifiedJoinClass.id;
+        const cCode = verifiedJoinClass.code;
+        if (cId) {
+          if (!registry[cId]) registry[cId] = [];
+          if (!registry[cId].some((s: any) => s.username === studentRecord.username)) {
+            registry[cId].push(studentRecord);
+          }
+        }
+        if (cCode) {
+          if (!registry[cCode]) registry[cCode] = [];
+          if (!registry[cCode].some((s: any) => s.username === studentRecord.username)) {
+            registry[cCode].push(studentRecord);
+          }
+        }
+        localStorage.setItem("hanyu_class_enrolled_students", JSON.stringify(registry));
+      } catch (e) {
+        console.error("Registry save error:", e);
       }
 
       if (currentUser) {

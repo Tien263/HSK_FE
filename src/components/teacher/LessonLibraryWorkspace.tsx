@@ -251,7 +251,7 @@ export function LessonLibraryWorkspace({
         if (saved) return JSON.parse(saved);
       } catch (e) {}
     }
-    return INITIAL_ASSIGNED_LESSONS;
+    return [];
   });
 
   useEffect(() => {

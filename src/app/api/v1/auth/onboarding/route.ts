@@ -18,6 +18,8 @@ export async function POST(request: Request) {
     const student = await prisma.user.findFirst({
       where: {
         OR: [
+          ...(body.userId ? [{ id: body.userId }] : []),
+          ...(body.studentId ? [{ id: body.studentId }] : []),
           { username: username || "student" },
           { email: username || "student" },
         ],

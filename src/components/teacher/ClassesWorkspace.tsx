@@ -320,6 +320,27 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
           const art = getClassArtwork(trackType, c.level, index, c.name);
           const hasAssignments = typeof c.totalAssignments === "number" && c.totalAssignments > 0;
 
+          const formattedCode = c.code || c.id.slice(-6).toUpperCase();
+          let localEnrolledCount = 0;
+          if (typeof window !== "undefined") {
+            try {
+              const regRaw = localStorage.getItem("hanyu_class_enrolled_students");
+              if (regRaw) {
+                const reg = JSON.parse(regRaw);
+                const list = reg[c.id] || reg[formattedCode] || [];
+                localEnrolledCount = list.length;
+              }
+              const profRaw = localStorage.getItem("hanyu_study_profile");
+              if (profRaw && localEnrolledCount === 0) {
+                const p = JSON.parse(profRaw);
+                if (p.classInfo?.id === c.id || p.classCode === formattedCode) {
+                  localEnrolledCount = 1;
+                }
+              }
+            } catch (e) {}
+          }
+          const finalStudentCount = Math.max(c.totalStudents || 0, localEnrolledCount);
+
           return {
             id: c.id,
             name: c.name,
@@ -328,13 +349,13 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
             status: c.status || (c.isActive ? "ACTIVE" : "ENDED"),
             statusText: c.statusText || (c.isActive ? "Đang dạy" : "Đã kết thúc"),
             isArchived: Boolean(c.isArchived || c.status === "ARCHIVED"),
-            studentCount: c.totalStudents || 0,
+            studentCount: finalStudentCount,
             totalAssignments: c.totalAssignments || 0,
             maxStudents: 30,
             startDate: c.startDate || normalizeDMY(c.createdAt),
             endDate: c.endDate || normalizeDMY(new Date(new Date(c.createdAt || Date.now()).getTime() + 180 * 86400000)),
-            progressPercent: hasAssignments ? (c.totalStudents > 0 ? 76 : 0) : null,
-            code: c.code || c.id.slice(-6).toUpperCase(),
+            progressPercent: hasAssignments ? (finalStudentCount > 0 ? 76 : 0) : null,
+            code: formattedCode,
             artwork: art,
             teacherName: c.teacherName || currentUser.name,
             description: c.description || `Lớp học ${c.name} do cô/thầy ${currentUser.name} phụ trách.`,
@@ -416,34 +437,63 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
         }));
       }
 
-      // Check if student enrolled in localStorage or currentUser
+      // Đồng bộ từ registry ghi danh học sinh (Đảm bảo luôn thấy học viên đã vào lớp)
       if (typeof window !== "undefined") {
         try {
-          const profileRaw = localStorage.getItem("hanyu_study_profile");
-          const userRaw = localStorage.getItem("currentUser");
           const thisClass = classes.find((c) => c.id === classId);
-          if (profileRaw && userRaw) {
-            const prof = JSON.parse(profileRaw);
-            const usr = JSON.parse(userRaw);
-            if (usr.role === "STUDENT" && (prof.classInfo?.id === classId || prof.classCode === thisClass?.code || prof.classCode === classId)) {
-              if (!mapped.some((s) => s.id === usr.id || s.username === usr.username)) {
+          const registryRaw = localStorage.getItem("hanyu_class_enrolled_students");
+          if (registryRaw) {
+            const reg = JSON.parse(registryRaw);
+            const listFromReg = [
+              ...(reg[classId] || []),
+              ...(thisClass?.code ? reg[thisClass.code] || [] : []),
+            ];
+            for (const s of listFromReg) {
+              if (!mapped.some((item) => item.username === s.username || item.id === s.id)) {
                 mapped.push({
-                  id: usr.id,
-                  name: usr.name,
-                  username: usr.username,
-                  email: usr.email || `${usr.username}@gmail.com`,
+                  id: s.id,
+                  name: s.name,
+                  username: s.username,
+                  email: s.email || `${s.username}@gmail.com`,
+                  status: "LEARNING",
+                  statusText: "Đang học",
+                  progressPercent: 0,
+                  submittedAssignments: 0,
+                  totalAssignments: 10,
+                  joinedDate: s.joinedDate || "Hôm nay",
+                  avatar: s.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+                });
+              }
+            }
+          }
+
+          // Fallback: Kiểm tra cả hanyu_study_profile nếu học sinh vừa đăng ký
+          const profileRaw = localStorage.getItem("hanyu_study_profile");
+          if (profileRaw) {
+            const prof = JSON.parse(profileRaw);
+            if (prof.classInfo?.id === classId || prof.classCode === thisClass?.code || prof.classCode === classId) {
+              const defaultStudentName = "Trần Minh Khang";
+              const defaultStudentUsername = "student";
+              if (!mapped.some((s) => s.username === defaultStudentUsername)) {
+                mapped.push({
+                  id: "student-enrolled-profile",
+                  name: defaultStudentName,
+                  username: defaultStudentUsername,
+                  email: "student@hanyu.edu.vn",
                   status: "LEARNING",
                   statusText: "Đang học",
                   progressPercent: 0,
                   submittedAssignments: 0,
                   totalAssignments: 10,
                   joinedDate: "Hôm nay",
-                  avatar: usr.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+                  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
                 });
               }
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("Local sync student error:", e);
+        }
       }
 
       setStudentsList(mapped);

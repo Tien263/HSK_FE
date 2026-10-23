@@ -61,6 +61,26 @@ export default function StudentRoadmapWorkspace({
     );
   }
 
+  // Danh sách bài học đã hoàn thành thực tế của học sinh
+  const [completedLessonIds] = useState<number[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_student_completed_lessons");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  // Tính số bài đã học trong từng chặng
+  const s1Done = completedLessonIds.filter((id) => [1, 2, 3, 4].includes(id)).length;
+  const s2Done = completedLessonIds.filter((id) => [5, 6, 7, 8].includes(id)).length;
+  const s3Done = completedLessonIds.filter((id) => [9, 10, 11, 12].includes(id)).length;
+  const s4Done = completedLessonIds.filter((id) => [13, 14, 15].includes(id)).length;
+
+  const totalDoneCount = s1Done + s2Done + s3Done + s4Done;
+  const totalPercent = Math.min(100, Math.round((totalDoneCount / 15) * 100));
+
   // 4 Stages covering all 15 official HSK 1 lessons
   const stages = [
     {
@@ -68,9 +88,9 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 1,
       title: "Chặng 1: Nền tảng Ngữ âm & Chào hỏi ban đầu",
       desc: "Làm chủ 21 Thanh mẫu, 36 Vận mẫu, 4 Thanh điệu và các mẫu câu chào hỏi, giới thiệu tên tuổi, gia đình.",
-      status: "COMPLETED",
-      progress: 100,
-      xpEarned: 450,
+      status: s1Done === 4 ? "COMPLETED" : "IN_PROGRESS",
+      progress: Math.round((s1Done / 4) * 100),
+      xpEarned: s1Done * 100,
       badge: "Ngữ âm chuẩn xác",
       lessonIds: [1, 2, 3, 4],
       lessons: OFFICIAL_HSK1_15_LESSONS.slice(0, 4),
@@ -80,9 +100,9 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 2,
       title: "Chặng 2: Sinh hoạt, Thời gian & Nghỉ ngơi",
       desc: "Học cách nói về ngày nghỉ, trao đổi số điện thoại, thời gian biểu tan làm và nghề nghiệp của các thành viên gia đình.",
-      status: "IN_PROGRESS",
-      progress: 50,
-      xpEarned: 320,
+      status: s1Done === 4 ? (s2Done === 4 ? "COMPLETED" : "IN_PROGRESS") : "LOCKED",
+      progress: Math.round((s2Done / 4) * 100),
+      xpEarned: s2Done * 100,
       badge: "Giao tiếp sinh hoạt",
       lessonIds: [5, 6, 7, 8],
       lessons: OFFICIAL_HSK1_15_LESSONS.slice(4, 8),
@@ -92,9 +112,9 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 3,
       title: "Chặng 3: Học tập, Mua sắm & Đời sống",
       desc: "Nói về trường học, hỏi giá cả mua sắm đồ ăn thức uống, đời sống sinh viên đại học và dự báo thời tiết.",
-      status: "LOCKED",
-      progress: 0,
-      xpEarned: 0,
+      status: s2Done === 4 ? (s3Done === 4 ? "COMPLETED" : "IN_PROGRESS") : "LOCKED",
+      progress: Math.round((s3Done / 4) * 100),
+      xpEarned: s3Done * 100,
       badge: "Đời sống thực tế",
       lessonIds: [9, 10, 11, 12],
       lessons: OFFICIAL_HSK1_15_LESSONS.slice(8, 12),
@@ -104,9 +124,9 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 4,
       title: "Chặng 4: Giao tiếp mở rộng & Vượt ải HSK 1",
       desc: "Mẫu câu gọi món/uống trà, xem phim giải trí, hẹn gặp tại sân bay và tổng kết 150 từ vựng cốt lõi chuẩn bị thi.",
-      status: "LOCKED",
-      progress: 0,
-      xpEarned: 0,
+      status: s3Done === 4 ? (s4Done === 3 ? "COMPLETED" : "IN_PROGRESS") : "LOCKED",
+      progress: Math.round((s4Done / 3) * 100),
+      xpEarned: s4Done * 100,
       badge: "Chiến binh HSK 1",
       lessonIds: [13, 14, 15],
       lessons: OFFICIAL_HSK1_15_LESSONS.slice(12, 15),
@@ -161,7 +181,7 @@ export default function StudentRoadmapWorkspace({
                 Tiến độ cấp độ HSK {selectedHskLevel} (Sơ cấp 15 bài)
               </h3>
               <p className="text-xs text-[#315E48]">
-                Đã hoàn thành 1 / 4 chặng học tập (Tổng 15 bài học cốt lõi)
+                Đã hoàn thành {stages.filter((s) => s.status === "COMPLETED").length} / 4 chặng học tập ({totalDoneCount}/15 bài học)
               </p>
             </div>
           </div>
@@ -177,12 +197,12 @@ export default function StudentRoadmapWorkspace({
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-medium text-[#315E48]">
             <span>Tổng tiến độ toàn khóa</span>
-            <span className="font-bold text-[#204434]">40%</span>
+            <span className="font-bold text-[#204434]">{totalPercent}%</span>
           </div>
           <div className="h-3 w-full bg-[#E5DEC9]/50 rounded-full overflow-hidden p-0.5">
             <div
               className="h-full bg-gradient-to-r from-[#204434] to-[#315E48] rounded-full transition-all duration-700"
-              style={{ width: "40%" }}
+              style={{ width: `${totalPercent}%` }}
             />
           </div>
         </div>

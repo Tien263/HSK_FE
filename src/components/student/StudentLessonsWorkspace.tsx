@@ -45,6 +45,28 @@ export default function StudentLessonsWorkspace({
   const [lessonModalTab, setLessonModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "PHONETICS" | "CULTURE">("VOCAB");
   const [practiceWord, setPracticeWord] = useState<{ hanzi: string; pinyin: string; meaning: string } | null>(null);
 
+  // Danh sách bài học đã hoàn thành thực tế của học sinh
+  const [completedLessonIds, setCompletedLessonIds] = useState<number[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_student_completed_lessons");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  // Danh sách bài học giáo viên đã mở / giao cho lớp
+  const [assignedLessonList] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
   if (classesCount === 0) {
     return (
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">
@@ -149,19 +171,30 @@ export default function StudentLessonsWorkspace({
       {/* Grid bài học */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredLessons.map((ls) => {
-          // Status progression simulation based on lesson index
-          const isDone = ls.number <= 2;
-          const isCurrent = ls.number === 3;
-          const isUnlocked = ls.number <= 6 || ls.isUnlockedDefault;
+          const isAssigned = assignedLessonList.some(
+            (a: any) => a.lessonId === ls.number || a.titleZh === ls.titleZh
+          );
+          const isDone = completedLessonIds.includes(ls.number);
+          // Bài 1 mở sẵn để học viên làm quen buổi đầu; các bài 2-15 mở khi giáo viên giao hoặc học sinh đã hoàn thành
+          const isUnlocked = ls.number === 1 || isAssigned || isDone;
+          const isCurrent = isAssigned && !isDone;
 
           return (
             <div
               key={ls.id}
               onClick={() => {
+                if (!isUnlocked) {
+                  alert(`Bài học ${ls.number} (${ls.titleVi}) chưa được giáo viên mở khóa cho lớp của bạn. Hãy theo dõi thông báo và dặn dò của giáo viên nhé!`);
+                  return;
+                }
                 setSelectedLessonModal(ls);
                 setLessonModalTab("VOCAB");
               }}
-              className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] hover:shadow-md transition cursor-pointer flex flex-col justify-between space-y-3 group"
+              className={`p-5 rounded-3xl border shadow-2xs transition cursor-pointer flex flex-col justify-between space-y-3 group ${
+                isUnlocked
+                  ? "bg-[#FFFCF6] border-[#E5DEC9] hover:border-[#204434] hover:shadow-md"
+                  : "bg-[#F8F5ED]/70 border-[#E5DEC9]/60 opacity-80"
+              }`}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -176,11 +209,16 @@ export default function StudentLessonsWorkspace({
                     </span>
                   ) : isCurrent ? (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
-                      Đang học
+                      Được giao
+                    </span>
+                  ) : isUnlocked ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Chưa học
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#FAF7F0] text-[#315E48] border border-[#E5DEC9]/80">
-                      {ls.unlockedScheduleText}
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#FAF7F0] text-[#8ea394] border border-[#E5DEC9]/80 flex items-center gap-1">
+                      <span>🔒</span>
+                      <span>Chờ giáo viên mở</span>
                     </span>
                   )}
                 </div>
@@ -449,13 +487,43 @@ export default function StudentLessonsWorkspace({
 
             {/* Modal Bottom Actions */}
             <div className="pt-3 border-t border-[#E5DEC9] flex flex-col sm:flex-row items-center justify-between gap-3">
-              <button
-                onClick={() => handleGoToPractice(selectedLessonModal)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] text-white text-xs font-bold hover:shadow-md flex items-center justify-center gap-2 cursor-pointer transition"
-              >
-                <Zap className="w-4 h-4 text-[#BC9B6B]" />
-                <span>⚡ Vào phòng phản xạ từ vựng bài này</span>
-              </button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    const num = selectedLessonModal.number;
+                    let next: number[];
+                    if (completedLessonIds.includes(num)) {
+                      next = completedLessonIds.filter((id) => id !== num);
+                    } else {
+                      next = [...completedLessonIds, num];
+                    }
+                    setCompletedLessonIds(next);
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("hanyu_student_completed_lessons", JSON.stringify(next));
+                    }
+                  }}
+                  className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    completedLessonIds.includes(selectedLessonModal.number)
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200"
+                      : "bg-[#FAF7F0] text-[#204434] border border-[#BC9B6B] hover:bg-[#F3EEDD]"
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                  <span>
+                    {completedLessonIds.includes(selectedLessonModal.number)
+                      ? "✓ Đã hoàn thành bài học"
+                      : "Đánh dấu đã học xong bài này"}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => handleGoToPractice(selectedLessonModal)}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] text-white text-xs font-bold hover:shadow-md flex items-center justify-center gap-2 cursor-pointer transition"
+                >
+                  <Zap className="w-4 h-4 text-[#BC9B6B]" />
+                  <span>⚡ Luyện phản xạ</span>
+                </button>
+              </div>
 
               <button
                 onClick={() => {
@@ -465,7 +533,7 @@ export default function StudentLessonsWorkspace({
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <FileCheck2 className="w-3.5 h-3.5 text-[#8F6D3B]" />
-                <span>Làm bài tập & kiểm tra củng cố</span>
+                <span>Làm bài tập củng cố</span>
               </button>
             </div>
           </div>
