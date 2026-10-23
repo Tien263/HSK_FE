@@ -46,6 +46,7 @@ import {
 import ClassesWorkspace from "@/components/teacher/ClassesWorkspace";
 import { LessonLibraryWorkspace } from "@/components/teacher/LessonLibraryWorkspace";
 import { AssignmentsWorkspace } from "@/components/teacher/AssignmentsWorkspace";
+import QuestionBankWorkspace from "@/components/teacher/QuestionBankWorkspace";
 import { getClassArtwork } from "@/lib/class-helper";
 
 // ============================================================================
@@ -238,6 +239,19 @@ export default function TeacherDashboard() {
 
   // Global search & filter
   const [searchQuery, setSearchQuery] = useState("");
+  const [questionBankCount, setQuestionBankCount] = useState(24);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("hanyu_custom_question_bank");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setQuestionBankCount(parsed.length);
+        } catch (e) {}
+      }
+    }
+  }, [activeTab]);
 
   // Testing & Simulation Toggles (Unhappycase & Edgecase Verification)
   const [simulateNoSchedule, setSimulateNoSchedule] = useState(false);
@@ -710,7 +724,7 @@ export default function TeacherDashboard() {
               { id: "classes", label: "Lớp học", icon: Users, badge: classesList.length },
               { id: "lessons", label: "Kho bài học", icon: BookOpen },
               { id: "assignments", label: "Bài tập & Kiểm tra", icon: FileCheck2, badge: assignmentsList.length },
-              { id: "questions", label: "Kho câu hỏi của tôi", icon: HelpCircle, badge: questionsList.length },
+              { id: "questions", label: "Kho câu hỏi của tôi", icon: HelpCircle, badge: questionBankCount },
               { id: "reports", label: "Báo cáo học tập", icon: BarChart3 },
               { id: "schedule", label: "Lịch dạy & Hạn nộp", icon: Calendar, badge: 3 },
               { id: "settings", label: "Hồ sơ & Cài đặt", icon: Settings },
@@ -1514,6 +1528,9 @@ export default function TeacherDashboard() {
                 studentCount: c.studentCount,
               }))}
               onBackToDashboard={() => setActiveTab("overview")}
+              onNavigateToQuestionBank={(tab) => {
+                setActiveTab("questions");
+              }}
               initialNewAssignmentPayload={
                 transferredAssignmentPayload ||
                 (assignTitle
@@ -1527,69 +1544,15 @@ export default function TeacherDashboard() {
           )}
 
           {/* =================================================================== */}
-          {/* TAB 5: QUESTIONS (KHO CÂU HỎI CỦA TÔI) */}
+          {/* TAB 5: QUESTIONS (KHO CÂU HỎI CỦA TÔI - THEO MOCKUP & ĐẶC TẢ) */}
           {/* =================================================================== */}
           {activeTab === "questions" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <h2 className="text-xl font-serif font-bold text-[#204434]">Kho câu hỏi của tôi</h2>
-                  <p className="text-xs text-[#315E48]">Ngân hàng câu hỏi trắc nghiệm, điền từ và sắp xếp câu tự biên soạn.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setQuestionErrors({});
-                    setIsQuestionModalOpen(true);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Tạo câu hỏi mới</span>
-                </button>
-              </div>
-
-              {/* Questions list */}
-              <div className="space-y-3">
-                {questionsList.map((q, idx) => (
-                  <div key={q.id} className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-[#204434] text-white text-xs font-bold flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#204434]/10 text-[#204434] text-[10px] font-bold">
-                          HSK {q.hskLevel} · {q.skill}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-[#315E48] font-semibold">{q.type}</span>
-                    </div>
-
-                    <p className="text-sm font-semibold text-[#204434]">{q.content}</p>
-
-                    {q.options && (
-                      <div className="grid grid-cols-2 gap-2 text-xs text-[#315E48] pt-1">
-                        {q.options.map((opt, oIdx) => (
-                          <div
-                            key={oIdx}
-                            className={`p-2 rounded-xl border ${
-                              opt.startsWith(q.correctAnswer)
-                                ? "bg-emerald-50 border-emerald-300 font-bold text-emerald-900"
-                                : "bg-[#F8F5ED] border-[#E5DEC9]"
-                            }`}
-                          >
-                            {opt}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="pt-2 text-[11px] text-[#315E48] border-t border-[#E5DEC9]/50">
-                      💡 <strong>Giải thích:</strong> {q.explanation}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <QuestionBankWorkspace
+              showToast={showToast}
+              onNavigateToAssignments={(examId) => {
+                setActiveTab("assignments");
+              }}
+            />
           )}
 
           {/* =================================================================== */}

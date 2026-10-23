@@ -72,6 +72,7 @@ interface AssignmentsWorkspaceProps {
     grammarList?: { id: string; title: string; structure?: string; explanation?: string }[];
     culturalList?: CulturalSelectionItem[];
   };
+  onNavigateToQuestionBank?: (tab?: "ALL" | "DRAFT" | "READY" | "USED") => void;
 }
 
 export function AssignmentsWorkspace({
@@ -79,6 +80,7 @@ export function AssignmentsWorkspace({
   classesList = [],
   onBackToDashboard,
   initialNewAssignmentPayload,
+  onNavigateToQuestionBank,
 }: AssignmentsWorkspaceProps) {
   // Main view modes: "LIST" | "COMPOSER" | "GRADING_MODAL"
   const [viewMode, setViewMode] = useState<"LIST" | "COMPOSER">("LIST");
@@ -679,6 +681,10 @@ export function AssignmentsWorkspace({
       setEditingQuestionId(readyQ.id);
       setSaveStatus("SAVED");
       showToast("Đã lưu câu hỏi hoàn thiện vào Kho câu hỏi của tôi!");
+      if (onNavigateToQuestionBank) {
+        setIsAddQuestionChoiceOpen(false);
+        onNavigateToQuestionBank("READY");
+      }
     }, 250);
   };
 
