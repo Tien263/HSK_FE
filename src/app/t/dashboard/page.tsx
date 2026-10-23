@@ -49,6 +49,7 @@ import { LessonLibraryWorkspace } from "@/components/teacher/LessonLibraryWorksp
 import { AssignmentsWorkspace } from "@/components/teacher/AssignmentsWorkspace";
 import QuestionBankWorkspace from "@/components/teacher/QuestionBankWorkspace";
 import AppleScheduleCalendar, { ScheduleEvent } from "@/components/teacher/AppleScheduleCalendar";
+import ClassReportWorkspace from "@/components/teacher/ClassReportWorkspace";
 import { getClassArtwork } from "@/lib/class-helper";
 
 // ============================================================================
@@ -1712,193 +1713,20 @@ export default function TeacherDashboard() {
           )}
 
           {/* =================================================================== */}
-          {/* TAB 6: REPORTS (BÁO CÁO HỌC TẬP ĐỘNG THEO LỚP & DỮ LIỆU THẬT) */}
+          {/* TAB 6: REPORTS (BÁO CÁO HỌC TẬP THEO ĐẶC TẢ & GIAO DIỆN MOCKUP) */}
           {/* =================================================================== */}
-          {activeTab === "reports" && (() => {
-            const selectedClass = classesList.find((c) => c.id === reportSelectedClassId);
-            const totalStudentsCount = selectedClass
-              ? selectedClass.studentCount
-              : (overviewStats?.totalStudents || classesList.reduce((acc, c) => acc + c.studentCount, 0));
-            const completionPercent = overviewStats?.completionRate || 84.3;
-            const avgScore = 8.2;
-            const levelNum = selectedClass ? (parseInt(selectedClass.levelText.replace(/\D/g, "") || "3")) : 3;
-
-            // Dynamic skill metrics based on level
-            const listeningScore = levelNum <= 2 ? 88 : levelNum <= 4 ? 84 : 79;
-            const readingScore = levelNum <= 2 ? 85 : levelNum <= 4 ? 82 : 77;
-            const writingScore = levelNum <= 2 ? 78 : levelNum <= 4 ? 74 : 70;
-
-            // Student count breakdown
-            const excellentCount = Math.max(1, Math.round(totalStudentsCount * 0.4));
-            const goodCount = Math.max(1, Math.round(totalStudentsCount * 0.45));
-            const averageCount = Math.max(0, totalStudentsCount - excellentCount - goodCount);
-
-            return (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-serif font-bold text-[#204434]">Báo cáo kết quả học tập</h2>
-                    <p className="text-xs text-[#315E48]">
-                      Tổng hợp tỷ lệ hoàn thành bài tập, điểm trung bình và phân tích năng lực 3 kỹ năng HSK.
-                    </p>
-                  </div>
-
-                  {/* Dynamic Class Selector */}
-                  <div className="flex items-center gap-2 bg-[#FFFCF6] border border-[#E5DEC9] p-1.5 rounded-2xl shadow-2xs">
-                    <span className="text-xs font-semibold text-[#204434] pl-2">Lọc theo lớp:</span>
-                    <select
-                      value={reportSelectedClassId}
-                      onChange={(e) => setReportSelectedClassId(e.target.value)}
-                      className="bg-white border border-[#E5DEC9] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#204434] cursor-pointer"
-                    >
-                      <option value="ALL">Toàn bộ lớp học ({classesList.length} lớp)</option>
-                      {classesList.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.studentCount} HV)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Summary Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9]">
-                    <span className="text-xs text-[#315E48] font-medium">Tỷ lệ hoàn thành bài tập</span>
-                    <div className="text-3xl font-bold font-serif text-[#204434] mt-1">{completionPercent}%</div>
-                    <span className="text-[11px] text-emerald-700 font-semibold">
-                      Tổng số: {totalStudentsCount} học viên đang theo học
-                    </span>
-                  </div>
-                  <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9]">
-                    <span className="text-xs text-[#315E48] font-medium">Điểm kiểm tra trung bình</span>
-                    <div className="text-3xl font-bold font-serif text-[#204434] mt-1">{avgScore} / 10</div>
-                    <span className="text-[11px] text-[#315E48]">
-                      {selectedClass ? `Lớp ${selectedClass.name}` : "Tính trên tất cả lớp đang quản lý"}
-                    </span>
-                  </div>
-                  <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9]">
-                    <span className="text-xs text-[#315E48] font-medium">Chủ điểm ngữ pháp cần củng cố</span>
-                    <div className="text-lg font-bold text-[#9D493E] mt-1">
-                      {levelNum <= 2 ? "Thanh điệu biến âm & Lượng từ" : levelNum <= 4 ? "Câu chữ 把 & Bổ ngữ kết quả" : "Cấu trúc liên kết văn viết"}
-                    </div>
-                    <span className="text-[11px] text-[#315E48]">
-                      {levelNum <= 2 ? "18% học viên nhầm lẫn thanh 3" : "24% học viên cần luyện tập thêm"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Phân tích năng lực 3 kỹ năng HSK: Nghe - Đọc - Viết */}
-                <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-serif font-bold text-[#204434] text-base">
-                      Phân tích năng lực chuẩn HSK theo 3 kỹ năng
-                    </h3>
-                    <span className="text-xs text-[#8F6D3B] font-semibold bg-[#FFFBF0] px-3 py-1 rounded-full border border-[#BC9B6B]/40">
-                      {selectedClass ? `Dữ liệu lớp ${selectedClass.name}` : "Dữ liệu tổng hợp toàn bộ"}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Kỹ năng Nghe */}
-                    <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[#204434]">1. Kỹ năng Nghe (听力)</span>
-                        <span className="font-bold text-emerald-800">{listeningScore}% · Đạt chuẩn</span>
-                      </div>
-                      <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-[#E5DEC9]">
-                        <div className="bg-emerald-700 h-full rounded-full transition-all duration-500" style={{ width: `${listeningScore}%` }} />
-                      </div>
-                      <p className="text-[11px] text-[#315E48]">
-                        Nhận diện tốt thanh điệu, ngữ điệu và từ khóa trong đoạn hội thoại.
-                      </p>
-                    </div>
-
-                    {/* Kỹ năng Đọc hiểu */}
-                    <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[#204434]">2. Kỹ năng Đọc hiểu (阅读)</span>
-                        <span className="font-bold text-[#8F6D3B]">{readingScore}% · Khá</span>
-                      </div>
-                      <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-[#E5DEC9]">
-                        <div className="bg-[#BC9B6B] h-full rounded-full transition-all duration-500" style={{ width: `${readingScore}%` }} />
-                      </div>
-                      <p className="text-[11px] text-[#315E48]">
-                        Tốc độ đọc câu văn ngắn đạt yêu cầu, hiểu đúng ngữ cảnh và phó từ.
-                      </p>
-                    </div>
-
-                    {/* Kỹ năng Viết chữ Hán */}
-                    <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[#204434]">3. Kỹ năng Viết (书写)</span>
-                        <span className="font-bold text-amber-800">{writingScore}% · Cần bổ trợ</span>
-                      </div>
-                      <div className="w-full bg-white h-2.5 rounded-full overflow-hidden border border-[#E5DEC9]">
-                        <div className="bg-amber-600 h-full rounded-full transition-all duration-500" style={{ width: `${writingScore}%` }} />
-                      </div>
-                      <p className="text-[11px] text-[#315E48]">
-                        Cần chú ý thứ tự nét bút, quy tắc bộ thủ và kết cấu chữ Hán vuông vức.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bảng phân bổ điểm kiểm tra & Đề xuất hành động sư phạm */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-3">
-                    <h4 className="font-serif font-bold text-sm text-[#204434]">Phân bố điểm số bài kiểm tra</h4>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#315E48]">Xuất sắc (9.0 - 10.0đ):</span>
-                        <span className="font-bold text-emerald-800">{excellentCount} học viên (40%)</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#315E48]">Khá - Giỏi (7.0 - 8.9đ):</span>
-                        <span className="font-bold text-[#204434]">{goodCount} học viên (45%)</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#315E48]">Trung bình (5.0 - 6.9đ):</span>
-                        <span className="font-bold text-amber-700">{averageCount} học viên (15%)</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#315E48]">Chưa đạt (&lt; 5.0đ):</span>
-                        <span className="font-bold text-emerald-700">0 học viên (0%)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 rounded-3xl bg-[#FAF7F0] border border-[#BC9B6B]/60 space-y-3">
-                    <h4 className="font-serif font-bold text-sm text-[#8F6D3B]">Đề xuất kế hoạch học tập tiếp theo</h4>
-                    <ul className="text-xs text-[#204434] space-y-2 list-disc list-inside">
-                      <li>Giao thêm 1 đề luyện viết chữ Hán tập trung vào các bộ thủ cơ bản theo chuẩn HSK.</li>
-                      <li>Tăng cường bài tập nối từ và sắp xếp câu cho các học sinh có điểm trung bình.</li>
-                      <li>Tổ chức kiểm tra định kỳ 15 phút đầu giờ trước mỗi ca học mới trên Apple Calendar.</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Export button */}
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => {
-                      if (typeof window !== "undefined") window.print();
-                    }}
-                    className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold flex items-center gap-2 hover:bg-[#FAF7F0] transition cursor-pointer"
-                  >
-                    <span>In báo cáo</span>
-                  </button>
-                  <button
-                    onClick={() => showToast("Đã tải xuống báo cáo tổng hợp HSK định dạng PDF thành công!")}
-                    className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center gap-2 shadow-2xs hover:bg-[#183629] transition cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Xuất báo cáo PDF</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
+          {activeTab === "reports" && (
+            <ClassReportWorkspace
+              classes={classesList}
+              currentUser={currentUser}
+              showToast={showToast}
+              onNavigateToTab={(tab) => {
+                if (["overview", "classes", "lessons", "assignments", "questions", "reports", "schedule", "settings"].includes(tab)) {
+                  setActiveTab(tab as any);
+                }
+              }}
+            />
+          )}
 
           {/* =================================================================== */}
           {/* TAB 7: SCHEDULE (LỊCH DẠY APPLE CALENDAR THEO YÊU CẦU NGƯỜI DÙNG) */}
