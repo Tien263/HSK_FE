@@ -47,6 +47,9 @@ import {
   Copy,
   FileText,
   ShieldCheck,
+  QrCode,
+  ShieldAlert,
+  GraduationCap,
 } from "lucide-react";
 import {
   OFFICIAL_12_QUESTION_TYPES,
@@ -251,6 +254,20 @@ export function AssignmentsWorkspace({
   // Photo zoom lightbox state
   const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
   const [photoRotation, setPhotoRotation] = useState(0);
+
+  // Live Exam Room QR Modal state
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrAssignment, setQrAssignment] = useState<{ id: string; title: string; className?: string } | null>(null);
+  const [isQrFullscreen, setIsQrFullscreen] = useState(false);
+  const [copiedQrLink, setCopiedQrLink] = useState(false);
+
+  const handleCopyQrLink = (url: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setCopiedQrLink(true);
+      setTimeout(() => setCopiedQrLink(false), 2000);
+    }
+  };
 
   // Dynamic KPI Metrics according to Spec Section 2.1 & E1
   const kpiMetrics = useMemo(() => {
@@ -1629,8 +1646,23 @@ export function AssignmentsWorkspace({
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button
+                  onClick={() => {
+                    const target = assignments.find((a) => a.status === "ACTIVE" || a.status === "OPEN") || assignments[0];
+                    setQrAssignment({
+                      id: target?.id || "exam-01",
+                      title: target?.title || "Phòng thi chuẩn HSK 3.0",
+                      className: target?.className || "Lớp HSK1 - K01",
+                    });
+                    setIsQrModalOpen(true);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl border border-[#E5DEC9] bg-[#FFFCF6] hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4 text-[#BC9B6B]" />
+                  <span>Mã QR phòng thi</span>
+                </button>
+                <button
                   onClick={() => handleOpenAssignModal()}
-                  className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B] bg-[#FFFCF6] hover:bg-[#FAF7F0] text-[#8F6D3B] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition"
+                  className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B] bg-[#FFFCF6] hover:bg-[#FAF7F0] text-[#8F6D3B] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition cursor-pointer"
                 >
                   <Send className="w-4 h-4 text-[#8F6D3B]" />
                   <span>Giao đề cho lớp</span>
@@ -2041,11 +2073,26 @@ export function AssignmentsWorkspace({
                             <td className="py-3.5 px-4 text-right space-x-1.5">
                               <button
                                 onClick={() => {
+                                  setQrAssignment({
+                                    id: a.id,
+                                    title: a.title,
+                                    className: a.className,
+                                  });
+                                  setIsQrModalOpen(true);
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl border border-[#E5DEC9] bg-white hover:bg-[#FAF7F0] text-[#204434] font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                                title="Mã QR phòng thi & Giám sát"
+                              >
+                                <QrCode className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                                <span>Mã QR</span>
+                              </button>
+                              <button
+                                onClick={() => {
                                   setActiveTab("SUBMISSIONS");
                                   setSubFilterExam(a.title);
                                   setSubFilterClass(a.classId);
                                 }}
-                                className="px-2.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold text-xs shadow-2xs transition"
+                                className="px-2.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold text-xs shadow-2xs transition cursor-pointer"
                               >
                                 Xem bài nộp
                               </button>
@@ -6498,6 +6545,134 @@ export function AssignmentsWorkspace({
             </div>
           </div>
         )}
+        {/* MODAL: MÃ QR PHÒNG THI & GIÁM THỊ THÔNG MINH */}
+        {isQrModalOpen && qrAssignment && (() => {
+          const pinCode = `HSK-${(qrAssignment.id || "6892").slice(-4).toUpperCase()}`;
+          const examUrl = typeof window !== "undefined"
+            ? `${window.location.origin}/s/attempts/preview?assignmentId=${qrAssignment.id}&mode=live`
+            : `https://hanyu.edu.vn/s/attempts/preview?assignmentId=${qrAssignment.id}`;
+          const qrImageSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(examUrl)}`;
+
+          return (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+              <div className={`bg-[#FFFCF6] border border-[#E5DEC9] w-full ${isQrFullscreen ? "max-w-4xl h-[90vh]" : "max-w-lg"} rounded-3xl p-6 shadow-2xl flex flex-col justify-between space-y-4 animate-scaleUp overflow-y-auto`}>
+                <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center">
+                      <QrCode className="w-5 h-5 text-[#204434]" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-bold text-base text-[#204434]">
+                        Mã QR Phòng Thi Trực Tiếp
+                      </h3>
+                      <p className="text-[11px] text-[#315E48]">
+                        {qrAssignment.title} {qrAssignment.className ? `· ${qrAssignment.className}` : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setIsQrFullscreen(!isQrFullscreen)}
+                      className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer"
+                      title={isQrFullscreen ? "Thu nhỏ" : "Chiếu máy chiếu (Toàn màn hình)"}
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setIsQrModalOpen(false)}
+                      className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* QR Display Card */}
+                <div className="flex flex-col items-center justify-center text-center p-5 bg-white rounded-3xl border border-[#E5DEC9] space-y-3">
+                  <span className="text-[11px] font-semibold text-[#8F6D3B] bg-[#FFFBF0] px-3 py-1 rounded-full border border-[#BC9B6B]/40">
+                    📱 Học sinh mở Camera Zalo / Trình duyệt quét mã để vào thi ngay
+                  </span>
+
+                  {/* QR Image */}
+                  <div className="p-3 bg-white rounded-2xl border-2 border-[#204434]/20 shadow-inner relative">
+                    <img
+                      src={qrImageSrc}
+                      alt="Mã QR Phòng Thi"
+                      className={`${isQrFullscreen ? "w-64 h-64" : "w-48 h-48"} object-contain`}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="w-10 h-10 rounded-xl bg-white border border-[#204434]/40 flex items-center justify-center shadow-xs">
+                        <GraduationCap className="w-5 h-5 text-[#204434]" />
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* PIN Code Codebox */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-[#315E48] uppercase tracking-wider font-semibold">
+                      Mã PIN phòng thi (Nếu nhập thủ công):
+                    </span>
+                    <div className="text-2xl font-mono font-bold text-[#204434] tracking-widest bg-[#FAF7F0] px-4 py-1.5 rounded-xl border border-[#E5DEC9]">
+                      {pinCode}
+                    </div>
+                  </div>
+
+                  {/* Direct Link Input */}
+                  <div className="w-full flex items-center gap-2 pt-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={examUrl}
+                      className="w-full text-xs bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-[#204434] font-mono select-all truncate"
+                    />
+                    <button
+                      onClick={() => handleCopyQrLink(examUrl)}
+                      className="px-3.5 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#183629] shrink-0 cursor-pointer shadow-2xs"
+                    >
+                      {copiedQrLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedQrLink ? "Đã chép" : "Chép link"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Đề xuất tính năng phòng thi cao cấp (Spec Đề Xuất Giám Thị Thông Minh) */}
+                <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2 text-xs">
+                  <span className="font-bold text-[#204434] flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                    <span>Đề xuất tính năng phòng thi trực tuyến cao cấp (Giám thị thông minh):</span>
+                  </span>
+                  <ul className="text-[11px] text-[#315E48] space-y-1.5 list-disc list-inside">
+                    <li><strong>Giám sát chống gian lận (Tab Switch Alert):</strong> Tự động phát hiện và cảnh báo đỏ nếu học sinh chuyển tab sang Google Dịch / từ điển.</li>
+                    <li><strong>Khóa phòng thi & Thu bài đồng loạt:</strong> Giáo viên chủ động bấm "Thu bài ngay" từ xa khi hết giờ để khóa quyền nộp tiếp.</li>
+                    <li><strong>Xáo trộn câu hỏi & phương án:</strong> Đảo ngẫu nhiên trật tự đáp án A, B, C, D tránh tình trạng nhìn bài nhau.</li>
+                    <li><strong>Chấm điểm AI tức thì:</strong> Tự động nhận diện chữ viết, phát âm và chấm điểm tự luận theo chuẩn HSK 3.0.</li>
+                  </ul>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-[#E5DEC9]">
+                  <button
+                    onClick={() => {
+                      const win = window.open(examUrl, "_blank");
+                      win?.focus();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Vào phòng thi với tư cách học sinh</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsQrModalOpen(false)}
+                    className="px-5 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs hover:bg-[#183629] cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
