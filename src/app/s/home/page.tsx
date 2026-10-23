@@ -611,14 +611,22 @@ export default function StudentHomePage() {
                     </p>
                   </div>
 
-                  {/* Action Button */}
-                  <div className="mt-4">
+                  {/* Action Buttons */}
+                  <div className="mt-4 flex items-center gap-3 flex-wrap">
                     <Link
                       href="/s/review"
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
                     >
                       <span>Tiếp tục học ngay</span>
                       <ArrowRight className="w-4 h-4" />
+                    </Link>
+
+                    <Link
+                      href="/s/attempts/preview"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FAF7F0] hover:bg-white border border-[#BC9B6B] text-[#8F6D3B] text-xs font-bold shadow-2xs transition cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <span>Làm bài kiểm tra HSK</span>
                     </Link>
                   </div>
                 </div>
@@ -1148,61 +1156,75 @@ export default function StudentHomePage() {
 
                 <div className="space-y-2.5">
                   {/* Item 1 */}
-                  <div className="p-2.5 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/60 flex items-center justify-between text-xs">
+                  <Link
+                    href="/s/attempts/preview"
+                    className="p-3 rounded-2xl bg-[#F8F5ED] hover:bg-[#FAF7F0] border border-[#E5DEC9]/60 flex items-center justify-between text-xs transition cursor-pointer group"
+                  >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-3.5 h-3.5 rounded-full border border-[#315E48]/40 shrink-0" />
+                      <div className="w-8 h-8 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center shrink-0 font-bold font-serif">
+                        考
+                      </div>
                       <div className="truncate">
-                        <div className="font-bold text-xs text-[#204434] truncate">
-                          HSK 3 - Bài 5 Từ vựng
+                        <div className="font-bold text-xs text-[#204434] group-hover:text-[#8F6D3B] transition truncate">
+                          Đề thi thử HSK (Đầy đủ 12 dạng chuẩn mực)
                         </div>
-                        <div className="text-[10px] text-[#315E48]">Lớp HSK 3A</div>
+                        <div className="text-[10px] text-[#315E48]">Lớp HSK Cơ bản · Hạn: Hôm nay</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="text-[11px] text-[#315E48]">20/10</span>
-                      <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-bold">
-                        Chưa làm
+                      <span className="px-3 py-1 rounded-xl bg-[#204434] text-white text-[11px] font-bold group-hover:bg-[#183629] transition shadow-2xs flex items-center gap-1">
+                        <span>Làm bài</span>
+                        <ArrowRight className="w-3 h-3" />
                       </span>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Item 2 */}
-                  <div className="p-2.5 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/60 flex items-center justify-between text-xs">
+                  <Link
+                    href="/s/attempts/preview"
+                    className="p-3 rounded-2xl bg-[#F8F5ED] hover:bg-[#FAF7F0] border border-[#E5DEC9]/60 flex items-center justify-between text-xs transition cursor-pointer group"
+                  >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-3.5 h-3.5 rounded-full border border-[#315E48]/40 shrink-0" />
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-800 flex items-center justify-center shrink-0 font-bold font-serif">
+                        练
+                      </div>
                       <div className="truncate">
-                        <div className="font-bold text-xs text-[#204434] truncate">
-                          Ngữ pháp bổ trợ
+                        <div className="font-bold text-xs text-[#204434] group-hover:text-[#8F6D3B] transition truncate">
+                          HSK 3 - Bài 5: Từ vựng & Ngữ pháp
                         </div>
-                        <div className="text-[10px] text-[#315E48]">Lớp HSK 3A</div>
+                        <div className="text-[10px] text-[#315E48]">Lớp HSK 3A · Hạn: 22/10</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="text-[11px] text-[#315E48]">22/10</span>
-                      <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold">
-                        Đang làm
+                      <span className="px-3 py-1 rounded-xl bg-amber-600 text-white text-[11px] font-bold group-hover:bg-amber-700 transition shadow-2xs flex items-center gap-1">
+                        <span>Làm tiếp</span>
+                        <ArrowRight className="w-3 h-3" />
                       </span>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Item 3 */}
-                  <div className="p-2.5 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/60 flex items-center justify-between text-xs">
+                  <Link
+                    href="/s/attempts/preview"
+                    className="p-3 rounded-2xl bg-[#F8F5ED] hover:bg-[#FAF7F0] border border-[#E5DEC9]/60 flex items-center justify-between text-xs transition cursor-pointer group"
+                  >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-3.5 h-3.5 rounded-full border border-[#315E48]/40 shrink-0" />
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-800 flex items-center justify-center shrink-0 font-bold font-serif">
+                        阅
+                      </div>
                       <div className="truncate">
-                        <div className="font-bold text-xs text-[#204434] truncate">
-                          Bài đọc hiểu
+                        <div className="font-bold text-xs text-[#204434] group-hover:text-[#8F6D3B] transition truncate">
+                          Bài tập đọc hiểu & Dịch câu
                         </div>
-                        <div className="text-[10px] text-[#315E48]">Lớp HSK 3A</div>
+                        <div className="text-[10px] text-[#315E48]">Lớp HSK 3A · Hạn: 25/10</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="text-[11px] text-[#315E48]">25/10</span>
-                      <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-bold">
-                        Chưa làm
+                      <span className="px-2.5 py-1 rounded-xl border border-[#204434] text-[#204434] text-[11px] font-bold group-hover:bg-[#204434] group-hover:text-white transition flex items-center gap-1">
+                        <span>Bắt đầu</span>
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 </div>
               </section>
 

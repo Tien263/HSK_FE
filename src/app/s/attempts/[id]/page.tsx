@@ -412,11 +412,9 @@ function AttemptInner() {
 
     if (attemptId === "preview" || attemptId.startsWith("demo")) {
       setTimeout(() => {
-        alert(
-          `🎉 Nộp bài làm thử thành công!\n\nBạn đã trả lời ${answeredCount}/${questions.length} câu hỏi thuộc 12 dạng đề thi HSK.\nHệ thống đã ghi nhận đầy đủ các câu trả lời của bạn!`
-        );
+        router.push(`/s/attempts/${attemptId}/result`);
         setSubmitting(false);
-      }, 500);
+      }, 400);
       return;
     }
 
