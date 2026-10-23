@@ -1,5 +1,7 @@
 // Comprehensive Lesson Library Data Model & Seed Data
-// Aligned with HSK 3.0, Theo chủ đề, Đại học & Ngành, and Teacher's Library
+// Fully aligned with HSK 3.0 (with Dedicated Level Lesson Lists),
+// Theo chủ đề (9 Major Topics, 72 Subtopics, 3 Level Filter: Sơ cấp/Trung cấp/Nâng cao, 5 Parts with Cultural/Communication),
+// Đại học & Ngành (12 Faculties, 50 Majors, University -> Faculty -> Major -> Course -> Chapter -> Lesson)
 
 export interface VocabularyItem {
   id: string;
@@ -39,6 +41,7 @@ export interface DialogueItem {
   situation: string;
   audioDuration: string;
   lines: DialogueLine[];
+  memorableSentences?: { zh: string; py: string; vi: string }[];
 }
 
 export interface ReadingItem {
@@ -66,6 +69,41 @@ export interface ListeningItem {
   }[];
 }
 
+export interface CulturalNoteItem {
+  context: string; // A. Bối cảnh giao tiếp
+  targetAudience: string; // B. Đối tượng giao tiếp
+  naturalExpressions: { zh: string; py: string; vi: string }[]; // C. Cách nói thường dùng
+  politeExpressions: { zh: string; py: string; vi: string; note?: string }[]; // D. Cách nói lịch sự
+  cautionNotes: string[]; // E. Cách nói cần lưu ý
+  comparisonNote?: string; // F. So sánh khẩu ngữ và trang trọng
+  practiceScenario: string; // G. Tình huống thực hành
+}
+
+export interface AcademicContentItem {
+  terms: {
+    zh: string;
+    py: string;
+    vi: string;
+    definition: string;
+    example: string;
+  }[];
+  theoryTitle: string;
+  theoryContent: string;
+  tableOrFormula?: {
+    title: string;
+    headers: string[];
+    rows: string[][];
+  };
+  practicalCase?: {
+    title: string;
+    scenario: string;
+    analysis: string;
+  };
+  academicLanguageNote?: string;
+}
+
+export type TopicDifficultyLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+
 export interface LessonSummary {
   id: string;
   orderNumber: number;
@@ -73,6 +111,7 @@ export interface LessonSummary {
   levelId: string;
   levelLabel: string;
   categoryLabel?: string;
+  topicDifficulty?: TopicDifficultyLevel;
   titleZh: string;
   titlePy: string;
   titleVi: string;
@@ -93,6 +132,8 @@ export interface FullLessonDetail extends LessonSummary {
   dialogue?: DialogueItem;
   reading?: ReadingItem;
   listening?: ListeningItem;
+  culturalNote?: CulturalNoteItem;
+  academicContent?: AcademicContentItem;
 }
 
 // ===========================================================================
@@ -108,12 +149,12 @@ export interface HskLevelMeta {
 }
 
 export const HSK_LEVELS_META: HskLevelMeta[] = [
-  { id: "hsk1", title: "HSK 1", desc: "Sơ cấp 150-300 từ vựng căn bản", totalLessons: 20, isAvailable: true, tag: "Có 20 bài" },
-  { id: "hsk2", title: "HSK 2", desc: "Sơ trung cấp 300-600 từ vựng", totalLessons: 20, isAvailable: true, tag: "Có 20 bài" },
-  { id: "hsk3", title: "HSK 3", desc: "Trung cấp 600-1200 từ vựng", totalLessons: 20, isAvailable: true, tag: "Có 20 bài" },
-  { id: "hsk4", title: "HSK 4", desc: "Trung cao cấp 1200-2500 từ vựng", totalLessons: 20, isAvailable: true, tag: "Có 20 bài" },
-  { id: "hsk5", title: "HSK 5", desc: "Cao cấp 2500-4000 từ vựng", totalLessons: 20, isAvailable: true, tag: "Có 20 bài" },
-  { id: "hsk6", title: "HSK 6", desc: "Thành thạo trên 5000 từ vựng", totalLessons: 20, isAvailable: true, tag: "Có 20 bài" },
+  { id: "hsk1", title: "HSK 1", desc: "Sơ cấp 150-300 từ vựng căn bản", totalLessons: 20, isAvailable: true, tag: "20 bài" },
+  { id: "hsk2", title: "HSK 2", desc: "Sơ trung cấp 300-600 từ vựng", totalLessons: 20, isAvailable: true, tag: "20 bài" },
+  { id: "hsk3", title: "HSK 3", desc: "Trung cấp 600-1200 từ vựng", totalLessons: 20, isAvailable: true, tag: "20 bài" },
+  { id: "hsk4", title: "HSK 4", desc: "Trung cao cấp 1200-2500 từ vựng", totalLessons: 20, isAvailable: true, tag: "20 bài" },
+  { id: "hsk5", title: "HSK 5", desc: "Cao cấp 2500-4000 từ vựng", totalLessons: 20, isAvailable: true, tag: "20 bài" },
+  { id: "hsk6", title: "HSK 6", desc: "Thành thạo trên 5000 từ vựng", totalLessons: 20, isAvailable: true, tag: "20 bài" },
   { id: "hsk79", title: "HSK 7–9", desc: "Bậc cao cấp chuyên sâu / Học thuật", totalLessons: 0, isAvailable: false, tag: "Chưa có bài" },
 ];
 
@@ -270,250 +311,539 @@ export const HSK3_LESSONS: LessonSummary[] = [
   },
 ];
 
+export const HSK_LESSONS_MAP: Record<string, LessonSummary[]> = {
+  hsk1: HSK1_LESSONS,
+  hsk2: HSK2_LESSONS,
+  hsk3: HSK3_LESSONS,
+  hsk4: [
+    {
+      id: "hsk4-b1",
+      orderNumber: 1,
+      trackId: "hsk",
+      levelId: "hsk4",
+      levelLabel: "HSK 4",
+      titleZh: "简单的爱情",
+      titlePy: "Jiǎndān de àiqíng",
+      titleVi: "Tình yêu giản dị",
+      thumbnailArt: "lesson4",
+      stats: { vocabCount: 18, grammarCount: 3, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
+    },
+  ],
+  hsk5: [
+    {
+      id: "hsk5-b1",
+      orderNumber: 1,
+      trackId: "hsk",
+      levelId: "hsk5",
+      levelLabel: "HSK 5",
+      titleZh: "爱的教育",
+      titlePy: "Ài de jiàoyù",
+      titleVi: "Giáo dục của tình thương",
+      thumbnailArt: "lesson5",
+      stats: { vocabCount: 22, grammarCount: 4, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
+    },
+  ],
+  hsk6: [
+    {
+      id: "hsk6-b1",
+      orderNumber: 1,
+      trackId: "hsk",
+      levelId: "hsk6",
+      levelLabel: "HSK 6",
+      titleZh: "给儿子的一封信",
+      titlePy: "Gěi érzi de yì fēng xìn",
+      titleVi: "Bức thư gửi con trai",
+      thumbnailArt: "lesson6",
+      stats: { vocabCount: 26, grammarCount: 4, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
+    },
+  ],
+  hsk79: [],
+};
+
 // ===========================================================================
-// 2. THEO CHỦ ĐỀ TRACK (Topic-based Categories & Lessons)
+// 2. THEO CHỦ ĐỀ TRACK (9 Major Topics & 72 Subtopics per Spec)
 // ===========================================================================
-export interface TopicCategoryMeta {
+export interface SubtopicMeta {
   id: string;
   title: string;
-  desc: string;
-  icon: string;
   totalLessons: number;
 }
 
-export const TOPIC_CATEGORIES: TopicCategoryMeta[] = [
+export interface MajorTopicMeta {
+  id: string;
+  orderNumber: number;
+  title: string;
+  desc: string;
+  icon: string;
+  priorityFocus: string;
+  subtopics: SubtopicMeta[];
+}
+
+export const OFFICIAL_9_TOPICS: MajorTopicMeta[] = [
   {
-    id: "topic-comm",
+    id: "top-1-life",
+    orderNumber: 1,
     title: "Giao tiếp đời sống & Xã giao",
-    desc: "Khẩu ngữ thường nhật, kết bạn, hỏi thăm, chia sẻ sở thích",
+    desc: "Khẩu ngữ thường nhật, kết bạn, xưng hô, hỏi thăm và biểu đạt quan điểm",
     icon: "💬",
-    totalLessons: 6,
+    priorityFocus: "Khẩu ngữ thông dụng, cách xưng hô, chào hỏi, từ chối lịch sự",
+    subtopics: [
+      { id: "sub-1-1", title: "Chào hỏi & Làm quen", totalLessons: 4 },
+      { id: "sub-1-2", title: "Giới thiệu bản thân", totalLessons: 3 },
+      { id: "sub-1-3", title: "Gia đình & Người thân", totalLessons: 3 },
+      { id: "sub-1-4", title: "Bạn bè & Quan hệ xã hội", totalLessons: 2 },
+      { id: "sub-1-5", title: "Hỏi thăm & Trò chuyện hằng ngày", totalLessons: 3 },
+      { id: "sub-1-6", title: "Thời gian & Lịch hẹn", totalLessons: 2 },
+      { id: "sub-1-7", title: "Mời mọc, Cảm ơn & Xin lỗi", totalLessons: 2 },
+      { id: "sub-1-8", title: "Cảm xúc, Sở thích & Quan điểm", totalLessons: 2 },
+    ],
   },
   {
-    id: "topic-food",
+    id: "top-2-food",
+    orderNumber: 2,
     title: "Ẩm thực & Nhà hàng Trung Hoa",
-    desc: "Gọi món, hương vị món ăn, văn hóa bàn tiệc và thanh toán",
+    desc: "Gọi món, khẩu vị vùng miền, văn hóa bàn ăn và thanh toán",
     icon: "🍜",
-    totalLessons: 4,
+    priorityFocus: "Cách nói cay/không cay, dị ứng, gọi món, văn hóa bàn tiệc",
+    subtopics: [
+      { id: "sub-2-1", title: "Các món ăn Trung Quốc", totalLessons: 3 },
+      { id: "sub-2-2", title: "Nguyên liệu & Cách nấu ăn", totalLessons: 2 },
+      { id: "sub-2-3", title: "Khẩu vị & Sở thích ăn uống", totalLessons: 2 },
+      { id: "sub-2-4", title: "Đặt bàn & Gọi món", totalLessons: 4 },
+      { id: "sub-2-5", title: "Giao tiếp với nhân viên phục vụ", totalLessons: 2 },
+      { id: "sub-2-6", title: "Đồ uống, Trà & Quán cà phê", totalLessons: 2 },
+      { id: "sub-2-7", title: "Thanh toán & Chia hóa đơn", totalLessons: 2 },
+      { id: "sub-2-8", title: "Văn hóa bàn ăn & Tiệc tùng", totalLessons: 3 },
+    ],
   },
   {
-    id: "topic-travel",
+    id: "top-3-travel",
+    orderNumber: 3,
     title: "Du lịch, Đặt vé & Khách sạn",
-    desc: "Mua vé tàu cao tốc, hỏi đường, đặt phòng và tham quan",
+    desc: "Tàu cao tốc, sân bay, đặt phòng, hỏi đường và xử lý sự cố khi du lịch",
     icon: "✈️",
-    totalLessons: 5,
+    priorityFocus: "Giao tiếp tại ga tàu, đặt vé, hỏi đường, check-in khách sạn",
+    subtopics: [
+      { id: "sub-3-1", title: "Chuẩn bị hành lý & Lịch trình", totalLessons: 2 },
+      { id: "sub-3-2", title: "Sân bay & Làm thủ tục bay", totalLessons: 3 },
+      { id: "sub-3-3", title: "Tàu cao tốc & Mua vé tàu", totalLessons: 3 },
+      { id: "sub-3-4", title: "Giao thông công cộng & Taxi", totalLessons: 2 },
+      { id: "sub-3-5", title: "Hỏi đường & Chỉ đường", totalLessons: 3 },
+      { id: "sub-3-6", title: "Đặt phòng & Nhận phòng khách sạn", totalLessons: 3 },
+      { id: "sub-3-7", title: "Tham quan & Mua vé thắng cảnh", totalLessons: 2 },
+      { id: "sub-3-8", title: "Sự cố khi đi du lịch", totalLessons: 2 },
+    ],
   },
   {
-    id: "topic-shopping",
+    id: "top-4-shopping",
+    orderNumber: 4,
     title: "Mua sắm & Thanh toán điện tử",
-    desc: "Mặc cả, mua quà lưu niệm, thanh toán qua WeChat / Alipay",
+    desc: "Hỏi giá, mặc cả, mua hàng online, thanh toán WeChat / Alipay",
     icon: "🛍️",
-    totalLessons: 4,
+    priorityFocus: "Hỏi giá, xin giảm giá, theo dõi bưu kiện, khiếu nại hoàn tiền",
+    subtopics: [
+      { id: "sub-4-1", title: "Hỏi giá & So sánh sản phẩm", totalLessons: 2 },
+      { id: "sub-4-2", title: "Mua quần áo, Giày dép & Phụ kiện", totalLessons: 3 },
+      { id: "sub-4-3", title: "Mua đồ gia dụng & Đồ điện tử", totalLessons: 2 },
+      { id: "sub-4-4", title: "Mặc cả & Khuyến mãi", totalLessons: 3 },
+      { id: "sub-4-5", title: "Mua hàng online & Đặt hàng", totalLessons: 2 },
+      { id: "sub-4-6", title: "Thanh toán WeChat & Alipay", totalLessons: 2 },
+      { id: "sub-4-7", title: "Giao hàng & Nhận bưu kiện", totalLessons: 2 },
+      { id: "sub-4-8", title: "Đổi trả, Bảo hành & Khiếu nại", totalLessons: 2 },
+    ],
   },
   {
-    id: "topic-health",
+    id: "top-5-health",
+    orderNumber: 5,
     title: "Sức khỏe, Bệnh viện & Khám bệnh",
-    desc: "Mô tả triệu chứng bệnh, mua thuốc, đăng ký khám viện",
+    desc: "Mô tả triệu chứng bệnh, đăng ký khám, mua thuốc và giao tiếp y tế",
     icon: "🏥",
-    totalLessons: 4,
+    priorityFocus: "Mô tả triệu chứng chính xác, hỏi chỉ dẫn y tế, trường hợp khẩn cấp",
+    subtopics: [
+      { id: "sub-5-1", title: "Cơ thể người & Sức khỏe cơ bản", totalLessons: 2 },
+      { id: "sub-5-2", title: "Mô tả triệu chứng", totalLessons: 3 },
+      { id: "sub-5-3", title: "Đặt lịch & Đăng ký khám", totalLessons: 2 },
+      { id: "sub-5-4", title: "Khám bệnh & Trao đổi với bác sĩ", totalLessons: 3 },
+      { id: "sub-5-5", title: "Xét nghiệm & Kết quả khám", totalLessons: 2 },
+      { id: "sub-5-6", title: "Mua thuốc & Hướng dẫn dùng thuốc", totalLessons: 2 },
+      { id: "sub-5-7", title: "Cấp cứu & Tình huống khẩn cấp", totalLessons: 2 },
+      { id: "sub-5-8", title: "Phục hồi, Tái khám & Thói quen tốt", totalLessons: 2 },
+    ],
   },
   {
-    id: "topic-office",
+    id: "top-6-work",
+    orderNumber: 6,
     title: "Công sở & Phỏng vấn xin việc",
-    desc: "Phỏng vấn, viết email công việc, báo cáo tiến độ và họp",
+    desc: "Viết CV, phỏng vấn, email công việc, họp báo cáo và xin nghỉ phép",
     icon: "💼",
-    totalLessons: 4,
+    priorityFocus: "Văn phong chuyên nghiệp, báo cáo công việc, xin nghỉ, thăng tiến",
+    subtopics: [
+      { id: "sub-6-1", title: "Tìm việc & Đọc tin tuyển dụng", totalLessons: 2 },
+      { id: "sub-6-2", title: "Viết CV & Giới thiệu kinh nghiệm", totalLessons: 2 },
+      { id: "sub-6-3", title: "Phỏng vấn xin việc", totalLessons: 3 },
+      { id: "sub-6-4", title: "Ngày đầu đi làm & Nội quy", totalLessons: 2 },
+      { id: "sub-6-5", title: "Giao tiếp với đồng nghiệp", totalLessons: 2 },
+      { id: "sub-6-6", title: "Email, Tin nhắn & Điện thoại công việc", totalLessons: 3 },
+      { id: "sub-6-7", title: "Họp, Báo cáo & Tiến độ dự án", totalLessons: 2 },
+      { id: "sub-6-8", title: "Xin nghỉ, Tăng ca & Lương thưởng", totalLessons: 2 },
+    ],
+  },
+  {
+    id: "top-7-trade",
+    orderNumber: 7,
+    title: "Thương mại quốc tế",
+    desc: "Tìm kiếm đối tác, đàm phán giá cả, hợp đồng ngoại thương và thanh toán",
+    icon: "🤝",
+    priorityFocus: "Tiếng Trung thương mại, báo giá, MOQ, điều khoản hợp đồng",
+    subtopics: [
+      { id: "sub-7-1", title: "Tìm kiếm đối tác & Nhà cung cấp", totalLessons: 2 },
+      { id: "sub-7-2", title: "Giới thiệu công ty & Sản phẩm", totalLessons: 3 },
+      { id: "sub-7-3", title: "Hỏi giá & Nhận báo giá", totalLessons: 2 },
+      { id: "sub-7-4", title: "Đàm phán giá & Điều khoản hợp đồng", totalLessons: 4 },
+      { id: "sub-7-5", title: "Đặt hàng & Xác nhận đơn", totalLessons: 2 },
+      { id: "sub-7-6", title: "Thanh toán quốc tế", totalLessons: 3 },
+      { id: "sub-7-7", title: "Giao tiếp hội chợ thương mại", totalLessons: 2 },
+      { id: "sub-7-8", title: "Chăm sóc đối tác & Giải quyết tranh chấp", totalLessons: 2 },
+    ],
+  },
+  {
+    id: "top-8-study",
+    orderNumber: 8,
+    title: "Du học Trung Quốc",
+    desc: "Học bổng, thủ tục visa, ký túc xá, nhắn tin giảng viên và học thuật",
+    icon: "🎓",
+    priorityFocus: "Nhắn tin cho giảng viên, xin nghỉ, văn phòng quốc tế, thi cử",
+    subtopics: [
+      { id: "sub-8-1", title: "Nộp hồ sơ & Học bổng", totalLessons: 2 },
+      { id: "sub-8-2", title: "Visa, Cư trú & Thủ tục", totalLessons: 2 },
+      { id: "sub-8-3", title: "Nhập học & Đăng ký môn", totalLessons: 2 },
+      { id: "sub-8-4", title: "Ký túc xá & Thuê nhà", totalLessons: 2 },
+      { id: "sub-8-5", title: "Giao tiếp với giảng viên", totalLessons: 3 },
+      { id: "sub-8-6", title: "Học trên lớp & Thuyết trình", totalLessons: 2 },
+      { id: "sub-8-7", title: "Thi cử & Bài tập học kỳ", totalLessons: 2 },
+      { id: "sub-8-8", title: "Sinh hoạt & Kết bạn tại Trung Quốc", totalLessons: 2 },
+    ],
+  },
+  {
+    id: "top-9-logistics",
+    orderNumber: 9,
+    title: "Logistics & Xuất nhập khẩu",
+    desc: "Incoterms, chứng từ vận tải biển/hàng không, thủ tục hải quan",
+    icon: "🚢",
+    priorityFocus: "Từ vựng chuyên ngành logistics, chứng từ, thông quan hải quan",
+    subtopics: [
+      { id: "sub-9-1", title: "Điều kiện giao hàng & Incoterms", totalLessons: 3 },
+      { id: "sub-9-2", title: "Chứng từ xuất nhập khẩu", totalLessons: 2 },
+      { id: "sub-9-3", title: "Vận tải biển & Đường hàng không", totalLessons: 3 },
+      { id: "sub-9-4", title: "Đặt chỗ & Theo dõi lô hàng", totalLessons: 2 },
+      { id: "sub-9-5", title: "Hải quan & Thông quan", totalLessons: 3 },
+      { id: "sub-9-6", title: "Kho bãi & Quản lý tồn kho", totalLessons: 2 },
+      { id: "sub-9-7", title: "Kiểm tra chất lượng & Đóng gói", totalLessons: 2 },
+      { id: "sub-9-8", title: "Chậm giao, Thiếu hàng & Khiếu nại", totalLessons: 2 },
+    ],
   },
 ];
 
-export const TOPIC_LESSONS: Record<string, LessonSummary[]> = {
-  "topic-comm": [
+// Topic lessons mapped by subtopic ID
+export const SUBTOPIC_LESSONS_MAP: Record<string, LessonSummary[]> = {
+  "sub-1-1": [
     {
       id: "top-comm-1",
       orderNumber: 1,
       trackId: "topic",
-      levelId: "topic-comm",
+      levelId: "sub-1-1",
       levelLabel: "Theo chủ đề",
-      categoryLabel: "Giao tiếp đời sống & Xã giao",
+      categoryLabel: "Giao tiếp đời sống → Chào hỏi & Làm quen",
+      topicDifficulty: "BEGINNER",
       titleZh: "初次见面，请多关照",
       titlePy: "Chūcì jiànmiàn, qǐng duō guānzhào",
       titleVi: "Lần đầu gặp mặt, xin được chỉ giáo",
       thumbnailArt: "lesson4",
-      stats: { vocabCount: 12, grammarCount: 2, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
+      stats: { vocabCount: 5, grammarCount: 2, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
     },
     {
       id: "top-comm-2",
       orderNumber: 2,
       trackId: "topic",
-      levelId: "topic-comm",
+      levelId: "sub-1-1",
       levelLabel: "Theo chủ đề",
-      categoryLabel: "Giao tiếp đời sống & Xã giao",
-      titleZh: "周末你喜欢做什么",
-      titlePy: "Zhōumò nǐ xǐhuan zuò shénme",
-      titleVi: "Cuối tuần bạn thích làm gì",
+      categoryLabel: "Giao tiếp đời sống → Chào hỏi & Làm quen",
+      topicDifficulty: "INTERMEDIATE",
+      titleZh: "久仰大名，很高兴认识您",
+      titlePy: "Jiǔyǎng dàmíng, hěn gāoxìng rènshi nín",
+      titleVi: "Ngưỡng mộ đại danh đã lâu, rất vui được quen biết ngài",
       thumbnailArt: "lesson6",
-      stats: { vocabCount: 14, grammarCount: 3, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
+      stats: { vocabCount: 8, grammarCount: 2, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
     },
   ],
-  "topic-food": [
+  "sub-2-4": [
     {
       id: "top-food-1",
       orderNumber: 1,
       trackId: "topic",
-      levelId: "topic-food",
+      levelId: "sub-2-4",
       levelLabel: "Theo chủ đề",
-      categoryLabel: "Ẩm thực & Nhà hàng Trung Hoa",
+      categoryLabel: "Ẩm thực Trung Hoa → Đặt bàn & Gọi món",
+      topicDifficulty: "BEGINNER",
       titleZh: "服务员，请给我们菜单",
       titlePy: "Fúwùyuán, qǐng gěi wǒmen càidān",
       titleVi: "Phục vụ ơi, xin cho chúng tôi xem thực đơn",
       thumbnailArt: "lesson5",
-      stats: { vocabCount: 15, grammarCount: 2, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
-    },
-    {
-      id: "top-food-2",
-      orderNumber: 2,
-      trackId: "topic",
-      levelId: "topic-food",
-      levelLabel: "Theo chủ đề",
-      categoryLabel: "Ẩm thực & Nhà hàng Trung Hoa",
-      titleZh: "这道菜有点辣",
-      titlePy: "Zhè dào cài yǒudiǎn là",
-      titleVi: "Món ăn này hơi cay một chút",
-      thumbnailArt: "lesson7",
-      stats: { vocabCount: 12, grammarCount: 2, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
+      stats: { vocabCount: 8, grammarCount: 2, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
     },
   ],
-  "topic-travel": [
+  "sub-7-4": [
     {
-      id: "top-travel-1",
+      id: "top-trade-1",
       orderNumber: 1,
       trackId: "topic",
-      levelId: "topic-travel",
+      levelId: "sub-7-4",
       levelLabel: "Theo chủ đề",
-      categoryLabel: "Du lịch, Đặt vé & Khách sạn",
-      titleZh: "我想预订一间大床房",
-      titlePy: "Wǒ xiǎng yùdìng yì jiān dàchuáng fáng",
-      titleVi: "Tôi muốn đặt một phòng giường đôi",
-      thumbnailArt: "lesson8",
-      stats: { vocabCount: 16, grammarCount: 3, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
+      categoryLabel: "Thương mại quốc tế → Đàm phán giá & Điều khoản hợp đồng",
+      topicDifficulty: "INTERMEDIATE",
+      titleZh: "价格可以再优惠一点吗？",
+      titlePy: "Jiàgé kěyǐ zài yōuhuì yìdiǎn ma?",
+      titleVi: "Mức giá có thể ưu đãi thêm một chút được không?",
+      thumbnailArt: "lesson5",
+      stats: { vocabCount: 10, grammarCount: 2, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
     },
   ],
 };
 
 // ===========================================================================
-// 3. ĐẠI HỌC & NGÀNH TRACK (Major Fields, Subjects & Lessons)
+// 3. ĐẠI HỌC & NGÀNH TRACK (12 Viện/Khoa, 50 Ngành đào tạo)
 // ===========================================================================
-export interface MajorFieldMeta {
+export interface AcademicMajorMeta {
   id: string;
-  title: string;
-  desc: string;
-  icon: string;
-  subjects: {
+  nameZh: string;
+  nameVi: string;
+  courses: {
     id: string;
-    title: string;
-    totalLessons: number;
+    titleZh: string;
+    titleVi: string;
+    chapters: {
+      id: string;
+      titleZh: string;
+      titleVi: string;
+      lessons: LessonSummary[];
+    }[];
   }[];
 }
 
-export const MAJOR_FIELDS: MajorFieldMeta[] = [
+export interface UniversityFacultyMeta {
+  id: string;
+  nameZh: string;
+  nameVi: string;
+  desc: string;
+  icon: string;
+  majors: AcademicMajorMeta[];
+}
+
+export const OFFICIAL_12_FACULTIES: UniversityFacultyMeta[] = [
   {
-    id: "major-econ",
-    title: "Kinh tế & Thương mại quốc tế",
-    desc: "Đàm phán thương mại, ngoại thương, hợp đồng kinh tế và xuất nhập khẩu",
-    icon: "📈",
-    subjects: [
-      { id: "sub-trade-1", title: "Tiếng Trung Ngoại thương căn bản", totalLessons: 6 },
-      { id: "sub-trade-2", title: "Đàm phán giá cả và Hợp đồng quốc tế", totalLessons: 6 },
-    ],
-  },
-  {
-    id: "major-business",
-    title: "Quản trị kinh doanh & Quản lý",
-    desc: "Quản trị doanh nghiệp, marketing quốc tế và quản lý nhân sự",
+    id: "fac-business",
+    nameZh: "商学院",
+    nameVi: "Viện / Khoa Kinh doanh",
+    desc: "Đào tạo quản trị kinh doanh, marketing quốc tế, thương mại điện tử và logistics",
     icon: "🏢",
-    subjects: [
-      { id: "sub-biz-1", title: "Tiếng Trung Quản trị doanh nghiệp", totalLessons: 5 },
-      { id: "sub-biz-2", title: "Marketing và Phát triển thị trường", totalLessons: 4 },
+    majors: [
+      {
+        id: "maj-ba",
+        nameZh: "工商管理",
+        nameVi: "Quản trị kinh doanh",
+        courses: [
+          {
+            id: "crs-poliecon",
+            titleZh: "政治经济学",
+            titleVi: "Kinh tế chính trị học",
+            chapters: [
+              {
+                id: "ch-1",
+                titleZh: "第一章 政治经济学导论",
+                titleVi: "Chương 1: Nhập môn kinh tế chính trị",
+                lessons: [],
+              },
+              {
+                id: "ch-2",
+                titleZh: "第二章 商品与货币",
+                titleVi: "Chương 2: Hàng hóa và tiền tệ",
+                lessons: [
+                  {
+                    id: "uni-econ-ch2-sec1",
+                    orderNumber: 1,
+                    trackId: "major",
+                    levelId: "fac-business",
+                    levelLabel: "Đại học & Ngành",
+                    categoryLabel: "商学院 → 工商管理 → 政治经济学 → 第二章",
+                    titleZh: "第一节 商品的二因素",
+                    titlePy: "Dì-yī jié: Shāngpǐn de èr yīnsù",
+                    titleVi: "Hai thuộc tính của hàng hóa (Giá trị sử dụng & Giá trị)",
+                    thumbnailArt: "lesson5",
+                    stats: { vocabCount: 8, grammarCount: 2, dialogueCount: 0, readingCount: 1, listeningCount: 0 },
+                  },
+                  {
+                    id: "uni-econ-ch2-sec2",
+                    orderNumber: 2,
+                    trackId: "major",
+                    levelId: "fac-business",
+                    levelLabel: "Đại học & Ngành",
+                    categoryLabel: "商学院 → 工商管理 → 政治经济学 → 第二章",
+                    titleZh: "第二节 劳动的二重性",
+                    titlePy: "Dì-èr jié: Láodòng de èrchóngxìng",
+                    titleVi: "Tính chất hai mặt của lao động sản xuất hàng hóa",
+                    thumbnailArt: "lesson7",
+                    stats: { vocabCount: 6, grammarCount: 1, dialogueCount: 0, readingCount: 1, listeningCount: 0 },
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            id: "crs-mgmt",
+            titleZh: "现代管理学",
+            titleVi: "Quản trị học hiện đại",
+            chapters: [],
+          },
+        ],
+      },
+      { id: "maj-mkt", nameZh: "市场营销", nameVi: "Marketing", courses: [] },
+      { id: "maj-ib", nameZh: "国际商务", nameVi: "Kinh doanh quốc tế", courses: [] },
+      { id: "maj-hr", nameZh: "人力资源管理", nameVi: "Quản trị nhân sự", courses: [] },
+      { id: "maj-ec", nameZh: "电子商务", nameVi: "Thương mại điện tử", courses: [] },
+      { id: "maj-log", nameZh: "物流管理", nameVi: "Quản trị logistics", courses: [] },
     ],
   },
   {
-    id: "major-finance",
-    title: "Kế toán – Tài chính & Ngân hàng",
-    desc: "Báo cáo tài chính, quyết toán thuế, thanh toán tín dụng quốc tế L/C",
-    icon: "💰",
-    subjects: [
-      { id: "sub-fin-1", title: "Tiếng Trung Kế toán doanh nghiệp", totalLessons: 5 },
-      { id: "sub-fin-2", title: "Nghiệp vụ Thanh toán Ngân hàng", totalLessons: 4 },
+    id: "fac-econ",
+    nameZh: "经济学院",
+    nameVi: "Viện / Khoa Kinh tế",
+    desc: "Kinh tế học, tài chính, tiền tệ ngân hàng và thương mại quốc tế",
+    icon: "📈",
+    majors: [
+      { id: "maj-econ", nameZh: "经济学", nameVi: "Kinh tế học", courses: [] },
+      { id: "maj-trade", nameZh: "国际经济与贸易", nameVi: "Kinh tế & Thương mại quốc tế", courses: [] },
+      { id: "maj-fin", nameZh: "金融学", nameVi: "Tài chính", courses: [] },
+      { id: "maj-stat", nameZh: "经济统计学", nameVi: "Thống kê kinh tế", courses: [] },
+      { id: "maj-tax", nameZh: "财政学", nameVi: "Tài chính công", courses: [] },
     ],
   },
   {
-    id: "major-tech",
-    title: "Công nghệ thông tin & Kỹ thuật",
-    desc: "Thuật ngữ lập trình, phần mềm, trí tuệ nhân tạo và kỹ thuật",
+    id: "fac-foreign",
+    nameZh: "外国语学院",
+    nameVi: "Viện / Khoa Ngoại ngữ",
+    desc: "Ngôn ngữ Anh, Biên phiên dịch, Giáo dục Hán ngữ quốc tế",
+    icon: "🌐",
+    majors: [
+      { id: "maj-en", nameZh: "英语", nameVi: "Ngôn ngữ Anh", courses: [] },
+      { id: "maj-trans", nameZh: "翻译", nameVi: "Biên phiên dịch", courses: [] },
+      { id: "maj-tcsl", nameZh: "汉语国际教育", nameVi: "Giáo dục tiếng Trung quốc tế", courses: [] },
+    ],
+  },
+  {
+    id: "fac-literature",
+    nameZh: "文学院",
+    nameVi: "Viện / Khoa Văn học & Ngôn ngữ Trung",
+    desc: "Hán ngữ hiện đại, Hán ngữ cổ đại, Văn hóa và văn học Trung Hoa",
+    icon: "📜",
+    majors: [
+      { id: "maj-han", nameZh: "汉语言文学", nameVi: "Ngôn ngữ & Văn học Trung Quốc", courses: [] },
+      { id: "maj-ch-lang", nameZh: "汉语言", nameVi: "Ngôn ngữ Trung Quốc", courses: [] },
+    ],
+  },
+  {
+    id: "fac-cs",
+    nameZh: "计算机与人工智能学院",
+    nameVi: "Viện Máy tính & Trí tuệ nhân tạo",
+    desc: "Khoa học máy tính, kỹ thuật phần mềm, trí tuệ nhân tạo và dữ liệu lớn",
     icon: "💻",
-    subjects: [
-      { id: "sub-tech-1", title: "Tiếng Trung Công nghệ thông tin", totalLessons: 4 },
+    majors: [
+      { id: "maj-cs", nameZh: "计算机科学与技术", nameVi: "Khoa học & Kỹ thuật máy tính", courses: [] },
+      { id: "maj-se", nameZh: "软件工程", nameVi: "Kỹ thuật phần mềm", courses: [] },
+      { id: "maj-ai", nameZh: "人工智能", nameVi: "Trí tuệ nhân tạo (AI)", courses: [] },
     ],
   },
   {
-    id: "major-other",
-    title: "Ngành khác (Du lịch - Khách sạn)",
-    desc: "Quản trị nhà hàng khách sạn, hướng dẫn viên quốc tế",
+    id: "fac-eng",
+    nameZh: "工学院",
+    nameVi: "Viện / Khoa Kỹ thuật",
+    desc: "Cơ khí, kỹ thuật điện, tự động hóa và kỹ thuật xây dựng",
+    icon: "⚙️",
+    majors: [
+      { id: "maj-mech", nameZh: "机械工程", nameVi: "Kỹ thuật cơ khí", courses: [] },
+      { id: "maj-auto", nameZh: "自动化", nameVi: "Tự động hóa", courses: [] },
+    ],
+  },
+  {
+    id: "fac-med",
+    nameZh: "医学院",
+    nameVi: "Viện / Khoa Y học",
+    desc: "Y lâm sàng, răng hàm mặt, điều dưỡng",
+    icon: "🩺",
+    majors: [
+      { id: "maj-clin", nameZh: "临床医学", nameVi: "Y lâm sàng", courses: [] },
+      { id: "maj-nurse", nameZh: "护理学", nameVi: "Điều dưỡng", courses: [] },
+    ],
+  },
+  {
+    id: "fac-pharm",
+    nameZh: "药学院",
+    nameVi: "Viện / Khoa Dược",
+    desc: "Dược học, đông dược học cổ truyền",
+    icon: "💊",
+    majors: [
+      { id: "maj-pharm", nameZh: "药学", nameVi: "Dược học", courses: [] },
+      { id: "maj-tcm", nameZh: "中药学", nameVi: "Dược học cổ truyền Trung Quốc", courses: [] },
+    ],
+  },
+  {
+    id: "fac-law",
+    nameZh: "法学院",
+    nameVi: "Viện / Khoa Luật",
+    desc: "Luật học, sở hữu trí tuệ, luật kinh tế quốc tế",
+    icon: "⚖️",
+    majors: [
+      { id: "maj-law", nameZh: "法学", nameVi: "Luật học", courses: [] },
+      { id: "maj-ip", nameZh: "知识产权", nameVi: "Sở hữu trí tuệ", courses: [] },
+    ],
+  },
+  {
+    id: "fac-journalism",
+    nameZh: "新闻与传播学院",
+    nameVi: "Viện Báo chí & Truyền thông",
+    desc: "Báo chí, truyền thông đại chúng, quảng cáo và truyền thông mới",
+    icon: "🎙️",
+    majors: [
+      { id: "maj-news", nameZh: "新闻学", nameVi: "Báo chí học", courses: [] },
+      { id: "maj-comm", nameZh: "传播学", nameVi: "Truyền thông học", courses: [] },
+    ],
+  },
+  {
+    id: "fac-art",
+    nameZh: "艺术与设计学院",
+    nameVi: "Viện Nghệ thuật & Thiết kế",
+    desc: "Thiết kế truyền thông thị giác, thiết kế môi trường, mỹ thuật số",
+    icon: "🎨",
+    majors: [
+      { id: "maj-vis", nameZh: "视觉传达设计", nameVi: "Thiết kế truyền thông thị giác", courses: [] },
+    ],
+  },
+  {
+    id: "fac-tourism",
+    nameZh: "旅游与酒店管理学院",
+    nameVi: "Viện Du lịch & Khách sạn",
+    desc: "Quản trị du lịch, quản trị khách sạn quốc tế, tổ chức sự kiện",
     icon: "🛎️",
-    subjects: [
-      { id: "sub-other-1", title: "Nghiệp vụ Lễ tân & Buồng phòng", totalLessons: 4 },
+    majors: [
+      { id: "maj-tour", nameZh: "旅游管理", nameVi: "Quản trị du lịch", courses: [] },
+      { id: "maj-hotel", nameZh: "酒店管理", nameVi: "Quản trị khách sạn", courses: [] },
     ],
   },
 ];
 
-export const MAJOR_LESSONS: Record<string, LessonSummary[]> = {
-  "sub-trade-1": [
-    {
-      id: "maj-trade-1",
-      orderNumber: 1,
-      trackId: "major",
-      levelId: "major-econ",
-      levelLabel: "Đại học & Ngành",
-      categoryLabel: "Kinh tế · Tiếng Trung Ngoại thương căn bản",
-      titleZh: "国际贸易价格谈判",
-      titlePy: "Guójì màoyì jiàgé tánpàn",
-      titleVi: "Đàm phán giá cả thương mại quốc tế",
-      thumbnailArt: "lesson5",
-      stats: { vocabCount: 18, grammarCount: 3, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
-    },
-    {
-      id: "maj-trade-2",
-      orderNumber: 2,
-      trackId: "major",
-      levelId: "major-econ",
-      levelLabel: "Đại học & Ngành",
-      categoryLabel: "Kinh tế · Tiếng Trung Ngoại thương căn bản",
-      titleZh: "外贸合同条款的确定",
-      titlePy: "Wàimào hétong tiáokuǎn de quèdìng",
-      titleVi: "Xác định các điều khoản hợp đồng ngoại thương",
-      thumbnailArt: "lesson7",
-      stats: { vocabCount: 20, grammarCount: 3, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
-    },
-  ],
-  "sub-trade-2": [
-    {
-      id: "maj-trade-3",
-      orderNumber: 1,
-      trackId: "major",
-      levelId: "major-econ",
-      levelLabel: "Đại học & Ngành",
-      categoryLabel: "Kinh tế · Đàm phán giá cả",
-      titleZh: "信用证付款与交货条款",
-      titlePy: "Xìnyòngzhèng fùkuǎn yǔ jiāohuò tiáokuǎn",
-      titleVi: "Thanh toán bằng thư tín dụng L/C và giao hàng",
-      thumbnailArt: "lesson8",
-      stats: { vocabCount: 22, grammarCount: 3, dialogueCount: 1, readingCount: 1, listeningCount: 1 },
-    },
-  ],
-};
-
 // ===========================================================================
-// FEATURED HERO LESSON DETAILS (Used across viewers)
+// SEED DETAILED LESSONS:
+// 1. HSK 1 - Bài 5: 今天我休息 (Phần 1->5 đầy đủ)
+// 2. Đại học - 政治经济学: 第一节 商品的二因素
 // ===========================================================================
 export const LESSON_5_DETAIL: FullLessonDetail = {
   id: "hsk1-b5",
@@ -618,30 +948,12 @@ export const LESSON_5_DETAIL: FullLessonDetail = {
       id: "g-bu",
       title: "Phó từ phủ định '不' đi cùng động từ",
       structure: "Chủ ngữ + 不 + Động từ + Tân ngữ",
-      explanation: "Dùng để phủ định hành động, mong muốn, thói quen ở hiện tại hoặc tương lai. Không dùng để phủ định hành động đã xảy ra trong quá khứ.",
+      explanation: "Dùng để phủ định hành động, mong muốn, thói quen ở hiện tại hoặc tương lai.",
       examples: [
         {
           zh: "今天我不去上班。",
           py: "Jīntiān wǒ bù qù shàngbān.",
           vi: "Hôm nay tôi không đi làm.",
-        },
-        {
-          zh: "张伟不喝咖啡。",
-          py: "Zhāng Wěi bù hē kāfēi.",
-          vi: "Trương Vĩ không uống cà phê.",
-        },
-      ],
-    },
-    {
-      id: "g-ma",
-      title: "Trợ từ nghi vấn '吗' tạo câu hỏi lựa chọn Yes/No",
-      structure: "Câu trần thuật + 吗？",
-      explanation: "Chỉ cần thêm '吗' vào cuối một câu trần thuật khẳng định là câu đó biến thành câu hỏi nghi vấn Có/Không.",
-      examples: [
-        {
-          zh: "你明天休息吗？",
-          py: "Nǐ míngtiān xiūxi ma?",
-          vi: "Ngày mai bạn có được nghỉ ngơi không?",
         },
       ],
     },
@@ -688,6 +1000,10 @@ export const LESSON_5_DETAIL: FullLessonDetail = {
         vi: "Em cảm ơn thầy đã quan tâm ạ!",
       },
     ],
+    memorableSentences: [
+      { zh: "我想请假一天。", py: "Wǒ xiǎng qǐngjià yì tiān.", vi: "Em muốn xin phép nghỉ một ngày." },
+      { zh: "你好好休息，多喝温水。", py: "Nǐ hǎohǎo xiūxi, duō hē wēnshuǐ.", vi: "Em nghỉ ngơi cho tốt, uống nhiều nước ấm nhé." },
+    ],
   },
   reading: {
     id: "r-b5",
@@ -720,244 +1036,174 @@ export const LESSON_5_DETAIL: FullLessonDetail = {
       },
     ],
   },
-};
-
-// ===========================================================================
-// TOPIC DETAILED LESSON SEED: 初次见面，请多关照
-// ===========================================================================
-export const TOPIC_LESSON_DETAIL_1: FullLessonDetail = {
-  id: "top-comm-1",
-  orderNumber: 1,
-  trackId: "topic",
-  levelId: "topic-comm",
-  levelLabel: "Theo chủ đề",
-  categoryLabel: "Giao tiếp đời sống & Xã giao",
-  titleZh: "初次见面，请多关照",
-  titlePy: "Chūcì jiànmiàn, qǐng duō guānzhào",
-  titleVi: "Lần đầu gặp mặt, xin được chỉ giáo",
-  thumbnailArt: "lesson4",
-  description: "Bài học giúp bạn làm quen với văn hóa xưng hô, chào hỏi lễ độ và giới thiệu bản thân trong môi trường học tập hoặc công sở Trung Hoa.",
-  stats: {
-    vocabCount: 5,
-    grammarCount: 2,
-    dialogueCount: 1,
-    readingCount: 1,
-    listeningCount: 1,
-  },
-  vocabularies: [
-    {
-      id: "v-chuci",
-      hanzi: "初次",
-      pinyin: "chūcì",
-      partOfSpeech: "phó từ",
-      meaningVi: "Lần đầu tiên",
-      exampleZh: "这是我们初次见面。",
-      examplePy: "Zhè shì wǒmen chūcì jiànmiàn.",
-      exampleVi: "Đây là lần đầu tiên chúng tôi gặp mặt.",
-    },
-    {
-      id: "v-guanzhao",
-      hanzi: "关照",
-      pinyin: "guānzhào",
-      partOfSpeech: "động từ",
-      meaningVi: "Quan tâm, giúp đỡ, chiếu cố",
-      exampleZh: "以后请您多多关照。",
-      examplePy: "Yǐhòu qǐng nín duōduō guānzhào.",
-      exampleVi: "Sau này xin nhờ ngài chỉ giáo, giúp đỡ nhiều hơn.",
-    },
-    {
-      id: "v-xingrong",
-      hanzi: "荣幸",
-      pinyin: "róngxìng",
-      partOfSpeech: "tính từ",
-      meaningVi: "Vinh hạnh, vinh dự",
-      exampleZh: "认识您是我的荣幸。",
-      examplePy: "Rènshi nín shì wǒ de róngxìng.",
-      exampleVi: "Được quen biết ngài là vinh hạnh của tôi.",
-    },
-    {
-      id: "v-mingpian",
-      hanzi: "名片",
-      pinyin: "míngpiàn",
-      partOfSpeech: "danh từ",
-      meaningVi: "Danh thiếp, namecard",
-      exampleZh: "这是我的名片，请收下。",
-      examplePy: "Zhè shì wǒ de míngpiàn, qǐng shōuxià.",
-      exampleVi: "Đây là danh thiếp của tôi, xin ngài nhận lấy.",
-    },
-    {
-      id: "v-jiaoliu",
-      hanzi: "交流",
-      pinyin: "jiāoliú",
-      partOfSpeech: "động từ",
-      meaningVi: "Giao lưu, trao đổi",
-      exampleZh: "我们多交流汉语吧。",
-      examplePy: "Wǒmen duō jiāoliú hànyǔ ba.",
-      exampleVi: "Chúng ta hãy giao lưu tiếng Trung nhiều hơn nhé.",
-    },
-  ],
-  grammars: [
-    {
-      id: "g-qingduo",
-      title: "Mẫu câu lịch sự: 请多 + Động từ (Xin hãy chiếu cố / chỉ giáo)",
-      structure: "请多 + Động từ (关照 / 交流 / 指教)",
-      explanation: "Dùng trong ngữ cảnh trang trọng khi mới làm quen hoặc muốn thể hiện thái độ khiêm nhường.",
-      examples: [
-        {
-          zh: "请多关照！",
-          py: "Qǐng duō guānzhào!",
-          vi: "Xin được chỉ giáo / giúp đỡ!",
-        },
-      ],
-    },
-    {
-      id: "g-shi-de",
-      title: "Cấu trúc nhấn mạnh '是...的'",
-      structure: "Chủ ngữ + 是 + [Thời gian/Địa điểm/Phương thức] + Động từ + 的",
-      explanation: "Nhấn mạnh về thời gian, địa điểm hoặc cách thức xảy ra một hành động đã diễn ra trong quá khứ.",
-      examples: [
-        {
-          zh: "我们是去年认识的。",
-          py: "Wǒmen shì qùnián rènshi de.",
-          vi: "Chúng tôi quen nhau vào năm ngoái.",
-        },
-      ],
-    },
-  ],
-  dialogue: {
-    id: "d-top-1",
-    title: "Hội thoại: Trao đổi danh thiếp trong buổi tiệc",
-    situation: "Vương Minh lần đầu gặp đối tác Trương Lệ và giới thiệu bản thân.",
-    audioDuration: "01:15",
-    lines: [
+  culturalNote: {
+    context: "Thông báo ngày nghỉ hoặc xin nghỉ phép vì lý do sức khỏe.",
+    targetAudience: "Bạn bè thân thiết vs Giảng viên đại học / Cấp trên công ty.",
+    naturalExpressions: [
+      { zh: "今天我休息，我们去喝咖啡吧！", py: "Jīntiān wǒ xiūxi, wǒmen qù hē kāfēi ba!", vi: "Hôm nay mình được nghỉ, chúng mình đi cà phê đi!" },
+      { zh: "我今天身体有点不舒服。", py: "Wǒ jīntiān shēntǐ yǒudiǎn bù shūfu.", vi: "Hôm nay người em hơi không được khỏe." },
+    ],
+    politeExpressions: [
       {
-        speaker: "王明",
-        speakerRole: "Giám đốc",
-        zh: "张经理，初次见面，请多关照！",
-        py: "Zhāng jīnglǐ, chūcì jiànmiàn, qǐng duō guānzhào!",
-        vi: "Trương giám đốc, lần đầu gặp mặt, xin được ngài chỉ giáo!",
-      },
-      {
-        speaker: "张丽",
-        speakerRole: "Đối tác",
-        zh: "王总您太客气了，久仰您的大名！这是我的名片。",
-        py: "Wáng zǒng nín tài kèqi le, jiǔyǎng nín de dàmíng! Zhè shì wǒ de míngpiàn.",
-        vi: "Vương tổng ngài khách sáo quá, ngưỡng mộ đại danh của ngài đã lâu! Đây là danh thiếp của tôi.",
+        zh: "老师您好，我今天身体不太舒服，想请一天假。",
+        py: "Lǎoshī nín hǎo, wǒ jīntiān shēntǐ bú tài shūfu, xiǎng qǐng yì tiān jià.",
+        vi: "Thưa thầy/cô, hôm nay em không được khỏe lắm, em muốn xin nghỉ một ngày ạ.",
+        note: "Mẫu câu chuẩn mực thể hiện sự tôn trọng khi gửi tin nhắn hoặc gọi điện cho giảng viên.",
       },
     ],
+    cautionNotes: [
+      "Tránh nhắn tin cộc lốc cụt lủn như '我今天不来了' (Hôm nay tôi không đến), vì dễ bị đánh giá là thiếu tôn trọng.",
+      "Khi từ chối lời mời ngày nghỉ, nên cảm ơn trước và nêu lý do mềm mỏng: '谢谢你的邀请，不过我今天有点累，想在家休息，下次我们再约好吗？'",
+    ],
+    comparisonNote: "Khẩu ngữ với bạn bè có thể dùng ngắn gọn '今天休息，不去了'; trong môi trường học thuật/công sở bắt buộc phải chào hỏi '您好' và dùng từ '请假'.",
+    practiceScenario: "Em bị sốt nhẹ, hãy soạn một tin nhắn WeChat gửi cho giáo viên chủ nhiệm xin phép nghỉ học buổi sáng và xin nộp bài tập vào hôm sau.",
   },
 };
 
-// ===========================================================================
-// MAJOR DETAILED LESSON SEED: 国际贸易价格谈判
-// ===========================================================================
-export const MAJOR_LESSON_DETAIL_1: FullLessonDetail = {
-  id: "maj-trade-1",
+// University Course Lesson Detail: 第一节 商品的二因素
+export const UNIVERSITY_LESSON_DETAIL: FullLessonDetail = {
+  id: "uni-econ-ch2-sec1",
   orderNumber: 1,
   trackId: "major",
-  levelId: "major-econ",
+  levelId: "fac-business",
   levelLabel: "Đại học & Ngành",
-  categoryLabel: "Kinh tế · Tiếng Trung Ngoại thương căn bản",
-  titleZh: "国际贸易价格谈判",
-  titlePy: "Guójì màoyì jiàgé tánpàn",
-  titleVi: "Đàm phán giá cả thương mại quốc tế",
+  categoryLabel: "郑州大学 → 商学院 → 工商管理 → 政治经济学 → 第二章",
+  titleZh: "第一节 商品的二因素",
+  titlePy: "Dì-yī jié: Shāngpǐn de èr yīnsù",
+  titleVi: "Hai thuộc tính của hàng hóa: Giá trị sử dụng và Giá trị",
   thumbnailArt: "lesson5",
-  description: "Trọng tâm bài giảng hướng dẫn thuật ngữ báo giá CIF/FOB, chiến lược thương lượng chiết khấu và lập biên bản thỏa thuận giá cả trong hợp đồng mua bán.",
+  description: "Phân tích thuộc tính tự nhiên (Giá trị sử dụng) và thuộc tính xã hội (Giá trị) của hàng hóa theo lý luận Kinh tế chính trị học.",
   stats: {
-    vocabCount: 5,
+    vocabCount: 6,
     grammarCount: 2,
-    dialogueCount: 1,
+    dialogueCount: 0,
     readingCount: 1,
-    listeningCount: 1,
+    listeningCount: 0,
   },
   vocabularies: [
     {
-      id: "v-baojia",
-      hanzi: "报价",
-      pinyin: "bàojià",
-      partOfSpeech: "danh từ / động từ",
-      meaningVi: "Báo giá, giá chào hàng",
-      exampleZh: "这是我们最新的FOB报价单。",
-      examplePy: "Zhè shì wǒmen zuìxīn de FOB bàojià dān.",
-      exampleVi: "Đây là bảng báo giá FOB mới nhất của chúng tôi.",
+      id: "uv-1",
+      hanzi: "商品",
+      pinyin: "shāngpǐn",
+      partOfSpeech: "danh từ",
+      meaningVi: "Hàng hóa",
+      exampleZh: "商品是用来交换的劳动产品。",
+      examplePy: "Shāngpǐn shì yònglái jiāohuàn de láodòng chǎnpǐn.",
+      exampleVi: "Hàng hóa là sản phẩm của lao động dùng để trao đổi.",
     },
     {
-      id: "v-zhekou",
-      hanzi: "折扣",
-      pinyin: "zhékòu",
+      id: "uv-2",
+      hanzi: "使用价值",
+      pinyin: "shǐyòng jiàzhí",
       partOfSpeech: "danh từ",
-      meaningVi: "Chiết khấu, giảm giá",
-      exampleZh: "如果订货量大，我们可以给予5%的折扣。",
-      examplePy: "Rúguǒ dìnghuò liàng dà, wǒmen kěyǐ jǐyǔ bǎifēnzhīwǔ de zhékòu.",
-      exampleVi: "Nếu lượng đặt hàng lớn, chúng tôi có thể chiết khấu 5%.",
+      meaningVi: "Giá trị sử dụng",
+      exampleZh: "使用价值是商品的自然属性。",
+      examplePy: "Shǐyòng jiàzhí shì shāngpǐn de zìrán shǔxìng.",
+      exampleVi: "Giá trị sử dụng là thuộc tính tự nhiên của hàng hóa.",
     },
     {
-      id: "v-jiaohuo",
-      hanzi: "交货期",
-      pinyin: "jiāohuò qī",
+      id: "uv-3",
+      hanzi: "价值",
+      pinyin: "jiàzhí",
       partOfSpeech: "danh từ",
-      meaningVi: "Thời hạn giao hàng",
-      exampleZh: "贵公司的交货期是多久？",
-      examplePy: "Guì gōngsī de jiāohuò qī shì duōjiǔ?",
-      exampleVi: "Thời hạn giao hàng của quý công ty là bao lâu?",
+      meaningVi: "Giá trị hàng hóa",
+      exampleZh: "价值是凝结在商品中的无差别的人类劳动。",
+      examplePy: "Jiàzhí shì níngjié zài shāngpǐn zhōng de wú chābié de rénlèi láodòng.",
+      exampleVi: "Giá trị là lao động trừu tượng của con người kết tinh trong hàng hóa.",
     },
     {
-      id: "v-hetong",
-      hanzi: "合同",
-      pinyin: "hétong",
+      id: "uv-4",
+      hanzi: "交换价值",
+      pinyin: "jiāohuàn jiàzhí",
       partOfSpeech: "danh từ",
-      meaningVi: "Hợp đồng kinh tế",
-      exampleZh: "双方已正式签订买卖合同。",
-      examplePy: "Shuāngfāng yǐ zhèngshì qiāndìng mǎimài hétong.",
-      exampleVi: "Hai bên đã chính thức ký kết hợp đồng mua bán.",
+      meaningVi: "Giá trị trao đổi",
+      exampleZh: "交换价值是价值的表现形式。",
+      examplePy: "Jiāohuàn jiàzhí shì jiàzhí de biǎoxiàn xíngshì.",
+      exampleVi: "Giá trị trao đổi là hình thức biểu hiện của giá trị.",
     },
     {
-      id: "v-tiao",
-      hanzi: "条款",
-      pinyin: "tiáokuǎn",
+      id: "uv-5",
+      hanzi: "劳动二重性",
+      pinyin: "láodòng èrchóngxìng",
       partOfSpeech: "danh từ",
-      meaningVi: "Điều khoản",
-      exampleZh: "付款条款采用不可撤销信用证。",
-      examplePy: "Fùkuǎn tiáokuǎn cǎiyòng bùkě chèxiāo xìnyòngzhèng.",
-      exampleVi: "Điều khoản thanh toán áp dụng thư tín dụng không thể hủy ngang.",
+      meaningVi: "Tính hai mặt của lao động",
+      exampleZh: "具体劳动创造使用价值，抽象劳动形成价值。",
+      examplePy: "Jùtǐ láodòng chuàngzào shǐyòng jiàzhí, chōuxiàng láodòng xíngchéng jiàzhí.",
+      exampleVi: "Lao động cụ thể tạo ra giá trị sử dụng, lao động trừu tượng tạo nên giá trị.",
+    },
+    {
+      id: "uv-6",
+      hanzi: "剩余价值",
+      pinyin: "shèngyú jiàzhí",
+      partOfSpeech: "danh từ",
+      meaningVi: "Giá trị thặng dư",
+      exampleZh: "剩余价值是雇佣工人创造的超过劳动力价值的价值。",
+      examplePy: "Shèngyú jiàzhí shì gùyōng gōngrén chuàngzào de chāoguò láodònglì jiàzhí de jiàzhí.",
+      exampleVi: "Giá trị thặng dư là phần giá trị do công nhân làm thuê tạo ra ngoài giá trị sức lao động.",
     },
   ],
   grammars: [
     {
-      id: "g-ruguo-jiu",
-      title: "Cấu trúc điều kiện: 如果...就 / 那么 (Nếu... thì)",
-      structure: "如果 + Điều kiện thương mại, (那么/就) + Kết quả thỏa thuận",
-      explanation: "Dùng để đàm phán các điều kiện tương hỗ (số lượng, thời hạn, chiết khấu).",
+      id: "ug-1",
+      title: "Cấu trúc định nghĩa học thuật: A 是用来...的 / A 是...的表现形式",
+      structure: "Thuật ngữ A + 是 + B 的表现形式 / 是用来 + Mục đích + 的",
+      explanation: "Dùng để định nghĩa các khái niệm kinh tế chính trị và phân tích bản chất hiện tượng xã hội.",
       examples: [
         {
-          zh: "如果贵方接受这个价格，我们就可以本月发货。",
-          py: "Rúguǒ guìfāng jiēshòu zhè ge jiàgé, wǒmen jiù kěyǐ běnyuè fāhuò.",
-          vi: "Nếu quý bên chấp nhận mức giá này, chúng tôi có thể giao hàng trong tháng này.",
+          zh: "交换价值是价值的表现形式，价值是交换价值的内容。",
+          py: "Jiāohuàn jiàzhí shì jiàzhí de biǎoxiàn xíngshì, jiàzhí shì jiāohuàn jiàzhí de nèiróng.",
+          vi: "Giá trị trao đổi là hình thức biểu hiện của giá trị, còn giá trị là nội dung bên trong của giá trị trao đổi.",
         },
       ],
     },
   ],
-  dialogue: {
-    id: "d-maj-1",
-    title: "Hội thoại: Đàm phán mức chiết khấu đơn hàng 10.000 sản phẩm",
-    situation: "Đại diện bên Mua yêu cầu giảm giá theo số lượng đặt hàng lớn.",
-    audioDuration: "01:30",
-    lines: [
+  reading: {
+    id: "ur-1",
+    titleZh: "商品的二因素及其辩证关系",
+    titleVi: "Hai thuộc tính của hàng hóa và mối quan hệ biện chứng",
+    wordCount: 180,
+    contentZh:
+      "商品具有二因素：使用价值和价值。\n使用价值是指物品能够满足人们某种需要的属性，是商品的自然属性，体现人与自然的关系。\n价值是凝结在商品中无差别的一般人类劳动，是商品的社会属性，体现商品生产者之间相互交换劳动的经济关系。\n使用价值和价值是对立统一的关系。任何商品都必须同时具备这两个因素，缺一不可。",
+    contentPy:
+      "Shāngpǐn jùyǒu èr yīnsù: shǐyòng jiàzhí hé jiàzhí.\nShǐyòng jiàzhí shì zhǐ wùpǐn nénggòu mǎnzú rénmen mǒuzhǒng xūyào de shǔxìng, shì shāngpǐn de zìrán shǔxìng.\nJiàzhí shì níngjié zài shāngpǐn zhōng wú chābié de yībān rénlèi láodòng, shì shāngpǐn de shèhuì shǔxìng.\nShǐyòng jiàzhí hé jiàzhí shì duìlì tǒngyī de guānxì.",
+    contentVi:
+      "Hàng hóa có hai thuộc tính: Giá trị sử dụng và Giá trị.\nGiá trị sử dụng là thuộc tính của vật phẩm có thể thỏa mãn nhu cầu nào đó của con người, là thuộc tính tự nhiên thể hiện mối quan hệ giữa con người và tự nhiên.\nGiá trị là lao động xã hội trừu tượng của người sản xuất kết tinh trong hàng hóa, là thuộc tính xã hội thể hiện quan hệ kinh tế giữa những người sản xuất.\nHai thuộc tính này vừa thống nhất vừa mâu thuẫn lẫn nhau.",
+  },
+  academicContent: {
+    terms: [
       {
-        speaker: "买方",
-        speakerRole: "Giám đốc Mua hàng",
-        zh: "王经理，我们的订购量达到一万件，不知道贵方是否能给予一些折扣？",
-        py: "Wáng jīnglǐ, wǒmen de dìnggòu liàng dádào yí wàn jiàn, bù zhīdào guìfāng shìfǒu néng jǐyǔ yìxiē zhékòu?",
-        vi: "Vương giám đốc, số lượng đặt hàng của chúng tôi đạt 10.000 chiếc, không rõ quý công ty có thể chiết khấu cho chúng tôi không?",
+        zh: "商品 (shāngpǐn)",
+        py: "shāngpǐn",
+        vi: "Hàng hóa",
+        definition: "Sản phẩm do lao động tạo ra nhằm mục đích trao đổi trên thị trường.",
+        example: "阳光虽然有用，但不是劳动产品，因而不是商品。",
       },
       {
-        speaker: "卖方",
-        speakerRole: "Giám đốc Bán hàng",
-        zh: "鉴于双方长期的友好合作关系，我们可以给贵方3%的价格优惠。",
-        py: "Jiànyú shuāngfāng chángqī de yǒuhǎo hézuò guānxì, wǒmen kěyǐ gěi guìfāng bǎifēnzhīsān de jiàgé yōuhuì.",
-        vi: "Xét thấy quan hệ hợp tác hữu nghị lâu dài giữa hai bên, chúng tôi có thể ưu đãi 3% trên giá cho quý bên.",
+        zh: "使用价值 (shǐyòng jiàzhí)",
+        py: "shǐyòng jiàzhí",
+        vi: "Giá trị sử dụng",
+        definition: "Thuộc tính tự nhiên thỏa mãn nhu cầu sinh hoạt hoặc sản xuất của con người.",
+        example: "粮食可以充饥，衣服可以保暖，体现了不同的使用价值。",
       },
     ],
+    theoryTitle: "Quy luật Mâu thuẫn giữa Giá trị sử dụng và Giá trị",
+    theoryContent:
+      "Người sản xuất hàng hóa tạo ra giá trị sử dụng nhưng mục đích là để bán lấy giá trị. Ngược lại, người mua cần giá trị sử dụng nhưng phải trả giá trị. Mâu thuẫn này chỉ được giải quyết khi hàng hóa được bán thành công trên thị trường (bước nhảy nguy hiểm của hàng hóa).",
+    tableOrFormula: {
+      title: "Bảng so sánh hai thuộc tính của hàng hóa",
+      headers: ["Tiêu chí so sánh", "Giá trị sử dụng (使用价值)", "Giá trị (价值)"],
+      rows: [
+        ["Thuộc tính bản chất", "Thuộc tính tự nhiên (自然属性)", "Thuộc tính xã hội (社会属性)"],
+        ["Thể hiện mối quan hệ", "Con người với giới tự nhiên", "Quan hệ kinh tế giữa người với người"],
+        ["Tính chất lịch sử", "Phạm trù vĩnh viễn (mọi xã hội đều cần)", "Phạm trù lịch sử (chỉ có trong sản xuất hàng hóa)"],
+      ],
+    },
+    practicalCase: {
+      title: "Phân tích tình huống: Hàng hóa tồn kho không bán được",
+      scenario: "Một xưởng dệt may sản xuất 10.000 bộ quần áo có chất lượng tốt nhưng mẫu mã lỗi thời, không bán được ra thị trường.",
+      analysis: "Hàng hóa có giá trị sử dụng nhưng không thực hiện được giá trị trên thị trường. Lao động cá thể của xưởng không được xã hội thừa nhận, dẫn đến đọng vốn và thua lỗ.",
+    },
+    academicLanguageNote: "Khi viết báo cáo hoặc thuyết trình môn Kinh tế chính trị, luôn dùng cụm từ '对立统一关系' (quan hệ thống nhất biện chứng) thay vì các từ nói thông tục.",
   },
 };
 
@@ -968,17 +1214,15 @@ export const ALL_LESSONS_INDEX: LessonSummary[] = [
   ...HSK1_LESSONS,
   ...HSK2_LESSONS,
   ...HSK3_LESSONS,
-  ...(TOPIC_LESSONS["topic-comm"] || []),
-  ...(TOPIC_LESSONS["topic-food"] || []),
-  ...(TOPIC_LESSONS["topic-travel"] || []),
-  ...(MAJOR_LESSONS["sub-trade-1"] || []),
-  ...(MAJOR_LESSONS["sub-trade-2"] || []),
+  ...(SUBTOPIC_LESSONS_MAP["sub-1-1"] || []),
+  ...(SUBTOPIC_LESSONS_MAP["sub-2-4"] || []),
+  ...(SUBTOPIC_LESSONS_MAP["sub-7-4"] || []),
+  ...(OFFICIAL_12_FACULTIES[0].majors[0].courses[0].chapters[1].lessons || []),
 ];
 
 // Lookup detail by id
 export function getLessonDetailById(id: string): FullLessonDetail {
-  if (id === "top-comm-1") return TOPIC_LESSON_DETAIL_1;
-  if (id === "maj-trade-1") return MAJOR_LESSON_DETAIL_1;
+  if (id === "uni-econ-ch2-sec1") return UNIVERSITY_LESSON_DETAIL;
   if (id === "hsk1-b5" || !id) return LESSON_5_DETAIL;
 
   const summary = ALL_LESSONS_INDEX.find((l) => l.id === id);
@@ -992,6 +1236,7 @@ export function getLessonDetailById(id: string): FullLessonDetail {
     dialogue: LESSON_5_DETAIL.dialogue,
     reading: LESSON_5_DETAIL.reading,
     listening: LESSON_5_DETAIL.listening,
+    culturalNote: LESSON_5_DETAIL.culturalNote,
   };
 }
 
@@ -1006,7 +1251,10 @@ export function removeVietnameseAccents(str: string): string {
 }
 
 // Full Search Engine across the repository
-export function searchLessons(query: string, branchScope: "ALL" | "hsk" | "topic" | "major" = "ALL"): LessonSummary[] {
+export function searchLessons(
+  query: string,
+  branchScope: "ALL" | "hsk" | "topic" | "major" = "ALL"
+): LessonSummary[] {
   const cleanQ = query.trim().toLowerCase();
   if (!cleanQ) return [];
 
@@ -1053,17 +1301,6 @@ export interface CustomCuratedLesson {
   notes?: string;
 }
 
-export interface CustomCreatedLesson {
-  id: string;
-  title: string;
-  curriculum: string;
-  level: string;
-  vocabCount: number;
-  grammarCount: number;
-  status: "DRAFT" | "PUBLISHED";
-  updatedAt: string;
-}
-
 export interface LectureMaterialItem {
   id: string;
   title: string;
@@ -1072,7 +1309,7 @@ export interface LectureMaterialItem {
   fileUrl: string;
   sharedClassIds: string[];
   sharedClassNames: string[];
-  classification: string; // e.g. "HSK 1", "Chủ đề Ẩm thực"
+  classification: string;
   allowDownload: boolean;
   openDate?: string;
   dueDate?: string;
@@ -1080,7 +1317,6 @@ export interface LectureMaterialItem {
   status: "PRIVATE" | "SHARED";
 }
 
-// Mock initial data for Teacher Library
 export const INITIAL_SAVED_HANYU_LESSONS: SavedHanyuLesson[] = [
   {
     id: "saved-1",
