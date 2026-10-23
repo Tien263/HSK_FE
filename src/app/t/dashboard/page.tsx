@@ -181,7 +181,7 @@ export default function TeacherDashboard() {
               levelText: `HSK ${c.level} · Quản lý bởi ${c.teacherName || user.name}`,
               studentCount: c.totalStudents || 0,
               completedLessons: 0,
-              totalLessons: 10,
+              totalLessons: 15,
               submissionRate: 0,
               status: c.status === "PAUSED" ? "ACTIVE" : c.isActive ? "ACTIVE" : "ARCHIVED",
               artwork: art,

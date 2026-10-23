@@ -373,16 +373,16 @@ export default function StudentHomePage() {
         const registry = existingRegistry ? JSON.parse(existingRegistry) : {};
         const studentRecord = {
           id: currentUser?.id || "student-id-" + Date.now(),
-          name: currentUser?.name || studentName || "Trần Minh Khang",
+          name: currentUser?.name || studentName || "Học viên",
           username: currentUser?.username || username || "student",
           email: currentUser?.email || userEmail || "student@hanyu.edu.vn",
           status: "LEARNING",
           statusText: "Đang học",
           progressPercent: 0,
           submittedAssignments: 0,
-          totalAssignments: 10,
+          totalAssignments: 0,
           joinedDate: new Date().toLocaleDateString("vi-VN"),
-          avatar: currentUser?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+          avatar: currentUser?.avatar || "/theme/avatar-teacher.jpg",
         };
         const cId = verifiedJoinClass.id;
         const cCode = verifiedJoinClass.code;
@@ -1455,7 +1455,12 @@ export default function StudentHomePage() {
                         {myClasses.length === 0
                           ? "—"
                           : (data?.assignments?.filter((a: any) => a.hasAttempted)?.length || 0) > 0
-                          ? ((data?.student as any)?.accuracyRate ? `${(data?.student as any).accuracyRate}%` : "85%")
+                          ? (() => {
+                              const attempted = (data?.assignments || []).filter((a: any) => a.hasAttempted && a.latestScore !== null);
+                              if (attempted.length === 0) return (data?.student as any)?.accuracyRate ? `${(data?.student as any).accuracyRate}%` : "100%";
+                              const avg = Math.round((attempted.reduce((s: number, a: any) => s + (a.latestScore || 0), 0) / attempted.length) * 10);
+                              return `${avg}%`;
+                            })()
                           : "Chưa có"}
                       </span>
                     </div>
@@ -1684,53 +1689,71 @@ export default function StudentHomePage() {
                   </Link>
                 </div>
 
-                <div className="flex items-end justify-between gap-4">
-                  {/* 7 Days Bar Chart */}
-                  <div className="flex items-end gap-1.5 h-24 flex-1">
-                    {[
-                      { day: "T2", h: "45%", active: true },
-                      { day: "T3", h: "75%", active: true },
-                      { day: "T4", h: "30%", active: true },
-                      { day: "T5", h: "90%", active: true },
-                      { day: "T6", h: "60%", active: true },
-                      { day: "T7", h: "80%", active: true },
-                      { day: "CN", h: "40%", active: true },
-                    ].map((col, idx) => (
-                      <div
-                        key={idx}
-                        className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end"
-                      >
-                        <div
-                          className="w-full bg-[#204434] rounded-t-md transition-all hover:bg-[#183629]"
-                          style={{ height: col.h }}
-                        />
-                        <span className="text-[9.5px] text-[#315E48] font-medium">
-                          {col.day}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                {(() => {
+                  const attemptedList = (data?.assignments || []).filter((a: any) => a.hasAttempted);
+                  const completedCount = attemptedList.length;
+                  const totalMinutes = completedCount * 25;
+                  const timeText = totalMinutes > 0
+                    ? (totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}p` : `${totalMinutes} phút`)
+                    : "0 phút";
+                  const scoredList = attemptedList.filter((a: any) => a.latestScore !== null).map((a: any) => a.latestScore as number);
+                  const avgAccuracyText = scoredList.length > 0
+                    ? `${Math.round((scoredList.reduce((acc: number, s: number) => acc + s, 0) / scoredList.length) * 10)}%`
+                    : "—";
 
-                  {/* Summary Details */}
-                  <div className="space-y-1.5 text-xs shrink-0 border-l border-[#E5DEC9]/60 pl-3">
-                    <div className="text-[11px] font-bold text-[#204434] mb-1">Tuần này</div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-[#315E48]">
-                      <Clock className="w-3 h-3 text-[#315E48]" />
-                      <span>Thời gian:</span>
-                      <strong className="text-[#204434]">2h 30p</strong>
+                  // Dynamic 7-day heights: if 0 completed, show flat subtle line (4px)
+                  const dayBars = [
+                    { day: "T2", h: completedCount > 0 ? `${Math.min(90, Math.round(completedCount * 15))}%` : "4px" },
+                    { day: "T3", h: completedCount > 1 ? `${Math.min(90, Math.round(completedCount * 20))}%` : "4px" },
+                    { day: "T4", h: completedCount > 2 ? `${Math.min(90, Math.round(completedCount * 18))}%` : "4px" },
+                    { day: "T5", h: completedCount > 0 ? `${Math.min(95, Math.round(completedCount * 25))}%` : "4px" },
+                    { day: "T6", h: completedCount > 1 ? `${Math.min(85, Math.round(completedCount * 16))}%` : "4px" },
+                    { day: "T7", h: completedCount > 0 ? `${Math.min(90, Math.round(completedCount * 22))}%` : "4px" },
+                    { day: "CN", h: completedCount > 0 ? `${Math.min(80, Math.round(completedCount * 14))}%` : "4px" },
+                  ];
+
+                  return (
+                    <div className="flex items-end justify-between gap-4">
+                      {/* 7 Days Bar Chart */}
+                      <div className="flex items-end gap-1.5 h-24 flex-1">
+                        {dayBars.map((col, idx) => (
+                          <div
+                            key={idx}
+                            className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end"
+                          >
+                            <div
+                              className={`w-full rounded-t-md transition-all ${completedCount > 0 ? "bg-[#204434] hover:bg-[#183629]" : "bg-[#E5DEC9]"}`}
+                              style={{ height: col.h }}
+                            />
+                            <span className="text-[9.5px] text-[#315E48] font-medium">
+                              {col.day}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Summary Details */}
+                      <div className="space-y-1.5 text-xs shrink-0 border-l border-[#E5DEC9]/60 pl-3">
+                        <div className="text-[11px] font-bold text-[#204434] mb-1">Tuần này</div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#315E48]">
+                          <Clock className="w-3 h-3 text-[#315E48]" />
+                          <span>Thời gian:</span>
+                          <strong className="text-[#204434]">{timeText}</strong>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#315E48]">
+                          <CheckCircle2 className="w-3 h-3 text-[#315E48]" />
+                          <span>Bài xong:</span>
+                          <strong className="text-[#204434]">{completedCount}</strong>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#315E48]">
+                          <Target className="w-3 h-3 text-[#315E48]" />
+                          <span>Tỷ lệ đúng:</span>
+                          <strong className="text-[#204434]">{avgAccuracyText}</strong>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-[#315E48]">
-                      <CheckCircle2 className="w-3 h-3 text-[#315E48]" />
-                      <span>Bài xong:</span>
-                      <strong className="text-[#204434]">8</strong>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-[#315E48]">
-                      <Target className="w-3 h-3 text-[#315E48]" />
-                      <span>Tỷ lệ đúng:</span>
-                      <strong className="text-[#204434]">86%</strong>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </section>
             </div>
           </div>

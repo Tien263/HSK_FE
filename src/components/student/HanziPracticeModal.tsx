@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   X,
   Volume2,
@@ -18,12 +18,20 @@ import {
 interface HanziPracticeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  words?: Array<{
+    hanzi: string;
+    pinyin: string;
+    meaning: string;
+    strokes?: number;
+    radical?: string;
+    rule?: string;
+  }>;
   initialHanzi?: string;
   initialPinyin?: string;
   initialMeaning?: string;
 }
 
-const SAMPLE_HANZI_DATA = [
+const DEFAULT_HSK1_HANZI = [
   { hanzi: "你", pinyin: "nǐ", meaning: "Bạn, anh, chị", strokes: 7, radical: "亻 (Nhân đứng)", rule: "Trái trước phải sau, phẩy trước sổ sau" },
   { hanzi: "好", pinyin: "hǎo", meaning: "Tốt, đẹp, khỏe", strokes: 6, radical: "女 (Nữ)", rule: "Bộ Nữ bên trái, chữ Tử bên phải" },
   { hanzi: "我", pinyin: "wǒ", meaning: "Tôi, ta, mình", strokes: 7, radical: "戈 (Qua)", rule: "Phẩy trên cùng, ngang gập móc, hất rồi nghiêng móc" },
@@ -37,10 +45,19 @@ const SAMPLE_HANZI_DATA = [
 export default function HanziPracticeModal({
   isOpen,
   onClose,
+  words,
   initialHanzi = "你",
   initialPinyin = "nǐ",
   initialMeaning = "Bạn, anh, chị",
 }: HanziPracticeModalProps) {
+  const practiceList = useMemo(() => {
+    if (words && words.length > 0) return words;
+    if (initialHanzi && initialHanzi !== "你") {
+      return [{ hanzi: initialHanzi, pinyin: initialPinyin, meaning: initialMeaning, strokes: 6, radical: "Chữ Hán", rule: "Thuận bút tiêu chuẩn" }];
+    }
+    return DEFAULT_HSK1_HANZI;
+  }, [words, initialHanzi, initialPinyin, initialMeaning]);
+
   const [currentIdx, setCurrentIdx] = useState(0);
   const [activeTab, setActiveTab] = useState<"WRITE" | "SPEAK">("WRITE");
   const [inkColor, setInkColor] = useState("#204434");
@@ -56,7 +73,7 @@ export default function HanziPracticeModal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawing = useRef(false);
 
-  const currentItem = SAMPLE_HANZI_DATA[currentIdx] || {
+  const currentItem = practiceList[currentIdx] || {
     hanzi: initialHanzi,
     pinyin: initialPinyin,
     meaning: initialMeaning,
@@ -251,7 +268,7 @@ export default function HanziPracticeModal({
 
         {/* Word Select Carousel Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {SAMPLE_HANZI_DATA.map((item, idx) => (
+          {practiceList.map((item: any, idx: number) => (
             <button
               key={idx}
               onClick={() => {
@@ -456,11 +473,11 @@ export default function HanziPracticeModal({
         {/* Modal Footer */}
         <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-between">
           <span className="text-[11px] text-[#315E48]">
-            HSK 1 · {currentIdx + 1}/{SAMPLE_HANZI_DATA.length} từ luyện tập
+            HSK 1 · {currentIdx + 1}/{practiceList.length} từ luyện tập
           </span>
           <button
             onClick={() => {
-              if (currentIdx < SAMPLE_HANZI_DATA.length - 1) {
+              if (currentIdx < practiceList.length - 1) {
                 setCurrentIdx(currentIdx + 1);
                 setWrittenScore(null);
                 setSpeechResult(null);
@@ -471,7 +488,7 @@ export default function HanziPracticeModal({
             }}
             className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <span>{currentIdx < SAMPLE_HANZI_DATA.length - 1 ? "Từ tiếp theo" : "Hoàn thành"}</span>
+            <span>{currentIdx < practiceList.length - 1 ? "Từ tiếp theo" : "Hoàn thành"}</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>

@@ -42,7 +42,6 @@ import {
   OFFICIAL_12_QUESTION_TYPES,
   UNIFIED_QUESTION_BANK,
   ExamPackageItem,
-  MOCK_EXAM_PACKAGES,
 } from "@/lib/assignment-data";
 
 interface QuestionBankWorkspaceProps {
@@ -144,12 +143,8 @@ export default function QuestionBankWorkspace({
         }
       } catch (e) {}
     }
-    const defaultDrafts = MOCK_EXAM_PACKAGES.filter((p) => p.status === "DRAFT");
-    setDraftExamsList(defaultDrafts);
-    if (defaultDrafts.length > 0 && !selectedExamId) {
-      setSelectedExamId(defaultDrafts[0].id);
-    }
-    return defaultDrafts;
+    setDraftExamsList([]);
+    return [];
   };
 
   // Modal C: View Exam Usages
@@ -779,7 +774,7 @@ export default function QuestionBankWorkspace({
       } catch (e) {}
     }
     if (allPackages.length === 0) {
-      allPackages = [...MOCK_EXAM_PACKAGES];
+      allPackages = [];
     }
 
     const nowFormatted =

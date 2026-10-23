@@ -354,17 +354,14 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
             maxStudents: 30,
             startDate: c.startDate || normalizeDMY(c.createdAt),
             endDate: c.endDate || normalizeDMY(new Date(new Date(c.createdAt || Date.now()).getTime() + 180 * 86400000)),
-            progressPercent: hasAssignments ? (finalStudentCount > 0 ? 76 : 0) : null,
+            progressPercent: hasAssignments ? (c.progressPercent || 0) : null,
             code: formattedCode,
             artwork: art,
             teacherName: c.teacherName || currentUser.name,
             description: c.description || `Lớp học ${c.name} do cô/thầy ${currentUser.name} phụ trách.`,
             autoApprove: true,
             requireRealName: true,
-            avatarList: [
-              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
-              "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&auto=format&fit=crop&q=80",
-            ],
+            avatarList: c.avatarList || [],
           };
         });
 
@@ -429,11 +426,11 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
           email: s.email || `${s.username}@gmail.com`,
           status: "LEARNING",
           statusText: "Đang học",
-          progressPercent: s.attemptsCount > 0 ? Math.min(100, s.attemptsCount * 20) : 0,
+          progressPercent: s.progressPercent !== undefined ? s.progressPercent : (s.attemptsCount > 0 ? Math.min(100, s.attemptsCount * 20) : 0),
           submittedAssignments: s.attemptsCount || 0,
-          totalAssignments: 10,
+          totalAssignments: s.totalAssignments || 0,
           joinedDate: s.joinedAt ? new Date(s.joinedAt).toLocaleDateString("vi-VN") : "Hôm nay",
-          avatar: s.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+          avatar: s.avatar || "/theme/avatar-teacher.jpg",
         }));
       }
 
@@ -452,16 +449,16 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
               if (!mapped.some((item) => item.username === s.username || item.id === s.id)) {
                 mapped.push({
                   id: s.id,
-                  name: s.name,
+                  name: s.name || "Học viên",
                   username: s.username,
                   email: s.email || `${s.username}@gmail.com`,
                   status: "LEARNING",
                   statusText: "Đang học",
-                  progressPercent: 0,
-                  submittedAssignments: 0,
-                  totalAssignments: 10,
+                  progressPercent: s.progressPercent || 0,
+                  submittedAssignments: s.submittedAssignments || 0,
+                  totalAssignments: s.totalAssignments || 0,
                   joinedDate: s.joinedDate || "Hôm nay",
-                  avatar: s.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+                  avatar: s.avatar || "/theme/avatar-teacher.jpg",
                 });
               }
             }
@@ -472,21 +469,21 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
           if (profileRaw) {
             const prof = JSON.parse(profileRaw);
             if (prof.classInfo?.id === classId || prof.classCode === thisClass?.code || prof.classCode === classId) {
-              const defaultStudentName = "Trần Minh Khang";
-              const defaultStudentUsername = "student";
+              const defaultStudentName = prof.studentName || "Học viên";
+              const defaultStudentUsername = prof.username || "student";
               if (!mapped.some((s) => s.username === defaultStudentUsername)) {
                 mapped.push({
                   id: "student-enrolled-profile",
                   name: defaultStudentName,
                   username: defaultStudentUsername,
-                  email: "student@hanyu.edu.vn",
+                  email: prof.email || "student@hanyu.edu.vn",
                   status: "LEARNING",
                   statusText: "Đang học",
                   progressPercent: 0,
                   submittedAssignments: 0,
-                  totalAssignments: 10,
+                  totalAssignments: 0,
                   joinedDate: "Hôm nay",
-                  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+                  avatar: "/theme/avatar-teacher.jpg",
                 });
               }
             }

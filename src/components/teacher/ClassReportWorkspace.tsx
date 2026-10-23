@@ -136,19 +136,23 @@ export default function ClassReportWorkspace({
       return {
         id: "all",
         name: "Toàn bộ lớp phụ trách",
-        studentCount: classes.reduce((acc, c) => acc + (c.studentCount || 0), 0) || 22,
+        studentCount: classes.reduce((acc, c) => acc + (c.studentCount || 0), 0),
         levelText: "Tổng hợp",
       };
     }
-    return classes.find((c) => c.id === selectedClassId) || {
-      id: "c1",
-      name: "Lớp HSK1 - K01",
-      studentCount: 22,
-      levelText: "HSK 1",
+    const found = classes.find((c) => c.id === selectedClassId);
+    if (found) return found;
+    return {
+      id: selectedClassId || "",
+      name: classes[0]?.name || "Chưa có lớp",
+      studentCount: classes[0]?.studentCount || 0,
+      levelText: classes[0]?.levelText || "HSK 1",
     };
   }, [classes, selectedClassId]);
 
-  const totalStudents = dynamicReportData?.classInfo?.studentCount || currentClass.studentCount || 22;
+  const totalStudents = dynamicReportData?.classInfo?.studentCount !== undefined
+    ? dynamicReportData.classInfo.studentCount
+    : (currentClass.studentCount || 0);
 
   // KPI Metrics (Khu vực B) derived from real backend data
   const kpiData = useMemo(() => {
@@ -156,13 +160,13 @@ export default function ClassReportWorkspace({
       return dynamicReportData.kpi;
     }
     return {
-      completionRate: 84.3,
-      completionGrowth: "+6.2%",
-      averageScore: "8.1",
-      examCount: 4,
-      weakTopic: "Câu chữ 把 & Bổ ngữ kết quả",
-      weakTopicPct: "28%",
-      overdueStudentsCount: Math.min(7, totalStudents),
+      completionRate: 0,
+      completionGrowth: "0%",
+      averageScore: "—",
+      examCount: 0,
+      weakTopic: "Chưa có dữ liệu",
+      weakTopicPct: "0%",
+      overdueStudentsCount: 0,
       totalStudents: totalStudents,
     };
   }, [dynamicReportData, totalStudents]);
@@ -172,26 +176,22 @@ export default function ClassReportWorkspace({
     if (dynamicReportData?.donutData) {
       return dynamicReportData.donutData;
     }
-    const submittedOnTime = Math.round(totalStudents * 0.68) || 15;
-    const submittedLate = Math.round(totalStudents * 0.14) || 3;
-    const inProgress = Math.round(totalStudents * 0.09) || 2;
-    const unsubmitted = Math.max(0, totalStudents - submittedOnTime - submittedLate - inProgress);
     return {
-      onTime: { count: submittedOnTime, pct: 68 },
-      late: { count: submittedLate, pct: 14 },
-      inProgress: { count: inProgress, pct: 9 },
-      unsubmitted: { count: unsubmitted, pct: 9 },
+      onTime: { count: 0, pct: 0 },
+      late: { count: 0, pct: 0 },
+      inProgress: { count: 0, pct: 0 },
+      unsubmitted: { count: 0, pct: 0 },
     };
-  }, [dynamicReportData, totalStudents]);
+  }, [dynamicReportData]);
 
   // Tab 1: Bar Chart Distribution (Score Distribution)
   const scoreDistBars = useMemo(() => {
-    const buckets = dynamicReportData?.distBuckets || { "0-2": 2, "2-4": 3, "4-6": 5, "6-8": 8, "8-10": 4 };
+    const buckets = dynamicReportData?.distBuckets || { "0-2": 0, "2-4": 0, "4-6": 0, "6-8": 0, "8-10": 0 };
     return [
       { range: "0-2", count: buckets["0-2"] || 0, isPeak: false },
       { range: "2-4", count: buckets["2-4"] || 0, isPeak: false },
       { range: "4-6", count: buckets["4-6"] || 0, isPeak: false },
-      { range: "6-8", count: buckets["6-8"] || 0, isPeak: true },
+      { range: "6-8", count: buckets["6-8"] || 0, isPeak: false },
       { range: "8-10", count: buckets["8-10"] || 0, isPeak: false },
     ];
   }, [dynamicReportData]);
@@ -201,13 +201,7 @@ export default function ClassReportWorkspace({
     if (dynamicReportData?.topProgress && dynamicReportData.topProgress.length > 0) {
       return dynamicReportData.topProgress;
     }
-    return [
-      { id: "st-1", rank: 1, name: "Trần Minh Anh", avatar: "/theme/avatar-teacher.jpg", prevScore: 6.1, currScore: 8.8, diff: "+2.7" },
-      { id: "st-2", rank: 2, name: "Lê Hoàng Nam", avatar: "/theme/avatar-teacher.jpg", prevScore: 5.9, currScore: 8.1, diff: "+2.2" },
-      { id: "st-3", rank: 3, name: "Nguyễn Thu Hà", avatar: "/theme/avatar-teacher.jpg", prevScore: 6.5, currScore: 8.6, diff: "+2.1" },
-      { id: "st-4", rank: 4, name: "Phạm Quang Huy", avatar: "/theme/avatar-teacher.jpg", prevScore: 6.0, currScore: 7.8, diff: "+1.8" },
-      { id: "st-5", rank: 5, name: "Đỗ Mai Linh", avatar: "/theme/avatar-teacher.jpg", prevScore: 6.8, currScore: 8.5, diff: "+1.7" },
-    ];
+    return [];
   }, [dynamicReportData]);
 
   // Tab 1: Top 5 Chủ điểm cần củng cố
@@ -215,13 +209,7 @@ export default function ClassReportWorkspace({
     if (dynamicReportData?.weakTopics && dynamicReportData.weakTopics.length > 0) {
       return dynamicReportData.weakTopics;
     }
-    return [
-      { id: "wt-1", rank: 1, title: "Câu chữ 把", errorRate: "31%", attemptsCount: 45, lessonSource: "HSK 1 - Bài 5: 语法专题", description: "Học sinh thường nhầm lẫn vị trí của phó từ chỉ mức độ và động từ mang tân ngữ nơi chốn." },
-      { id: "wt-2", rank: 2, title: "Bổ ngữ kết quả", errorRate: "28%", attemptsCount: 40, lessonSource: "HSK 1 - Bài 6: 结果补语", description: "Nhầm lẫn giữa bổ ngữ kết quả '到', '见' và bổ ngữ trạng thái '得'." },
-      { id: "wt-3", rank: 3, title: "Từ vựng chỉ thời gian", errorRate: "22%", attemptsCount: 55, lessonSource: "HSK 1 - Bài 3: 时间与日程", description: "Thứ tự sắp xếp từ lớn đến bé: Năm -> Tháng -> Ngày -> Buổi -> Giờ." },
-      { id: "wt-4", rank: 4, title: "Cấu trúc 还有", errorRate: "18%", attemptsCount: 38, lessonSource: "HSK 1 - Bài 4: 还有与也", description: "Chưa phân biệt được cách bổ sung ý phụ trong câu liệt kê." },
-      { id: "wt-5", rank: 5, title: "Phân biệt 在 / 再", errorRate: "16%", attemptsCount: 42, lessonSource: "HSK 1 - Bài 2: 在与再辨析", description: "Nhầm lẫn giữa phó từ lặp lại hành động trong tương lai (再) và giới từ chỉ vị trí (在)." },
-    ];
+    return [];
   }, [dynamicReportData]);
 
   // Tab 1: Bài tập / Đề kiểm tra nổi bật
@@ -229,29 +217,15 @@ export default function ClassReportWorkspace({
     if (dynamicReportData?.featuredAssignments && dynamicReportData.featuredAssignments.length > 0) {
       return dynamicReportData.featuredAssignments;
     }
-    return [
-      { id: "fa-1", title: "Bài 5 – 今天我休息", submittedRatio: `18/${totalStudents}`, avgScore: 8.4, status: "COMPLETED", statusText: "Đã hoàn thành" },
-      { id: "fa-2", title: "HSK1 Đề 01", submittedRatio: `${totalStudents}/${totalStudents}`, avgScore: 8.1, status: "COMPLETED", statusText: "Đã hoàn thành" },
-      { id: "fa-3", title: "Luyện viết chữ Hán", submittedRatio: `15/${totalStudents}`, avgScore: 7.6, status: "PENDING", statusText: `Còn 7 chưa nộp` },
-      { id: "fa-4", title: "Nghe hiểu – Bài 6", submittedRatio: `20/${totalStudents}`, avgScore: 8.7, status: "COMPLETED", statusText: "Đã hoàn thành" },
-      { id: "fa-5", title: "Từ vựng – Bài 4", submittedRatio: `19/${totalStudents}`, avgScore: 7.9, status: "PENDING", statusText: `Còn 3 chưa nộp` },
-    ];
-  }, [dynamicReportData, totalStudents]);
+    return [];
+  }, [dynamicReportData]);
 
   // Tab 2: Danh sách đầy đủ học viên
   const fullStudentsList = useMemo(() => {
     if (dynamicReportData?.students && dynamicReportData.students.length > 0) {
       return dynamicReportData.students;
     }
-    return [
-      { id: "s1", name: "Trần Minh Anh", assignedCount: 8, submittedCount: 8, overdueCount: 0, avgScore: "8.8", completionRate: 100, growth: "+2.7", supportStatus: "Tốt", email: "minhanh.tran@gmail.com" },
-      { id: "s2", name: "Lê Hoàng Nam", assignedCount: 8, submittedCount: 7, overdueCount: 1, avgScore: "8.1", completionRate: 87.5, growth: "+2.2", supportStatus: "Cần nhắc nộp bài", email: "hoangnam.le@gmail.com" },
-      { id: "s3", name: "Nguyễn Thu Hà", assignedCount: 8, submittedCount: 8, overdueCount: 0, avgScore: "8.6", completionRate: 100, growth: "+2.1", supportStatus: "Tốt", email: "thuha.nguyen@gmail.com" },
-      { id: "s4", name: "Phạm Quang Huy", assignedCount: 8, submittedCount: 6, overdueCount: 2, avgScore: "7.8", completionRate: 75, growth: "+1.8", supportStatus: "Quá hạn 2 bài", email: "quanghuy.p@gmail.com" },
-      { id: "s5", name: "Đỗ Mai Linh", assignedCount: 8, submittedCount: 8, overdueCount: 0, avgScore: "8.5", completionRate: 100, growth: "+1.7", supportStatus: "Tốt", email: "mailinh.do@gmail.com" },
-      { id: "s6", name: "Hoàng Gia Bảo", assignedCount: 8, submittedCount: 5, overdueCount: 3, avgScore: "6.9", completionRate: 62.5, growth: "+0.5", supportStatus: "Cần hỗ trợ ngữ pháp", email: "giabao.hoang@gmail.com" },
-      { id: "s7", name: "Vũ Phương Thảo", assignedCount: 8, submittedCount: 7, overdueCount: 1, avgScore: "8.0", completionRate: 87.5, growth: "+1.2", supportStatus: "Đang theo sát", email: "phuongthao.vu@gmail.com" },
-    ];
+    return [];
   }, [dynamicReportData]);
 
   const filteredStudents = fullStudentsList.filter((s: any) => {
@@ -544,58 +518,59 @@ export default function ClassReportWorkspace({
 
               {/* Line Chart Canvas / SVG */}
               <div className="mt-4 relative h-48 w-full flex flex-col justify-end">
-                <svg viewBox="0 0 400 180" className="w-full h-full overflow-visible">
-                  {[10, 8, 6, 4, 2, 0].map((val, idx) => {
-                    const y = 20 + idx * 28;
-                    return (
-                      <g key={val}>
-                        <text x="10" y={y + 4} fill="#8ea394" fontSize="10" fontFamily="sans-serif">
-                          {val}
-                        </text>
-                        <line x1="30" y1={y} x2="390" y2={y} stroke="#E5DEC9" strokeDasharray="3 3" />
-                      </g>
-                    );
-                  })}
-
-                  <path
-                    d="M 50 120 L 130 92 L 210 102 L 290 76 L 370 54"
-                    fill="none"
-                    stroke="#204434"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-
-                  {[
-                    { cx: 50, cy: 120, label: "Tuần 1", val: "6.0" },
-                    { cx: 130, cy: 92, label: "Tuần 2", val: "7.4" },
-                    { cx: 210, cy: 102, label: "Tuần 3", val: "7.0" },
-                    { cx: 290, cy: 76, label: "Tuần 4", val: "8.1", highlight: true },
-                    { cx: 370, cy: 54, label: "Tuần 5", val: "9.0" },
-                  ].map((pt) => (
-                    <g key={pt.label}>
-                      <circle cx={pt.cx} cy={pt.cy} r={pt.highlight ? 5 : 4} fill="#204434" stroke="#FFF" strokeWidth="2" />
-                      {pt.highlight && (
-                        <g>
-                          <rect x={pt.cx - 32} y={pt.cy - 34} width="64" height="26" rx="6" fill="#204434" />
-                          <text x={pt.cx} y={pt.cy - 22} textAnchor="middle" fill="#FFFFFF" fontSize="9" fontWeight="bold">
-                            Tuần 4
+                {totalStudents === 0 || !dynamicReportData?.weeklyPoints?.length ? (
+                  <div className="h-full flex flex-col items-center justify-center text-xs text-[#8ea394]">
+                    <BarChart3 className="w-8 h-8 text-[#8ea394]/40 mb-1.5" />
+                    <span>Chưa có dữ liệu lịch sử điểm để vẽ biểu đồ</span>
+                  </div>
+                ) : (
+                  <svg viewBox="0 0 400 180" className="w-full h-full overflow-visible">
+                    {[10, 8, 6, 4, 2, 0].map((val, idx) => {
+                      const y = 20 + idx * 28;
+                      return (
+                        <g key={val}>
+                          <text x="10" y={y + 4} fill="#8ea394" fontSize="10" fontFamily="sans-serif">
+                            {val}
                           </text>
-                          <text x={pt.cx} y={pt.cy - 12} textAnchor="middle" fill="#A7F3D0" fontSize="9">
-                            8.1 điểm
-                          </text>
-                          <polygon
-                            points={`${pt.cx - 4},${pt.cy - 8} ${pt.cx + 4},${pt.cy - 8} ${pt.cx},${pt.cy - 4}`}
-                            fill="#204434"
-                          />
+                          <line x1="30" y1={y} x2="390" y2={y} stroke="#E5DEC9" strokeDasharray="3 3" />
                         </g>
-                      )}
-                      <text x={pt.cx} y="175" textAnchor="middle" fill="#315E48" fontSize="10">
-                        {pt.label}
-                      </text>
-                    </g>
-                  ))}
-                </svg>
+                      );
+                    })}
+
+                    <path
+                      d="M 50 120 L 130 92 L 210 102 L 290 76 L 370 54"
+                      fill="none"
+                      stroke="#204434"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    {(dynamicReportData?.weeklyPoints || []).map((pt: any) => (
+                      <g key={pt.label}>
+                        <circle cx={pt.cx} cy={pt.cy} r={pt.highlight ? 5 : 4} fill="#204434" stroke="#FFF" strokeWidth="2" />
+                        {pt.highlight && (
+                          <g>
+                            <rect x={pt.cx - 32} y={pt.cy - 34} width="64" height="26" rx="6" fill="#204434" />
+                            <text x={pt.cx} y={pt.cy - 22} textAnchor="middle" fill="#FFFFFF" fontSize="9" fontWeight="bold">
+                              {pt.label}
+                            </text>
+                            <text x={pt.cx} y={pt.cy - 12} textAnchor="middle" fill="#A7F3D0" fontSize="9">
+                              {pt.val} điểm
+                            </text>
+                            <polygon
+                              points={`${pt.cx - 4},${pt.cy - 8} ${pt.cx + 4},${pt.cy - 8} ${pt.cx},${pt.cy - 4}`}
+                              fill="#204434"
+                            />
+                          </g>
+                        )}
+                        <text x={pt.cx} y="175" textAnchor="middle" fill="#315E48" fontSize="10">
+                          {pt.label}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+                )}
               </div>
             </div>
 
@@ -609,46 +584,54 @@ export default function ClassReportWorkspace({
                 <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="38" fill="none" stroke="#FAF7F0" strokeWidth="16" />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
-                      fill="none"
-                      stroke="#15803d"
-                      strokeWidth="16"
-                      strokeDasharray="162.3 238.76"
-                      strokeDashoffset="0"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
-                      fill="none"
-                      stroke="#eab308"
-                      strokeWidth="16"
-                      strokeDasharray="33.4 238.76"
-                      strokeDashoffset="-162.3"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
-                      fill="none"
-                      stroke="#3b82f6"
-                      strokeWidth="16"
-                      strokeDasharray="21.5 238.76"
-                      strokeDashoffset="-195.7"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="38"
-                      fill="none"
-                      stroke="#ef4444"
-                      strokeWidth="16"
-                      strokeDasharray="21.5 238.76"
-                      strokeDashoffset="-217.2"
-                    />
+                    {totalStudents > 0 && donutData.onTime.pct > 0 && (
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="none"
+                        stroke="#15803d"
+                        strokeWidth="16"
+                        strokeDasharray={`${(donutData.onTime.pct / 100) * 238.76} 238.76`}
+                        strokeDashoffset="0"
+                      />
+                    )}
+                    {totalStudents > 0 && donutData.late.pct > 0 && (
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="none"
+                        stroke="#eab308"
+                        strokeWidth="16"
+                        strokeDasharray={`${(donutData.late.pct / 100) * 238.76} 238.76`}
+                        strokeDashoffset={`-${(donutData.onTime.pct / 100) * 238.76}`}
+                      />
+                    )}
+                    {totalStudents > 0 && donutData.inProgress.pct > 0 && (
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="16"
+                        strokeDasharray={`${(donutData.inProgress.pct / 100) * 238.76} 238.76`}
+                        strokeDashoffset={`-${((donutData.onTime.pct + donutData.late.pct) / 100) * 238.76}`}
+                      />
+                    )}
+                    {totalStudents > 0 && donutData.unsubmitted.pct > 0 && (
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth="16"
+                        strokeDasharray={`${(donutData.unsubmitted.pct / 100) * 238.76} 238.76`}
+                        strokeDashoffset={`-${((donutData.onTime.pct + donutData.late.pct + donutData.inProgress.pct) / 100) * 238.76}`}
+                      />
+                    )}
                   </svg>
 
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
@@ -789,24 +772,32 @@ export default function ClassReportWorkspace({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5DEC9]/40">
-                    {topStudentsProgress.map((st: any) => (
-                      <tr key={st.id} className="hover:bg-[#FAF7F0]/60 transition">
-                        <td className="py-2.5 font-bold text-[#8ea394]">{st.rank}</td>
-                        <td className="py-2.5">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-[#204434]/10 shrink-0 relative">
-                              <Image src={st.avatar || "/theme/avatar-teacher.jpg"} alt={st.name} fill className="object-cover" />
-                            </div>
-                            <span className="font-bold text-[#204434] truncate">{st.name}</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 text-center text-[#315E48]">{st.prevScore}</td>
-                        <td className="py-2.5 text-center font-bold text-[#204434]">{st.currScore}</td>
-                        <td className="py-2.5 text-right font-bold text-emerald-700">
-                          ↑ {st.diff}
+                    {topStudentsProgress.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-6 text-center text-xs text-[#8ea394]">
+                          Chưa có dữ liệu tiến bộ học viên trong khoảng thời gian này.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      topStudentsProgress.map((st: any) => (
+                        <tr key={st.id} className="hover:bg-[#FAF7F0]/60 transition">
+                          <td className="py-2.5 font-bold text-[#8ea394]">{st.rank}</td>
+                          <td className="py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full overflow-hidden bg-[#204434]/10 shrink-0 relative">
+                                <Image src={st.avatar || "/theme/avatar-teacher.jpg"} alt={st.name} fill className="object-cover" />
+                              </div>
+                              <span className="font-bold text-[#204434] truncate">{st.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-center text-[#315E48]">{st.prevScore}</td>
+                          <td className="py-2.5 text-center font-bold text-[#204434]">{st.currScore}</td>
+                          <td className="py-2.5 text-right font-bold text-emerald-700">
+                            ↑ {st.diff}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -832,22 +823,30 @@ export default function ClassReportWorkspace({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5DEC9]/40">
-                    {topWeakTopics.map((wt: any) => (
-                      <tr key={wt.id} className="hover:bg-[#FAF7F0]/60 transition">
-                        <td className="py-2.5 font-bold text-[#8ea394]">{wt.rank}</td>
-                        <td className="py-2.5 font-bold text-[#204434]">{wt.title}</td>
-                        <td className="py-2.5 text-center font-bold text-red-600">{wt.errorRate}</td>
-                        <td className="py-2.5 text-center text-[#315E48]">{wt.attemptsCount}</td>
-                        <td className="py-2.5 text-right">
-                          <button
-                            onClick={() => setSelectedKnowledgeForModal(wt)}
-                            className="px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] text-[11px] font-semibold hover:bg-[#FAF7F0] transition cursor-pointer"
-                          >
-                            Xem chi tiết
-                          </button>
+                    {topWeakTopics.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-6 text-center text-xs text-[#8ea394]">
+                          Chưa có dữ liệu chủ điểm cần củng cố cho lớp học này.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      topWeakTopics.map((wt: any) => (
+                        <tr key={wt.id} className="hover:bg-[#FAF7F0]/60 transition">
+                          <td className="py-2.5 font-bold text-[#8ea394]">{wt.rank}</td>
+                          <td className="py-2.5 font-bold text-[#204434]">{wt.title}</td>
+                          <td className="py-2.5 text-center font-bold text-red-600">{wt.errorRate}</td>
+                          <td className="py-2.5 text-center text-[#315E48]">{wt.attemptsCount}</td>
+                          <td className="py-2.5 text-right">
+                            <button
+                              onClick={() => setSelectedKnowledgeForModal(wt)}
+                              className="px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] text-[11px] font-semibold hover:bg-[#FAF7F0] transition cursor-pointer"
+                            >
+                              Xem chi tiết
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -879,28 +878,36 @@ export default function ClassReportWorkspace({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5DEC9]/40">
-                    {featuredAssignments.map((fa: any) => (
-                      <tr key={fa.id} className="hover:bg-[#FAF7F0]/60 transition">
-                        <td className="py-2.5 font-bold text-[#204434] truncate max-w-[120px]" title={fa.title}>
-                          {fa.title}
-                        </td>
-                        <td className="py-2.5 text-center text-[#315E48]">{fa.submittedRatio}</td>
-                        <td className="py-2.5 text-center font-bold text-[#204434]">{fa.avgScore}</td>
-                        <td className="py-2.5 text-right">
-                          <button
-                            onClick={() => {
-                              setQrAssignment(fa);
-                              setIsQrModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-white transition font-semibold text-[10px] cursor-pointer"
-                            title="Tạo mã QR thi trực tiếp"
-                          >
-                            <QrCode className="w-3.5 h-3.5" />
-                            <span>Mã QR</span>
-                          </button>
+                    {featuredAssignments.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-xs text-[#8ea394]">
+                          Chưa có bài tập hoặc đề kiểm tra nào được giao cho lớp này.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      featuredAssignments.map((fa: any) => (
+                        <tr key={fa.id} className="hover:bg-[#FAF7F0]/60 transition">
+                          <td className="py-2.5 font-bold text-[#204434] truncate max-w-[120px]" title={fa.title}>
+                            {fa.title}
+                          </td>
+                          <td className="py-2.5 text-center text-[#315E48]">{fa.submittedRatio}</td>
+                          <td className="py-2.5 text-center font-bold text-[#204434]">{fa.avgScore}</td>
+                          <td className="py-2.5 text-right">
+                            <button
+                              onClick={() => {
+                                setQrAssignment(fa);
+                                setIsQrModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-white transition font-semibold text-[10px] cursor-pointer"
+                              title="Tạo mã QR thi trực tiếp"
+                            >
+                              <QrCode className="w-3.5 h-3.5" />
+                              <span>Mã QR</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -914,64 +921,73 @@ export default function ClassReportWorkspace({
               <h4 className="font-serif font-bold text-sm text-[#204434]">Những vấn đề cần lưu ý</h4>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div
-                onClick={() => {
-                  setActiveTab("students");
-                  setStudentOverdueOnly(true);
-                }}
-                className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#9D493E] transition cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h5 className="font-bold text-xs text-[#204434] group-hover:text-red-700 transition">
-                      {kpiData.overdueStudentsCount || 4} học viên chưa nộp bài tập
-                    </h5>
-                    <p className="text-[11px] text-red-600 mt-0.5">Đã quá hạn 3 ngày</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:translate-x-1 transition-transform" />
+            {kpiData.overdueStudentsCount === 0 && !dynamicReportData?.waitingGradeCount && !dynamicReportData?.highErrorQuestion ? (
+              <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <span className="text-xs text-[#204434] font-medium">Hiện tại không có vấn đề cảnh báo nào về hạn nộp hoặc bài nộp tồn đọng trong lớp này.</span>
               </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div
+                  onClick={() => {
+                    setActiveTab("students");
+                    setStudentOverdueOnly(true);
+                  }}
+                  className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#9D493E] transition cursor-pointer flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-bold text-xs text-[#204434] group-hover:text-red-700 transition">
+                        {kpiData.overdueStudentsCount} học viên chưa nộp bài tập
+                      </h5>
+                      <p className="text-[11px] text-red-600 mt-0.5">Cần nhắc nhở hoàn thành</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:translate-x-1 transition-transform" />
+                </div>
 
-              <div
-                onClick={() => onNavigateToTab?.("assignments")}
-                className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-amber-600 transition cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                    <Clock className="w-5 h-5" />
+                <div
+                  onClick={() => onNavigateToTab?.("assignments")}
+                  className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-amber-600 transition cursor-pointer flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h5 className="font-bold text-xs text-[#204434] group-hover:text-amber-800 transition">
+                        {dynamicReportData?.waitingGradeCount || 0} bài đang chờ chấm tay
+                      </h5>
+                      <p className="text-[11px] text-[#315E48] mt-0.5">Cần chấm điểm để cập nhật kết quả</p>
+                    </div>
                   </div>
-                  <div>
-                    <h5 className="font-bold text-xs text-[#204434] group-hover:text-amber-800 transition">
-                      2 bài đang chờ chấm tay
-                    </h5>
-                    <p className="text-[11px] text-[#315E48] mt-0.5">Cần chấm điểm để cập nhật kết quả</p>
-                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:translate-x-1 transition-transform" />
                 </div>
-                <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:translate-x-1 transition-transform" />
-              </div>
 
-              <div
-                onClick={() => setActiveTab("exams")}
-                className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition cursor-pointer flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-                    <Target className="w-5 h-5" />
+                {dynamicReportData?.highErrorQuestion && (
+                  <div
+                    onClick={() => setActiveTab("exams")}
+                    className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition cursor-pointer flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                        <Target className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-xs text-[#204434] group-hover:text-sky-800 transition">
+                          {dynamicReportData.highErrorQuestion.title}
+                        </h5>
+                        <p className="text-[11px] text-[#315E48] mt-0.5">Tỷ lệ sai ({dynamicReportData.highErrorQuestion.errorRate})</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:translate-x-1 transition-transform" />
                   </div>
-                  <div>
-                    <h5 className="font-bold text-xs text-[#204434] group-hover:text-sky-800 transition">
-                      Câu 3 – Đề HSK1 Đề 01
-                    </h5>
-                    <p className="text-[11px] text-[#315E48] mt-0.5">Tỷ lệ sai cao (46%)</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-[#8ea394] group-hover:translate-x-1 transition-transform" />
+                )}
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -1030,44 +1046,54 @@ export default function ClassReportWorkspace({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5DEC9]/50">
-                {filteredStudents.map((st: any) => (
-                  <tr key={st.id} className="hover:bg-[#FAF7F0]/60 transition">
-                    <td className="py-3 px-3">
-                      <div>
-                        <span className="font-bold text-[#204434] block">{st.name}</span>
-                        <span className="text-[10px] text-[#8ea394]">{st.email}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-center text-[#315E48]">{st.assignedCount}</td>
-                    <td className="py-3 px-3 text-center font-bold text-emerald-800">{st.submittedCount}</td>
-                    <td className="py-3 px-3 text-center font-bold text-red-600">{st.overdueCount}</td>
-                    <td className="py-3 px-3 text-center font-bold text-[#204434]">{st.avgScore}</td>
-                    <td className="py-3 px-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <div className="w-16 bg-white h-2 rounded-full overflow-hidden border border-[#E5DEC9]">
-                          <div className="bg-[#204434] h-full" style={{ width: `${st.completionRate}%` }} />
-                        </div>
-                        <span className="text-[11px] font-bold text-[#204434]">{st.completionRate}%</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-emerald-700">↑ {st.growth}</td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        st.overdueCount > 0 ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"
-                      }`}>
-                        {st.supportStatus}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => setSelectedStudentForDrawer(st)}
-                        className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#204434] hover:text-white transition font-semibold text-[11px] cursor-pointer"
-                      >
-                        Xem hồ sơ
-                      </button>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-xs text-[#8ea394]">
+                      <Users className="w-8 h-8 mx-auto mb-2 text-[#8ea394]/50" />
+                      <p className="font-semibold text-sm text-[#315E48]">Chưa có học viên nào trong danh sách lớp này</p>
+                      <p className="text-[11px] text-[#8ea394] mt-0.5">Khi học viên tham gia lớp học qua mã lớp, kết quả sẽ hiển thị ở đây</p>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredStudents.map((st: any) => (
+                    <tr key={st.id} className="hover:bg-[#FAF7F0]/60 transition">
+                      <td className="py-3 px-3">
+                        <div>
+                          <span className="font-bold text-[#204434] block">{st.name}</span>
+                          <span className="text-[10px] text-[#8ea394]">{st.email}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-center text-[#315E48]">{st.assignedCount}</td>
+                      <td className="py-3 px-3 text-center font-bold text-emerald-800">{st.submittedCount}</td>
+                      <td className="py-3 px-3 text-center font-bold text-red-600">{st.overdueCount}</td>
+                      <td className="py-3 px-3 text-center font-bold text-[#204434]">{st.avgScore}</td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <div className="w-16 bg-white h-2 rounded-full overflow-hidden border border-[#E5DEC9]">
+                            <div className="bg-[#204434] h-full" style={{ width: `${st.completionRate}%` }} />
+                          </div>
+                          <span className="text-[11px] font-bold text-[#204434]">{st.completionRate}%</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-center font-bold text-emerald-700">↑ {st.growth}</td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          st.overdueCount > 0 ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"
+                        }`}>
+                          {st.supportStatus}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => setSelectedStudentForDrawer(st)}
+                          className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#204434] hover:text-white transition font-semibold text-[11px] cursor-pointer"
+                        >
+                          Xem hồ sơ
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1079,101 +1105,113 @@ export default function ClassReportWorkspace({
       {/* =================================================================== */}
       {activeTab === "exams" && (
         <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-6 shadow-2xs space-y-6 animate-fadeIn">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5DEC9]">
-            <div>
-              <h3 className="font-serif font-bold text-lg text-[#204434]">
-                Phân tích chi tiết đề kiểm tra: HSK1 Đề 01
-              </h3>
-              <p className="text-xs text-[#315E48]">Thống kê tỷ lệ đúng sai từng câu, dạng câu hỏi và trạng thái chấm.</p>
+          {featuredAssignments.length === 0 ? (
+            <div className="py-16 text-center text-xs text-[#8ea394]">
+              <FileText className="w-10 h-10 mx-auto mb-2 text-[#8ea394]/50" />
+              <p className="font-semibold text-sm text-[#315E48]">Chưa có bài tập hoặc đề kiểm tra nào trong lớp này</p>
+              <p className="text-[11px] text-[#8ea394] mt-1">Khi giáo viên giao bài và học viên làm bài, báo cáo phân tích từng câu sẽ hiển thị ở đây.</p>
             </div>
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5DEC9]">
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#204434]">
+                    Phân tích chi tiết đề kiểm tra: {featuredAssignments[0]?.title || "Đề kiểm tra"}
+                  </h3>
+                  <p className="text-xs text-[#315E48]">Thống kê tỷ lệ đúng sai từng câu, dạng câu hỏi và trạng thái chấm.</p>
+                </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-[#204434]">Chọn đề:</span>
-              <select className="bg-white border border-[#E5DEC9] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#204434]">
-                <option value="e1">HSK1 Đề 01 (Luyện thi tổng hợp)</option>
-                <option value="e2">Bài 5 – 今天我休息</option>
-                <option value="e3">Luyện viết chữ Hán cơ bản</option>
-              </select>
-            </div>
-          </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#204434]">Chọn đề:</span>
+                  <select className="bg-white border border-[#E5DEC9] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#204434]">
+                    {featuredAssignments.map((fa: any) => (
+                      <option key={fa.id} value={fa.id}>{fa.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
-              <span className="text-[11px] text-[#315E48]">Được giao</span>
-              <div className="text-xl font-bold font-serif text-[#204434] mt-0.5">{totalStudents}</div>
-            </div>
-            <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
-              <span className="text-[11px] text-[#315E48]">Đã nộp</span>
-              <div className="text-xl font-bold font-serif text-emerald-800 mt-0.5">{totalStudents}</div>
-            </div>
-            <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
-              <span className="text-[11px] text-[#315E48]">Chờ chấm tay</span>
-              <div className="text-xl font-bold font-serif text-amber-700 mt-0.5">2</div>
-            </div>
-            <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
-              <span className="text-[11px] text-[#315E48]">Điểm TB</span>
-              <div className="text-xl font-bold font-serif text-[#204434] mt-0.5">8.1</div>
-            </div>
-            <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
-              <span className="text-[11px] text-[#315E48]">Cao nhất</span>
-              <div className="text-xl font-bold font-serif text-emerald-800 mt-0.5">10.0</div>
-            </div>
-            <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
-              <span className="text-[11px] text-[#315E48]">Thấp nhất</span>
-              <div className="text-xl font-bold font-serif text-red-600 mt-0.5">6.2</div>
-            </div>
-          </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
+                  <span className="text-[11px] text-[#315E48]">Được giao</span>
+                  <div className="text-xl font-bold font-serif text-[#204434] mt-0.5">{totalStudents}</div>
+                </div>
+                <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
+                  <span className="text-[11px] text-[#315E48]">Đã nộp</span>
+                  <div className="text-xl font-bold font-serif text-emerald-800 mt-0.5">{dynamicReportData?.submittedCount || 0}</div>
+                </div>
+                <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
+                  <span className="text-[11px] text-[#315E48]">Chờ chấm tay</span>
+                  <div className="text-xl font-bold font-serif text-amber-700 mt-0.5">{dynamicReportData?.waitingGradeCount || 0}</div>
+                </div>
+                <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
+                  <span className="text-[11px] text-[#315E48]">Điểm TB</span>
+                  <div className="text-xl font-bold font-serif text-[#204434] mt-0.5">{featuredAssignments[0]?.avgScore || "—"}</div>
+                </div>
+                <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
+                  <span className="text-[11px] text-[#315E48]">Cao nhất</span>
+                  <div className="text-xl font-bold font-serif text-emerald-800 mt-0.5">{dynamicReportData?.maxScore || "—"}</div>
+                </div>
+                <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
+                  <span className="text-[11px] text-[#315E48]">Thấp nhất</span>
+                  <div className="text-xl font-bold font-serif text-red-600 mt-0.5">{dynamicReportData?.minScore || "—"}</div>
+                </div>
+              </div>
 
-          <div className="space-y-3">
-            <h4 className="font-serif font-bold text-sm text-[#204434]">Phân tích kết quả theo từng câu hỏi</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#FAF7F0] text-[#315E48] font-bold border-b border-[#E5DEC9]">
-                    <th className="py-2.5 px-3">STT</th>
-                    <th className="py-2.5 px-3">Dạng câu hỏi</th>
-                    <th className="py-2.5 px-3">Chủ điểm kiến thức</th>
-                    <th className="py-2.5 px-3 text-center">Lượt làm</th>
-                    <th className="py-2.5 px-3 text-center">Đúng</th>
-                    <th className="py-2.5 px-3 text-center">Sai</th>
-                    <th className="py-2.5 px-3 text-center">Tỷ lệ đúng</th>
-                    <th className="py-2.5 px-3 text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E5DEC9]/50">
-                  {[
-                    { qNum: 1, type: "Trắc nghiệm 4 lựa chọn", topic: "Từ vựng nghề nghiệp", count: 22, correct: 20, wrong: 2, rate: "91%" },
-                    { qNum: 2, type: "Điền từ vào chỗ trống", topic: "Giới từ 在 / 从", count: 22, correct: 18, wrong: 4, rate: "82%" },
-                    { qNum: 3, type: "Sắp xếp câu hoàn chỉnh", topic: "Câu chữ 把", count: 22, correct: 12, wrong: 10, rate: "54%", isAlert: true },
-                    { qNum: 4, type: "Nối từ / Cụm từ", topic: "Thành ngữ & Lượng từ", count: 22, correct: 19, wrong: 3, rate: "86%" },
-                    { qNum: 5, type: "Viết chữ Hán (Ảnh chụp)", topic: "Quy tắc nét bút", count: 20, correct: 15, wrong: 5, rate: "75%" },
-                  ].map((q) => (
-                    <tr key={q.qNum} className={q.isAlert ? "bg-red-50/50" : "hover:bg-[#FAF7F0]/60"}>
-                      <td className="py-2.5 px-3 font-bold text-[#204434]">Câu {q.qNum}</td>
-                      <td className="py-2.5 px-3 text-[#315E48]">{q.type}</td>
-                      <td className="py-2.5 px-3 font-semibold text-[#204434]">{q.topic}</td>
-                      <td className="py-2.5 px-3 text-center">{q.count}</td>
-                      <td className="py-2.5 px-3 text-center font-bold text-emerald-700">{q.correct}</td>
-                      <td className="py-2.5 px-3 text-center font-bold text-red-600">{q.wrong}</td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className={`font-bold ${q.isAlert ? "text-red-700" : "text-emerald-800"}`}>
-                          {q.rate}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <button
-                          onClick={() => showToast(`Đã mở chi tiết bài làm câu số ${q.qNum}`)}
-                          className="px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] font-semibold text-[11px] hover:bg-[#FAF7F0] cursor-pointer"
-                        >
-                          Xem chi tiết
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+              <div className="space-y-3">
+                <h4 className="font-serif font-bold text-sm text-[#204434]">Phân tích kết quả theo từng câu hỏi</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#FAF7F0] text-[#315E48] font-bold border-b border-[#E5DEC9]">
+                        <th className="py-2.5 px-3">STT</th>
+                        <th className="py-2.5 px-3">Dạng câu hỏi</th>
+                        <th className="py-2.5 px-3">Chủ điểm kiến thức</th>
+                        <th className="py-2.5 px-3 text-center">Lượt làm</th>
+                        <th className="py-2.5 px-3 text-center">Đúng</th>
+                        <th className="py-2.5 px-3 text-center">Sai</th>
+                        <th className="py-2.5 px-3 text-center">Tỷ lệ đúng</th>
+                        <th className="py-2.5 px-3 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E5DEC9]/50">
+                      {((dynamicReportData?.examQuestionsAnalysis as any[]) || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-8 text-center text-xs text-[#8ea394]">
+                            Chưa có dữ liệu phân tích từng câu hỏi cho đề này.
+                          </td>
+                        </tr>
+                      ) : (
+                        ((dynamicReportData?.examQuestionsAnalysis as any[]) || []).map((q) => (
+                          <tr key={q.qNum} className={q.isAlert ? "bg-red-50/50" : "hover:bg-[#FAF7F0]/60"}>
+                            <td className="py-2.5 px-3 font-bold text-[#204434]">Câu {q.qNum}</td>
+                            <td className="py-2.5 px-3 text-[#315E48]">{q.type}</td>
+                            <td className="py-2.5 px-3 font-semibold text-[#204434]">{q.topic}</td>
+                            <td className="py-2.5 px-3 text-center">{q.count}</td>
+                            <td className="py-2.5 px-3 text-center font-bold text-emerald-700">{q.correct}</td>
+                            <td className="py-2.5 px-3 text-center font-bold text-red-600">{q.wrong}</td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`font-bold ${q.isAlert ? "text-red-700" : "text-emerald-800"}`}>
+                                {q.rate}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <button
+                                onClick={() => showToast(`Đã mở chi tiết bài làm câu số ${q.qNum}`)}
+                                className="px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] font-semibold text-[11px] hover:bg-[#FAF7F0] cursor-pointer"
+                              >
+                                Xem chi tiết
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1191,47 +1229,55 @@ export default function ClassReportWorkspace({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {topWeakTopics.map((wt: any) => (
-              <div
-                key={wt.id}
-                className="p-5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-3 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
-                      Tỷ lệ làm sai: {wt.errorRate} ({wt.attemptsCount} lượt làm)
-                    </span>
-                    <span className="text-[11px] text-[#8ea394] font-medium">{wt.lessonSource}</span>
+          {topWeakTopics.length === 0 ? (
+            <div className="py-12 text-center text-xs text-[#8ea394] bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]">
+              <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-600/60" />
+              <p className="font-semibold text-sm text-[#315E48]">Chưa ghi nhận chủ điểm ngữ pháp nào bị sai sót nhiều</p>
+              <p className="text-[11px] text-[#8ea394] mt-0.5">Khi học viên làm bài tập có câu sai, hệ thống sẽ tự động tổng hợp chủ điểm vào đây.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {topWeakTopics.map((wt: any) => (
+                <div
+                  key={wt.id}
+                  className="p-5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-3 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
+                        Tỷ lệ làm sai: {wt.errorRate} ({wt.attemptsCount} lượt làm)
+                      </span>
+                      <span className="text-[11px] text-[#8ea394] font-medium">{wt.lessonSource}</span>
+                    </div>
+
+                    <h4 className="font-serif font-bold text-base text-[#204434] mt-2">{wt.title}</h4>
+                    <p className="text-xs text-[#315E48] mt-1">{wt.description}</p>
                   </div>
 
-                  <h4 className="font-serif font-bold text-base text-[#204434] mt-2">{wt.title}</h4>
-                  <p className="text-xs text-[#315E48] mt-1">{wt.description}</p>
-                </div>
+                  <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => onNavigateToTab?.("lessons")}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] cursor-pointer transition flex items-center gap-1"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Xem bài học nguồn</span>
+                    </button>
 
-                <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => onNavigateToTab?.("lessons")}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] cursor-pointer transition flex items-center gap-1"
-                  >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span>Xem bài học nguồn</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      showToast(`Đã điều hướng sang Bài tập & Kiểm tra để tạo đề củng cố: ${wt.title}`);
-                      onNavigateToTab?.("assignments");
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer transition flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Tạo bài củng cố</span>
-                  </button>
+                    <button
+                      onClick={() => {
+                        showToast(`Đã điều hướng sang Bài tập & Kiểm tra để tạo đề củng cố: ${wt.title}`);
+                        onNavigateToTab?.("assignments");
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-2xs cursor-pointer transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Tạo bài củng cố</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1257,23 +1303,23 @@ export default function ClassReportWorkspace({
               </h4>
 
               <div className="space-y-2">
-                {[
-                  { title: "Bài 1: Chào hỏi & Thanh điệu cơ bản", completed: totalStudents, pct: 100 },
-                  { title: "Bài 2: Gia đình & Đại từ nhân xưng", completed: Math.max(1, totalStudents - 2), pct: 90 },
-                  { title: "Bài 3: Hỏi giờ và lịch trình hàng ngày", completed: Math.max(1, totalStudents - 4), pct: 81 },
-                  { title: "Bài 4: Mua sắm và đếm số tiền", completed: Math.max(1, totalStudents - 7), pct: 68 },
-                  { title: "Bài 5: 今天我休息 (Ngữ pháp 把)", completed: Math.max(1, totalStudents - 10), pct: 54 },
-                ].map((item, idx) => (
-                  <div key={idx} className="p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#204434]">{item.title}</span>
-                      <span className="font-bold text-emerald-800">{item.completed}/{totalStudents} học sinh</span>
-                    </div>
-                    <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-[#E5DEC9]">
-                      <div className="bg-[#204434] h-full" style={{ width: `${item.pct}%` }} />
-                    </div>
+                {((dynamicReportData?.assignedLessons as any[]) || []).length === 0 ? (
+                  <div className="py-8 text-center text-xs text-[#8ea394] bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]">
+                    Chưa có bài học lý thuyết nào được giao từ Kho bài học cho lớp này.
                   </div>
-                ))}
+                ) : (
+                  ((dynamicReportData?.assignedLessons as any[]) || []).map((item, idx) => (
+                    <div key={idx} className="p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#204434]">{item.title}</span>
+                        <span className="font-bold text-emerald-800">{item.completed}/{totalStudents} học sinh</span>
+                      </div>
+                      <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-[#E5DEC9]">
+                        <div className="bg-[#204434] h-full" style={{ width: `${item.pct}%` }} />
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -1284,19 +1330,25 @@ export default function ClassReportWorkspace({
               </h4>
 
               <div className="space-y-2">
-                {featuredAssignments.map((item: any) => (
-                  <div key={item.id} className="p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] flex items-center justify-between">
-                    <div>
-                      <h5 className="font-bold text-xs text-[#204434]">{item.title}</h5>
-                      <p className="text-[11px] text-[#315E48] mt-0.5">Đã nộp: {item.submittedRatio} học sinh · Điểm TB: {item.avgScore}</p>
-                    </div>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      item.status === "COMPLETED" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                    }`}>
-                      {item.statusText}
-                    </span>
+                {featuredAssignments.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-[#8ea394] bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]">
+                    Chưa có bài tập nào được giao cho lớp này.
                   </div>
-                ))}
+                ) : (
+                  featuredAssignments.map((item: any) => (
+                    <div key={item.id} className="p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] flex items-center justify-between">
+                      <div>
+                        <h5 className="font-bold text-xs text-[#204434]">{item.title}</h5>
+                        <p className="text-[11px] text-[#315E48] mt-0.5">Đã nộp: {item.submittedRatio} học sinh · Điểm TB: {item.avgScore}</p>
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        item.status === "COMPLETED" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                      }`}>
+                        {item.statusText}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

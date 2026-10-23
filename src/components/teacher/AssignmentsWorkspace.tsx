@@ -57,12 +57,10 @@ import {
   ExamQuestionItem,
   GUIDED_QUESTION_TEMPLATES,
   UNIFIED_QUESTION_BANK,
-  MOCK_WAITING_SUBMISSIONS,
   StudentSubmissionItem,
   ManualQuestionItem,
   ExamPackageItem,
   TeacherAssignmentRecord,
-  MOCK_EXAM_PACKAGES,
 } from "@/lib/assignment-data";
 import { CulturalSelectionItem } from "@/lib/lesson-data";
 
@@ -135,7 +133,7 @@ export function AssignmentsWorkspace({
         if (saved) return JSON.parse(saved);
       } catch (e) {}
     }
-    return MOCK_EXAM_PACKAGES;
+    return [];
   });
 
   useEffect(() => {
@@ -147,53 +145,15 @@ export function AssignmentsWorkspace({
   }, [examPackages]);
 
   // Existing assignments list (persisted to localStorage)
-  const [assignments, setAssignments] = useState([
-    {
-      id: "ass-1",
-      title: "Bài tập củng cố: Bài 5 - 今天我休息",
-      className: classesList[0]?.name || "HSK1-K24 Sơ cấp",
-      classId: classesList[0]?.id || "c1",
-      assignedAt: "20/10/2026 08:30",
-      dueAt: "25/10/2026 23:59",
-      durationMin: 45,
-      submittedCount: 18,
-      totalStudents: 22,
-      status: "ACTIVE",
-      waitingGradeCount: 2,
-      totalQuestions: 6,
-      totalPoints: 50,
-    },
-    {
-      id: "ass-2",
-      title: "Kiểm tra giữa kỳ: HSK 1 Tiêu chuẩn (Đề 01)",
-      className: classesList[0]?.name || "HSK1-K24 Sơ cấp",
-      classId: classesList[0]?.id || "c1",
-      assignedAt: "21/10/2026 09:00",
-      dueAt: "28/10/2026 18:00",
-      durationMin: 60,
-      submittedCount: 22,
-      totalStudents: 22,
-      status: "ACTIVE",
-      waitingGradeCount: 1,
-      totalQuestions: 12,
-      totalPoints: 100,
-    },
-    {
-      id: "ass-3",
-      title: "Luyện viết chữ Hán và nộp ảnh tuần 2",
-      className: classesList[1]?.name || "HSK2-K18 Cấp tốc",
-      classId: classesList[1]?.id || "c2",
-      assignedAt: "15/10/2026 14:00",
-      dueAt: "19/10/2026 23:59",
-      durationMin: 30,
-      submittedCount: 15,
-      totalStudents: 15,
-      status: "CLOSED",
-      waitingGradeCount: 0,
-      totalQuestions: 4,
-      totalPoints: 40,
-    },
-  ]);
+  const [assignments, setAssignments] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_teacher_assignments");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -211,7 +171,7 @@ export function AssignmentsWorkspace({
         if (saved) return JSON.parse(saved);
       } catch (e) {}
     }
-    return MOCK_WAITING_SUBMISSIONS;
+    return [];
   });
 
   useEffect(() => {
@@ -1067,8 +1027,15 @@ export function AssignmentsWorkspace({
   // =========================================================================
   // MANUAL GRADING (Chờ chấm) STATE
   // =========================================================================
-  const [waitingSubmissions, setWaitingSubmissions] =
-    useState<StudentSubmissionItem[]>(MOCK_WAITING_SUBMISSIONS);
+  const [waitingSubmissions, setWaitingSubmissions] = useState<StudentSubmissionItem[]>(() => {
+    return submissions.filter((s) => s.gradingStatus === "WAITING_MANUAL" || s.gradingStatus === "GRADING");
+  });
+
+  useEffect(() => {
+    setWaitingSubmissions(
+      submissions.filter((s) => s.gradingStatus === "WAITING_MANUAL" || s.gradingStatus === "GRADING")
+    );
+  }, [submissions]);
   const [gradingSubmission, setGradingSubmission] = useState<StudentSubmissionItem | null>(null);
   const [gradingScores, setGradingScores] = useState<Record<string, number>>({});
   const [gradingComments, setGradingComments] = useState<Record<string, string>>({});
@@ -1886,6 +1853,15 @@ export function AssignmentsWorkspace({
                             </td>
                           </tr>
                         ))}
+                      {examPackages.filter((p) => p.status === "DRAFT").length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-xs text-[#8ea394]">
+                            <FileText className="w-8 h-8 mx-auto mb-2 text-[#8ea394]/50" />
+                            <p className="font-semibold text-[#315E48]">Chưa có đề nháp nào đang soạn</p>
+                            <p className="text-[11px] text-[#8ea394] mt-0.5">Hãy tạo đề kiểm tra mới hoặc lưu nháp từ Ngân hàng câu hỏi</p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
 
@@ -1993,6 +1969,13 @@ export function AssignmentsWorkspace({
                         </div>
                       </div>
                     ))}
+                    {examPackages.filter((p) => p.status === "READY").length === 0 && (
+                      <div className="col-span-full py-12 text-center text-xs text-[#8ea394] bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl">
+                        <FileText className="w-8 h-8 mx-auto mb-2 text-[#8ea394]/50" />
+                        <p className="font-semibold text-[#315E48]">Chưa có đề thi nào đã hoàn thiện</p>
+                        <p className="text-[11px] text-[#8ea394] mt-0.5">Sau khi biên soạn đề nháp xong, bấm "Đánh dấu hoàn thiện" để lưu vào đây</p>
+                      </div>
+                    )}
                 </div>
               </div>
             )}
@@ -2118,6 +2101,27 @@ export function AssignmentsWorkspace({
                           </tr>
                         );
                       })}
+                    {assignments
+                      .filter((a) => a.status !== "ARCHIVED")
+                      .filter((a) => {
+                        if (activeTab === "OPEN") return a.status === "ACTIVE" || a.status === "OPEN";
+                        if (activeTab === "CLOSED") return a.status === "CLOSED";
+                        return true;
+                      })
+                      .filter((a) =>
+                        searchQuery.trim() === ""
+                          ? true
+                          : a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            a.className.toLowerCase().includes(searchQuery.toLowerCase())
+                      ).length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="py-12 text-center text-xs text-[#8ea394]">
+                            <FileText className="w-8 h-8 mx-auto mb-2 text-[#8ea394]/50" />
+                            <p className="font-semibold text-[#315E48]">Chưa có bài tập nào trong mục này</p>
+                            <p className="text-[11px] text-[#8ea394] mt-0.5">Bấm "Tạo bài tập mới" để giao bài cho học sinh</p>
+                          </td>
+                        </tr>
+                      )}
                   </tbody>
                 </table>
               </div>
