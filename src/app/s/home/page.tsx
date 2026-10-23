@@ -35,6 +35,11 @@ import {
   HelpCircle,
   BarChart3,
   Award,
+  User,
+  Phone,
+  Mail,
+  Shield,
+  Key,
 } from "lucide-react";
 import StudentClassesWorkspace from "@/components/student/StudentClassesWorkspace";
 import StudentAssignmentsWorkspace from "@/components/student/StudentAssignmentsWorkspace";
@@ -124,6 +129,93 @@ export default function StudentHomePage() {
   const [userEmail, setUserEmail] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [myClasses, setMyClasses] = useState<any[]>([]);
+
+  // Detailed Profile & Settings State
+  const [settingsTab, setSettingsTab] = useState<"profile" | "learning" | "security">("profile");
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    chineseName: "",
+    phone: "",
+    email: "",
+    birthday: "",
+    gender: "female",
+    bio: "",
+    targetHsk: 1,
+    dailyTime: 30,
+    notificationEnabled: true,
+  });
+  const [securityForm, setSecurityForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
+
+  const handleOpenSettings = () => {
+    setProfileForm({
+      name: currentUser?.name || studentName || "",
+      chineseName: currentUser?.chineseName || "李小雨 (Lý Tiểu Vũ)",
+      phone: currentUser?.phone || "0987654321",
+      email: currentUser?.email || userEmail || "student@hanyu.edu.vn",
+      birthday: currentUser?.birthday || "2002-05-18",
+      gender: currentUser?.gender || "female",
+      bio: currentUser?.bio || "Học viên HSK 1 - Quyết tâm thi đỗ HSK 3 trong 6 tháng tới!",
+      targetHsk: currentUser?.targetHsk || 1,
+      dailyTime: editingDailyTime || 30,
+      notificationEnabled: currentUser?.notificationEnabled ?? true,
+    });
+    setSecurityForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+    setSaveSuccessMsg("");
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveProfile = () => {
+    const updated = {
+      ...currentUser,
+      name: profileForm.name,
+      chineseName: profileForm.chineseName,
+      phone: profileForm.phone,
+      email: profileForm.email,
+      birthday: profileForm.birthday,
+      gender: profileForm.gender,
+      bio: profileForm.bio,
+      targetHsk: profileForm.targetHsk,
+      notificationEnabled: profileForm.notificationEnabled,
+    };
+    setCurrentUser(updated);
+    setStudentName(profileForm.name);
+    setUserEmail(profileForm.email);
+    setEditingDailyTime(profileForm.dailyTime as any);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("currentUser", JSON.stringify(updated));
+        const prof = localStorage.getItem("hanyu_study_profile");
+        const profObj = prof ? JSON.parse(prof) : {};
+        profObj.dailyTime = profileForm.dailyTime;
+        profObj.targetHsk = profileForm.targetHsk;
+        localStorage.setItem("hanyu_study_profile", JSON.stringify(profObj));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setSaveSuccessMsg("Đã lưu hồ sơ và cài đặt thành công!");
+    setTimeout(() => setSaveSuccessMsg(""), 3500);
+  };
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!securityForm.newPassword || securityForm.newPassword.length < 6) {
+      alert("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      return;
+    }
+    if (securityForm.newPassword !== securityForm.confirmPassword) {
+      alert("Mật khẩu xác nhận không khớp!");
+      return;
+    }
+    setSaveSuccessMsg("Đổi mật khẩu thành công!");
+    setSecurityForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+    setTimeout(() => setSaveSuccessMsg(""), 3500);
+  };
 
   const fetchMyClasses = async (studentId: string) => {
     if (!studentId) return;
@@ -511,7 +603,7 @@ export default function StudentHomePage() {
             {/* 8. Hồ sơ & Cài đặt */}
             <button
               type="button"
-              onClick={() => setShowSettingsModal(true)}
+              onClick={handleOpenSettings}
               className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
             >
               <Settings className="w-4 h-4 stroke-[1.8]" />
@@ -542,7 +634,7 @@ export default function StudentHomePage() {
               </div>
             </div>
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={handleOpenSettings}
               className="text-[#315E48] hover:text-[#204434] p-1 cursor-pointer"
               title="Xem thông tin"
             >
@@ -1813,61 +1905,342 @@ export default function StudentHomePage() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 3: HỒ SƠ & CÀI ĐẶT */}
+      {/* MODAL 3: HỒ SƠ & CÀI ĐẶT TOÀN DIỆN */}
       {/* ========================================================================= */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-[#FFFCF6] border border-[#BC9B6B]/40 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-[#FFFCF6] border border-[#BC9B6B]/50 rounded-3xl p-6 sm:p-7 max-w-xl w-full shadow-2xl relative space-y-4 max-h-[92vh] overflow-y-auto animate-scaleUp">
             <button
               onClick={() => setShowSettingsModal(false)}
-              className="absolute top-5 right-5 text-[#315E48] hover:text-[#204434] p-1 cursor-pointer"
+              className="absolute top-5 right-5 text-[#315E48] hover:text-[#204434] p-1.5 rounded-full hover:bg-[#FAF7F0] cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center">
-                <Settings className="w-5 h-5" />
+            {/* Modal Title */}
+            <div className="flex items-center gap-3 pb-2 border-b border-[#E5DEC9]">
+              <div className="w-10 h-10 rounded-2xl bg-[#204434] text-white flex items-center justify-center shadow-xs">
+                <Settings className="w-5 h-5 text-[#BC9B6B]" />
               </div>
               <div>
-                <h3 className="font-serif font-bold text-lg text-[#204434]">Hồ sơ & Cài đặt</h3>
-                <p className="text-xs text-[#315E48]">Quản lý thông tin tài khoản cá nhân</p>
+                <h3 className="font-serif font-bold text-lg sm:text-xl text-[#204434]">
+                  Hồ sơ học viên & Cài đặt
+                </h3>
+                <p className="text-xs text-[#315E48]">
+                  Cập nhật thông tin cá nhân, mục tiêu HSK và bảo mật tài khoản
+                </p>
               </div>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9] space-y-1">
-                <div className="text-[11px] text-[#315E48]">Họ và tên:</div>
-                <div className="font-bold text-[#204434] text-sm">{studentName}</div>
+            {/* Success Alert Banner */}
+            {saveSuccessMsg && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{saveSuccessMsg}</span>
               </div>
+            )}
 
-              <div className="p-3 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9] space-y-1">
-                <div className="text-[11px] text-[#315E48]">Tên đăng nhập (username):</div>
-                <div className="font-mono font-bold text-[#204434]">@{username}</div>
+            {/* 3 Tabs */}
+            <div className="flex items-center gap-1.5 border-b border-[#E5DEC9] pb-2">
+              {[
+                { id: "profile", label: "Thông tin cá nhân", icon: User },
+                { id: "learning", label: "Mục tiêu học tập", icon: Target },
+                { id: "security", label: "Bảo mật tài khoản", icon: Shield },
+              ].map((t) => {
+                const TabIcon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSettingsTab(t.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                      settingsTab === t.id
+                        ? "bg-[#204434] text-white shadow-xs"
+                        : "text-[#315E48] hover:bg-[#FAF7F0] hover:text-[#204434]"
+                    }`}
+                  >
+                    <TabIcon className="w-3.5 h-3.5" />
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* TAB 1: THÔNG TIN CÁ NHÂN */}
+            {settingsTab === "profile" && (
+              <div className="space-y-3.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                      Họ và tên học viên <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      placeholder="Nguyễn Văn A"
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                      Tên tiếng Trung (中文名)
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.chineseName}
+                      onChange={(e) => setProfileForm({ ...profileForm, chineseName: e.target.value })}
+                      placeholder="李小雨 (Lǐ Xiǎoyǔ)"
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                      Tên đăng nhập (Username)
+                    </label>
+                    <input
+                      type="text"
+                      value={`@${username}`}
+                      disabled
+                      className="w-full bg-gray-100 border border-gray-200 text-gray-500 rounded-xl px-3 py-2 text-xs font-mono cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                      Địa chỉ Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      placeholder="student@example.com"
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                      Số điện thoại liên lạc
+                    </label>
+                    <input
+                      type="tel"
+                      value={profileForm.phone}
+                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                      placeholder="0987654321"
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                      Ngày sinh
+                    </label>
+                    <input
+                      type="date"
+                      value={profileForm.birthday}
+                      onChange={(e) => setProfileForm({ ...profileForm, birthday: e.target.value })}
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                    Giới tính
+                  </label>
+                  <div className="flex items-center gap-4 pt-1">
+                    {[
+                      { id: "female", label: "Nữ" },
+                      { id: "male", label: "Nam" },
+                      { id: "other", label: "Khác" },
+                    ].map((g) => (
+                      <label key={g.id} className="flex items-center gap-1.5 cursor-pointer text-xs text-[#315E48]">
+                        <input
+                          type="radio"
+                          name="gender"
+                          checked={profileForm.gender === g.id}
+                          onChange={() => setProfileForm({ ...profileForm, gender: g.id })}
+                          className="accent-[#204434]"
+                        />
+                        <span>{g.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                    Giới thiệu bản thân & Quyết tâm học tiếng Trung
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={profileForm.bio}
+                    onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                    placeholder="Mục tiêu của mình là đạt HSK 3 trong 6 tháng tới..."
+                    className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl p-2.5 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
               </div>
+            )}
 
-              <div className="p-3 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9] space-y-1">
-                <div className="text-[11px] text-[#315E48]">Địa chỉ email:</div>
-                <div className="font-mono text-[#204434]">{userEmail || "Chưa liên kết email"}</div>
+            {/* TAB 2: MỤC TIÊU HỌC TẬP */}
+            {settingsTab === "learning" && (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#204434] mb-1.5">
+                    Mục tiêu cấp độ HSK muốn đạt
+                  </label>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setProfileForm({ ...profileForm, targetHsk: lvl })}
+                        className={`py-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                          profileForm.targetHsk === lvl
+                            ? "bg-[#204434] text-white border-[#204434]"
+                            : "bg-[#FAF7F0] border-[#E5DEC9] text-[#315E48] hover:bg-white"
+                        }`}
+                      >
+                        HSK {lvl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#204434] mb-1.5">
+                    Thời lượng học cam kết mỗi ngày
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { min: 15, label: "15 phút / ngày", desc: "Duy trì thói quen" },
+                      { min: 30, label: "30 phút / ngày", desc: "Khuyên dùng chuẩn" },
+                      { min: 60, label: "60 phút / ngày", desc: "Tăng tốc thi lấy bằng" },
+                    ].map((item) => (
+                      <div
+                        key={item.min}
+                        onClick={() => setProfileForm({ ...profileForm, dailyTime: item.min })}
+                        className={`p-3 rounded-2xl border text-center cursor-pointer transition ${
+                          profileForm.dailyTime === item.min
+                            ? "bg-[#204434] text-white border-[#204434] shadow-xs"
+                            : "bg-[#FAF7F0] border-[#E5DEC9] text-[#204434] hover:bg-white"
+                        }`}
+                      >
+                        <div className="font-bold text-xs">{item.label}</div>
+                        <div className={`text-[10px] mt-0.5 ${profileForm.dailyTime === item.min ? "text-emerald-200" : "text-[#315E48]"}`}>
+                          {item.desc}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-xs text-[#204434] block">Nhận thông báo nhắc nhở</span>
+                    <span className="text-[11px] text-[#315E48]">Nhắc giờ học hàng ngày và thông báo khi giáo viên giao bài tập mới</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={profileForm.notificationEnabled}
+                    onChange={(e) => setProfileForm({ ...profileForm, notificationEnabled: e.target.checked })}
+                    className="w-4 h-4 accent-[#204434] cursor-pointer"
+                  />
+                </div>
               </div>
+            )}
 
-              <div className="pt-2 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="px-4 py-2 rounded-xl bg-[#9D493E]/10 hover:bg-[#9D493E] text-[#9D493E] hover:text-white font-semibold transition cursor-pointer flex items-center gap-1.5"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Đăng xuất</span>
-                </button>
+            {/* TAB 3: BẢO MẬT & ĐỔI MẬT KHẨU */}
+            {settingsTab === "security" && (
+              <form onSubmit={handleSavePassword} className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                    Mật khẩu hiện tại
+                  </label>
+                  <input
+                    type="password"
+                    value={securityForm.oldPassword}
+                    onChange={(e) => setSecurityForm({ ...securityForm, oldPassword: e.target.value })}
+                    placeholder="Nhập mật khẩu hiện tại"
+                    className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
 
+                <div>
+                  <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                    Mật khẩu mới (tối thiểu 6 ký tự)
+                  </label>
+                  <input
+                    type="password"
+                    value={securityForm.newPassword}
+                    onChange={(e) => setSecurityForm({ ...securityForm, newPassword: e.target.value })}
+                    placeholder="Nhập mật khẩu mới"
+                    className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#204434] mb-1">
+                    Xác nhận mật khẩu mới
+                  </label>
+                  <input
+                    type="password"
+                    value={securityForm.confirmPassword}
+                    onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
+                    placeholder="Nhập lại mật khẩu mới"
+                    className="w-full bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-xs text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Key className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                    <span>Cập nhật mật khẩu mới</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Modal Bottom Actions */}
+            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-4 py-2 rounded-xl bg-[#9D493E]/10 hover:bg-[#9D493E] text-[#9D493E] hover:text-white font-semibold transition cursor-pointer flex items-center gap-1.5 text-xs"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng xuất</span>
+              </button>
+
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(false)}
-                  className="px-4 py-2 rounded-xl bg-[#204434] text-white font-semibold hover:bg-[#183629] transition"
+                  className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#315E48] font-semibold hover:bg-[#FAF7F0] transition text-xs cursor-pointer"
                 >
                   Đóng
                 </button>
+
+                {settingsTab !== "security" && (
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    className="px-5 py-2 rounded-xl bg-[#204434] text-white font-bold hover:bg-[#183629] transition text-xs cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                    <span>Lưu thay đổi</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

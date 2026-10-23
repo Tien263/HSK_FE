@@ -1628,6 +1628,10 @@ export default function TeacherDashboard() {
               onClassCountChange={() => {
                 if (currentUser) fetchTeacherData(currentUser);
               }}
+              onAssignNew={(classId) => {
+                setAssignClassId(classId);
+                setActiveTab("assignments");
+              }}
             />
           )}
 

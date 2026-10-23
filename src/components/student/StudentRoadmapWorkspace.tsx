@@ -14,7 +14,10 @@ import {
   BookOpen,
   ChevronRight,
   Award,
+  Clock,
+  Zap,
 } from "lucide-react";
+import { OFFICIAL_HSK1_15_LESSONS } from "@/lib/hsk1-full-lessons";
 
 interface StudentRoadmapWorkspaceProps {
   currentUser?: any;
@@ -42,7 +45,7 @@ export default function StudentRoadmapWorkspace({
             Lộ trình học tập chưa được kích hoạt
           </h3>
           <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
-            Lộ trình cá nhân hóa được mở khóa và đồng bộ trực tiếp theo giáo trình của lớp bạn theo học. Hãy tham gia lớp học để mở khóa toàn bộ các chặng học tập từ HSK 1 đến HSK 6!
+            Lộ trình học tập 15 bài học HSK 1 được đồng bộ trực tiếp theo giáo trình của lớp bạn theo học. Hãy tham gia lớp học để mở khóa toàn bộ các chặng học tập từ HSK 1 đến HSK 6!
           </p>
         </div>
         <div className="pt-2">
@@ -58,47 +61,55 @@ export default function StudentRoadmapWorkspace({
     );
   }
 
-  // Roadmap Stages for HSK 1
+  // 4 Stages covering all 15 official HSK 1 lessons
   const stages = [
     {
       id: "stage-1",
-      title: "Chặng 1: Nền tảng Ngữ âm & 50 Hán tự đầu tiên",
-      desc: "Làm chủ 21 Thanh mẫu, 36 Vận mẫu, 4 Thanh điệu và quy tắc biến âm. Nhận diện các nét bút cơ bản.",
+      stageNumber: 1,
+      title: "Chặng 1: Nền tảng Ngữ âm & Chào hỏi ban đầu",
+      desc: "Làm chủ 21 Thanh mẫu, 36 Vận mẫu, 4 Thanh điệu và các mẫu câu chào hỏi, giới thiệu tên tuổi, gia đình.",
       status: "COMPLETED",
       progress: 100,
-      lessonsCount: 4,
       xpEarned: 450,
-      badge: "Phát âm chuẩn xác",
+      badge: "Ngữ âm chuẩn xác",
+      lessonIds: [1, 2, 3, 4],
+      lessons: OFFICIAL_HSK1_15_LESSONS.slice(0, 4),
     },
     {
       id: "stage-2",
-      title: "Chặng 2: Giao tiếp chào hỏi & Bản thân",
-      desc: "Học cách tự giới thiệu bản thân, quốc tịch, gia đình, nghề nghiệp và câu hỏi nghi vấn 吗, 呢.",
+      stageNumber: 2,
+      title: "Chặng 2: Sinh hoạt, Thời gian & Nghỉ ngơi",
+      desc: "Học cách nói về ngày nghỉ, trao đổi số điện thoại, thời gian biểu tan làm và nghề nghiệp của các thành viên gia đình.",
       status: "IN_PROGRESS",
-      progress: 65,
-      lessonsCount: 5,
-      xpEarned: 280,
-      badge: "Giao tiếp cơ bản",
+      progress: 50,
+      xpEarned: 320,
+      badge: "Giao tiếp sinh hoạt",
+      lessonIds: [5, 6, 7, 8],
+      lessons: OFFICIAL_HSK1_15_LESSONS.slice(4, 8),
     },
     {
       id: "stage-3",
-      title: "Chặng 3: Mua sắm, Số đếm & Thời gian",
-      desc: "Nói về giờ giấc, ngày tháng năm, giá cả hàng hóa, cấu trúc 太...了 và trợ từ ngữ khí 了.",
+      stageNumber: 3,
+      title: "Chặng 3: Học tập, Mua sắm & Đời sống",
+      desc: "Nói về trường học, hỏi giá cả mua sắm đồ ăn thức uống, đời sống sinh viên đại học và dự báo thời tiết.",
       status: "LOCKED",
       progress: 0,
-      lessonsCount: 5,
       xpEarned: 0,
-      badge: "Sinh hoạt thực tế",
+      badge: "Đời sống thực tế",
+      lessonIds: [9, 10, 11, 12],
+      lessons: OFFICIAL_HSK1_15_LESSONS.slice(8, 12),
     },
     {
       id: "stage-4",
-      title: "Chặng 4: Vượt ải HSK 1 & Thi thử trực tuyến",
-      desc: "Tổng hợp 150 từ vựng cốt lõi HSK 1, 15 chủ điểm ngữ pháp và luyện 3 bộ đề thi thử chuẩn format 2026.",
+      stageNumber: 4,
+      title: "Chặng 4: Giao tiếp mở rộng & Vượt ải HSK 1",
+      desc: "Mẫu câu gọi món/uống trà, xem phim giải trí, hẹn gặp tại sân bay và tổng kết 150 từ vựng cốt lõi chuẩn bị thi.",
       status: "LOCKED",
       progress: 0,
-      lessonsCount: 4,
       xpEarned: 0,
-      badge: "Chứng chỉ HSK 1",
+      badge: "Chiến binh HSK 1",
+      lessonIds: [13, 14, 15],
+      lessons: OFFICIAL_HSK1_15_LESSONS.slice(12, 15),
     },
   ];
 
@@ -109,14 +120,14 @@ export default function StudentRoadmapWorkspace({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-serif font-bold text-[#204434]">
-              Lộ trình chinh phục HSK 3.0
+              Lộ trình 15 Bài học HSK 1
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] text-xs font-semibold border border-[#204434]/20">
-              Cây tiến trình
+              4 Chặng bứt phá
             </span>
           </div>
           <p className="text-xs text-[#315E48] mt-1">
-            Bản đồ học tập cá nhân hóa từng chặng từ HSK 1 đến HSK 6 theo tiêu chuẩn Khung năng lực tiếng Trung Quốc tế.
+            Bản đồ tiến trình theo sát 15 bài học chính thức. Giáo viên mở bài học theo lịch và kết quả kiểm tra từng chặng.
           </p>
         </div>
 
@@ -147,17 +158,17 @@ export default function StudentRoadmapWorkspace({
             </div>
             <div>
               <h3 className="font-serif font-bold text-base text-[#204434]">
-                Tiến độ cấp độ HSK {selectedHskLevel} (Sơ cấp)
+                Tiến độ cấp độ HSK {selectedHskLevel} (Sơ cấp 15 bài)
               </h3>
               <p className="text-xs text-[#315E48]">
-                Đã hoàn thành 1 / 4 chặng học tập (41% toàn cấp độ)
+                Đã hoàn thành 1 / 4 chặng học tập (Tổng 15 bài học cốt lõi)
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-[#8F6D3B] bg-[#FFFBF0] px-3 py-1 rounded-full border border-[#BC9B6B]/40">
-              🎯 Mục tiêu: Đạt 195/200 điểm
+              🎯 Mục tiêu: Đạt 190+/200 điểm HSK 1
             </span>
           </div>
         </div>
@@ -165,20 +176,20 @@ export default function StudentRoadmapWorkspace({
         {/* Progress Bar */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-medium text-[#315E48]">
-            <span>Tổng tiến độ</span>
-            <span className="font-bold text-[#204434]">41%</span>
+            <span>Tổng tiến độ toàn khóa</span>
+            <span className="font-bold text-[#204434]">40%</span>
           </div>
           <div className="h-3 w-full bg-[#E5DEC9]/50 rounded-full overflow-hidden p-0.5">
             <div
               className="h-full bg-gradient-to-r from-[#204434] to-[#315E48] rounded-full transition-all duration-700"
-              style={{ width: "41%" }}
+              style={{ width: "40%" }}
             />
           </div>
         </div>
       </div>
 
       {/* Roadmap Path Stages */}
-      <div className="space-y-4 relative">
+      <div className="space-y-5 relative">
         {stages.map((stg, idx) => {
           const isCompleted = stg.status === "COMPLETED";
           const isInProgress = stg.status === "IN_PROGRESS";
@@ -192,10 +203,10 @@ export default function StudentRoadmapWorkspace({
                   ? "bg-[#FFFCF6] border-emerald-200"
                   : isInProgress
                   ? "bg-[#FFFCF6] border-[#BC9B6B] ring-2 ring-[#BC9B6B]/20"
-                  : "bg-[#FAF7F0]/60 border-[#E5DEC9] opacity-75"
+                  : "bg-[#FAF7F0]/60 border-[#E5DEC9] opacity-80"
               }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-[#E5DEC9]/70">
                 <div className="flex items-start gap-4">
                   {/* Status Icon */}
                   <div
@@ -220,7 +231,7 @@ export default function StudentRoadmapWorkspace({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48]">
-                        Bước {idx + 1}
+                        Chặng {idx + 1}
                       </span>
                       {isInProgress && (
                         <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
@@ -241,8 +252,8 @@ export default function StudentRoadmapWorkspace({
                       {stg.desc}
                     </p>
 
-                    <div className="flex items-center gap-4 text-xs text-[#315E48] pt-2">
-                      <span>{stg.lessonsCount} bài học</span>
+                    <div className="flex items-center gap-4 text-xs text-[#315E48] pt-1">
+                      <span>{stg.lessons.length} bài học</span>
                       <span>•</span>
                       <span className="text-[#8F6D3B] font-semibold">+{stg.xpEarned} XP</span>
                       <span>•</span>
@@ -261,7 +272,7 @@ export default function StudentRoadmapWorkspace({
                       onClick={() => onNavigateToTab?.("lessons")}
                       className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer transition"
                     >
-                      <span>Vào học tiếp</span>
+                      <span>Vào học chặng này</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   ) : isCompleted ? (
@@ -269,14 +280,47 @@ export default function StudentRoadmapWorkspace({
                       onClick={() => onNavigateToTab?.("lessons")}
                       className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] cursor-pointer"
                     >
-                      Xem lại bài học
+                      Xem lại các bài
                     </button>
                   ) : (
                     <span className="text-xs text-gray-400 font-medium flex items-center gap-1">
                       <Lock className="w-3.5 h-3.5" />
-                      <span>Cần hoàn thành chặng trước</span>
+                      <span>Chờ giáo viên mở khóa</span>
                     </span>
                   )}
+                </div>
+              </div>
+
+              {/* Danh sách các bài học thuộc chặng */}
+              <div className="pt-4 space-y-2">
+                <span className="text-[11px] font-bold text-[#204434] block">Các bài học trong chặng:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {stg.lessons.map((ls) => (
+                    <div
+                      key={ls.id}
+                      onClick={() => onNavigateToTab?.("lessons")}
+                      className="p-3 rounded-2xl bg-white/80 border border-[#E5DEC9] hover:border-[#204434] hover:shadow-xs transition cursor-pointer flex flex-col justify-between space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold text-[#8F6D3B]">
+                          Bài {String(ls.number).padStart(2, "0")}
+                        </span>
+                        <span className="text-[10px] text-[#315E48] font-medium">{ls.durationMin}p</span>
+                      </div>
+                      <div>
+                        <div className="font-serif font-bold text-sm text-[#204434] truncate">
+                          {ls.titleZh}
+                        </div>
+                        <div className="text-[11px] text-[#315E48] truncate">
+                          {ls.titleVi}
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-[#315E48]/70 flex items-center justify-between pt-1 border-t border-[#E5DEC9]/40">
+                        <span>{ls.vocabCount} từ mới</span>
+                        <ChevronRight className="w-3 h-3 text-[#204434]" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

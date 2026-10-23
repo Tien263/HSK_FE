@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import HanziPracticeModal from "./HanziPracticeModal";
+import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import {
   BookOpen,
   Search,
@@ -18,6 +19,11 @@ import {
   Bookmark,
   PenTool,
   Mic,
+  Zap,
+  HelpCircle,
+  Headphones,
+  Globe,
+  Award,
 } from "lucide-react";
 
 interface StudentLessonsWorkspaceProps {
@@ -35,8 +41,8 @@ export default function StudentLessonsWorkspace({
 }: StudentLessonsWorkspaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedHsk, setSelectedHsk] = useState(1);
-  const [selectedLessonModal, setSelectedLessonModal] = useState<any | null>(null);
-  const [lessonModalTab, setLessonModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "CULTURE">("VOCAB");
+  const [selectedLessonModal, setSelectedLessonModal] = useState<Hsk1FullLesson | null>(null);
+  const [lessonModalTab, setLessonModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "PHONETICS" | "CULTURE">("VOCAB");
   const [practiceWord, setPracticeWord] = useState<{ hanzi: string; pinyin: string; meaning: string } | null>(null);
 
   if (classesCount === 0) {
@@ -50,7 +56,7 @@ export default function StudentLessonsWorkspace({
             Kho bài học lớp học chưa được mở khóa
           </h3>
           <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
-            Toàn bộ kho bài giảng, tài liệu buổi học, bài tập và audio phát âm chuẩn Bắc Kinh được đồng bộ theo lớp học của bạn. Hãy nhập mã mời của lớp để mở khóa kho bài học ngay nhé!
+            Toàn bộ 15 bài học HSK 1 chuẩn cùng giáo trình, audio phát âm và bài giảng được đồng bộ theo lớp học của bạn. Hãy nhập mã mời của lớp để mở khóa kho bài học ngay nhé!
           </p>
         </div>
         <div className="pt-2">
@@ -66,144 +72,21 @@ export default function StudentLessonsWorkspace({
     );
   }
 
-  // Sample structured HSK lessons
-  const lessons = [
-    {
-      id: "lesson-01",
-      number: 1,
-      titleZh: "你好",
-      pinyin: "Nǐ hǎo",
-      titleVi: "Xin chào",
-      desc: "Làm quen với các cách chào hỏi cơ bản, đại từ nhân xưng 你, 我, 他/她 và cách đáp lễ lịch sự.",
-      vocabCount: 8,
-      grammarCount: 2,
-      durationMin: 30,
-      status: "COMPLETED",
-      vocabList: [
-        { hanzi: "你", pinyin: "nǐ", meaning: "Bạn, anh, chị (ngôi thứ 2 số ít)" },
-        { hanzi: "好", pinyin: "hǎo", meaning: "Tốt, khỏe, đẹp" },
-        { hanzi: "您", pinyin: "nín", meaning: "Ngài, ông, bà (kính ngữ)" },
-        { hanzi: "你们", pinyin: "nǐmen", meaning: "Các bạn, các anh" },
-        { hanzi: "对不起", pinyin: "duìbuqǐ", meaning: "Xin lỗi" },
-        { hanzi: "没关系", pinyin: "méi guānxi", meaning: "Không sao đâu, không có gì" },
-      ],
-      grammarList: [
-        {
-          title: "Đại từ nhân xưng và cách chào hỏi",
-          structure: "Đại từ + 好！",
-          example: "你好！(Chào bạn!) · 老师好！(Chào thầy/cô!)",
-        },
-        {
-          title: "Biến âm thanh 3 (Tam thanh biến điệu)",
-          structure: "Thanh 3 + Thanh 3 ➔ Thanh 2 + Thanh 3",
-          example: "Nǐ + hǎo ➔ Ní hǎo (viết vẫn giữ nguyên dấu nǐ hǎo)",
-        },
-      ],
-      dialogue: [
-        { speaker: "A", zh: "你好！", pinyin: "Nǐ hǎo!", vi: "Xin chào!" },
-        { speaker: "B", zh: "你好！很高兴认识你。", pinyin: "Nǐ hǎo! Hěn gāoxìng rènshí nǐ.", vi: "Chào bạn! Rất vui được quen biết bạn." },
-      ],
-      culture: "Văn hóa cúi chào và kính ngữ 您 (Nín) trong giao tiếp truyền thống Trung Hoa đối với người lớn tuổi và cấp trên.",
-    },
-    {
-      id: "lesson-02",
-      number: 2,
-      titleZh: "谢谢你",
-      pinyin: "Xièxie nǐ",
-      titleVi: "Cảm ơn bạn",
-      desc: "Học cách bày tỏ lòng cảm ơn, lời đáp từ chối lịch sự 不客气 và từ biệt 再见.",
-      vocabCount: 6,
-      grammarCount: 2,
-      durationMin: 35,
-      status: "COMPLETED",
-      vocabList: [
-        { hanzi: "谢谢", pinyin: "xièxie", meaning: "Cảm ơn" },
-        { hanzi: "不", pinyin: "bù", meaning: "Không (phó từ phủ định)" },
-        { hanzi: "客气", pinyin: "kèqi", meaning: "Khách khí, khách sáo" },
-        { hanzi: "再见", pinyin: "zàijiàn", meaning: "Tạm biệt" },
-      ],
-      grammarList: [
-        {
-          title: "Phủ định với phó từ 不 (Bù)",
-          structure: "不 + Tính từ / Động từ",
-          example: "不好 (Không tốt) · 不客气 (Không cần khách sáo)",
-        },
-      ],
-      dialogue: [
-        { speaker: "A", zh: "谢谢你！", pinyin: "Xièxie nǐ!", vi: "Cảm ơn bạn!" },
-        { speaker: "B", zh: "不客气！", pinyin: "Bú kèqi!", vi: "Đừng khách sáo!" },
-      ],
-      culture: "Nghệ thuật cảm ơn và văn hóa đáp từ khi nhận quà trong phong tục Trung Quốc.",
-    },
-    {
-      id: "lesson-03",
-      number: 3,
-      titleZh: "你叫什么名字？",
-      pinyin: "Nǐ jiào shénme míngzi?",
-      titleVi: "Bạn tên là gì?",
-      desc: "Hỏi và giới thiệu tên tuổi, họ tên, quốc tịch với đại từ nghi vấn 什么 và động từ 是.",
-      vocabCount: 10,
-      grammarCount: 3,
-      durationMin: 45,
-      status: "IN_PROGRESS",
-      vocabList: [
-        { hanzi: "叫", pinyin: "jiào", meaning: "Gọi là, tên là" },
-        { hanzi: "什么", pinyin: "shénme", meaning: "Cái gì, gì (đại từ nghi vấn)" },
-        { hanzi: "名字", pinyin: "míngzi", meaning: "Tên" },
-        { hanzi: "我", pinyin: "wǒ", meaning: "Tôi, mình (ngôi thứ 1)" },
-        { hanzi: "是", pinyin: "shì", meaning: "Là (động từ 是)" },
-        { hanzi: "老师", pinyin: "lǎoshī", meaning: "Giáo viên, thầy cô" },
-        { hanzi: "学生", pinyin: "xuésheng", meaning: "Học sinh, sinh viên" },
-      ],
-      grammarList: [
-        {
-          title: "Câu hỏi với đại từ nghi vấn 什么 (Shénme)",
-          structure: "Chủ ngữ + Động từ + 什么 + (Danh từ)?",
-          example: "你叫什么名字？(Bạn tên là gì?)",
-        },
-        {
-          title: "Câu phán đoán với động từ 是 (Shì)",
-          structure: "A + 是 + B",
-          example: "我是老师。(Tôi là giáo viên.) · 我不是学生。(Tôi không phải học sinh.)",
-        },
-      ],
-      dialogue: [
-        { speaker: "A", zh: "你叫什么名字？", pinyin: "Nǐ jiào shénme míngzi?", vi: "Bạn tên là gì?" },
-        { speaker: "B", zh: "我叫李月。你呢？", pinyin: "Wǒ jiào Lǐ Yuè. Nǐ ne?", vi: "Tôi tên là Lý Nguyệt. Còn bạn thì sao?" },
-      ],
-      culture: "Ý nghĩa của cấu trúc Họ và Tên trong văn hóa chữ Hán: Họ đặt trước, Tên đặt sau.",
-    },
-    {
-      id: "lesson-04",
-      number: 4,
-      titleZh: "他是我的汉语老师",
-      pinyin: "Tā shì wǒ de hànyǔ lǎoshī",
-      titleVi: "Thầy ấy là giáo viên tiếng Trung của tôi",
-      desc: "Trợ từ kết cấu 的 biểu thị sở hữu, phân biệt 他 (nam) và 她 (nữ), câu hỏi xác nhận 吗.",
-      vocabCount: 9,
-      grammarCount: 2,
-      durationMin: 40,
-      status: "NOT_STARTED",
-      vocabList: [
-        { hanzi: "她", pinyin: "tā", meaning: "Cô ấy, bà ấy (ngôi 3 nữ)" },
-        { hanzi: "谁", pinyin: "shéi / shuí", meaning: "Ai (đại từ nghi vấn)" },
-        { hanzi: "的", pinyin: "de", meaning: "Của (trợ từ sở hữu)" },
-        { hanzi: "汉语", pinyin: "hànyǔ", meaning: "Tiếng Trung, Hán ngữ" },
-      ],
-      grammarList: [
-        {
-          title: "Trợ từ sở hữu 的 (De)",
-          structure: "Định ngữ + 的 + Trung tâm ngữ",
-          example: "我的汉语老师 (Giáo viên tiếng Trung của tôi)",
-        },
-      ],
-      dialogue: [
-        { speaker: "A", zh: "她是谁？", pinyin: "Tā shì shéi?", vi: "Cô ấy là ai thế?" },
-        { speaker: "B", zh: "她是我的汉语老师。", pinyin: "Tā shì wǒ de hànyǔ lǎoshī.", vi: "Cô ấy là giáo viên tiếng Trung của mình." },
-      ],
-      culture: "Nguồn gốc tên gọi 'Hán ngữ' (汉语) bắt nguồn từ thời nhà Hán.",
-    },
-  ];
+  // Use the 15 official HSK 1 lessons
+  const allLessons = OFFICIAL_HSK1_15_LESSONS;
+
+  // Filter lessons by search query
+  const filteredLessons = allLessons.filter((ls) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      ls.titleZh.toLowerCase().includes(query) ||
+      ls.titleVi.toLowerCase().includes(query) ||
+      ls.pinyin.toLowerCase().includes(query) ||
+      ls.desc.toLowerCase().includes(query) ||
+      `bài ${ls.number}`.includes(query)
+    );
+  });
 
   const handleSpeak = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -215,6 +98,23 @@ export default function StudentLessonsWorkspace({
     }
   };
 
+  const handleGoToPractice = (lesson: Hsk1FullLesson) => {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("hanyu_practice_target_lesson", JSON.stringify({
+          number: lesson.number,
+          titleZh: lesson.titleZh,
+          titleVi: lesson.titleVi,
+          vocabList: lesson.vocabList,
+        }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setSelectedLessonModal(null);
+    onNavigateToTab?.("practice");
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Header */}
@@ -222,14 +122,14 @@ export default function StudentLessonsWorkspace({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-serif font-bold text-[#204434]">
-              Kho bài học Chuẩn HSK
+              Kho bài học Chuẩn HSK 1
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] text-xs font-semibold border border-[#204434]/20">
-              Giáo trình điện tử
+              15 Bài học chính thức
             </span>
           </div>
           <p className="text-xs text-[#315E48] mt-1">
-            Toàn bộ bài giảng chuẩn theo sách Giáo trình Chuẩn HSK Standard Course tích hợp từ vựng, ngữ pháp, audio và văn hóa.
+            Đồng bộ theo lịch giảng dạy của giáo viên. Mỗi bài học gồm 5 phần chuẩn: Từ vựng, Ngữ pháp, Hội thoại, Ngữ âm và Góc văn hóa.
           </p>
         </div>
 
@@ -238,7 +138,7 @@ export default function StudentLessonsWorkspace({
           <Search className="w-3.5 h-3.5 text-[#8ea394] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Tìm bài học, chủ điểm..."
+            placeholder="Tìm bài học (VD: Lý Văn, số điện thoại, AI...)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-xl pl-9 pr-3 py-2 text-xs text-[#204434] focus:outline-hidden w-64 shadow-2xs"
@@ -247,21 +147,26 @@ export default function StudentLessonsWorkspace({
       </div>
 
       {/* Grid bài học */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {lessons.map((ls) => {
-          const isDone = ls.status === "COMPLETED";
-          const isCurrent = ls.status === "IN_PROGRESS";
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredLessons.map((ls) => {
+          // Status progression simulation based on lesson index
+          const isDone = ls.number <= 2;
+          const isCurrent = ls.number === 3;
+          const isUnlocked = ls.number <= 6 || ls.isUnlockedDefault;
 
           return (
             <div
               key={ls.id}
-              onClick={() => setSelectedLessonModal(ls)}
-              className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] transition cursor-pointer flex flex-col justify-between space-y-3 group"
+              onClick={() => {
+                setSelectedLessonModal(ls);
+                setLessonModalTab("VOCAB");
+              }}
+              className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs hover:border-[#204434] hover:shadow-md transition cursor-pointer flex flex-col justify-between space-y-3 group"
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] font-mono font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48]">
-                    Bài {ls.number} · HSK {selectedHsk}
+                    Bài {String(ls.number).padStart(2, "0")} · HSK {selectedHsk}
                   </span>
 
                   {isDone ? (
@@ -270,43 +175,43 @@ export default function StudentLessonsWorkspace({
                       <span>Đã học</span>
                     </span>
                   ) : isCurrent ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
                       Đang học
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
-                      Chưa học
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#FAF7F0] text-[#315E48] border border-[#E5DEC9]/80">
+                      {ls.unlockedScheduleText}
                     </span>
                   )}
                 </div>
 
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-[#204434] group-hover:underline flex items-baseline gap-2">
+                  <h3 className="font-serif font-bold text-lg text-[#204434] group-hover:text-emerald-900 transition flex items-baseline gap-2">
                     <span>{ls.titleZh}</span>
-                    <span className="text-xs font-sans font-normal text-[#8F6D3B]">
-                      {ls.pinyin}
-                    </span>
                   </h3>
-                  <p className="text-xs font-medium text-[#315E48] mt-0.5">
+                  <div className="text-xs font-sans font-semibold text-[#8F6D3B]">
+                    {ls.pinyin}
+                  </div>
+                  <p className="text-xs font-medium text-[#204434] mt-0.5">
                     {ls.titleVi}
                   </p>
-                  <p className="text-xs text-[#315E48]/80 mt-1.5 line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-[#315E48]/85 mt-1.5 line-clamp-2 leading-relaxed">
                     {ls.desc}
                   </p>
                 </div>
               </div>
 
               <div className="pt-3 border-t border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
-                <div className="flex items-center gap-3">
-                  <span>{ls.vocabCount} từ mới</span>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span>{ls.vocabCount} từ</span>
                   <span>•</span>
                   <span>{ls.grammarCount} ngữ pháp</span>
                   <span>•</span>
-                  <span>{ls.durationMin} phút</span>
+                  <span>{ls.durationMin}p</span>
                 </div>
 
                 <span className="text-xs font-bold text-[#204434] group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                  <span>Mở học</span>
+                  <span>Mở 5 phần</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </span>
               </div>
@@ -315,85 +220,104 @@ export default function StudentLessonsWorkspace({
         })}
       </div>
 
-      {/* Modal xem chi tiết bài học */}
+      {filteredLessons.length === 0 && (
+        <div className="p-8 text-center text-xs text-[#315E48] bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9]">
+          Không tìm thấy bài học nào phù hợp với từ khóa &quot;{searchQuery}&quot;.
+        </div>
+      )}
+
+      {/* Modal xem chi tiết 5 phần của bài học */}
       {selectedLessonModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-2xl rounded-3xl p-6 shadow-2xl flex flex-col justify-between space-y-4 max-h-[90vh] overflow-y-auto animate-scaleUp">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-3xl rounded-3xl p-6 shadow-2xl flex flex-col justify-between space-y-4 max-h-[92vh] overflow-y-auto animate-scaleUp">
             {/* Modal Header */}
             <div className="flex items-start justify-between pb-3 border-b border-[#E5DEC9]">
               <div>
                 <span className="text-[11px] font-mono uppercase font-bold text-[#8F6D3B]">
-                  Bài {selectedLessonModal.number} · HSK {selectedHsk}
+                  Bài {String(selectedLessonModal.number).padStart(2, "0")} · Giáo trình HSK 1 Chuẩn
                 </span>
-                <h3 className="font-serif font-bold text-xl text-[#204434] mt-0.5 flex items-baseline gap-2">
+                <h3 className="font-serif font-bold text-2xl text-[#204434] mt-0.5 flex items-baseline gap-2">
                   <span>{selectedLessonModal.titleZh}</span>
                   <span className="text-sm font-sans font-normal text-[#8F6D3B]">
                     {selectedLessonModal.pinyin}
                   </span>
                 </h3>
-                <p className="text-xs text-[#315E48]">{selectedLessonModal.titleVi}</p>
+                <p className="text-xs font-semibold text-[#315E48]">{selectedLessonModal.titleVi}</p>
+                <p className="text-xs text-[#315E48]/80 mt-1">{selectedLessonModal.desc}</p>
               </div>
 
               <button
                 onClick={() => setSelectedLessonModal(null)}
-                className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* 4 Tabs trong bài học */}
-            <div className="flex items-center gap-2 border-b border-[#E5DEC9] pb-2">
+            {/* 5 Tabs chuẩn trong bài học */}
+            <div className="flex items-center gap-1.5 border-b border-[#E5DEC9] pb-2 overflow-x-auto">
               {[
-                { id: "VOCAB", label: `Từ vựng (${selectedLessonModal.vocabList.length})` },
-                { id: "GRAMMAR", label: `Ngữ pháp (${selectedLessonModal.grammarList.length})` },
-                { id: "DIALOGUE", label: "Hội thoại mẫu" },
-                { id: "CULTURE", label: "Góc văn hóa" },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setLessonModalTab(t.id as any)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                    lessonModalTab === t.id
-                      ? "bg-[#204434] text-white shadow-xs"
-                      : "text-[#315E48] hover:bg-[#FAF7F0] hover:text-[#204434]"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+                { id: "VOCAB", label: `1. Từ vựng (${selectedLessonModal.vocabList.length})`, icon: BookOpen },
+                { id: "GRAMMAR", label: `2. Ngữ pháp (${selectedLessonModal.grammarList.length})`, icon: Sparkles },
+                { id: "DIALOGUE", label: "3. Bài đọc & Hội thoại", icon: Headphones },
+                { id: "PHONETICS", label: "4. Ngữ âm & Phát âm", icon: Mic },
+                { id: "CULTURE", label: "5. Văn hóa & Hoạt động", icon: Globe },
+              ].map((t) => {
+                const IconComp = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setLessonModalTab(t.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                      lessonModalTab === t.id
+                        ? "bg-[#204434] text-white shadow-xs"
+                        : "text-[#315E48] hover:bg-[#FAF7F0] hover:text-[#204434]"
+                    }`}
+                  >
+                    <IconComp className="w-3.5 h-3.5" />
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Tab 1: Từ vựng */}
             {lessonModalTab === "VOCAB" && (
-              <div className="space-y-2">
-                {selectedLessonModal.vocabList.map((v: any, idx: number) => (
+              <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                {selectedLessonModal.vocabList.map((v, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex items-center justify-between"
+                    className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#204434]/40 transition"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-start gap-3">
                       <button
                         onClick={() => handleSpeak(v.hanzi)}
-                        className="w-8 h-8 rounded-full bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#204434] hover:text-white transition flex items-center justify-center cursor-pointer"
-                        title="Nghe phát âm"
+                        className="w-8 h-8 rounded-full bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#204434] hover:text-white transition flex items-center justify-center cursor-pointer shrink-0 mt-0.5"
+                        title="Nghe phát âm chuẩn"
                       >
                         <Volume2 className="w-4 h-4" />
                       </button>
-                      <div>
+                      <div className="space-y-0.5">
                         <div className="flex items-baseline gap-2">
-                          <span className="font-serif font-bold text-base text-[#204434]">
+                          <span className="font-serif font-bold text-lg text-[#204434]">
                             {v.hanzi}
                           </span>
-                          <span className="text-xs font-mono text-[#8F6D3B]">{v.pinyin}</span>
+                          <span className="text-xs font-mono font-semibold text-[#8F6D3B]">{v.pinyin}</span>
                         </div>
-                        <p className="text-xs text-[#315E48] mt-0.5">{v.meaning}</p>
+                        <p className="text-xs font-medium text-[#204434]">{v.meaning}</p>
+                        {v.exampleZh && (
+                          <div className="text-[11px] text-[#315E48] pt-1">
+                            <span className="font-serif font-bold text-[#204434]">{v.exampleZh}</span>
+                            <span className="text-[#8F6D3B] ml-1.5 font-mono">({v.examplePy})</span>:
+                            <span className="ml-1 text-[#315E48]/90">{v.exampleVi}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <button
                       onClick={() => setPracticeWord(v)}
-                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] hover:bg-[#204434] hover:text-white text-[#204434] text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+                      className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] hover:bg-[#204434] hover:text-white text-[#204434] text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer shrink-0 self-end sm:self-auto"
                       title="Luyện viết nét bút & Micro AI"
                     >
                       <PenTool className="w-3 h-3 text-[#BC9B6B]" />
@@ -406,58 +330,131 @@ export default function StudentLessonsWorkspace({
 
             {/* Tab 2: Ngữ pháp */}
             {lessonModalTab === "GRAMMAR" && (
-              <div className="space-y-3">
-                {selectedLessonModal.grammarList.map((g: any, idx: number) => (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                {selectedLessonModal.grammarList.map((g, idx) => (
                   <div key={idx} className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2 text-xs">
-                    <h5 className="font-bold text-sm text-[#204434]">{g.title}</h5>
-                    <div className="p-2.5 rounded-xl bg-white border border-[#E5DEC9]/80 font-mono text-emerald-900 font-semibold">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#204434] text-white text-[10px] font-bold flex items-center justify-center">
+                        {idx + 1}
+                      </span>
+                      <h5 className="font-bold text-sm text-[#204434]">{g.title}</h5>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white border border-[#E5DEC9]/80 font-mono text-emerald-950 font-bold text-xs">
                       {g.structure}
                     </div>
-                    <p className="text-[#315E48]">{g.example}</p>
+                    <div className="text-[#315E48] font-medium">
+                      <span className="font-bold text-[#204434]">Ví dụ mẫu: </span>
+                      {g.example}
+                    </div>
+                    {g.explanation && (
+                      <p className="text-[11px] text-[#315E48]/80 italic bg-[#FAF7F0] p-2 rounded-lg border border-[#E5DEC9]/50">
+                        {g.explanation}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Tab 3: Hội thoại */}
+            {/* Tab 3: Bài đọc & Hội thoại */}
             {lessonModalTab === "DIALOGUE" && (
-              <div className="space-y-2">
-                {selectedLessonModal.dialogue.map((d: any, idx: number) => (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+                  <span>Hội thoại chuẩn bài giảng (Bấm loa để nghe từng câu)</span>
+                  <button
+                    onClick={() => {
+                      const fullText = selectedLessonModal.dialogue.map(d => d.zh).join("。");
+                      handleSpeak(fullText);
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-white border border-emerald-300 text-emerald-900 font-bold hover:bg-emerald-100 flex items-center gap-1 text-[11px] cursor-pointer"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Nghe cả đoạn</span>
+                  </button>
+                </div>
+
+                {selectedLessonModal.dialogue.map((d, idx) => (
                   <div key={idx} className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex items-start gap-3">
                     <div className="w-7 h-7 rounded-full bg-[#204434] text-white text-xs font-bold flex items-center justify-center shrink-0">
                       {d.speaker}
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-serif font-bold text-sm text-[#204434]">{d.zh}</span>
-                        <span className="text-xs text-[#8F6D3B] font-mono">{d.pinyin}</span>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-serif font-bold text-base text-[#204434]">{d.zh}</span>
+                        <button
+                          onClick={() => handleSpeak(d.zh)}
+                          className="p-1 rounded-lg hover:bg-white text-[#204434] cursor-pointer"
+                          title="Nghe câu này"
+                        >
+                          <Volume2 className="w-3.5 h-3.5 text-[#315E48]" />
+                        </button>
                       </div>
-                      <p className="text-xs text-[#315E48]">{d.vi}</p>
+                      <p className="text-xs text-[#8F6D3B] font-mono font-medium">{d.pinyin}</p>
+                      <p className="text-xs text-[#315E48] font-medium">{d.vi}</p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Tab 4: Văn hóa */}
+            {/* Tab 4: Ngữ âm & Phát âm */}
+            {lessonModalTab === "PHONETICS" && (
+              <div className="p-5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-4 max-h-[50vh] overflow-y-auto">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono font-bold text-[#8F6D3B] uppercase">Quy tắc ngữ âm bài học</span>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">
+                    {selectedLessonModal.phonetics.title}
+                  </h4>
+                  <p className="text-xs text-[#315E48] leading-relaxed">
+                    {selectedLessonModal.phonetics.rule}
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <span className="text-xs font-bold text-[#204434] block mb-2">Các cặp từ luyện ngữ âm chuẩn:</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedLessonModal.phonetics.examples.map((ex, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl bg-white border border-[#E5DEC9] flex items-center justify-between text-xs"
+                      >
+                        <span className="font-mono font-bold text-[#204434]">{ex}</span>
+                        <button
+                          onClick={() => handleSpeak(ex.split(" ")[0])}
+                          className="p-1 rounded-lg hover:bg-[#FAF7F0] text-[#315E48] cursor-pointer"
+                        >
+                          <Volume2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 5: Góc văn hóa */}
             {lessonModalTab === "CULTURE" && (
-              <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-xs text-[#315E48] leading-relaxed">
-                <span className="font-bold text-sm text-[#204434] block mb-2">🏮 Văn hóa & Phong tục:</span>
-                <p>{selectedLessonModal.culture}</p>
+              <div className="p-5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-xs text-[#315E48] leading-relaxed space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🏮</span>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">
+                    Góc văn hóa & Ứng xử Trung Hoa
+                  </h4>
+                </div>
+                <div className="p-4 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] leading-relaxed space-y-2">
+                  <p>{selectedLessonModal.culture}</p>
+                </div>
               </div>
             )}
 
             {/* Modal Bottom Actions */}
-            <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between">
+            <div className="pt-3 border-t border-[#E5DEC9] flex flex-col sm:flex-row items-center justify-between gap-3">
               <button
-                onClick={() => {
-                  setSelectedLessonModal(null);
-                  onNavigateToTab?.("practice");
-                }}
-                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1.5"
+                onClick={() => handleGoToPractice(selectedLessonModal)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] text-white text-xs font-bold hover:shadow-md flex items-center justify-center gap-2 cursor-pointer transition"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
-                <span>Luyện từ vựng bài này</span>
+                <Zap className="w-4 h-4 text-[#BC9B6B]" />
+                <span>⚡ Vào phòng phản xạ từ vựng bài này</span>
               </button>
 
               <button
@@ -465,10 +462,10 @@ export default function StudentLessonsWorkspace({
                   setSelectedLessonModal(null);
                   onNavigateToTab?.("assignments");
                 }}
-                className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <FileCheck2 className="w-3.5 h-3.5" />
-                <span>Làm bài tập củng cố</span>
+                <FileCheck2 className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                <span>Làm bài tập & kiểm tra củng cố</span>
               </button>
             </div>
           </div>

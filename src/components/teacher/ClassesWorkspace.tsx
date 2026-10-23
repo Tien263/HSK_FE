@@ -98,9 +98,30 @@ interface ClassesWorkspaceProps {
     role: string;
   } | null;
   onClassCountChange?: (count: number) => void;
+  onAssignNew?: (classId: string) => void;
 }
 
-export default function ClassesWorkspace({ currentUser, onClassCountChange }: ClassesWorkspaceProps) {
+export interface ClassMaterialItem {
+  id: string;
+  classId: string;
+  title: string;
+  type: "PDF" | "AUDIO" | "SLIDE" | "EXCEL" | "DOC";
+  size: string;
+  url?: string;
+  createdAt: string;
+}
+
+export interface ClassScheduleItem {
+  id: string;
+  classId: string;
+  day: string;
+  time: string;
+  topic: string;
+  room: string;
+  meetUrl?: string;
+}
+
+export default function ClassesWorkspace({ currentUser, onClassCountChange, onAssignNew }: ClassesWorkspaceProps) {
   // 1. Classes list state (Loaded dynamically per teacher)
   const [classes, setClasses] = useState<ClassDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +133,59 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
   const [classSortBy, setClassSortBy] = useState<"NEWEST" | "OLDEST" | "NAME_ASC" | "NAME_DESC" | "STUDENTS_DESC">("NEWEST");
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
+
+  // Dynamic Materials Per Class
+  const [classMaterials, setClassMaterials] = useState<Record<string, ClassMaterialItem[]>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_teacher_class_materials");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
+
+  const saveMaterials = (newObj: Record<string, ClassMaterialItem[]>) => {
+    setClassMaterials(newObj);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hanyu_teacher_class_materials", JSON.stringify(newObj));
+    }
+  };
+
+  // Dynamic Schedules Per Class
+  const [classSchedules, setClassSchedules] = useState<Record<string, ClassScheduleItem[]>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_teacher_class_schedules");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
+
+  const saveSchedules = (newObj: Record<string, ClassScheduleItem[]>) => {
+    setClassSchedules(newObj);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hanyu_teacher_class_schedules", JSON.stringify(newObj));
+    }
+  };
+
+  // Dynamic Assignments Per Class
+  const [classAssignments, setClassAssignments] = useState<any[]>([]);
+
+  // Modals for Materials and Schedule
+  const [isAddMaterialModalOpen, setIsAddMaterialModalOpen] = useState(false);
+  const [newMatTitle, setNewMatTitle] = useState("");
+  const [newMatType, setNewMatType] = useState<"PDF" | "AUDIO" | "SLIDE" | "EXCEL" | "DOC">("PDF");
+  const [newMatSize, setNewMatSize] = useState("12.5 MB");
+  const [newMatUrl, setNewMatUrl] = useState("");
+
+  const [isAddScheduleModalOpen, setIsAddScheduleModalOpen] = useState(false);
+  const [newSchedDay, setNewSchedDay] = useState("Thứ Hai");
+  const [newSchedTime, setNewSchedTime] = useState("19:30 – 21:00");
+  const [newSchedTopic, setNewSchedTopic] = useState("");
+  const [newSchedRoom, setNewSchedRoom] = useState("Phòng học trực tuyến Google Meet");
+  const [newSchedMeetUrl, setNewSchedMeetUrl] = useState("https://meet.google.com/new");
 
   // 2. Class detail subtab
   const [detailSubTab, setDetailSubTab] = useState<
@@ -300,8 +374,9 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
       });
 
       const data = await res.json();
+      let mapped: StudentRowItem[] = [];
       if (data.success && Array.isArray(data.items)) {
-        const mapped: StudentRowItem[] = data.items.map((s: any) => ({
+        mapped = data.items.map((s: any) => ({
           id: s.id,
           name: s.name,
           username: s.username,
@@ -314,10 +389,44 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
           joinedDate: s.joinedAt ? new Date(s.joinedAt).toLocaleDateString("vi-VN") : "Hôm nay",
           avatar: s.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
         }));
-        setStudentsList(mapped);
-      } else {
-        setStudentsList([]);
       }
+
+      // Check if student enrolled in localStorage or currentUser
+      if (typeof window !== "undefined") {
+        try {
+          const profileRaw = localStorage.getItem("hanyu_study_profile");
+          const userRaw = localStorage.getItem("currentUser");
+          const thisClass = classes.find((c) => c.id === classId);
+          if (profileRaw && userRaw) {
+            const prof = JSON.parse(profileRaw);
+            const usr = JSON.parse(userRaw);
+            if (usr.role === "STUDENT" && (prof.classInfo?.id === classId || prof.classCode === thisClass?.code || prof.classCode === classId)) {
+              if (!mapped.some((s) => s.id === usr.id || s.username === usr.username)) {
+                mapped.push({
+                  id: usr.id,
+                  name: usr.name,
+                  username: usr.username,
+                  email: usr.email || `${usr.username}@gmail.com`,
+                  status: "LEARNING",
+                  statusText: "Đang học",
+                  progressPercent: 0,
+                  submittedAssignments: 0,
+                  totalAssignments: 10,
+                  joinedDate: "Hôm nay",
+                  avatar: usr.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80",
+                });
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      setStudentsList(mapped);
+
+      // Cập nhật studentCount trong classes
+      setClasses((prev) =>
+        prev.map((c) => (c.id === classId ? { ...c, studentCount: mapped.length } : c))
+      );
     } catch (err) {
       console.error("fetchClassStudents error:", err);
       setStudentsList([]);
@@ -326,11 +435,27 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
     }
   };
 
+  const fetchClassAssignments = async (classId: string) => {
+    try {
+      const res = await fetch(`/api/v1/assignments?classId=${classId}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.items)) {
+        setClassAssignments(data.items);
+      } else {
+        setClassAssignments([]);
+      }
+    } catch {
+      setClassAssignments([]);
+    }
+  };
+
   useEffect(() => {
     if (selectedClassId) {
       fetchClassStudents(selectedClassId);
+      fetchClassAssignments(selectedClassId);
     } else {
       setStudentsList([]);
+      setClassAssignments([]);
     }
   }, [selectedClassId]);
 
@@ -2395,16 +2520,55 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                   <p className="text-xs text-[#6B766D]">Theo dõi tỷ lệ hoàn thành, nhắc nộp bài và chấm điểm.</p>
                 </div>
                 <button
-                  onClick={() => showToast(`Đang chuyển sang tạo bài tập cho lớp ${currentClass.name}...`)}
-                  className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold shadow-2xs"
+                  onClick={() => {
+                    if (onAssignNew) {
+                      onAssignNew(currentClass.id);
+                    } else {
+                      showToast(`Đang chuyển sang tạo bài tập cho lớp ${currentClass.name}...`);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#1F513F] hover:bg-[#163c2f] text-white text-xs font-semibold shadow-2xs transition cursor-pointer"
                 >
                   + Giao bài tập mới
                 </button>
               </div>
 
-              <div className="p-8 text-center text-xs text-[#6B766D] border border-dashed border-[#E5DFD0] rounded-2xl bg-[#F7F5EE]/40">
-                Chưa có bài tập nào được giao riêng cho lớp này. Nhấn <strong>"+ Giao bài tập mới"</strong> để bắt đầu giao bài cho học viên!
-              </div>
+              {classAssignments.length === 0 ? (
+                <div className="p-8 text-center text-xs text-[#6B766D] border border-dashed border-[#E5DFD0] rounded-2xl bg-[#F7F5EE]/40 space-y-3">
+                  <FileCheck2 className="w-8 h-8 text-[#BC9B6B] mx-auto" />
+                  <p className="font-bold text-[#17382F]">Chưa có bài tập nào được giao riêng cho lớp này.</p>
+                  <p>Nhấn <strong>"+ Giao bài tập mới"</strong> để bắt đầu giao bài cho học viên!</p>
+                  <button
+                    onClick={() => onAssignNew?.(currentClass.id)}
+                    className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold"
+                  >
+                    + Giao bài tập ngay
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E5DFD0] border border-[#E5DFD0] rounded-2xl bg-white overflow-hidden">
+                  {classAssignments.map((asg: any) => (
+                    <div key={asg.id} className="p-4 flex items-center justify-between hover:bg-[#FDFBF7] transition">
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-sm text-[#17382F]">{asg.title}</h4>
+                        <div className="flex items-center gap-2 text-[11px] text-[#6B766D]">
+                          <span>Thời lượng: {asg.durationMin || 45} phút</span>
+                          <span>•</span>
+                          <span>Hạn nộp: {asg.dueAt ? new Date(asg.dueAt).toLocaleDateString("vi-VN") : "Không giới hạn"}</span>
+                          <span>•</span>
+                          <span className="text-emerald-700 font-semibold">{asg.submittedCount || 0}/{studentsList.length} đã nộp</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onAssignNew?.(currentClass.id)}
+                        className="px-3.5 py-1.5 rounded-xl border border-[#E5DFD0] text-[#17382F] hover:bg-[#F7F5EE] text-xs font-semibold"
+                      >
+                        Chấm bài & Quản lý
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -2419,39 +2583,67 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                   <p className="text-xs text-[#6B766D]">Giáo trình, file nghe MP3 và bài giảng của cô/thầy {currentUser?.name}.</p>
                 </div>
                 <button
-                  onClick={() => showToast("Đang mở trình chia sẻ tài liệu cho lớp...")}
-                  className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold shadow-2xs"
+                  onClick={() => setIsAddMaterialModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-[#1F513F] hover:bg-[#163c2f] text-white text-xs font-semibold shadow-2xs transition cursor-pointer"
                 >
                   + Thêm tài liệu
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { title: `Giáo trình Chuẩn HSK ${currentClass.name} (PDF Full)`, type: "PDF", size: "24.8 MB" },
-                  { title: "Trọn bộ 50 Audio bài tập luyện nghe", type: "AUDIO", size: "65.4 MB" },
-                  { title: "Slide bài giảng Chuyên đề: Cấu trúc câu thực chiến", type: "SLIDE", size: "14.2 MB" },
-                  { title: "Sổ tay từ vựng cốt lõi kèm pinyin", type: "EXCEL", size: "3.2 MB" },
-                ].map((m, i) => (
-                  <div key={i} className="p-4 rounded-2xl bg-white border border-[#E5DFD0] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#DCE8DB] text-[#1F513F] flex items-center justify-center font-bold text-xs shrink-0">
-                        {m.type}
+              {(!classMaterials[currentClass.id] || classMaterials[currentClass.id].length === 0) ? (
+                <div className="p-12 text-center text-xs text-[#6B766D] border border-dashed border-[#E5DFD0] rounded-2xl bg-[#F7F5EE]/40 space-y-3">
+                  <FileSpreadsheet className="w-8 h-8 text-[#BC9B6B] mx-auto" />
+                  <p className="font-bold text-[#17382F] text-sm">Chưa có tài liệu nào trong lớp học này</p>
+                  <p className="max-w-md mx-auto">
+                    Tài liệu của bạn đang trống. Nhấn nút <strong>"+ Thêm tài liệu"</strong> để tải lên giáo trình PDF, slide bài giảng hoặc file nghe MP3 cho học viên.
+                  </p>
+                  <button
+                    onClick={() => setIsAddMaterialModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer"
+                  >
+                    + Thêm tài liệu ngay
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {classMaterials[currentClass.id].map((m) => (
+                    <div key={m.id} className="p-4 rounded-2xl bg-white border border-[#E5DFD0] flex items-center justify-between hover:shadow-2xs transition">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#DCE8DB] text-[#1F513F] flex items-center justify-center font-bold text-xs shrink-0">
+                          {m.type}
+                        </div>
+                        <div>
+                          <h5 className="font-bold text-xs text-[#17382F]">{m.title}</h5>
+                          <span className="text-[10px] text-[#6B766D]">{m.size} · Đã tải lên</span>
+                        </div>
                       </div>
-                      <div>
-                        <h5 className="font-bold text-xs text-[#17382F]">{m.title}</h5>
-                        <span className="text-[10px] text-[#6B766D]">{m.size}</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => showToast(`Bắt đầu tải về: ${m.title}`)}
+                          className="p-2 rounded-xl text-[#6B766D] hover:text-[#17382F] hover:bg-[#F7F5EE] transition cursor-pointer"
+                          title="Tải về"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const updated = {
+                              ...classMaterials,
+                              [currentClass.id]: classMaterials[currentClass.id].filter((item) => item.id !== m.id),
+                            };
+                            saveMaterials(updated);
+                            showToast(`Đã xóa tài liệu: ${m.title}`);
+                          }}
+                          className="p-2 rounded-xl text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                          title="Xóa tài liệu"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => showToast(`Bắt đầu tải về: ${m.title}`)}
-                      className="p-2 rounded-xl text-[#6B766D] hover:text-[#17382F] hover:bg-[#F7F5EE]"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -2460,27 +2652,72 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
           {/* ----------------------------------------------------------------- */}
           {detailSubTab === "schedule" && (
             <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-6 shadow-2xs space-y-4">
-              <h3 className="text-base font-serif font-bold text-[#17382F]">Lịch học hàng tuần – {currentClass.name}</h3>
-              <div className="space-y-3">
-                {[
-                  { day: "Thứ Hai", time: "19:30 – 21:00", topic: "Từ vựng & Mẫu câu giao tiếp chủ đề Sinh hoạt", room: "Phòng học trực tuyến A1" },
-                  { day: "Thứ Tư", time: "19:30 – 21:00", topic: "Ngữ pháp chuyên sâu: Cấu trúc câu & Bổ ngữ", room: "Phòng học trực tuyến A1" },
-                ].map((s, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-white border border-[#E5DFD0] flex items-center justify-between">
-                    <div>
-                      <span className="px-2 py-0.5 rounded bg-[#DCE8DB] text-[#1F513F] text-[10px] font-bold">{s.day}</span>
-                      <h5 className="font-bold text-xs text-[#17382F] mt-1">{s.topic}</h5>
-                      <p className="text-[11px] text-[#6B766D]">{s.time} · {s.room}</p>
-                    </div>
-                    <button
-                      onClick={() => showToast(`Mở phòng học: ${s.room}`)}
-                      className="px-3.5 py-1.5 rounded-xl bg-[#1F513F] text-white text-xs font-semibold"
-                    >
-                      Vào phòng học
-                    </button>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-serif font-bold text-[#17382F]">Lịch học hàng tuần – {currentClass.name}</h3>
+                  <p className="text-xs text-[#6B766D]">Lịch các ca học trực tuyến Google Meet hoặc tại phòng học.</p>
+                </div>
+                <button
+                  onClick={() => setIsAddScheduleModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-[#1F513F] hover:bg-[#163c2f] text-white text-xs font-semibold shadow-2xs transition cursor-pointer"
+                >
+                  + Thêm ca học
+                </button>
               </div>
+
+              {(!classSchedules[currentClass.id] || classSchedules[currentClass.id].length === 0) ? (
+                <div className="p-12 text-center text-xs text-[#6B766D] border border-dashed border-[#E5DFD0] rounded-2xl bg-[#F7F5EE]/40 space-y-3">
+                  <Calendar className="w-8 h-8 text-[#BC9B6B] mx-auto" />
+                  <p className="font-bold text-[#17382F] text-sm">Chưa có ca học nào được thiết lập cho lớp này</p>
+                  <p className="max-w-md mx-auto">
+                    Lịch học đang trống. Nhấn nút <strong>"+ Thêm ca học"</strong> để lên lịch ca học trực tuyến (Google Meet) hoặc tại lớp cho học viên.
+                  </p>
+                  <button
+                    onClick={() => setIsAddScheduleModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold cursor-pointer"
+                  >
+                    + Thêm ca học ngay
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {classSchedules[currentClass.id].map((s) => (
+                    <div key={s.id} className="p-4 rounded-2xl bg-white border border-[#E5DFD0] flex items-center justify-between hover:shadow-2xs transition">
+                      <div>
+                        <span className="px-2 py-0.5 rounded bg-[#DCE8DB] text-[#1F513F] text-[10px] font-bold">{s.day}</span>
+                        <h5 className="font-bold text-xs text-[#17382F] mt-1">{s.topic}</h5>
+                        <p className="text-[11px] text-[#6B766D]">{s.time} · {s.room}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {s.meetUrl && (
+                          <a
+                            href={s.meetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-1.5 rounded-xl bg-[#1F513F] text-white text-xs font-semibold hover:bg-[#163c2f] transition"
+                          >
+                            Vào phòng học
+                          </a>
+                        )}
+                        <button
+                          onClick={() => {
+                            const updated = {
+                              ...classSchedules,
+                              [currentClass.id]: classSchedules[currentClass.id].filter((item) => item.id !== s.id),
+                            };
+                            saveSchedules(updated);
+                            showToast(`Đã xóa ca học: ${s.topic}`);
+                          }}
+                          className="p-1.5 rounded-xl text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                          title="Xóa ca học"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -3611,6 +3848,249 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange }: Cl
                     <span>Tạo lớp nhân bản</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 10: THÊM TÀI LIỆU LỚP HỌC */}
+      {/* ===================================================================== */}
+      {isAddMaterialModalOpen && currentClass && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DFD0]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#DCE8DB] text-[#1F513F] flex items-center justify-center font-bold text-xs shrink-0">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#17382F]">Thêm tài liệu cho lớp</h3>
+                  <p className="text-[11px] text-[#6B766D]">Lớp: {currentClass.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsAddMaterialModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">Tên tài liệu / Giáo trình <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={newMatTitle}
+                  onChange={(e) => setNewMatTitle(e.target.value)}
+                  placeholder="Ví dụ: Giáo trình chuẩn HSK 1 (PDF) hoặc Audio Bài 1"
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">Định dạng file</label>
+                  <select
+                    value={newMatType}
+                    onChange={(e) => setNewMatType(e.target.value as any)}
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none cursor-pointer"
+                  >
+                    <option value="PDF">PDF (Tài liệu)</option>
+                    <option value="AUDIO">AUDIO (File nghe MP3)</option>
+                    <option value="SLIDE">SLIDE (Bài giảng PPT)</option>
+                    <option value="EXCEL">EXCEL (Bảng tính/Từ vựng)</option>
+                    <option value="DOC">DOC (Văn bản Word)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">Dung lượng ước tính</label>
+                  <input
+                    type="text"
+                    value={newMatSize}
+                    onChange={(e) => setNewMatSize(e.target.value)}
+                    placeholder="Ví dụ: 15.4 MB"
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">Đường dẫn liên kết / File tải về (Tùy chọn)</label>
+                <input
+                  type="text"
+                  value={newMatUrl}
+                  onChange={(e) => setNewMatUrl(e.target.value)}
+                  placeholder="https://drive.google.com/... hoặc để trống"
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[#E5DFD0] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsAddMaterialModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] text-[#6B766D] text-xs font-semibold hover:bg-[#F7F5EE]"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newMatTitle.trim()) {
+                    showToast("Vui lòng nhập tên tài liệu.");
+                    return;
+                  }
+                  const item: ClassMaterialItem = {
+                    id: `mat-${Date.now()}`,
+                    classId: currentClass.id,
+                    title: newMatTitle.trim(),
+                    type: newMatType,
+                    size: newMatSize.trim() || "10.0 MB",
+                    url: newMatUrl.trim(),
+                    createdAt: new Date().toISOString(),
+                  };
+                  const updated = {
+                    ...classMaterials,
+                    [currentClass.id]: [item, ...(classMaterials[currentClass.id] || [])],
+                  };
+                  saveMaterials(updated);
+                  setIsAddMaterialModalOpen(false);
+                  setNewMatTitle("");
+                  showToast(`Đã thêm tài liệu "${item.title}" thành công!`);
+                }}
+                className="px-5 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-semibold shadow-md cursor-pointer"
+              >
+                Lưu tài liệu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 11: THÊM LỊCH HỌC / CA HỌC MỚI */}
+      {/* ===================================================================== */}
+      {isAddScheduleModalOpen && currentClass && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DFD0]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#DCE8DB] text-[#1F513F] flex items-center justify-center font-bold text-xs shrink-0">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#17382F]">Thêm ca học hàng tuần</h3>
+                  <p className="text-[11px] text-[#6B766D]">Lớp: {currentClass.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsAddScheduleModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">Thứ trong tuần</label>
+                  <select
+                    value={newSchedDay}
+                    onChange={(e) => setNewSchedDay(e.target.value)}
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none cursor-pointer"
+                  >
+                    <option value="Thứ Hai">Thứ Hai</option>
+                    <option value="Thứ Ba">Thứ Ba</option>
+                    <option value="Thứ Tư">Thứ Tư</option>
+                    <option value="Thứ Năm">Thứ Năm</option>
+                    <option value="Thứ Sáu">Thứ Sáu</option>
+                    <option value="Thứ Bảy">Thứ Bảy</option>
+                    <option value="Chủ Nhật">Chủ Nhật</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#17382F] mb-1">Khung giờ học</label>
+                  <input
+                    type="text"
+                    value={newSchedTime}
+                    onChange={(e) => setNewSchedTime(e.target.value)}
+                    placeholder="19:30 – 21:00"
+                    className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">Chủ đề bài học / Chuyên đề <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={newSchedTopic}
+                  onChange={(e) => setNewSchedTopic(e.target.value)}
+                  placeholder="Ví dụ: Bài 1: AI小语，你好！ - Luyện phát âm & Chào hỏi"
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">Địa điểm / Phòng học</label>
+                <input
+                  type="text"
+                  value={newSchedRoom}
+                  onChange={(e) => setNewSchedRoom(e.target.value)}
+                  placeholder="Phòng học trực tuyến Google Meet"
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#17382F] mb-1">Đường dẫn Google Meet / Zoom</label>
+                <input
+                  type="text"
+                  value={newSchedMeetUrl}
+                  onChange={(e) => setNewSchedMeetUrl(e.target.value)}
+                  placeholder="https://meet.google.com/new"
+                  className="w-full bg-[#F7F5EE] border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:border-[#1F513F] outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[#E5DFD0] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsAddScheduleModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white border border-[#E5DFD0] text-[#6B766D] text-xs font-semibold hover:bg-[#F7F5EE]"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newSchedTopic.trim()) {
+                    showToast("Vui lòng nhập chủ đề bài học.");
+                    return;
+                  }
+                  const item: ClassScheduleItem = {
+                    id: `sched-${Date.now()}`,
+                    classId: currentClass.id,
+                    day: newSchedDay,
+                    time: newSchedTime.trim(),
+                    topic: newSchedTopic.trim(),
+                    room: newSchedRoom.trim() || "Google Meet",
+                    meetUrl: newSchedMeetUrl.trim() || "https://meet.google.com/new",
+                  };
+                  const updated = {
+                    ...classSchedules,
+                    [currentClass.id]: [item, ...(classSchedules[currentClass.id] || [])],
+                  };
+                  saveSchedules(updated);
+                  setIsAddScheduleModalOpen(false);
+                  setNewSchedTopic("");
+                  showToast(`Đã thêm ca học "${item.topic}" thành công!`);
+                }}
+                className="px-5 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-semibold shadow-md cursor-pointer"
+              >
+                Lưu ca học
               </button>
             </div>
           </div>
