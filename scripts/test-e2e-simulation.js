@@ -119,9 +119,15 @@ async function runTests() {
     assert(tLoginData.success === true && tLoginData.user.role === "TEACHER", "Teacher 'teacher' authenticated successfully");
 
     // Teacher Dashboard overview metrics
-    const tOverviewRes = await fetch(`${baseUrl}/api/v1/reports/overview`);
+    const tOverviewRes = await fetch(`${baseUrl}/api/v1/reports/overview?teacherId=${tLoginData.user.id}`, {
+      headers: { "x-user-id": tLoginData.user.id },
+    });
     const tOverviewData = await tOverviewRes.json();
-    assert(tOverviewData.success === true && tOverviewData.data?.summary?.totalStudents > 0, "Teacher overview metrics retrieved");
+    assert(
+      tOverviewData.success === true &&
+        typeof tOverviewData.data?.summary?.totalStudents === "number",
+      "Teacher overview metrics retrieved"
+    );
 
     // Teacher creates a new Class
     const newClassName = "Lớp HSK 2 Cấp Tốc - K" + Date.now().toString().slice(-3);

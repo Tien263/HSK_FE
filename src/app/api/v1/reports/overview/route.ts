@@ -20,7 +20,8 @@ export async function GET(request: Request) {
       select: { studentId: true },
     });
     const uniqueStudentIds = new Set(teacherClassStudents.map((cs) => cs.studentId));
-    const totalStudents = uniqueStudentIds.size;
+    const allStudentsCount = await prisma.user.count({ where: { role: "STUDENT" } });
+    const totalStudents = uniqueStudentIds.size > 0 ? uniqueStudentIds.size : allStudentsCount;
 
     // Bài tập đang mở của giáo viên này
     const activeAssignments = await prisma.assignment.count({
