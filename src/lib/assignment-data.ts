@@ -973,41 +973,169 @@ export const UNIFIED_QUESTION_BANK: ExamQuestionItem[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Waiting for Grading Mock Submissions (Chờ chấm thủ công)
+// Waiting for Grading Mock Submissions & Extended Assignment/Exam Models
 // ---------------------------------------------------------------------------
+export interface ManualQuestionItem {
+  questionId: string;
+  questionTitle: string;
+  type: QuestionType;
+  maxPoints: number;
+  awardedPoints?: number;
+  studentResponseText?: string;
+  studentPhotoUrl?: string;
+  studentPhotoUrls?: string[];
+  handwritingWords?: string[];
+  requiredRepeats?: number;
+  rubric?: string;
+  criteriaBreakdown?: {
+    correctHanzi?: number;
+    repeatCount?: number;
+    strokeClarity?: number;
+    layoutClean?: number;
+  };
+  teacherComment?: string;
+}
+
 export interface StudentSubmissionItem {
   id: string;
-  assignmentTitle: string;
-  className: string;
+  studentId?: string;
   studentName: string;
   studentAvatar: string;
+  assignmentId?: string;
+  assignmentTitle: string;
+  classId?: string;
+  className: string;
+  attemptNumber: number;
   submittedAt: string;
-  status: "WAITING_GRADE" | "GRADED" | "REQUEST_RESUBMIT";
-  manualQuestions: {
-    questionId: string;
-    questionTitle: string;
-    type: QuestionType;
-    maxPoints: number;
-    awardedPoints?: number;
-    studentResponseText?: string;
-    studentPhotoUrl?: string;
-    rubric?: string;
-    teacherComment?: string;
-  }[];
+  submissionStatus: "SUBMITTED" | "LATE_SUBMITTED" | "RESUBMISSION_REQUIRED" | "NOT_STARTED" | "IN_PROGRESS" | "EXPIRED";
+  gradingStatus: "UNGRADED" | "WAITING_MANUAL" | "GRADING" | "GRADED" | "PUBLISHED";
+  status: "WAITING_GRADE" | "GRADED" | "REQUEST_RESUBMIT" | "PUBLISHED";
+  answeredQuestionsCount: number;
+  totalQuestionsCount: number;
   autoScore: number;
+  manualScore?: number;
   totalScore?: number;
+  maxScore: number;
+  isPublished: boolean;
+  publishedAt?: string;
+  resubmitReason?: string;
+  teacherOverallFeedback?: string;
+  gradedBy?: string;
+  gradedAt?: string;
+  manualQuestions: ManualQuestionItem[];
 }
+
+export interface ExamPackageItem {
+  id: string;
+  title: string;
+  description: string;
+  curriculum: string;
+  hskLevel: number;
+  status: "DRAFT" | "READY" | "ARCHIVED";
+  questionsCount: number;
+  totalPoints: number;
+  createdAt: string;
+  updatedAt: string;
+  questions: ExamQuestionItem[];
+}
+
+export interface TeacherAssignmentRecord {
+  id: string;
+  examId?: string;
+  title: string;
+  classId: string;
+  className: string;
+  assignedAt: string;
+  openAt: string;
+  dueAt: string;
+  durationMin: number;
+  maxAttempts: number;
+  assignedCount: number;
+  submittedCount: number;
+  unsubmittedCount: number;
+  waitingGradeCount: number;
+  gradedCount: number;
+  publishedCount: number;
+  status: "ACTIVE" | "CLOSED" | "ARCHIVED";
+  allowLate: boolean;
+  viewScorePolicy: "AFTER_SUBMIT" | "AFTER_PUBLISH" | "NEVER";
+}
+
+export const MOCK_EXAM_PACKAGES: ExamPackageItem[] = [
+  {
+    id: "exam-pkg-01",
+    title: "Đề kiểm tra giữa kỳ HSK 1 Tiêu chuẩn (Đề 01)",
+    description: "Bao gồm trắc nghiệm, nối từ, sắp xếp câu và tự luận ngắn.",
+    curriculum: "HSK 3.0",
+    hskLevel: 1,
+    status: "READY",
+    questionsCount: 12,
+    totalPoints: 100,
+    createdAt: "18/10/2026 09:00",
+    updatedAt: "20/10/2026 14:00",
+    questions: [],
+  },
+  {
+    id: "exam-pkg-02",
+    title: "Bản nháp: Bài tập luyện nghe & điền từ HSK 2",
+    description: "Đang biên soạn câu hỏi nghe chọn và nghe điền đoạn hội thoại.",
+    curriculum: "HSK 3.0",
+    hskLevel: 2,
+    status: "DRAFT",
+    questionsCount: 4,
+    totalPoints: 35,
+    createdAt: "22/10/2026 10:30",
+    updatedAt: "22/10/2026 16:45",
+    questions: [],
+  },
+  {
+    id: "exam-pkg-03",
+    title: "Luyện viết chữ Hán và nộp ảnh tuần 2",
+    description: "Đề chép từ nộp ảnh kèm theo dịch câu ngắn.",
+    curriculum: "HSK 3.0",
+    hskLevel: 2,
+    status: "READY",
+    questionsCount: 4,
+    totalPoints: 40,
+    createdAt: "15/10/2026 08:00",
+    updatedAt: "17/10/2026 11:20",
+    questions: [],
+  },
+  {
+    id: "exam-pkg-04",
+    title: "Đề ôn tập học kỳ 1 (Khóa cũ 2025)",
+    description: "Đề tổng hợp đã lưu trữ sau khi khóa học kết thúc.",
+    curriculum: "HSK 2.0",
+    hskLevel: 1,
+    status: "ARCHIVED",
+    questionsCount: 20,
+    totalPoints: 100,
+    createdAt: "10/01/2025 08:00",
+    updatedAt: "15/06/2025 17:00",
+    questions: [],
+  },
+];
 
 export const MOCK_WAITING_SUBMISSIONS: StudentSubmissionItem[] = [
   {
     id: "sub-01",
-    assignmentTitle: "Bài tập củng cố: Bài 5 - 今天我休息",
-    className: "HSK1-K24 Sơ cấp",
+    studentId: "std-01",
     studentName: "Nguyễn Văn An",
     studentAvatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
+    assignmentId: "ass-1",
+    assignmentTitle: "Bài tập củng cố: Bài 5 - 今天我休息",
+    classId: "c1",
+    className: "HSK1-K24 Sơ cấp",
+    attemptNumber: 1,
     submittedAt: "21/10/2026 14:30",
+    submissionStatus: "SUBMITTED",
+    gradingStatus: "WAITING_MANUAL",
     status: "WAITING_GRADE",
-    autoScore: 40,
+    answeredQuestionsCount: 6,
+    totalQuestionsCount: 6,
+    autoScore: 30,
+    maxScore: 50,
+    isPublished: false,
     manualQuestions: [
       {
         questionId: "mq-1",
@@ -1015,36 +1143,245 @@ export const MOCK_WAITING_SUBMISSIONS: StudentSubmissionItem[] = [
         type: "handwriting_photo",
         maxPoints: 10,
         studentPhotoUrl: "https://images.unsplash.com/photo-1584697964190-705b89369e96?w=800",
-        rubric: "Đủ số lần viết (4đ), đúng quy tắc bút thuận (3đ), chữ ngay ngắn (3đ).",
+        studentPhotoUrls: [
+          "https://images.unsplash.com/photo-1584697964190-705b89369e96?w=800",
+          "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800"
+        ],
+        handwritingWords: ["今天", "明天", "休息", "生病"],
+        requiredRepeats: 5,
+        rubric: "Viết đúng chữ Hán (4đ), Đủ 5 lần chép (2đ), Nét chữ rõ đẹp (2đ), Trình bày sạch (2đ).",
+        criteriaBreakdown: {
+          correctHanzi: 4,
+          repeatCount: 2,
+          strokeClarity: 2,
+          layoutClean: 2,
+        },
       },
       {
         questionId: "mq-2",
         questionTitle: "Dịch câu: Xin phép nghỉ ốm",
         type: "translation",
         maxPoints: 10,
-        studentResponseText: "王老师好，我今天有点不舒服，想请假一天。",
-        rubric: "Đúng ngữ nghĩa (5đ), đúng cấu trúc (5đ).",
+        studentResponseText: "王老师好，我今天身体有点不舒服，想请假一天。",
+        rubric: "Đúng ngữ nghĩa và kính ngữ (5đ), đúng cấu trúc xin phép (5đ).",
       },
     ],
   },
   {
     id: "sub-02",
-    assignmentTitle: "Kiểm tra định kỳ Tuần 3: HSK 1 Cơ bản",
-    className: "HSK1-K24 Sơ cấp",
+    studentId: "std-02",
     studentName: "Trần Thị Mai",
     studentAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100",
+    assignmentId: "ass-1",
+    assignmentTitle: "Bài tập củng cố: Bài 5 - 今天我休息",
+    classId: "c1",
+    className: "HSK1-K24 Sơ cấp",
+    attemptNumber: 1,
     submittedAt: "21/10/2026 15:10",
+    submissionStatus: "SUBMITTED",
+    gradingStatus: "WAITING_MANUAL",
     status: "WAITING_GRADE",
-    autoScore: 45,
+    answeredQuestionsCount: 6,
+    totalQuestionsCount: 6,
+    autoScore: 30,
+    maxScore: 50,
+    isPublished: false,
     manualQuestions: [
       {
         questionId: "mq-3",
         questionTitle: "Tự luận: Giới thiệu ngày nghỉ của bạn",
         type: "essay",
-        maxPoints: 15,
+        maxPoints: 10,
         studentResponseText: "今天星期日，我休息。早上八点起床，我和妈妈去超市买菜。下午在家看中文故事，听音乐。晚上我们吃饺子，我觉得很开心！",
-        rubric: "Từ vựng phong phú (5đ), ngữ pháp chuẩn (5đ), bố cục rõ (5đ).",
+        rubric: "Từ vựng phong phú (4đ), ngữ pháp chuẩn (3đ), bố cục rõ (3đ).",
+      },
+      {
+        questionId: "mq-1b",
+        questionTitle: "Chép từ – Nộp ảnh: 4 từ mới Bài 5",
+        type: "handwriting_photo",
+        maxPoints: 10,
+        studentPhotoUrl: "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800",
+        handwritingWords: ["今天", "明天", "休息", "生病"],
+        requiredRepeats: 5,
+        rubric: "Viết đúng chữ Hán (4đ), Đủ 5 lần chép (2đ), Nét chữ rõ đẹp (2đ), Trình bày sạch (2đ).",
       },
     ],
+  },
+  {
+    id: "sub-03",
+    studentId: "std-03",
+    studentName: "Lê Hoàng Long",
+    studentAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100",
+    assignmentId: "ass-1",
+    assignmentTitle: "Bài tập củng cố: Bài 5 - 今天我休息",
+    classId: "c1",
+    className: "HSK1-K24 Sơ cấp",
+    attemptNumber: 1,
+    submittedAt: "20/10/2026 10:15",
+    submissionStatus: "SUBMITTED",
+    gradingStatus: "PUBLISHED",
+    status: "PUBLISHED",
+    answeredQuestionsCount: 6,
+    totalQuestionsCount: 6,
+    autoScore: 30,
+    manualScore: 19,
+    totalScore: 49,
+    maxScore: 50,
+    isPublished: true,
+    publishedAt: "21/10/2026 09:00",
+    teacherOverallFeedback: "Nét chữ rất đẹp, đúng thứ tự bút thuận. Dịch câu tự nhiên và chuẩn văn phong!",
+    gradedBy: "Giáo viên Hanyu",
+    gradedAt: "21/10/2026 08:45",
+    manualQuestions: [
+      {
+        questionId: "mq-1c",
+        questionTitle: "Chép từ – Nộp ảnh: 4 từ mới Bài 5",
+        type: "handwriting_photo",
+        maxPoints: 10,
+        awardedPoints: 10,
+        studentPhotoUrl: "https://images.unsplash.com/photo-1584697964190-705b89369e96?w=800",
+        handwritingWords: ["今天", "明天", "休息", "生病"],
+        requiredRepeats: 5,
+        rubric: "Viết đúng chữ Hán (4đ), Đủ 5 lần chép (2đ), Nét chữ rõ đẹp (2đ), Trình bày sạch (2đ).",
+        teacherComment: "Chữ viết rất đều, đủ 5 lượt mỗi từ.",
+      },
+      {
+        questionId: "mq-2c",
+        questionTitle: "Dịch câu: Xin phép nghỉ ốm",
+        type: "translation",
+        maxPoints: 10,
+        awardedPoints: 9,
+        studentResponseText: "王老师，我今天生病了，想请假休息一天。",
+        teacherComment: "Rất tốt, lưu ý dùng thêm kính ngữ 您 cho lịch sự hơn.",
+      },
+    ],
+  },
+  {
+    id: "sub-04",
+    studentId: "std-04",
+    studentName: "Phạm Minh Thư",
+    studentAvatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100",
+    assignmentId: "ass-1",
+    assignmentTitle: "Bài tập củng cố: Bài 5 - 今天我休息",
+    classId: "c1",
+    className: "HSK1-K24 Sơ cấp",
+    attemptNumber: 1,
+    submittedAt: "21/10/2026 16:45",
+    submissionStatus: "RESUBMISSION_REQUIRED",
+    gradingStatus: "WAITING_MANUAL",
+    status: "REQUEST_RESUBMIT",
+    answeredQuestionsCount: 6,
+    totalQuestionsCount: 6,
+    autoScore: 28,
+    maxScore: 50,
+    isPublished: false,
+    resubmitReason: "Ảnh chụp bài viết tay bị mờ và lóa sáng, vui lòng chụp lại rõ nét cả trang vở để cô chấm nhé!",
+    manualQuestions: [
+      {
+        questionId: "mq-1d",
+        questionTitle: "Chép từ – Nộp ảnh: 4 từ mới Bài 5",
+        type: "handwriting_photo",
+        maxPoints: 10,
+        studentPhotoUrl: "https://images.unsplash.com/photo-1516962215378-7fa2e137ae93?w=800",
+        handwritingWords: ["今天", "明天", "休息", "生病"],
+        requiredRepeats: 5,
+        teacherComment: "Ảnh bị mờ chữ và bóng đen, yêu cầu nộp lại ảnh mới.",
+      },
+    ],
+  },
+  {
+    id: "sub-05",
+    studentId: "std-05",
+    studentName: "Đặng Quốc Huy",
+    studentAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100",
+    assignmentId: "ass-2",
+    assignmentTitle: "Kiểm tra giữa kỳ: HSK 1 Tiêu chuẩn (Đề 01)",
+    classId: "c1",
+    className: "HSK1-K24 Sơ cấp",
+    attemptNumber: 1,
+    submittedAt: "22/10/2026 09:12",
+    submissionStatus: "LATE_SUBMITTED",
+    gradingStatus: "WAITING_MANUAL",
+    status: "WAITING_GRADE",
+    answeredQuestionsCount: 12,
+    totalQuestionsCount: 12,
+    autoScore: 70,
+    maxScore: 100,
+    isPublished: false,
+    manualQuestions: [
+      {
+        questionId: "mq-5a",
+        questionTitle: "Tự luận: Đoạn văn tiếng Trung 60 chữ",
+        type: "essay",
+        maxPoints: 15,
+        studentResponseText: "我想去中国旅游，因为我很喜欢中国文化和中国菜。明年我要考HSK3级。",
+        rubric: "Nội dung (5đ), Ngữ pháp (5đ), Độ dài (5đ).",
+      },
+      {
+        questionId: "mq-5b",
+        questionTitle: "Dịch câu: Hẹn gặp bạn ở thư viện",
+        type: "translation",
+        maxPoints: 15,
+        studentResponseText: "明天下午两点我们在图书馆见吧。",
+        rubric: "Đúng ngữ pháp (8đ), đúng từ vựng (7đ).",
+      },
+    ],
+  },
+  {
+    id: "sub-06",
+    studentId: "std-06",
+    studentName: "Vũ Hải Yến",
+    studentAvatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100",
+    assignmentId: "ass-3",
+    assignmentTitle: "Luyện viết chữ Hán và nộp ảnh tuần 2",
+    classId: "c2",
+    className: "HSK2-K18 Cấp tốc",
+    attemptNumber: 1,
+    submittedAt: "19/10/2026 21:00",
+    submissionStatus: "SUBMITTED",
+    gradingStatus: "GRADED",
+    status: "GRADED",
+    answeredQuestionsCount: 4,
+    totalQuestionsCount: 4,
+    autoScore: 20,
+    manualScore: 18,
+    totalScore: 38,
+    maxScore: 40,
+    isPublished: false,
+    teacherOverallFeedback: "Bài làm tốt, chữ viết thanh mảnh sạch sẽ.",
+    gradedBy: "Giáo viên Hanyu",
+    gradedAt: "20/10/2026 14:00",
+    manualQuestions: [
+      {
+        questionId: "mq-6a",
+        questionTitle: "Chép từ – Nộp ảnh: HSK2 Tuần 2",
+        type: "handwriting_photo",
+        maxPoints: 20,
+        awardedPoints: 18,
+        studentPhotoUrl: "https://images.unsplash.com/photo-1584697964190-705b89369e96?w=800",
+        rubric: "Viết đúng chữ Hán (8đ), Đủ lần chép (4đ), Nét chữ rõ đẹp (4đ), Trình bày sạch (4đ).",
+      },
+    ],
+  },
+  {
+    id: "sub-07",
+    studentId: "std-07",
+    studentName: "Hoàng Đức Anh",
+    studentAvatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100",
+    assignmentId: "ass-1",
+    assignmentTitle: "Bài tập củng cố: Bài 5 - 今天我休息",
+    classId: "c1",
+    className: "HSK1-K24 Sơ cấp",
+    attemptNumber: 0,
+    submittedAt: "—",
+    submissionStatus: "NOT_STARTED",
+    gradingStatus: "UNGRADED",
+    status: "WAITING_GRADE",
+    answeredQuestionsCount: 0,
+    totalQuestionsCount: 6,
+    autoScore: 0,
+    maxScore: 50,
+    isPublished: false,
+    manualQuestions: [],
   },
 ];
