@@ -114,6 +114,7 @@ export default function OnboardingPage() {
       username: currentUser?.username || "student",
       learningMode,
       classCode: learningMode === "CLASS" && verifiedClass ? verifiedClass.code : "",
+      classId: learningMode === "CLASS" && verifiedClass ? verifiedClass.id : undefined,
       mainTrack,
       major: mainTrack === "major" ? major : null,
       currentLevel,
@@ -157,6 +158,67 @@ export default function OnboardingPage() {
       console.error(err);
       // Vẫn chuyển hướng để trải nghiệm người dùng không bị gián đoạn
       router.push("/s/home");
+    }
+  };
+
+  // Xác nhận tham gia lớp trực tiếp và chuyển ngay vào Dashboard chứa thông tin lớp học (không qua bước tự học)
+  const handleConfirmClassDirectly = async () => {
+    if (!verifiedClass) {
+      setClassCodeError("Vui lòng nhập và kiểm tra mã lớp trước khi xác nhận.");
+      return;
+    }
+
+    setSubmitting(true);
+    setLearningMode("CLASS");
+
+    const payload = {
+      username: currentUser?.username || "student",
+      learningMode: "CLASS",
+      classCode: verifiedClass.code || classCodeInput.trim(),
+      classId: verifiedClass.id,
+      mainTrack: "hsk",
+      major: null,
+      currentLevel: verifiedClass.level === 1 ? "beginner" : verifiedClass.level <= 3 ? "intermediate" : "advanced",
+      dailyTime: 30,
+    };
+
+    try {
+      const res = await fetch("/api/v1/auth/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      const profileData = {
+        ...payload,
+        classInfo: verifiedClass,
+        completedAt: new Date().toISOString(),
+      };
+
+      localStorage.setItem("hanyu_study_profile", JSON.stringify(profileData));
+      if (currentUser?.id) {
+        localStorage.setItem(`hanyu_onboarding_${currentUser.id}`, "true");
+      }
+      localStorage.setItem("hanyu_onboarding_completed", "true");
+
+      if (currentUser) {
+        const updated = {
+          ...currentUser,
+          currentHskLevel: verifiedClass.level || data.profile?.hskLevel || 1,
+          hasEnrolledClasses: true,
+        };
+        localStorage.setItem("currentUser", JSON.stringify(updated));
+      }
+
+      // Điều hướng trực tiếp vào Student Dashboard có thông tin lớp học
+      router.push("/s/home");
+    } catch (err) {
+      console.error("Lỗi xác nhận tham gia lớp:", err);
+      router.push("/s/home");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -532,19 +594,24 @@ export default function OnboardingPage() {
                 <div className="mt-6 pt-4 border-t border-[#BC9B6B]/20">
                   <button
                     type="button"
+                    disabled={submitting}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setLearningMode("CLASS");
-                      if (!verifiedClass) {
-                        setClassCodeError("Vui lòng nhập và kiểm tra mã lớp trước khi xác nhận.");
-                        return;
-                      }
-                      setStep(2);
+                      handleConfirmClassDirectly();
                     }}
-                    className="w-full bg-[#9D493E] hover:bg-[#833d34] text-[#FFFCF6] font-semibold py-3 rounded-xl transition duration-200 shadow-md shadow-[#9D493E]/20 flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full bg-[#9D493E] hover:bg-[#833d34] disabled:opacity-50 text-[#FFFCF6] font-semibold py-3 rounded-xl transition duration-200 shadow-md shadow-[#9D493E]/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>Xác nhận tham gia lớp</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {submitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Đang ghi danh và vào lớp học...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Xác nhận tham gia lớp</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

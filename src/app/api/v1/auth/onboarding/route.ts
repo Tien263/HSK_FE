@@ -8,6 +8,7 @@ export async function POST(request: Request) {
       username,
       learningMode, // 'SELF' | 'CLASS'
       classCode,
+      classId,
       mainTrack,    // 'hsk' | 'topic' | 'major'
       major,        // 'kinhte' | 'ketoan' | 'cntt' | 'khac'
       currentLevel, // 'beginner' | 'intermediate' | 'advanced'
@@ -44,11 +45,18 @@ export async function POST(request: Request) {
 
     // Nếu học viên chọn tham gia lớp hoặc có mã lớp
     let enrolledClassInfo = null;
-    if (classCode && classCode.trim()) {
+    let targetClass: any = null;
+
+    if (classId) {
+      targetClass = await prisma.class.findUnique({
+        where: { id: classId },
+        include: { teacher: true },
+      });
+    }
+
+    if (!targetClass && classCode && classCode.trim()) {
       const code = classCode.trim();
       const normalizedCode = code.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
-
-      let targetClass: any = null;
 
       if (normalizedCode === "HSK1A" || normalizedCode === "HSK1") {
         targetClass = await prisma.class.findFirst({
@@ -81,12 +89,26 @@ export async function POST(request: Request) {
             OR: [
               { id: code },
               { id: { endsWith: code.toLowerCase() } },
+              { id: { endsWith: code.toUpperCase() } },
               { name: { contains: code } },
               { description: { contains: code } },
             ],
           },
           include: { teacher: true },
         });
+      }
+
+      // Fallback: Quét danh sách lớp khớp 6 ký tự cuối của id (mã lớp tạo ra)
+      if (!targetClass) {
+        const allClasses = await prisma.class.findMany({
+          include: { teacher: true },
+        });
+        targetClass = allClasses.find(
+          (c) =>
+            c.id.slice(-6).toUpperCase() === normalizedCode ||
+            c.id.toUpperCase().includes(normalizedCode) ||
+            c.name.toUpperCase().includes(normalizedCode)
+        );
       }
 
       // Nếu là mã demo HANYU3A mà chưa có lớp, tìm hoặc tạo lớp
@@ -140,6 +162,12 @@ export async function POST(request: Request) {
           name: targetClass.name,
           level: targetClass.level,
           teacherName: targetClass.teacher?.name || "Cô Ning Ning",
+          teacherAvatar: targetClass.teacher?.avatar || "/theme/avatar-teacher.jpg",
+          code: targetClass.name.includes("1A")
+            ? "HSK1A"
+            : targetClass.name.includes("HANYU3A")
+            ? "HANYU3A"
+            : targetClass.id.slice(-6).toUpperCase(),
         };
       }
     }

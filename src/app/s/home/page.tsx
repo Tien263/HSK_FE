@@ -175,6 +175,15 @@ export default function StudentHomePage() {
         setEditingMajor(parsed.major || "Kinh tế & Quản trị");
         setEditingLevel(parsed.currentLevel || "beginner");
         setEditingDailyTime(parsed.dailyTime || 30);
+
+        if (parsed?.classInfo) {
+          setMyClasses([
+            {
+              ...parsed.classInfo,
+              artwork: getClassArtwork(parsed.classInfo.track || "HSK", parsed.classInfo.level || 1, 0, parsed.classInfo.name),
+            },
+          ]);
+        }
       }
 
       // Check URL query param for tab
@@ -240,6 +249,7 @@ export default function StudentHomePage() {
         body: JSON.stringify({
           username,
           classCode: verifiedJoinClass.code,
+          classId: verifiedJoinClass.id,
           learningMode: "CLASS",
           mainTrack: studyProfile?.mainTrack || "hsk",
           dailyTime: studyProfile?.dailyTime || 30,
@@ -259,6 +269,28 @@ export default function StudentHomePage() {
 
       setStudyProfile(updatedProfile);
       localStorage.setItem("hanyu_study_profile", JSON.stringify(updatedProfile));
+      localStorage.setItem("hanyu_onboarding_completed", "true");
+      if (currentUser?.id) {
+        localStorage.setItem(`hanyu_onboarding_${currentUser.id}`, "true");
+      }
+
+      if (currentUser) {
+        const updatedUser = {
+          ...currentUser,
+          hasEnrolledClasses: true,
+          currentHskLevel: verifiedJoinClass.level || 1,
+        };
+        setCurrentUser(updatedUser);
+        localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      }
+
+      setMyClasses([
+        {
+          ...verifiedJoinClass,
+          artwork: getClassArtwork(verifiedJoinClass.track || "HSK", verifiedJoinClass.level || 1, 0, verifiedJoinClass.name),
+        },
+      ]);
+
       if (currentUser?.id) fetchMyClasses(currentUser.id);
 
       fetch(`/api/v1/my/summary?username=${username}`)
