@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileCheck2,
   Plus,
@@ -33,6 +33,7 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronUp,
+  UploadCloud,
 } from "lucide-react";
 import {
   OFFICIAL_12_QUESTION_TYPES,
@@ -63,6 +64,8 @@ interface AssignmentsWorkspaceProps {
   initialNewAssignmentPayload?: {
     lessonTitle: string;
     classId: string;
+    vocabList?: { id: string; hanzi: string; pinyin: string; meaningVi: string; exampleZh?: string }[];
+    grammarList?: { id: string; title: string; structure?: string; explanation?: string }[];
   };
 }
 
@@ -156,6 +159,27 @@ export function AssignmentsWorkspace({
     GUIDED_QUESTION_TEMPLATES[6], // Handwriting
     GUIDED_QUESTION_TEMPLATES[8], // Translation
   ]);
+
+  // Auto-switch to Composer if incoming payload transferred from Lesson Library
+  useEffect(() => {
+    if (initialNewAssignmentPayload) {
+      setViewMode("COMPOSER");
+      setComposerStep(1);
+      if (initialNewAssignmentPayload.lessonTitle) {
+        setExamTitle(`Bài tập củng cố: ${initialNewAssignmentPayload.lessonTitle}`);
+      }
+      if (initialNewAssignmentPayload.classId) {
+        setTargetClassId(initialNewAssignmentPayload.classId);
+      }
+      if (
+        (initialNewAssignmentPayload.vocabList && initialNewAssignmentPayload.vocabList.length > 0) ||
+        (initialNewAssignmentPayload.grammarList && initialNewAssignmentPayload.grammarList.length > 0)
+      ) {
+        setIsAddQuestionChoiceOpen(true);
+        setActiveFlow("FLOW_B");
+      }
+    }
+  }, [initialNewAssignmentPayload]);
 
   // Step in composer: 1 = Chọn câu & Ghép đề, 2 = Thiết lập giao cho lớp
   const [composerStep, setComposerStep] = useState<1 | 2>(1);
@@ -1430,10 +1454,68 @@ export function AssignmentsWorkspace({
               {/* ------------------------------------------------------------- */}
               {activeFlow === "FLOW_B" && (
                 <div className="space-y-4 text-xs">
-                  {/* Question Type Selector */}
-                  <div className="bg-[#FAF7F0] p-3 rounded-2xl border border-[#E5DEC9] space-y-2">
+                  {/* KHU VỰC A: NỘI DUNG NGUỒN ĐÃ CHỌN (NẾU ĐƯỢC CHUYỂN TỪ KHO BÀI HỌC) */}
+                  {initialNewAssignmentPayload?.vocabList && initialNewAssignmentPayload.vocabList.length > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#204434] flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-[#8F6D3B]" />
+                          <span>Khu vực A: Nội dung nguồn đã chọn từ bài học:</span>
+                        </span>
+                        <span className="text-[10px] text-[#8F6D3B] italic">
+                          Bấm vào từ vựng/ngữ pháp bên dưới để điền nhanh vào form
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {initialNewAssignmentPayload.vocabList.map((v) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => {
+                              if (editorType === "multiple_choice") {
+                                setEditorContent(`“${v.hanzi}” (${v.pinyin}) có nghĩa là gì?`);
+                                setEditorPinyin(v.pinyin);
+                                setEditorOptions(["Nấu ăn", v.meaningVi, "Đi làm", "Ngày mai"]);
+                                setEditorCorrectAnswer("B");
+                                setEditorExplanation(`“${v.hanzi}” có nghĩa là “${v.meaningVi}”.`);
+                              } else if (editorType === "matching") {
+                                setEditorContent("Nối từ tiếng Trung với nghĩa tiếng Việt tương ứng:");
+                                setEditorSampleAnswer(`${v.hanzi} ↔ ${v.meaningVi}`);
+                              } else if (editorType === "flashcard") {
+                                setEditorContent(v.hanzi);
+                                setEditorPinyin(v.pinyin);
+                                setEditorSampleAnswer(`${v.pinyin} – ${v.meaningVi}`);
+                              } else if (editorType === "fill_blank") {
+                                setEditorContent(`他身体不舒服，所以今天在宿舍______。(Anh ấy trong người không khỏe, nên hôm nay ở ký túc xá nghỉ ngơi).`);
+                                setEditorCorrectAnswer(v.hanzi);
+                              } else if (editorType === "handwriting_photo") {
+                                setEditorContent(`Hãy chép từ sau 5 lần vào vở: ${v.hanzi}`);
+                                setEditorRubric("Đủ 5 lần (4đ), đúng quy tắc bút thuận (3đ), chữ ngay ngắn (3đ).");
+                              } else if (editorType === "translation") {
+                                setEditorContent(`Dịch câu sau sang tiếng Việt: 我今天${v.hanzi}。`);
+                                setEditorSampleAnswer(`Hôm nay tôi ${v.meaningVi.toLowerCase()}.`);
+                              } else {
+                                setEditorContent(v.hanzi);
+                                setEditorPinyin(v.pinyin);
+                                setEditorSampleAnswer(v.meaningVi);
+                              }
+                              showToast(`Đã điền từ vựng "${v.hanzi}" vào form!`);
+                            }}
+                            className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] hover:border-[#204434] text-[#204434] font-medium text-xs shadow-2xs hover:bg-[#F3EEDD] transition flex items-center gap-1.5"
+                          >
+                            <span className="font-serif font-bold">{v.hanzi}</span>
+                            <span className="text-[10px] text-[#8F6D3B]">({v.pinyin})</span>
+                            <span className="text-[10px] text-[#315E48]">: {v.meaningVi}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* KHU VỰC B: FORM SOẠN THẢO 12 DẠNG BÀI TẬP */}
+                  <div className="bg-[#FAF7F0] p-3.5 rounded-2xl border border-[#E5DEC9] space-y-2">
                     <label className="font-bold text-[#204434] block">
-                      Chọn 1 trong 12 dạng bài tập: <span className="text-red-500">*</span>
+                      Khu vực B: Chọn 1 trong 12 dạng bài tập: <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={editorType}
@@ -1451,141 +1533,242 @@ export function AssignmentsWorkspace({
                     </p>
                   </div>
 
-                  {/* Common Form Fields */}
-                  <div className="space-y-3">
-                    <div>
-                      <label className="font-bold text-[#204434] block mb-1">
-                        Tiêu đề / Ghi chú câu hỏi:
-                      </label>
-                      <input
-                        type="text"
-                        value={editorTitle}
-                        onChange={(e) => setEditorTitle(e.target.value)}
-                        placeholder="Ví dụ: Phân biệt từ vựng Bài 5..."
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="font-bold text-[#204434] block mb-1">
-                        Đề bài câu hỏi (Chữ Hán / Tiếng Việt): <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        value={editorContent}
-                        onChange={(e) => setEditorContent(e.target.value)}
-                        rows={3}
-                        placeholder="Nhập nội dung câu hỏi..."
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] font-serif text-sm"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
+                  {/* Form fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="md:col-span-7 space-y-3">
                       <div>
-                        <label className="font-bold text-[#204434] block mb-1">Gợi ý Pinyin:</label>
+                        <label className="font-bold text-[#204434] block mb-1">
+                          Tiêu đề / Ghi chú câu hỏi:
+                        </label>
                         <input
                           type="text"
-                          value={editorPinyin}
-                          onChange={(e) => setEditorPinyin(e.target.value)}
-                          placeholder="Ví dụ: Jīntiān wǒ xiūxi..."
+                          value={editorTitle}
+                          onChange={(e) => setEditorTitle(e.target.value)}
+                          placeholder="Ví dụ: Phân biệt từ vựng Bài 5..."
                           className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
                         />
                       </div>
+
                       <div>
-                        <label className="font-bold text-[#204434] block mb-1">Điểm tối đa:</label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={editorPoints}
-                          onChange={(e) => setEditorPoints(Number(e.target.value))}
+                        <label className="font-bold text-[#204434] block mb-1">
+                          Đề bài câu hỏi (Chữ Hán / Tiếng Việt): <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          value={editorContent}
+                          onChange={(e) => setEditorContent(e.target.value)}
+                          rows={3}
+                          placeholder="Nhập nội dung câu hỏi..."
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] font-serif text-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-bold text-[#204434] block mb-1">Gợi ý Pinyin:</label>
+                          <input
+                            type="text"
+                            value={editorPinyin}
+                            onChange={(e) => setEditorPinyin(e.target.value)}
+                            placeholder="Ví dụ: Jīntiān wǒ xiūxi..."
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-[#204434] block mb-1">Điểm tối đa:</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={editorPoints}
+                            onChange={(e) => setEditorPoints(Number(e.target.value))}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Dynamic type fields */}
+                      {editorType === "multiple_choice" && (
+                        <div className="space-y-2 bg-[#FAF7F0] p-3 rounded-2xl border border-[#E5DEC9]">
+                          <label className="font-bold text-[#204434] block">
+                            Các phương án trắc nghiệm:
+                          </label>
+                          {editorOptions.map((opt, oIdx) => (
+                            <div key={oIdx} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="mcq_correct"
+                                checked={editorCorrectAnswer === String.fromCharCode(65 + oIdx)}
+                                onChange={() =>
+                                  setEditorCorrectAnswer(String.fromCharCode(65 + oIdx))
+                                }
+                                className="text-[#204434] focus:ring-[#204434]"
+                              />
+                              <span className="font-bold text-[#204434] w-4">
+                                {String.fromCharCode(65 + oIdx)}
+                              </span>
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={(e) => {
+                                  const next = [...editorOptions];
+                                  next[oIdx] = e.target.value;
+                                  setEditorOptions(next);
+                                }}
+                                className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {editorType === "fill_blank" && (
+                        <div className="space-y-2 bg-[#FAF7F0] p-3 rounded-2xl border border-[#E5DEC9]">
+                          <label className="font-bold text-[#204434] block">
+                            Từ hoặc Pinyin cần điền vào chỗ trống:
+                          </label>
+                          <input
+                            type="text"
+                            value={typeof editorCorrectAnswer === "string" ? editorCorrectAnswer : ""}
+                            onChange={(e) => setEditorCorrectAnswer(e.target.value)}
+                            placeholder="Ví dụ: 休息 hoặc xiuxi"
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] font-bold"
+                          />
+                        </div>
+                      )}
+
+                      {(editorType === "essay" ||
+                        editorType === "translation" ||
+                        editorType === "find_error" ||
+                        editorType === "handwriting_photo") && (
+                        <div className="space-y-2 bg-[#FAF7F0] p-3 rounded-2xl border border-[#E5DEC9]">
+                          <label className="font-bold text-[#204434] block">
+                            Đáp án tham khảo / Rubric chấm tay của giáo viên:
+                          </label>
+                          <textarea
+                            value={editorSampleAnswer}
+                            onChange={(e) => setEditorSampleAnswer(e.target.value)}
+                            rows={2}
+                            placeholder="Nhập câu mẫu hoặc tiêu chí cho điểm..."
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="font-bold text-[#204434] block mb-1">
+                          Lời giải / Giải thích chi tiết:
+                        </label>
+                        <textarea
+                          value={editorExplanation}
+                          onChange={(e) => setEditorExplanation(e.target.value)}
+                          rows={2}
+                          placeholder="Giải thích vì sao chọn đáp án này..."
                           className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
                         />
                       </div>
                     </div>
 
-                    {/* TYPE SPECIFIC FORM FIELDS */}
-                    {editorType === "multiple_choice" && (
-                      <div className="space-y-2 bg-[#FAF7F0] p-3 rounded-2xl border border-[#E5DEC9]">
-                        <label className="font-bold text-[#204434] block">
-                          Các phương án trắc nghiệm:
-                        </label>
-                        {editorOptions.map((opt, oIdx) => (
-                          <div key={oIdx} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="mcq_correct"
-                              checked={editorCorrectAnswer === String.fromCharCode(65 + oIdx)}
-                              onChange={() =>
-                                setEditorCorrectAnswer(String.fromCharCode(65 + oIdx))
-                              }
-                              className="text-[#204434] focus:ring-[#204434]"
-                            />
-                            <span className="font-bold text-[#204434] w-4">
-                              {String.fromCharCode(65 + oIdx)}
-                            </span>
-                            <input
-                              type="text"
-                              value={opt}
-                              onChange={(e) => {
-                                const next = [...editorOptions];
-                                next[oIdx] = e.target.value;
-                                setEditorOptions(next);
-                              }}
-                              className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
-                            />
+                    {/* KHU VỰC C: XEM TRƯỚC HỌC VIÊN TƯƠNG TÁC TRỰC TIẾP */}
+                    <div className="md:col-span-5 bg-white p-4 rounded-2xl border border-[#E5DEC9] space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-2">
+                        <span className="font-bold text-[#204434] flex items-center gap-1.5">
+                          <Eye className="w-4 h-4 text-[#BC9B6B]" />
+                          <span>Khu vực C: Xem trước học viên</span>
+                        </span>
+                        <span className="text-[10px] text-[#8F6D3B] font-bold">
+                          {editorPoints} điểm
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#204434]/10 text-[#204434]">
+                          {OFFICIAL_12_QUESTION_TYPES.find((t) => t.id === editorType)?.name}
+                        </span>
+                        <p className="font-serif font-bold text-sm text-[#204434]">
+                          {editorContent || "Nội dung câu hỏi sẽ hiển thị ở đây..."}
+                        </p>
+                        {editorPinyin && <p className="text-xs text-[#8F6D3B]">{editorPinyin}</p>}
+
+                        {/* Interactive simulation */}
+                        {editorType === "multiple_choice" && (
+                          <div className="space-y-1.5 pt-1">
+                            {editorOptions.map((opt, oIdx) => (
+                              <div
+                                key={oIdx}
+                                className={`p-2 rounded-xl border flex items-center gap-2 ${
+                                  String.fromCharCode(65 + oIdx) === editorCorrectAnswer
+                                    ? "bg-emerald-50 border-emerald-300 font-semibold text-emerald-900"
+                                    : "border-[#E5DEC9] text-[#315E48]"
+                                }`}
+                              >
+                                <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center text-[10px]">
+                                  {String.fromCharCode(65 + oIdx)}
+                                </span>
+                                <span>{opt}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        )}
 
-                    {(editorType === "essay" ||
-                      editorType === "translation" ||
-                      editorType === "find_error" ||
-                      editorType === "handwriting_photo") && (
-                      <div className="space-y-2 bg-[#FAF7F0] p-3 rounded-2xl border border-[#E5DEC9]">
-                        <label className="font-bold text-[#204434] block">
-                          Đáp án tham khảo / Rubric chấm tay của giáo viên:
-                        </label>
-                        <textarea
-                          value={editorSampleAnswer}
-                          onChange={(e) => setEditorSampleAnswer(e.target.value)}
-                          rows={2}
-                          placeholder="Nhập câu mẫu hoặc tiêu chí cho điểm..."
-                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
-                        />
-                      </div>
-                    )}
+                        {editorType === "fill_blank" && (
+                          <div className="p-2.5 rounded-xl bg-[#FAF7F0] border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48]">
+                            [ Ô nhập chữ Hán của học viên ]
+                          </div>
+                        )}
 
-                    <div>
-                      <label className="font-bold text-[#204434] block mb-1">
-                        Lời giải / Giải thích chi tiết:
-                      </label>
-                      <textarea
-                        value={editorExplanation}
-                        onChange={(e) => setEditorExplanation(e.target.value)}
-                        rows={2}
-                        placeholder="Giải thích vì sao chọn đáp án này..."
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434]"
-                      />
+                        {editorType === "handwriting_photo" && (
+                          <div className="p-3 rounded-xl bg-[#FAF7F0] border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48] space-y-1">
+                            <UploadCloud className="w-6 h-6 mx-auto text-[#8F6D3B]" />
+                            <p>Khu vực chụp ảnh / Tải lên ảnh bài viết tay</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* 2 CTA Buttons for Flow B */}
-                  <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleSaveManualQuestion(false)}
-                      className="px-4 py-2 rounded-xl border border-[#BC9B6B] bg-[#FFFCF6] hover:bg-[#FAF7F0] text-[#8F6D3B] font-bold text-xs"
-                    >
-                      Chỉ lưu vào kho của tôi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSaveManualQuestion(true)}
-                      className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
-                    >
-                      <Save className="w-3.5 h-3.5 text-[#BC9B6B]" />
-                      <span>Lưu vào kho & Thêm vào đề</span>
-                    </button>
+                  {/* KHU VỰC D: THANH THAO TÁC 4 NÚT HÀNH ĐỘNG */}
+                  <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[11px] text-[#315E48]">
+                      Khu vực D: Chọn thao tác lưu trữ
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          showToast("Đã lưu bản nháp câu hỏi!");
+                          setIsAddQuestionChoiceOpen(false);
+                        }}
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0] font-semibold text-xs"
+                      >
+                        Lưu nháp
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveManualQuestion(false)}
+                        className="px-3.5 py-2 rounded-xl border border-[#BC9B6B] bg-[#FFFCF6] hover:bg-[#FAF7F0] text-[#8F6D3B] font-bold text-xs"
+                      >
+                        Lưu vào Kho của tôi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSaveManualQuestion(true);
+                          setEditorContent("");
+                          setEditorTitle("");
+                          showToast("Đã thêm câu vào đề! Mời tiếp tục soạn câu tiếp theo.");
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#FAF7F0] border border-[#204434] text-[#204434] font-bold text-xs hover:bg-[#F3EEDD]"
+                      >
+                        Lưu & Tạo câu tiếp theo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveManualQuestion(true)}
+                        className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+                      >
+                        <Save className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                        <span>Lưu vào kho & Thêm vào đề</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

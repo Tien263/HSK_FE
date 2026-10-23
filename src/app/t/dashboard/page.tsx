@@ -346,6 +346,12 @@ export default function TeacherDashboard() {
 
   // Modal 2: Create Assignment
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [transferredAssignmentPayload, setTransferredAssignmentPayload] = useState<{
+    lessonTitle: string;
+    classId: string;
+    vocabList?: any[];
+    grammarList?: any[];
+  } | null>(null);
   const [assignTitle, setAssignTitle] = useState("");
   const [assignClassId, setAssignClassId] = useState("c1");
   const [assignDuration, setAssignDuration] = useState(30);
@@ -1479,13 +1485,12 @@ export default function TeacherDashboard() {
               }))}
               onNavigateToAssignments={(payload) => {
                 showToast(`Đã chuyển ${payload.vocabList.length} từ vựng và ${payload.grammarList.length} điểm ngữ pháp sang module Bài tập!`);
+                setTransferredAssignmentPayload(payload);
                 setAssignTitle(`Bài tập củng cố: ${payload.lessonTitle}`);
                 if (payload.classId) {
                   setAssignClassId(payload.classId);
                 }
                 setActiveTab("assignments");
-                setAssignErrors({});
-                setIsAssignModalOpen(true);
               }}
               onBackToDashboard={() => setActiveTab("overview")}
             />
@@ -1505,12 +1510,13 @@ export default function TeacherDashboard() {
               }))}
               onBackToDashboard={() => setActiveTab("overview")}
               initialNewAssignmentPayload={
-                assignTitle
+                transferredAssignmentPayload ||
+                (assignTitle
                   ? {
                       lessonTitle: assignTitle,
                       classId: assignClassId,
                     }
-                  : undefined
+                  : undefined)
               }
             />
           )}
