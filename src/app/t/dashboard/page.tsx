@@ -351,6 +351,7 @@ export default function TeacherDashboard() {
     classId: string;
     vocabList?: any[];
     grammarList?: any[];
+    culturalList?: any[];
   } | null>(null);
   const [assignTitle, setAssignTitle] = useState("");
   const [assignClassId, setAssignClassId] = useState("c1");
@@ -1484,7 +1485,11 @@ export default function TeacherDashboard() {
                 studentCount: c.studentCount,
               }))}
               onNavigateToAssignments={(payload) => {
-                showToast(`Đã chuyển ${payload.vocabList.length} từ vựng và ${payload.grammarList.length} điểm ngữ pháp sang module Bài tập!`);
+                const countParts: string[] = [];
+                if (payload.vocabList?.length) countParts.push(`${payload.vocabList.length} từ vựng`);
+                if (payload.grammarList?.length) countParts.push(`${payload.grammarList.length} điểm ngữ pháp`);
+                if (payload.culturalList?.length) countParts.push(`${payload.culturalList.length} mục văn hóa`);
+                showToast(`Đã chuyển ${countParts.join(", ") || "nội dung"} sang module Bài tập!`);
                 setTransferredAssignmentPayload(payload);
                 setAssignTitle(`Bài tập củng cố: ${payload.lessonTitle}`);
                 if (payload.classId) {

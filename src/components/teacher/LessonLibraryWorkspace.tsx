@@ -82,9 +82,13 @@ import {
   INITIAL_SAVED_HANYU_LESSONS,
   INITIAL_CURATED_LESSONS,
   INITIAL_LECTURE_MATERIALS,
+  INITIAL_ASSIGNED_LESSONS,
   SavedHanyuLesson,
   CustomCuratedLesson,
   LectureMaterialItem,
+  CulturalSelectionItem,
+  AssignedLessonToClass,
+  getCulturalSelectionItems,
 } from "@/lib/lesson-data";
 
 interface ClassOption {
@@ -107,6 +111,7 @@ interface LessonLibraryWorkspaceProps {
     classId: string;
     vocabList: VocabularyItem[];
     grammarList: GrammarItem[];
+    culturalList?: CulturalSelectionItem[];
   }) => void;
   onBackToDashboard?: () => void;
 }
@@ -202,11 +207,46 @@ export function LessonLibraryWorkspace({
   }, [searchQuery, searchScope]);
 
   // =========================================================================
-  // TAB 2: THƯ VIỆN CỦA TÔI STATE
+  // TAB 2: THƯ VIỆN CỦA TÔI STATE & PERSISTENCE
   // =========================================================================
-  const [librarySubTab, setLibrarySubTab] = useState<"ALL" | "SAVED_HANYU" | "CURATED" | "MATERIALS">("ALL");
+  const [librarySubTab, setLibrarySubTab] = useState<"ALL" | "SAVED_HANYU" | "CURATED" | "MATERIALS" | "ASSIGNED">("ALL");
   const [savedHanyuLessons, setSavedHanyuLessons] = useState<SavedHanyuLesson[]>(INITIAL_SAVED_HANYU_LESSONS);
-  const [curatedLessons, setCuratedLessons] = useState<CustomCuratedLesson[]>(INITIAL_CURATED_LESSONS);
+  const [curatedLessons, setCuratedLessons] = useState<CustomCuratedLesson[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_curated_lessons");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return INITIAL_CURATED_LESSONS;
+  });
+
+  const [assignedLessons, setAssignedLessons] = useState<AssignedLessonToClass[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return INITIAL_ASSIGNED_LESSONS;
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("hanyu_curated_lessons", JSON.stringify(curatedLessons));
+      } catch (e) {}
+    }
+  }, [curatedLessons]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(assignedLessons));
+      } catch (e) {}
+    }
+  }, [assignedLessons]);
+
   const [lectureMaterials, setLectureMaterials] = useState<LectureMaterialItem[]>(INITIAL_LECTURE_MATERIALS);
 
   // Modal: Upload Material
@@ -237,14 +277,27 @@ export function LessonLibraryWorkspace({
     "g-le",
     "g-bu",
   ]);
+  const [selectedCulturalIds, setSelectedCulturalIds] = useState<string[]>([
+    "cult-hsk1-b5-context",
+    "cult-hsk1-b5-phrase-0",
+    "cult-hsk1-b5-phrase-1",
+  ]);
   const [isDialogueSelected, setIsDialogueSelected] = useState<boolean>(false);
   const [isReadingSelected, setIsReadingSelected] = useState<boolean>(false);
   const [isListeningSelected, setIsListeningSelected] = useState<boolean>(false);
+  const [isPreviewBasketModalOpen, setIsPreviewBasketModalOpen] = useState<boolean>(false);
 
   // Target class for assignment
   const [selectedClassId, setSelectedClassId] = useState<string>(
-    classesList.length > 0 ? classesList[0].id : ""
+    classesList.length > 0 ? classesList[0].id : "c1"
   );
+  const [assignSelectedClassIds, setAssignSelectedClassIds] = useState<string[]>(
+    classesList.length > 0 ? [classesList[0].id] : ["c1"]
+  );
+  const [assignOpenDate, setAssignOpenDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
+  const [assignStep, setAssignStep] = useState<1 | 2>(1);
 
   // Audio / Speech State
   const [activeSpeakingText, setActiveSpeakingText] = useState<string | null>(null);
@@ -257,6 +310,7 @@ export function LessonLibraryWorkspace({
   const [isDialogueExpanded, setIsDialogueExpanded] = useState(true);
   const [isReadingExpanded, setIsReadingExpanded] = useState(true);
   const [isListeningExpanded, setIsListeningExpanded] = useState(true);
+  const [isCulturalExpanded, setIsCulturalExpanded] = useState(true);
 
   // Reading options
   const [showPinyinInReading, setShowPinyinInReading] = useState(true);
@@ -294,6 +348,50 @@ export function LessonLibraryWorkspace({
     window.speechSynthesis.speak(utterance);
   };
 
+  // Cultural items in current lesson
+  const availableCulturalItems = useMemo(() => {
+    return getCulturalSelectionItems(currentLesson);
+  }, [currentLesson]);
+
+  const selectedCulturalItems = useMemo(() => {
+    return availableCulturalItems.filter((item) => selectedCulturalIds.includes(item.id));
+  }, [availableCulturalItems, selectedCulturalIds]);
+
+  const isAllCulturalSelected = useMemo(() => {
+    if (availableCulturalItems.length === 0) return false;
+    return availableCulturalItems.every((item) => selectedCulturalIds.includes(item.id));
+  }, [availableCulturalItems, selectedCulturalIds]);
+
+  const isSomeCulturalSelected = useMemo(() => {
+    return availableCulturalItems.some((item) => selectedCulturalIds.includes(item.id));
+  }, [availableCulturalItems, selectedCulturalIds]);
+
+  const toggleCulturalItem = (id: string) => {
+    setSelectedCulturalIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllCultural = () => {
+    const currentIds = availableCulturalItems.map((c) => c.id);
+    if (isAllCulturalSelected) {
+      setSelectedCulturalIds((prev) => prev.filter((id) => !currentIds.includes(id)));
+    } else {
+      setSelectedCulturalIds((prev) => Array.from(new Set([...prev, ...currentIds])));
+    }
+  };
+
+  const toggleCulturalSubgroup = (type: "PHRASE" | "POLITE" | "CAUTION") => {
+    const groupItems = availableCulturalItems.filter((c) => c.type === type);
+    const groupIds = groupItems.map((c) => c.id);
+    const isAllGroupSelected = groupIds.length > 0 && groupIds.every((id) => selectedCulturalIds.includes(id));
+    if (isAllGroupSelected) {
+      setSelectedCulturalIds((prev) => prev.filter((id) => !groupIds.includes(id)));
+    } else {
+      setSelectedCulturalIds((prev) => Array.from(new Set([...prev, ...groupIds])));
+    }
+  };
+
   // Selection basket totals
   const totalSelectedCount = useMemo(() => {
     return (
@@ -301,9 +399,10 @@ export function LessonLibraryWorkspace({
       selectedGrammarIds.length +
       (isDialogueSelected ? 1 : 0) +
       (isReadingSelected ? 1 : 0) +
-      (isListeningSelected ? 1 : 0)
+      (isListeningSelected ? 1 : 0) +
+      selectedCulturalIds.length
     );
-  }, [selectedVocabIds, selectedGrammarIds, isDialogueSelected, isReadingSelected, isListeningSelected]);
+  }, [selectedVocabIds, selectedGrammarIds, isDialogueSelected, isReadingSelected, isListeningSelected, selectedCulturalIds]);
 
   // Selection handlers
   const toggleVocab = (id: string) => {
@@ -348,6 +447,9 @@ export function LessonLibraryWorkspace({
     const chosenGrammars = currentLesson.grammars.filter((g) =>
       selectedGrammarIds.includes(g.id)
     );
+    const chosenCultural = availableCulturalItems.filter((c) =>
+      selectedCulturalIds.includes(c.id)
+    );
 
     const newCurated: CustomCuratedLesson = {
       id: "curated-" + Date.now(),
@@ -356,34 +458,75 @@ export function LessonLibraryWorkspace({
       sourceLessonTitle: currentLesson.titleVi,
       selectedVocabCount: chosenVocabs.length,
       selectedGrammarCount: chosenGrammars.length,
+      selectedCulturalCount: chosenCultural.length,
       vocabs: chosenVocabs,
       grammars: chosenGrammars,
+      culturalItems: chosenCultural,
       notes: curatedNotes.trim(),
-      createdAt: new Date().toISOString().split("T")[0],
+      createdAt: new Date().toLocaleDateString("vi-VN"),
     };
 
     setCuratedLessons((prev) => [newCurated, ...prev]);
     setIsCurateModalOpen(false);
     setCuratedTitle("");
     setCuratedNotes("");
-    showToast(`Đã lưu "${newCurated.title}" vào Thư viện của tôi!`);
+    showToast(`Đã lưu "${newCurated.title}" (kèm ${chosenCultural.length} mục văn hóa) vào Thư viện của tôi!`);
   };
 
-  // Handle Assign Lesson to Class
+  // Handle Assign Lesson to Class (Supports multi-class & preview)
   const handleAssignToClass = () => {
-    if (!selectedClassId) {
-      showToast("Vui lòng chọn lớp học để giao bài");
+    if (assignSelectedClassIds.length === 0) {
+      showToast("Vui lòng chọn ít nhất 1 lớp học để giao bài");
       return;
     }
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
       setIsAssignModalOpen(false);
-      const targetClass = classesList.find((c) => c.id === selectedClassId);
-      showToast(
-        `Đã giao bài "${currentLesson.titleVi}" cho lớp ${targetClass?.name || "được chọn"} (Hạn nộp: ${assignDueDate})!`
+      setAssignStep(1);
+
+      const targetClassNames = classesList
+        .filter((c) => assignSelectedClassIds.includes(c.id))
+        .map((c) => c.name);
+
+      const chosenVocabs = currentLesson.vocabularies.filter((v) =>
+        selectedVocabIds.includes(v.id)
       );
-    }, 600);
+      const chosenGrammars = currentLesson.grammars.filter((g) =>
+        selectedGrammarIds.includes(g.id)
+      );
+      const chosenCultural = availableCulturalItems.filter((c) =>
+        selectedCulturalIds.includes(c.id)
+      );
+
+      const newAssignment: AssignedLessonToClass = {
+        id: "assign-" + Date.now(),
+        lessonId: currentLesson.id,
+        titleZh: currentLesson.titleZh,
+        titleVi: currentLesson.titleVi,
+        sourceTrackId: activeTrack,
+        classIds: assignSelectedClassIds,
+        classNames: targetClassNames.length > 0 ? targetClassNames : ["Lớp học đã chọn"],
+        vocabCount: chosenVocabs.length,
+        grammarCount: chosenGrammars.length,
+        hasDialogue: isDialogueSelected,
+        hasReading: isReadingSelected,
+        culturalCount: chosenCultural.length,
+        selectedVocabs: chosenVocabs,
+        selectedGrammars: chosenGrammars,
+        selectedDialogue: isDialogueSelected ? currentLesson.dialogue : undefined,
+        selectedCulturalItems: chosenCultural,
+        assignedAt: new Date().toLocaleDateString("vi-VN"),
+        dueDate: assignDueDate,
+        teacherNote: assignNote.trim() || undefined,
+      };
+
+      setAssignedLessons((prev) => [newAssignment, ...prev]);
+
+      showToast(
+        `Đã giao bài "${currentLesson.titleVi}" cho ${targetClassNames.length} lớp học (kèm ${chosenCultural.length} mục văn hóa giao tiếp)!`
+      );
+    }, 500);
   };
 
   // Handle Transfer Selection to Assignment Module
@@ -394,22 +537,26 @@ export function LessonLibraryWorkspace({
     const chosenGrammarList = currentLesson.grammars.filter((g) =>
       selectedGrammarIds.includes(g.id)
     );
+    const chosenCulturalList = availableCulturalItems.filter((c) =>
+      selectedCulturalIds.includes(c.id)
+    );
 
-    if (chosenVocabList.length === 0 && chosenGrammarList.length === 0) {
-      showToast("Vui lòng chọn ít nhất 1 từ vựng hoặc 1 điểm ngữ pháp để tạo bài tập!");
+    if (chosenVocabList.length === 0 && chosenGrammarList.length === 0 && chosenCulturalList.length === 0) {
+      showToast("Vui lòng chọn ít nhất 1 từ vựng, ngữ pháp hoặc mục văn hóa để tạo bài tập!");
       return;
     }
 
     if (onNavigateToAssignments) {
       onNavigateToAssignments({
         lessonTitle: currentLesson.titleVi,
-        classId: selectedClassId,
+        classId: selectedClassId || (classesList[0]?.id ?? "c1"),
         vocabList: chosenVocabList,
         grammarList: chosenGrammarList,
+        culturalList: chosenCulturalList,
       });
     } else {
       showToast(
-        `Đã chuyển ${chosenVocabList.length} từ vựng và ${chosenGrammarList.length} điểm ngữ pháp sang module Bài tập!`
+        `Đã chuyển ${chosenVocabList.length} từ vựng, ${chosenGrammarList.length} ngữ pháp và ${chosenCulturalList.length} mục văn hóa sang module Bài tập!`
       );
     }
   };
@@ -2236,113 +2383,401 @@ export function LessonLibraryWorkspace({
                         {/* SECTION 5: VĂN HÓA GIAO TIẾP & CÁCH SỬ DỤNG THỰC TẾ (ĐẶC TẢ HOÀN CHỈNH) */}
                         {currentLesson.culturalNote && (
                           <div className="rounded-3xl border border-[#BC9B6B]/60 bg-[#FFFCF6] shadow-2xs overflow-hidden">
-                            <div className="p-4 sm:p-5 flex items-center justify-between border-b border-[#BC9B6B]/40 bg-gradient-to-r from-[#FAF7F0] to-[#F5EEDB]">
+                            <div className="p-4 sm:p-5 flex items-center justify-between border-b border-[#BC9B6B]/40 bg-gradient-to-r from-[#FAF7F0] via-[#FDFBF7] to-[#F5EEDB]">
                               <div className="flex items-center gap-3">
-                                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#BC9B6B] to-[#8F6D3B] text-white flex items-center justify-center font-bold text-base shadow-2xs">
+                                <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#BC9B6B] to-[#8F6D3B] text-white flex items-center justify-center font-bold text-lg shadow-2xs">
                                   🏮
                                 </span>
                                 <div>
                                   <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
                                     <span>Phần 5: Văn hóa giao tiếp & Cách sử dụng thực tế</span>
-                                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] border border-[#BC9B6B]/30">
-                                      Tiêu chuẩn giao tiếp
+                                    <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] border border-[#BC9B6B]/30">
+                                      {selectedCulturalItems.length}/{availableCulturalItems.length} đã chọn
                                     </span>
                                   </h3>
                                   <p className="text-[11px] text-[#315E48]">
-                                    Ứng dụng ngôn ngữ tự nhiên, phép lịch sự và tránh cấm kỵ văn hóa
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="p-5 space-y-4 text-xs">
-                              {/* 1. Bối cảnh & Đối tượng */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                                <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] space-y-1">
-                                  <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide">
-                                    🏛️ Bối cảnh sử dụng
-                                  </span>
-                                  <p className="text-[#204434] leading-relaxed">
-                                    {currentLesson.culturalNote.context}
-                                  </p>
-                                </div>
-                                <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] space-y-1">
-                                  <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide">
-                                    👥 Đối tượng phù hợp
-                                  </span>
-                                  <p className="text-[#204434] leading-relaxed">
-                                    {currentLesson.culturalNote.targetAudience}
+                                    Chọn toàn bộ hoặc từng mẫu câu, phép lịch sự & lưu ý văn hóa để đưa vào giỏ học liệu
                                   </p>
                                 </div>
                               </div>
 
-                              {/* 2. Mẫu câu nên dùng */}
-                              <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] space-y-2">
-                                <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide">
-                                  ✨ Mẫu câu vàng khuyên dùng
-                                </span>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {currentLesson.culturalNote.naturalExpressions.map((phrase, i) => (
-                                    <div
-                                      key={i}
-                                      className="p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9]/80 flex items-center justify-between"
-                                    >
-                                      <div>
-                                        <span className="font-serif font-bold text-sm text-[#204434]">
-                                          {phrase.zh}
-                                        </span>
-                                        <p className="text-[10px] text-[#8F6D3B]">{phrase.py}</p>
-                                        <p className="text-[10px] text-[#315E48]">{phrase.vi}</p>
-                                      </div>
-                                      <button
-                                        onClick={() => speakChinese(phrase.zh)}
-                                        className="p-1 text-gray-400 hover:text-[#204434]"
-                                        title="Phát âm mẫu câu"
-                                      >
-                                        <Volume2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* 3. Cách nói lịch sự & Lưu ý cấm kỵ */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                                <div className="p-3.5 rounded-2xl bg-[#204434]/5 border border-[#204434]/20 space-y-1.5">
-                                  <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide">
-                                    🤝 Cách nói lịch sự & Tôn trọng
-                                  </span>
-                                  <div className="space-y-1">
-                                    {currentLesson.culturalNote.politeExpressions.map((pe, idx) => (
-                                      <div key={idx} className="text-[#204434]">
-                                        <span className="font-serif font-bold">{pe.zh}</span> ({pe.py}) - {pe.vi}
-                                        {pe.note && <span className="text-[10px] text-[#8F6D3B] block italic">{pe.note}</span>}
-                                      </div>
-                                    ))}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={toggleAllCultural}
+                                  className="px-3 py-1.5 rounded-xl border border-[#BC9B6B]/50 bg-white hover:bg-[#F3EEDD] text-[#8F6D3B] font-bold text-xs flex items-center gap-1.5 shadow-2xs transition"
+                                >
+                                  <div
+                                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
+                                      isAllCulturalSelected
+                                        ? "bg-[#204434] border-[#204434] text-white"
+                                        : isSomeCulturalSelected
+                                        ? "bg-[#BC9B6B]/30 border-[#BC9B6B] text-[#204434]"
+                                        : "border-[#BC9B6B] bg-white"
+                                    }`}
+                                  >
+                                    {isAllCulturalSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                    {!isAllCulturalSelected && isSomeCulturalSelected && (
+                                      <span className="w-2 h-0.5 bg-[#204434] rounded-full" />
+                                    )}
                                   </div>
-                                </div>
-                                <div className="p-3.5 rounded-2xl bg-red-50/70 border border-red-200 space-y-1.5">
-                                  <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide">
-                                    ⚠️ Lưu ý & Cấm kỵ văn hóa
-                                  </span>
-                                  <ul className="list-disc pl-4 space-y-1 text-red-900">
-                                    {currentLesson.culturalNote.cautionNotes.map((note, idx) => (
-                                      <li key={idx}>{note}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
+                                  <span>{isAllCulturalSelected ? "Bỏ chọn tất cả Phần 5" : "Chọn toàn bộ Phần 5"}</span>
+                                </button>
 
-                              {/* 4. Tình huống thực tế */}
-                              <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-1.5">
-                                <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide">
-                                  📍 Tình huống áp dụng thực tế
-                                </span>
-                                <p className="text-[#204434] leading-relaxed">
-                                  {currentLesson.culturalNote.practiceScenario}
-                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCulturalExpanded(!isCulturalExpanded)}
+                                  className="p-1.5 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] hover:bg-[#F3EEDD]"
+                                >
+                                  {isCulturalExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </button>
                               </div>
                             </div>
+
+                            {isCulturalExpanded && (
+                              <div className="p-5 space-y-4 text-xs">
+                                {/* 1. Bối cảnh & Đối tượng (2 Subsections with individual checkboxes) */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                  {/* Subsection 1: Context */}
+                                  {currentLesson.culturalNote.context && (() => {
+                                    const contextId = `cult-${currentLesson.id}-context`;
+                                    const isContextSelected = selectedCulturalIds.includes(contextId);
+                                    return (
+                                      <div
+                                        onClick={() => toggleCulturalItem(contextId)}
+                                        className={`p-3.5 rounded-2xl border transition cursor-pointer select-none space-y-2 ${
+                                          isContextSelected
+                                            ? "bg-[#F3EEDD]/70 border-[#204434] shadow-xs"
+                                            : "bg-white border-[#E5DEC9] hover:border-[#BC9B6B]"
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide flex items-center gap-1.5">
+                                            <span>🏛️</span>
+                                            <span>Bối cảnh sử dụng</span>
+                                          </span>
+                                          <div
+                                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
+                                              isContextSelected
+                                                ? "bg-[#204434] border-[#204434] text-white"
+                                                : "border-[#BC9B6B] bg-white"
+                                            }`}
+                                          >
+                                            {isContextSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                          </div>
+                                        </div>
+                                        <p className="text-[#204434] leading-relaxed">
+                                          {currentLesson.culturalNote.context}
+                                        </p>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Subsection 2: Target Audience */}
+                                  {currentLesson.culturalNote.targetAudience && (() => {
+                                    const audienceId = `cult-${currentLesson.id}-audience`;
+                                    const isAudienceSelected = selectedCulturalIds.includes(audienceId);
+                                    return (
+                                      <div
+                                        onClick={() => toggleCulturalItem(audienceId)}
+                                        className={`p-3.5 rounded-2xl border transition cursor-pointer select-none space-y-2 ${
+                                          isAudienceSelected
+                                            ? "bg-[#F3EEDD]/70 border-[#204434] shadow-xs"
+                                            : "bg-white border-[#E5DEC9] hover:border-[#BC9B6B]"
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide flex items-center gap-1.5">
+                                            <span>👥</span>
+                                            <span>Đối tượng phù hợp</span>
+                                          </span>
+                                          <div
+                                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
+                                              isAudienceSelected
+                                                ? "bg-[#204434] border-[#204434] text-white"
+                                                : "border-[#BC9B6B] bg-white"
+                                            }`}
+                                          >
+                                            {isAudienceSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                          </div>
+                                        </div>
+                                        <p className="text-[#204434] leading-relaxed">
+                                          {currentLesson.culturalNote.targetAudience}
+                                        </p>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+
+                                {/* 2. Subsection 3: Mẫu câu nên dùng (Group toggle + Individual phrase toggles) */}
+                                {currentLesson.culturalNote.naturalExpressions && currentLesson.culturalNote.naturalExpressions.length > 0 && (() => {
+                                  const phraseItems = availableCulturalItems.filter((c) => c.type === "PHRASE");
+                                  const selectedPhraseCount = phraseItems.filter((c) => selectedCulturalIds.includes(c.id)).length;
+                                  const isAllPhrasesSelected = phraseItems.length > 0 && selectedPhraseCount === phraseItems.length;
+
+                                  return (
+                                    <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
+                                      <div className="flex items-center justify-between border-b border-[#E5DEC9]/70 pb-2">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide flex items-center gap-1">
+                                            <span>✨</span>
+                                            <span>Mẫu câu vàng khuyên dùng</span>
+                                          </span>
+                                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#8F6D3B] font-semibold">
+                                            {selectedPhraseCount}/{phraseItems.length} đã chọn
+                                          </span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleCulturalSubgroup("PHRASE")}
+                                          className="text-xs text-[#204434] hover:underline font-semibold flex items-center gap-1.5"
+                                        >
+                                          <div
+                                            className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition ${
+                                              isAllPhrasesSelected
+                                                ? "bg-[#204434] border-[#204434] text-white"
+                                                : "border-[#BC9B6B] bg-white"
+                                            }`}
+                                          >
+                                            {isAllPhrasesSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                          </div>
+                                          <span>{isAllPhrasesSelected ? "Bỏ chọn tất cả mẫu câu" : "Chọn tất cả mẫu câu"}</span>
+                                        </button>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        {currentLesson.culturalNote.naturalExpressions.map((phrase, i) => {
+                                          const phraseId = `cult-${currentLesson.id}-phrase-${i}`;
+                                          const isSelected = selectedCulturalIds.includes(phraseId);
+
+                                          return (
+                                            <div
+                                              key={phraseId}
+                                              onClick={() => toggleCulturalItem(phraseId)}
+                                              className={`p-3 rounded-xl border transition cursor-pointer select-none flex items-start justify-between gap-2 ${
+                                                isSelected
+                                                  ? "bg-[#F3EEDD]/80 border-[#204434] shadow-xs"
+                                                  : "bg-[#FAF7F0] border-[#E5DEC9]/80 hover:border-[#BC9B6B]"
+                                              }`}
+                                            >
+                                              <div className="flex items-start gap-2.5">
+                                                <div
+                                                  className={`w-4 h-4 mt-0.5 rounded-md border flex items-center justify-center shrink-0 transition ${
+                                                    isSelected
+                                                      ? "bg-[#204434] border-[#204434] text-white"
+                                                      : "border-[#BC9B6B] bg-white"
+                                                  }`}
+                                                >
+                                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                                </div>
+                                                <div>
+                                                  <span className="font-serif font-bold text-sm text-[#204434]">
+                                                    {phrase.zh}
+                                                  </span>
+                                                  <p className="text-[11px] text-[#8F6D3B]">{phrase.py}</p>
+                                                  <p className="text-[11px] text-[#315E48] font-medium">{phrase.vi}</p>
+                                                </div>
+                                              </div>
+
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  speakChinese(phrase.zh);
+                                                }}
+                                                className={`p-1.5 rounded-lg border transition shrink-0 ${
+                                                  activeSpeakingText === phrase.zh
+                                                    ? "bg-[#204434] text-white border-[#204434]"
+                                                    : "bg-white text-gray-500 border-[#E5DEC9] hover:text-[#204434] hover:bg-[#F3EEDD]"
+                                                }`}
+                                                title="Phát âm mẫu câu"
+                                              >
+                                                <Volume2 className="w-3.5 h-3.5" />
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                {/* 3. Subsection 4 & 5: Cách nói lịch sự & Lưu ý cấm kỵ */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                  {/* Polite Expressions */}
+                                  {currentLesson.culturalNote.politeExpressions && currentLesson.culturalNote.politeExpressions.length > 0 && (() => {
+                                    const politeItems = availableCulturalItems.filter((c) => c.type === "POLITE");
+                                    const selectedPoliteCount = politeItems.filter((c) => selectedCulturalIds.includes(c.id)).length;
+                                    const isAllPoliteSelected = politeItems.length > 0 && selectedPoliteCount === politeItems.length;
+
+                                    return (
+                                      <div className="p-3.5 rounded-2xl bg-[#204434]/5 border border-[#204434]/20 space-y-2.5">
+                                        <div className="flex items-center justify-between border-b border-[#204434]/15 pb-1.5">
+                                          <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide flex items-center gap-1">
+                                            <span>🤝</span>
+                                            <span>Cách nói lịch sự & Tôn trọng</span>
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCulturalSubgroup("POLITE")}
+                                            className="text-[11px] text-[#204434] hover:underline font-semibold"
+                                          >
+                                            {isAllPoliteSelected ? "Bỏ chọn" : `Chọn tất cả (${politeItems.length})`}
+                                          </button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          {currentLesson.culturalNote.politeExpressions.map((pe, idx) => {
+                                            const politeId = `cult-${currentLesson.id}-polite-${idx}`;
+                                            const isSelected = selectedCulturalIds.includes(politeId);
+
+                                            return (
+                                              <div
+                                                key={politeId}
+                                                onClick={() => toggleCulturalItem(politeId)}
+                                                className={`p-2.5 rounded-xl border transition cursor-pointer select-none flex items-start justify-between gap-2 ${
+                                                  isSelected
+                                                    ? "bg-[#F3EEDD] border-[#204434] shadow-xs"
+                                                    : "bg-white/80 border-[#204434]/15 hover:border-[#204434]"
+                                                }`}
+                                              >
+                                                <div className="flex items-start gap-2">
+                                                  <div
+                                                    className={`w-4 h-4 mt-0.5 rounded-md border flex items-center justify-center shrink-0 transition ${
+                                                      isSelected
+                                                        ? "bg-[#204434] border-[#204434] text-white"
+                                                        : "border-[#BC9B6B] bg-white"
+                                                    }`}
+                                                  >
+                                                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                                  </div>
+                                                  <div className="text-[#204434] text-xs">
+                                                    <span className="font-serif font-bold text-sm">{pe.zh}</span>{" "}
+                                                    <span className="text-[11px] text-[#8F6D3B]">({pe.py})</span> - {pe.vi}
+                                                    {pe.note && (
+                                                      <span className="text-[10px] text-[#8F6D3B] block italic mt-0.5">
+                                                        • {pe.note}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    speakChinese(pe.zh);
+                                                  }}
+                                                  className={`p-1 rounded-md border transition shrink-0 ${
+                                                    activeSpeakingText === pe.zh
+                                                      ? "bg-[#204434] text-white border-[#204434]"
+                                                      : "bg-white text-gray-500 border-[#E5DEC9] hover:text-[#204434]"
+                                                  }`}
+                                                  title="Phát âm"
+                                                >
+                                                  <Volume2 className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Caution Notes */}
+                                  {currentLesson.culturalNote.cautionNotes && currentLesson.culturalNote.cautionNotes.length > 0 && (() => {
+                                    const cautionItemList = availableCulturalItems.filter((c) => c.type === "CAUTION");
+                                    const selectedCautionCount = cautionItemList.filter((c) => selectedCulturalIds.includes(c.id)).length;
+                                    const isAllCautionSelected = cautionItemList.length > 0 && selectedCautionCount === cautionItemList.length;
+
+                                    return (
+                                      <div className="p-3.5 rounded-2xl bg-red-50/70 border border-red-200 space-y-2.5">
+                                        <div className="flex items-center justify-between border-b border-red-200/80 pb-1.5">
+                                          <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide flex items-center gap-1">
+                                            <span>⚠️</span>
+                                            <span>Lưu ý & Cấm kỵ văn hóa</span>
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCulturalSubgroup("CAUTION")}
+                                            className="text-[11px] text-red-800 hover:underline font-semibold"
+                                          >
+                                            {isAllCautionSelected ? "Bỏ chọn" : `Chọn tất cả (${cautionItemList.length})`}
+                                          </button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          {currentLesson.culturalNote.cautionNotes.map((note, idx) => {
+                                            const cautionId = `cult-${currentLesson.id}-caution-${idx}`;
+                                            const isSelected = selectedCulturalIds.includes(cautionId);
+
+                                            return (
+                                              <div
+                                                key={cautionId}
+                                                onClick={() => toggleCulturalItem(cautionId)}
+                                                className={`p-2.5 rounded-xl border transition cursor-pointer select-none flex items-start gap-2 ${
+                                                  isSelected
+                                                    ? "bg-red-100/90 border-red-600 shadow-xs"
+                                                    : "bg-white/80 border-red-200 hover:border-red-400"
+                                                }`}
+                                              >
+                                                <div
+                                                  className={`w-4 h-4 mt-0.5 rounded-md border flex items-center justify-center shrink-0 transition ${
+                                                    isSelected
+                                                      ? "bg-red-700 border-red-700 text-white"
+                                                      : "border-red-300 bg-white"
+                                                  }`}
+                                                >
+                                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                                </div>
+                                                <p className="text-red-900 text-xs leading-relaxed flex-1">{note}</p>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+
+                                {/* 4. Subsection 6: Tình huống áp dụng thực tế */}
+                                {currentLesson.culturalNote.practiceScenario && (() => {
+                                  const scenarioId = `cult-${currentLesson.id}-scenario`;
+                                  const isScenarioSelected = selectedCulturalIds.includes(scenarioId);
+
+                                  return (
+                                    <div
+                                      onClick={() => toggleCulturalItem(scenarioId)}
+                                      className={`p-3.5 rounded-2xl border transition cursor-pointer select-none space-y-2 ${
+                                        isScenarioSelected
+                                          ? "bg-[#F3EEDD]/80 border-[#204434] shadow-xs"
+                                          : "bg-[#FAF7F0] border-[#BC9B6B]/40 hover:border-[#BC9B6B]"
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide flex items-center gap-1.5">
+                                          <span>📍</span>
+                                          <span>Tình huống áp dụng thực tế</span>
+                                        </span>
+                                        <div
+                                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
+                                            isScenarioSelected
+                                              ? "bg-[#204434] border-[#204434] text-white"
+                                              : "border-[#BC9B6B] bg-white"
+                                          }`}
+                                        >
+                                          {isScenarioSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                        </div>
+                                      </div>
+                                      <p className="text-[#204434] leading-relaxed">
+                                        {currentLesson.culturalNote.practiceScenario}
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2396,7 +2831,28 @@ export function LessonLibraryWorkspace({
                             {isReadingSelected ? "1 bài" : "0"}
                           </span>
                         </div>
+                        {/* Văn hóa giao tiếp row */}
+                        <div className="p-2.5 rounded-xl bg-gradient-to-r from-[#FAF7F0] to-[#F5EEDB] border border-[#BC9B6B]/60 flex items-center justify-between col-span-2">
+                          <span className="text-[#8F6D3B] font-bold flex items-center gap-1.5">
+                            <span>🏮</span>
+                            <span>Văn hóa giao tiếp:</span>
+                          </span>
+                          <span className="font-bold text-[#204434]">
+                            {selectedCulturalIds.length} / {availableCulturalItems.length} mục
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Preview Detailed Basket Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsPreviewBasketModalOpen(true)}
+                        disabled={totalSelectedCount === 0}
+                        className="w-full py-2 px-3 rounded-xl border border-[#204434]/20 bg-[#FAF7F0] hover:bg-[#F3EEDD] disabled:opacity-40 text-[#204434] text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                        <span>Xem trước & quản lý giỏ ({totalSelectedCount})</span>
+                      </button>
 
                       {/* Class Selector */}
                       <div className="space-y-1.5 pt-2 border-t border-[#E5DEC9]">
@@ -2433,7 +2889,11 @@ export function LessonLibraryWorkspace({
 
                         {/* 2. Giao bài học cho lớp */}
                         <button
-                          onClick={() => setIsAssignModalOpen(true)}
+                          onClick={() => {
+                            setAssignSelectedClassIds(selectedClassId ? [selectedClassId] : classesList.slice(0, 1).map((c) => c.id));
+                            setAssignStep(1);
+                            setIsAssignModalOpen(true);
+                          }}
                           disabled={totalSelectedCount === 0}
                           className="w-full py-2.5 px-3 rounded-xl bg-[#204434] hover:bg-[#183629] disabled:opacity-40 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs"
                         >
@@ -2468,9 +2928,10 @@ export function LessonLibraryWorkspace({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5DEC9] pb-3">
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                 {[
-                  { id: "ALL", label: `Tất cả (${savedHanyuLessons.length + curatedLessons.length + lectureMaterials.length})` },
+                  { id: "ALL", label: `Tất cả (${savedHanyuLessons.length + curatedLessons.length + lectureMaterials.length + assignedLessons.length})` },
                   { id: "SAVED_HANYU", label: `Đã lưu từ Hanyu (${savedHanyuLessons.length})` },
                   { id: "CURATED", label: `Bài học tùy chỉnh (${curatedLessons.length})` },
+                  { id: "ASSIGNED", label: `Bài học đã giao (${assignedLessons.length})` },
                   { id: "MATERIALS", label: `Tài liệu bài giảng (${lectureMaterials.length})` },
                 ].map((sub) => (
                   <button
@@ -2606,9 +3067,18 @@ export function LessonLibraryWorkspace({
                           <p className="text-xs text-[#315E48]">
                             Nguồn: <strong>{cur.sourceLessonTitle}</strong>
                           </p>
-                          <div className="flex items-center gap-3 text-xs text-[#8F6D3B]">
+                          <div className="flex flex-wrap items-center gap-2.5 text-xs text-[#8F6D3B]">
                             <span>📚 {cur.selectedVocabCount} từ vựng</span>
+                            <span>•</span>
                             <span>📐 {cur.selectedGrammarCount} ngữ pháp</span>
+                            {(cur.selectedCulturalCount || cur.culturalItems?.length || 0) > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className="font-bold text-[#8F6D3B]">
+                                  🏮 {cur.selectedCulturalCount || cur.culturalItems?.length} văn hóa
+                                </span>
+                              </>
+                            )}
                           </div>
                           {cur.notes && (
                             <p className="text-[11px] text-[#315E48] italic bg-[#FAF7F0] p-2 rounded-xl border border-[#E5DEC9]">
@@ -2626,6 +3096,7 @@ export function LessonLibraryWorkspace({
                                   classId: selectedClassId,
                                   vocabList: cur.vocabs,
                                   grammarList: cur.grammars,
+                                  culturalList: cur.culturalItems,
                                 });
                               }
                             }}
@@ -2718,6 +3189,94 @@ export function LessonLibraryWorkspace({
                 </div>
               </div>
             )}
+
+            {/* D. SECTION: BÀI HỌC ĐÃ GIAO CHO LỚP */}
+            {(librarySubTab === "ALL" || librarySubTab === "ASSIGNED") && (
+              <div className="space-y-3 pt-4 border-t border-[#E5DEC9]">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
+                    <Send className="w-4 h-4 text-[#BC9B6B]" />
+                    <span>Bài học đã giao cho lớp ({assignedLessons.length})</span>
+                  </h3>
+                  <span className="text-xs text-[#315E48]">Học viên mở trong mục "Lớp học của tôi"</span>
+                </div>
+
+                {assignedLessons.length === 0 ? (
+                  <div className="p-8 rounded-3xl bg-[#FFFCF6] border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48]">
+                    Chưa có bài học nào được giao. Hãy chọn bài học từ tab "Khám phá bài học" và bấm "Giao bài học cho lớp".
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {assignedLessons.map((asg) => (
+                      <div
+                        key={asg.id}
+                        className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-3 hover:border-[#204434] transition flex flex-col justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434]">
+                              Đã giao: {asg.assignedAt}
+                            </span>
+                            <span className="text-[10px] text-red-700 font-semibold">
+                              Hạn: {asg.dueDate}
+                            </span>
+                          </div>
+
+                          <div>
+                            <h4 className="font-serif font-bold text-base text-[#204434]">
+                              {asg.titleZh}
+                            </h4>
+                            <p className="text-xs text-[#8F6D3B] font-medium">{asg.titleVi}</p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1">
+                            {asg.classNames.map((cName, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[10px] text-[#315E48] font-medium"
+                              >
+                                {cName}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-[#315E48] pt-1">
+                            <span>📚 {asg.vocabCount} từ</span>
+                            <span>•</span>
+                            <span>📐 {asg.grammarCount} ngữ pháp</span>
+                            <span>•</span>
+                            <span className="font-bold text-[#8F6D3B]">
+                              🏮 {asg.culturalCount || asg.selectedCulturalItems?.length || 0} mục văn hóa
+                            </span>
+                          </div>
+
+                          {asg.teacherNote && (
+                            <p className="text-[11px] text-[#204434] italic bg-[#FAF7F0] p-2 rounded-xl border border-[#E5DEC9]">
+                              Lời dặn: {asg.teacherNote}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
+                          <span className="text-[11px] text-[#315E48]">
+                            Học viên đang học
+                          </span>
+                          <button
+                            onClick={() => {
+                              setAssignedLessons((prev) => prev.filter((a) => a.id !== asg.id));
+                              showToast(`Đã hủy giao bài "${asg.titleVi}"`);
+                            }}
+                            className="text-xs text-red-600 hover:underline font-medium"
+                          >
+                            Hủy giao bài
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2768,13 +3327,26 @@ export function LessonLibraryWorkspace({
                 />
               </div>
 
-              <div className="p-3 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-1">
+              <div className="p-3.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-1.5">
                 <span className="font-bold text-[#8F6D3B] block">Nội dung sẽ được đóng gói:</span>
                 <p className="text-[#315E48]">
                   • <strong>{selectedVocabIds.length}</strong> từ vựng đã chọn
                 </p>
                 <p className="text-[#315E48]">
                   • <strong>{selectedGrammarIds.length}</strong> điểm ngữ pháp đã chọn
+                </p>
+                {isDialogueSelected && (
+                  <p className="text-[#315E48]">
+                    • <strong>1</strong> bài hội thoại thực tế
+                  </p>
+                )}
+                {isReadingSelected && (
+                  <p className="text-[#315E48]">
+                    • <strong>1</strong> bài đọc hiểu ngữ cảnh
+                  </p>
+                )}
+                <p className="text-[#8F6D3B] font-bold">
+                  • <strong>{selectedCulturalItems.length}</strong> mục văn hóa giao tiếp đã chọn
                 </p>
               </div>
             </div>
@@ -2798,89 +3370,496 @@ export function LessonLibraryWorkspace({
       )}
 
       {/* =================================================================== */}
-      {/* MODAL 2: GIAO BÀI HỌC CHO LỚP */}
+      {/* MODAL 2: GIAO BÀI HỌC CHO LỚP (MULTI-CLASS + PREVIEW CONFIRMATION) */}
       {/* =================================================================== */}
       {isAssignModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-md w-full p-6 space-y-4 shadow-2xl">
+          <div className="bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-3">
               <div className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-[#8F6D3B]" />
                 <h3 className="font-serif font-bold text-base text-[#204434]">
-                  Giao bài học cho lớp
+                  {assignStep === 1 ? "Giao bài học cho lớp" : "Xem trước trước khi giao bài"}
                 </h3>
               </div>
               <button
-                onClick={() => setIsAssignModalOpen(false)}
+                onClick={() => {
+                  setIsAssignModalOpen(false);
+                  setAssignStep(1);
+                }}
                 className="p-1.5 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0]"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-[#204434] block mb-1">Bài học:</label>
-                <div className="p-3 rounded-xl bg-white border border-[#E5DEC9] font-serif font-bold text-sm text-[#204434]">
-                  {currentLesson.titleZh} - {currentLesson.titleVi}
+            {/* STEP 1: CẤU HÌNH GIAO BÀI */}
+            {assignStep === 1 && (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="font-bold text-[#204434] block mb-1">Bài học:</label>
+                  <div className="p-3 rounded-xl bg-white border border-[#E5DEC9] font-serif font-bold text-sm text-[#204434]">
+                    {currentLesson.titleZh} - {currentLesson.titleVi}
+                  </div>
+                </div>
+
+                {/* Multi-class selection */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-[#204434] block">
+                      Chọn lớp nhận bài học (có thể chọn nhiều lớp): <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (assignSelectedClassIds.length === classesList.length) {
+                          setAssignSelectedClassIds(classesList.slice(0, 1).map((c) => c.id));
+                        } else {
+                          setAssignSelectedClassIds(classesList.map((c) => c.id));
+                        }
+                      }}
+                      className="text-[11px] text-[#204434] font-semibold hover:underline"
+                    >
+                      {assignSelectedClassIds.length === classesList.length
+                        ? "Bỏ chọn bớt"
+                        : "Chọn tất cả các lớp"}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1 bg-white rounded-xl border border-[#E5DEC9]">
+                    {classesList.map((c) => {
+                      const isChecked = assignSelectedClassIds.includes(c.id);
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setAssignSelectedClassIds((prev) =>
+                              isChecked
+                                ? prev.length > 1
+                                  ? prev.filter((x) => x !== c.id)
+                                  : prev
+                                : [...prev, c.id]
+                            );
+                          }}
+                          className={`p-2 rounded-lg border transition cursor-pointer flex items-center justify-between ${
+                            isChecked
+                              ? "bg-[#F3EEDD]/70 border-[#204434]"
+                              : "bg-[#FAF7F0] border-[#E5DEC9] hover:border-[#BC9B6B]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                                isChecked
+                                  ? "bg-[#204434] border-[#204434] text-white"
+                                  : "border-[#BC9B6B] bg-white"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                            <span className="font-semibold text-[#204434] truncate max-w-[170px]">{c.name}</span>
+                          </div>
+                          <span className="text-[10px] text-[#315E48]">
+                            {c.studentCount || 0} học viên
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-[#204434] block mb-1">Thời gian mở bài:</label>
+                    <input
+                      type="date"
+                      value={assignOpenDate}
+                      onChange={(e) => setAssignOpenDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs text-[#204434]"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-[#204434] block mb-1">
+                      Hạn hoàn thành: <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={assignDueDate}
+                      onChange={(e) => setAssignDueDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs text-[#204434]"
+                    />
+                  </div>
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="font-bold text-[#204434] block mb-1">Lời nhắn của giáo viên:</label>
+                  <textarea
+                    value={assignNote}
+                    onChange={(e) => setAssignNote(e.target.value)}
+                    placeholder="Yêu cầu học viên học thuộc từ vựng và xem kỹ phần Hội thoại & Văn hóa giao tiếp..."
+                    rows={2}
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs"
+                  />
+                </div>
+
+                {/* Summary Info Box */}
+                <div className="p-3.5 rounded-xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-1">
+                  <span className="font-bold text-[#8F6D3B] block">Tóm tắt nội dung sẽ giao:</span>
+                  <div className="grid grid-cols-2 gap-1 text-[11px] text-[#315E48]">
+                    <span>• {selectedVocabIds.length} từ vựng</span>
+                    <span>• {selectedGrammarIds.length} điểm ngữ pháp</span>
+                    <span>• {isDialogueSelected ? "1 hội thoại" : "Không có hội thoại"}</span>
+                    <span>• {isReadingSelected ? "1 bài đọc" : "Không có bài đọc"}</span>
+                    <span className="col-span-2 font-bold text-[#8F6D3B]">
+                      • 🏮 {selectedCulturalItems.length} mục văn hóa giao tiếp
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+                  <button
+                    onClick={() => setIsAssignModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0]"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={() => setAssignStep(2)}
+                    className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#183629] flex items-center gap-1.5"
+                  >
+                    <span>Xem trước nội dung giao →</span>
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div>
-                <label className="font-bold text-[#204434] block mb-1">
-                  Chọn lớp học: <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={selectedClassId}
-                  onChange={(e) => setSelectedClassId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5DEC9] text-xs text-[#204434]"
-                >
-                  {classesList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.studentCount || 0} học viên)
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* STEP 2: PREVIEW MODAL TRƯỚC KHI GIAO */}
+            {assignStep === 2 && (
+              <div className="space-y-4 text-xs">
+                {/* Meta Summary Card */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-[#FAF7F0] to-[#F5EEDB] border border-[#BC9B6B]/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8F6D3B] bg-white px-2 py-0.5 rounded-full border border-[#BC9B6B]/30">
+                      Bản xem trước giao bài
+                    </span>
+                    <span className="text-[11px] text-[#315E48]">
+                      Thời gian: {assignOpenDate} – {assignDueDate}
+                    </span>
+                  </div>
+                  <h4 className="font-serif font-bold text-base text-[#204434]">
+                    {currentLesson.titleZh} - {currentLesson.titleVi}
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[11px] text-[#315E48] font-bold">Lớp nhận bài:</span>
+                    {classesList
+                      .filter((c) => assignSelectedClassIds.includes(c.id))
+                      .map((c) => (
+                        <span
+                          key={c.id}
+                          className="px-2 py-0.5 rounded-lg bg-[#204434]/10 text-[#204434] font-semibold text-[10px]"
+                        >
+                          {c.name}
+                        </span>
+                      ))}
+                  </div>
+                  {assignNote && (
+                    <p className="text-[11px] text-[#204434] bg-white/80 p-2 rounded-xl border border-[#E5DEC9] italic">
+                      Dặn dò: {assignNote}
+                    </p>
+                  )}
+                </div>
 
-              <div>
-                <label className="font-bold text-[#204434] block mb-1">
-                  Hạn hoàn thành: <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={assignDueDate}
-                  onChange={(e) => setAssignDueDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs text-[#204434]"
-                />
-              </div>
+                {/* Counters Matrix */}
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center text-xs">
+                  <div className="p-2 rounded-xl bg-white border border-[#E5DEC9]">
+                    <span className="text-[10px] text-[#315E48] block">Từ vựng</span>
+                    <span className="font-bold text-sm text-[#204434]">{selectedVocabIds.length}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-[#E5DEC9]">
+                    <span className="text-[10px] text-[#315E48] block">Ngữ pháp</span>
+                    <span className="font-bold text-sm text-[#204434]">{selectedGrammarIds.length}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-[#E5DEC9]">
+                    <span className="text-[10px] text-[#315E48] block">Hội thoại</span>
+                    <span className="font-bold text-sm text-[#204434]">{isDialogueSelected ? "1" : "0"}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-[#E5DEC9]">
+                    <span className="text-[10px] text-[#315E48] block">Đọc hiểu</span>
+                    <span className="font-bold text-sm text-[#204434]">{isReadingSelected ? "1" : "0"}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#FAF7F0] border border-[#BC9B6B]/60 col-span-3 sm:col-span-1">
+                    <span className="text-[10px] text-[#8F6D3B] block font-bold">🏮 Văn hóa</span>
+                    <span className="font-bold text-sm text-[#8F6D3B]">{selectedCulturalItems.length}</span>
+                  </div>
+                </div>
 
-              <div>
-                <label className="font-bold text-[#204434] block mb-1">Lời nhắn của giáo viên:</label>
-                <textarea
-                  value={assignNote}
-                  onChange={(e) => setAssignNote(e.target.value)}
-                  placeholder="Yêu cầu học viên học thuộc từ vựng và xem kỹ phần Hội thoại..."
-                  rows={2}
-                  className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs"
-                />
+                {/* Chi tiết nội dung văn hóa được giao */}
+                <div className="space-y-2">
+                  <h5 className="font-bold text-[#204434] flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>🏮</span>
+                      <span>Chi tiết các mục Văn hóa giao tiếp sẽ hiển thị cho học viên:</span>
+                    </span>
+                    <span className="text-[10px] text-[#8F6D3B]">
+                      {selectedCulturalItems.length} mục đã chọn
+                    </span>
+                  </h5>
+
+                  {selectedCulturalItems.length === 0 ? (
+                    <div className="p-3 text-center text-[#315E48] bg-white rounded-xl border border-dashed border-[#E5DEC9]">
+                      Chưa chọn mục Văn hóa giao tiếp nào. Học viên sẽ chỉ nhận các mục từ vựng/ngữ pháp đã chọn.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {selectedCulturalItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-2.5 rounded-xl bg-white border border-[#E5DEC9] space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#BC9B6B]/20 text-[#8F6D3B]">
+                              {item.categoryLabel}
+                            </span>
+                            {item.zh && (
+                              <button
+                                type="button"
+                                onClick={() => speakChinese(item.zh!)}
+                                className="p-1 rounded text-gray-400 hover:text-[#204434]"
+                                title="Phát âm"
+                              >
+                                <Volume2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          {item.zh ? (
+                            <div>
+                              <p className="font-serif font-bold text-sm text-[#204434]">{item.zh}</p>
+                              <p className="text-[10px] text-[#8F6D3B] italic">{item.py}</p>
+                              <p className="text-[11px] text-[#315E48]">{item.vi}</p>
+                              {item.note && (
+                                <p className="text-[10px] text-[#8F6D3B] italic">Lưu ý: {item.note}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-[#204434] leading-relaxed">{item.content}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Step 2 Actions */}
+                <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-between">
+                  <button
+                    onClick={() => setAssignStep(1)}
+                    className="px-4 py-2 rounded-xl border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0]"
+                  >
+                    ← Quay lại chỉnh sửa
+                  </button>
+                  <button
+                    onClick={handleAssignToClass}
+                    disabled={isSubmitting}
+                    className="px-5 py-2.5 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#183629] flex items-center gap-1.5 shadow-md"
+                  >
+                    {isSubmitting ? (
+                      <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                    )}
+                    <span>Xác nhận & Giao bài ngay</span>
+                  </button>
+                </div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL 4: XEM TRƯỚC & QUẢN LÝ CHI TIẾT GIỎ HÀNG (PREVIEW BASKET MODAL) */}
+      {/* =================================================================== */}
+      {isPreviewBasketModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#8F6D3B]" />
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#204434]">
+                    Chi tiết bộ nội dung đã chọn
+                  </h3>
+                  <p className="text-[11px] text-[#315E48]">
+                    Tổng cộng {totalSelectedCount} mục học liệu
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPreviewBasketModalOpen(false)}
+                className="p-1.5 rounded-xl border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-end gap-2.5">
+            <div className="space-y-4 text-xs">
+              {/* Category 1: Từ vựng */}
+              {selectedVocabIds.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#204434]">
+                      📚 Từ vựng ({selectedVocabIds.length})
+                    </span>
+                    <button
+                      onClick={() => setSelectedVocabIds([])}
+                      className="text-[10px] text-red-600 hover:underline"
+                    >
+                      Xóa tất cả từ vựng
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {currentLesson.vocabularies
+                      .filter((v) => selectedVocabIds.includes(v.id))
+                      .map((v) => (
+                        <div
+                          key={v.id}
+                          className="p-2.5 rounded-xl bg-white border border-[#E5DEC9] flex items-center justify-between gap-2"
+                        >
+                          <div>
+                            <span className="font-serif font-bold text-[#204434]">{v.hanzi}</span>
+                            <span className="text-[10px] text-[#8F6D3B] ml-1.5">({v.pinyin})</span>
+                            <p className="text-[11px] text-[#315E48]">{v.meaningVi}</p>
+                          </div>
+                          <button
+                            onClick={() => toggleVocab(v.id)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            title="Xóa khỏi giỏ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Category 2: Ngữ pháp */}
+              {selectedGrammarIds.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#204434]">
+                      📐 Điểm ngữ pháp ({selectedGrammarIds.length})
+                    </span>
+                    <button
+                      onClick={() => setSelectedGrammarIds([])}
+                      className="text-[10px] text-red-600 hover:underline"
+                    >
+                      Xóa tất cả ngữ pháp
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {currentLesson.grammars
+                      .filter((g) => selectedGrammarIds.includes(g.id))
+                      .map((g) => (
+                        <div
+                          key={g.id}
+                          className="p-2.5 rounded-xl bg-white border border-[#E5DEC9] flex items-center justify-between gap-2"
+                        >
+                          <div>
+                            <p className="font-serif font-bold text-[#204434]">{g.title}</p>
+                            <code className="text-[11px] font-mono text-[#8F6D3B]">{g.structure}</code>
+                          </div>
+                          <button
+                            onClick={() => toggleGrammar(g.id)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            title="Xóa khỏi giỏ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Category 3: Văn hóa giao tiếp */}
+              {selectedCulturalIds.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#8F6D3B] flex items-center gap-1.5">
+                      <span>🏮</span>
+                      <span>Văn hóa giao tiếp & Sử dụng thực tế ({selectedCulturalIds.length})</span>
+                    </span>
+                    <button
+                      onClick={() => setSelectedCulturalIds([])}
+                      className="text-[10px] text-red-600 hover:underline"
+                    >
+                      Xóa tất cả mục văn hóa
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {selectedCulturalItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-2.5 rounded-xl bg-white border border-[#BC9B6B]/40 flex items-start justify-between gap-2"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#BC9B6B]/20 text-[#8F6D3B]">
+                            {item.categoryLabel}
+                          </span>
+                          {item.zh ? (
+                            <div>
+                              <span className="font-serif font-bold text-[#204434]">{item.zh}</span>
+                              <span className="text-[10px] text-[#8F6D3B] ml-1.5 italic">({item.py})</span>
+                              <p className="text-[11px] text-[#315E48]">{item.vi}</p>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-[#204434]">{item.content}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => toggleCulturalItem(item.id)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                          title="Xóa mục này khỏi giỏ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {totalSelectedCount === 0 && (
+                <div className="p-8 text-center text-xs text-[#315E48] bg-white rounded-2xl border border-dashed border-[#E5DEC9]">
+                  Giỏ nội dung hiện đang trống. Hãy chọn từ vựng, ngữ pháp hoặc các mục văn hóa giao tiếp bên ngoài bài học.
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-between">
               <button
-                onClick={() => setIsAssignModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0]"
+                onClick={() => {
+                  setSelectedVocabIds([]);
+                  setSelectedGrammarIds([]);
+                  setSelectedCulturalIds([]);
+                  setIsDialogueSelected(false);
+                  setIsReadingSelected(false);
+                  showToast("Đã xóa toàn bộ nội dung trong giỏ");
+                }}
+                disabled={totalSelectedCount === 0}
+                className="px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40 text-xs font-semibold"
               >
-                Hủy
+                Xóa tất cả trong giỏ
               </button>
               <button
-                onClick={handleAssignToClass}
-                disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#183629] flex items-center gap-1.5"
+                onClick={() => setIsPreviewBasketModalOpen(false)}
+                className="px-5 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#183629]"
               >
-                {isSubmitting && <RotateCcw className="w-3.5 h-3.5 animate-spin" />}
-                <span>Xác nhận giao bài</span>
+                Hoàn tất
               </button>
             </div>
           </div>

@@ -79,6 +79,19 @@ export interface CulturalNoteItem {
   practiceScenario: string; // G. Tình huống thực hành
 }
 
+export interface CulturalSelectionItem {
+  id: string;
+  type: "CONTEXT" | "TARGET_AUDIENCE" | "PHRASE" | "POLITE" | "CAUTION" | "SCENARIO";
+  categoryLabel: string;
+  title: string;
+  zh?: string;
+  py?: string;
+  vi?: string;
+  content?: string;
+  note?: string;
+  audioUrl?: string;
+}
+
 export interface AcademicContentItem {
   terms: {
     zh: string;
@@ -1295,10 +1308,116 @@ export interface CustomCuratedLesson {
   sourceLessonTitle: string;
   selectedVocabCount: number;
   selectedGrammarCount: number;
+  selectedCulturalCount?: number;
   vocabs: VocabularyItem[];
   grammars: GrammarItem[];
+  culturalItems?: CulturalSelectionItem[];
   createdAt: string;
   notes?: string;
+}
+
+export interface AssignedLessonToClass {
+  id: string;
+  lessonId: string;
+  titleZh: string;
+  titleVi: string;
+  sourceTrackId: "hsk" | "topic" | "major";
+  classIds: string[];
+  classNames: string[];
+  vocabCount: number;
+  grammarCount: number;
+  hasDialogue: boolean;
+  hasReading: boolean;
+  culturalCount: number;
+  selectedVocabs: VocabularyItem[];
+  selectedGrammars: GrammarItem[];
+  selectedDialogue?: DialogueItem;
+  selectedReading?: ReadingItem;
+  selectedCulturalItems: CulturalSelectionItem[];
+  assignedAt: string;
+  dueDate: string;
+  teacherNote?: string;
+}
+
+export function getCulturalSelectionItems(lesson: FullLessonDetail): CulturalSelectionItem[] {
+  if (!lesson.culturalNote) return [];
+  const cn = lesson.culturalNote;
+  const items: CulturalSelectionItem[] = [];
+
+  // 1. Context
+  if (cn.context) {
+    items.push({
+      id: `cult-${lesson.id}-context`,
+      type: "CONTEXT",
+      categoryLabel: "Bối cảnh sử dụng",
+      title: "Bối cảnh sử dụng",
+      content: cn.context,
+    });
+  }
+
+  // 2. Target Audience
+  if (cn.targetAudience) {
+    items.push({
+      id: `cult-${lesson.id}-audience`,
+      type: "TARGET_AUDIENCE",
+      categoryLabel: "Đối tượng giao tiếp",
+      title: "Đối tượng giao tiếp phù hợp",
+      content: cn.targetAudience,
+    });
+  }
+
+  // 3. Natural Expressions (Mẫu câu khuyên dùng)
+  cn.naturalExpressions?.forEach((exp, idx) => {
+    items.push({
+      id: `cult-${lesson.id}-phrase-${idx}`,
+      type: "PHRASE",
+      categoryLabel: "Mẫu câu khuyên dùng",
+      title: `Mẫu câu ${idx + 1}`,
+      zh: exp.zh,
+      py: exp.py,
+      vi: exp.vi,
+      content: `${exp.zh} (${exp.py}) - ${exp.vi}`,
+    });
+  });
+
+  // 4. Polite Expressions (Cách nói lịch sự & tôn trọng)
+  cn.politeExpressions?.forEach((pol, idx) => {
+    items.push({
+      id: `cult-${lesson.id}-polite-${idx}`,
+      type: "POLITE",
+      categoryLabel: "Cách nói lịch sự",
+      title: `Cách nói lịch sự ${idx + 1}`,
+      zh: pol.zh,
+      py: pol.py,
+      vi: pol.vi,
+      note: pol.note,
+      content: `${pol.zh} (${pol.py}) - ${pol.vi}`,
+    });
+  });
+
+  // 5. Caution Notes (Lưu ý văn hóa & cấm kỵ cần tránh)
+  cn.cautionNotes?.forEach((caut, idx) => {
+    items.push({
+      id: `cult-${lesson.id}-caution-${idx}`,
+      type: "CAUTION",
+      categoryLabel: "Lưu ý văn hóa",
+      title: `Lưu ý văn hóa ${idx + 1}`,
+      content: caut,
+    });
+  });
+
+  // 6. Practice Scenario (Tình huống thực hành / áp dụng)
+  if (cn.practiceScenario) {
+    items.push({
+      id: `cult-${lesson.id}-scenario`,
+      type: "SCENARIO",
+      categoryLabel: "Tình huống áp dụng",
+      title: "Tình huống áp dụng thực tế",
+      content: cn.practiceScenario,
+    });
+  }
+
+  return items;
 }
 
 export interface LectureMaterialItem {
@@ -1348,10 +1467,36 @@ export const INITIAL_CURATED_LESSONS: CustomCuratedLesson[] = [
     sourceLessonTitle: "HSK 1 - Bài 5: 今天我休息",
     selectedVocabCount: 4,
     selectedGrammarCount: 2,
+    selectedCulturalCount: 3,
     vocabs: LESSON_5_DETAIL.vocabularies.slice(0, 4),
     grammars: LESSON_5_DETAIL.grammars.slice(0, 2),
+    culturalItems: getCulturalSelectionItems(LESSON_5_DETAIL).slice(0, 3),
     createdAt: "21/10/2026",
     notes: "Dùng để ôn tập kiểm tra 15 phút đầu giờ cho lớp HSK1-K24.",
+  },
+];
+
+export const INITIAL_ASSIGNED_LESSONS: AssignedLessonToClass[] = [
+  {
+    id: "assign-sample-1",
+    lessonId: "hsk1-b5",
+    titleZh: "今天我休息",
+    titleVi: "Hôm nay tôi nghỉ ngơi",
+    sourceTrackId: "hsk",
+    classIds: ["c1", "cl-1", "class-1"],
+    classNames: ["HSK1-K24 Sơ cấp", "Lớp HSK 1 Cơ bản"],
+    vocabCount: 6,
+    grammarCount: 2,
+    hasDialogue: true,
+    hasReading: false,
+    culturalCount: 4,
+    selectedVocabs: LESSON_5_DETAIL.vocabularies.slice(0, 6),
+    selectedGrammars: LESSON_5_DETAIL.grammars.slice(0, 2),
+    selectedDialogue: LESSON_5_DETAIL.dialogue,
+    selectedCulturalItems: getCulturalSelectionItems(LESSON_5_DETAIL).slice(0, 4),
+    assignedAt: "22/10/2026",
+    dueDate: "29/10/2026",
+    teacherNote: "Yêu cầu các em học thuộc từ vựng và xem kỹ các mẫu câu xin nghỉ phép trong phần Văn hóa giao tiếp nhé!",
   },
 ];
 

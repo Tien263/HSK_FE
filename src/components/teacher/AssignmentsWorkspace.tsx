@@ -44,6 +44,7 @@ import {
   MOCK_WAITING_SUBMISSIONS,
   StudentSubmissionItem,
 } from "@/lib/assignment-data";
+import { CulturalSelectionItem } from "@/lib/lesson-data";
 
 interface ClassOption {
   id: string;
@@ -66,6 +67,7 @@ interface AssignmentsWorkspaceProps {
     classId: string;
     vocabList?: { id: string; hanzi: string; pinyin: string; meaningVi: string; exampleZh?: string }[];
     grammarList?: { id: string; title: string; structure?: string; explanation?: string }[];
+    culturalList?: CulturalSelectionItem[];
   };
 }
 
@@ -173,7 +175,8 @@ export function AssignmentsWorkspace({
       }
       if (
         (initialNewAssignmentPayload.vocabList && initialNewAssignmentPayload.vocabList.length > 0) ||
-        (initialNewAssignmentPayload.grammarList && initialNewAssignmentPayload.grammarList.length > 0)
+        (initialNewAssignmentPayload.grammarList && initialNewAssignmentPayload.grammarList.length > 0) ||
+        (initialNewAssignmentPayload.culturalList && initialNewAssignmentPayload.culturalList.length > 0)
       ) {
         setIsAddQuestionChoiceOpen(true);
         setActiveFlow("FLOW_B");
@@ -1506,6 +1509,60 @@ export function AssignmentsWorkspace({
                             <span className="font-serif font-bold">{v.hanzi}</span>
                             <span className="text-[10px] text-[#8F6D3B]">({v.pinyin})</span>
                             <span className="text-[10px] text-[#315E48]">: {v.meaningVi}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NỘI DUNG VĂN HÓA GIAO TIẾP ĐÃ CHUYỂN TỪ BÀI HỌC */}
+                  {initialNewAssignmentPayload?.culturalList && initialNewAssignmentPayload.culturalList.length > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FAF7F0] to-[#F5EEDB] border border-[#BC9B6B]/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#8F6D3B] flex items-center gap-1.5">
+                          <span>🏮</span>
+                          <span>Nội dung Văn hóa giao tiếp đã chuyển ({initialNewAssignmentPayload.culturalList.length} mục):</span>
+                        </span>
+                        <span className="text-[10px] text-[#8F6D3B] italic">
+                          Bấm vào mục văn hóa để điền nhanh câu hỏi thực tế vào form
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {initialNewAssignmentPayload.culturalList.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              if (item.zh) {
+                                setEditorContent(`Chọn bối cảnh sử dụng hoặc giải nghĩa chính xác của: “${item.zh}” (${item.py || ""})`);
+                                setEditorPinyin(item.py || "");
+                                setEditorOptions([
+                                  item.vi || "Cách diễn đạt khuyên dùng",
+                                  "Cách nói thô lỗ, cấm kỵ",
+                                  "Nói chuyện phiếm hàng ngày",
+                                  "Từ chối thẳng thừng",
+                                ]);
+                                setEditorCorrectAnswer("A");
+                                setEditorExplanation(`“${item.zh}” mang ý nghĩa: ${item.vi || ""}. ${item.note ? `Lưu ý: ${item.note}` : ""}`);
+                              } else {
+                                setEditorContent(`Câu hỏi tình huống văn hóa: ${item.content || ""}`);
+                                setEditorExplanation(item.content || "");
+                              }
+                              showToast(`Đã điền nội dung văn hóa vào biểu mẫu câu hỏi!`);
+                            }}
+                            className="px-2.5 py-1 rounded-xl bg-white border border-[#BC9B6B]/50 hover:border-[#204434] text-[#204434] font-medium text-xs shadow-2xs hover:bg-[#F3EEDD] transition flex items-center gap-1.5"
+                          >
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#BC9B6B]/20 text-[#8F6D3B] font-bold">
+                              {item.categoryLabel}
+                            </span>
+                            {item.zh ? (
+                              <>
+                                <span className="font-serif font-bold text-[#204434]">{item.zh}</span>
+                                <span className="text-[10px] text-[#8F6D3B]">({item.py})</span>
+                              </>
+                            ) : (
+                              <span className="truncate max-w-[200px] text-[11px] text-[#315E48]">{item.content}</span>
+                            )}
                           </button>
                         ))}
                       </div>
