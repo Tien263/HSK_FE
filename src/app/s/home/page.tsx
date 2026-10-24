@@ -295,15 +295,6 @@ export default function StudentHomePage() {
         setEditingMajor(parsed.major || "Kinh tế & Quản trị");
         setEditingLevel(parsed.currentLevel || "beginner");
         setEditingDailyTime(parsed.dailyTime || 30);
-
-        if (parsed?.classInfo) {
-          setMyClasses([
-            {
-              ...parsed.classInfo,
-              artwork: getClassArtwork(parsed.classInfo.track || "HSK", parsed.classInfo.level || 1, 0, parsed.classInfo.name),
-            },
-          ]);
-        }
       }
 
       // Check URL query param for tab
@@ -848,16 +839,16 @@ export default function StudentHomePage() {
             <StudentAssignmentsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
-              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
+              classesCount={myClasses.length}
+              myClasses={myClasses}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "roadmap" ? (
             <StudentRoadmapWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
-              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
+              classesCount={myClasses.length}
+              myClasses={myClasses}
               onOpenJoinModal={() => setShowJoinModal(true)}
               activeHskLevel={activeHskLevel}
             />
@@ -865,8 +856,8 @@ export default function StudentHomePage() {
             <StudentLessonsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
-              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
+              classesCount={myClasses.length}
+              myClasses={myClasses}
               onOpenJoinModal={() => setShowJoinModal(true)}
               activeHskLevel={activeHskLevel}
             />
@@ -874,8 +865,8 @@ export default function StudentHomePage() {
             <StudentPracticeWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
-              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
+              classesCount={myClasses.length}
+              myClasses={myClasses}
               onOpenJoinModal={() => setShowJoinModal(true)}
               activeHskLevel={activeHskLevel}
             />
@@ -883,7 +874,7 @@ export default function StudentHomePage() {
             <StudentReportsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
+              classesCount={myClasses.length}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : (
