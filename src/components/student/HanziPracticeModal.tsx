@@ -323,7 +323,7 @@ export default function HanziPracticeModal({
                 <span className="text-[10px] uppercase font-bold text-[#315E48]">Mẫu chữ Hán:</span>
                 <div className="w-40 h-40 bg-[#FAF7F0] rounded-2xl border-2 border-dashed border-[#BC9B6B]/60 flex items-center justify-center relative shadow-inner">
                   <span className="font-serif text-7xl font-bold text-[#204434]/85 select-none">
-                    {currentItem.hanzi}
+                    <HanziiLogo char={currentItem.hanzi} className="font-serif" />
                   </span>
                   <button
                     onClick={handleSpeakSample}
