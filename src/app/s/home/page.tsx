@@ -389,52 +389,10 @@ export default function StudentHomePage() {
       };
 
       setStudyProfile(updatedProfile);
-      localStorage.setItem("hanyu_study_profile", JSON.stringify(updatedProfile));
-      localStorage.setItem("hanyu_onboarding_completed", "true");
-      if (currentUser?.id) {
-        localStorage.setItem(`hanyu_onboarding_${currentUser.id}`, "true");
-      }
 
-      // Lưu vào danh sách học viên ghi danh của lớp (Đảm bảo giáo viên luôn thấy học sinh lập tức)
-      try {
-        const existingRegistry = localStorage.getItem("hanyu_class_enrolled_students");
-        const registry = existingRegistry ? JSON.parse(existingRegistry) : {};
-        const studentRecord = {
-          id: currentUser?.id || "student-id-" + Date.now(),
-          name: currentUser?.name || studentName || "Học viên",
-          username: currentUser?.username || username || "student",
-          email: currentUser?.email || userEmail || "student@hanyu.edu.vn",
-          status: "LEARNING",
-          statusText: "Đang học",
-          progressPercent: 0,
-          submittedAssignments: 0,
-          totalAssignments: 0,
-          joinedDate: new Date().toLocaleDateString("vi-VN"),
-          avatar: currentUser?.avatar || "/theme/avatar-teacher.jpg",
-        };
-        const cId = verifiedJoinClass.id;
-        const cCode = verifiedJoinClass.code;
-        if (cId) {
-          if (!registry[cId]) registry[cId] = [];
-          if (!registry[cId].some((s: any) => s.username === studentRecord.username)) {
-            registry[cId].push(studentRecord);
-          }
-        }
-        if (cCode) {
-          if (!registry[cCode]) registry[cCode] = [];
-          if (!registry[cCode].some((s: any) => s.username === studentRecord.username)) {
-            registry[cCode].push(studentRecord);
-          }
-        }
-        localStorage.setItem("hanyu_class_enrolled_students", JSON.stringify(registry));
-        window.dispatchEvent(new Event("storage"));
-        window.dispatchEvent(
-          new CustomEvent("hanyu_class_enrolled", {
-            detail: { classId: verifiedJoinClass.id, classCode: verifiedJoinClass.code },
-          })
-        );
-      } catch (e) {
-        console.error("Registry save error:", e);
+      // Tải lại danh sách lớp thực tế từ cơ sở dữ liệu
+      if (currentUser?.id) {
+        await fetchMyClasses(currentUser.id);
       }
 
       if (currentUser) {

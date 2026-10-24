@@ -28,7 +28,6 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { getClassArtwork } from "@/lib/class-helper";
-import { AssignedLessonToClass, INITIAL_ASSIGNED_LESSONS } from "@/lib/lesson-data";
 
 export interface StudentClassItem {
   id: string;
@@ -101,54 +100,8 @@ export default function StudentClassesWorkspace({
     window.speechSynthesis.speak(utterance);
   };
 
-  // Helper to load sanitized assigned lessons (filter out old mock Lesson 5 assign-sample-1)
-  const getSanitizedAssigned = React.useCallback(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = localStorage.getItem("hanyu_assigned_lessons");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const filtered = parsed.filter(
-          (a: any) =>
-            a.id !== "assign-sample-1" &&
-            !(a.id?.startsWith("assign-mock-") || (a.titleZh === "今天我休息" && a.id?.includes("sample")))
-        );
-        if (filtered.length !== parsed.length) {
-          localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(filtered));
-        }
-        return filtered;
-      }
-    } catch (e) {}
-    return [];
-  }, []);
-
-  // Assigned Lessons from localStorage / initial data
-  const [assignedLessonsList, setAssignedLessonsList] = useState<AssignedLessonToClass[]>(() => {
-    return getSanitizedAssigned();
-  });
-
-  useEffect(() => {
-    const handleSync = () => {
-      setAssignedLessonsList(getSanitizedAssigned());
-    };
-    window.addEventListener("storage", handleSync);
-    window.addEventListener("hanyu_lesson_assigned", handleSync);
-    return () => {
-      window.removeEventListener("storage", handleSync);
-      window.removeEventListener("hanyu_lesson_assigned", handleSync);
-    };
-  }, [getSanitizedAssigned]);
-
-  const classAssignedLessons = React.useMemo(() => {
-    if (!selectedClass) return [];
-    return assignedLessonsList.filter((asg) => {
-      return (
-        asg.classIds?.includes(selectedClass.id) ||
-        asg.classIds?.includes(selectedClass.code) ||
-        asg.classNames?.some((cn) => cn.toLowerCase().includes(selectedClass.name.toLowerCase()))
-      );
-    });
-  }, [selectedClass, assignedLessonsList]);
+  // Published Lessons for the selected class (from PostgreSQL DB)
+  const [classAssignedLessons, setClassAssignedLessons] = useState<any[]>([]);
 
   // Fetch real enrolled classes for logged in student
   const fetchClasses = async () => {
@@ -186,13 +139,25 @@ export default function StudentClassesWorkspace({
     setSelectedClass(cl);
     setClassDetailLoading(true);
     try {
-      const res = await fetch(`/api/v1/classes/${cl.id}`);
-      const data = await res.json();
-      if (data.success && data.class) {
-        setClassDetailData(data.class);
+      const [classRes, lessonsRes] = await Promise.all([
+        fetch(`/api/v1/classes/${cl.id}`),
+        fetch(`/api/v1/classes/${cl.id}/lessons`),
+      ]);
+      const classData = await classRes.json();
+      if (classData.success && classData.class) {
+        setClassDetailData(classData.class);
+      }
+      const lessonsData = await lessonsRes.json();
+      if (lessonsData.success && Array.isArray(lessonsData.lessons)) {
+        // Only show lessons published by teacher
+        const published = lessonsData.lessons.filter((l: any) => l.status === "PUBLISHED");
+        setClassAssignedLessons(published);
+      } else {
+        setClassAssignedLessons([]);
       }
     } catch (err) {
       console.error("Lỗi tải chi tiết lớp:", err);
+      setClassAssignedLessons([]);
     } finally {
       setClassDetailLoading(false);
     }
@@ -624,8 +589,8 @@ export default function StudentClassesWorkspace({
                   </span>
                 </div>
                 <h3 className="font-serif font-bold text-lg text-[#204434]">
-                  {assignedLessonsList.length > 0
-                    ? `${assignedLessonsList[0].titleVi} (${assignedLessonsList[0].titleZh})`
+                  {classAssignedLessons.length > 0
+                    ? `${classAssignedLessons[0].titleVi || ""} (${classAssignedLessons[0].titleZh || ""})`
                     : "Hướng dẫn & Ôn tập theo lộ trình giảng dạy"}
                 </h3>
                 <p className="text-xs text-[#315E48]">
@@ -673,7 +638,7 @@ export default function StudentClassesWorkspace({
                 { day: "Thứ 2", date: "26/10", hasClass: true, time: "19:30 - 21:00", subject: classes[0]?.name || "Lớp HSK", room: "Meet", done: true },
                 { day: "Thứ 3", date: "27/10", hasClass: false, note: "Tự học Flashcard" },
                 { day: "Thứ 4", date: "28/10", hasClass: true, time: "19:30 - 21:00", subject: classes[0]?.name || "Lớp HSK", room: "Meet", isToday: true },
-                { day: "Thứ 5", date: "29/10", hasClass: false, note: assignedLessonsList[0] ? `Hạn nộp: ${assignedLessonsList[0].titleVi}` : "Ôn tập theo lộ trình" },
+                { day: "Thứ 5", date: "29/10", hasClass: false, note: classAssignedLessons[0] ? `Hạn nộp: ${classAssignedLessons[0].titleVi || ""}` : "Ôn tập theo lộ trình" },
                 { day: "Thứ 6", date: "30/10", hasClass: true, time: "19:30 - 21:00", subject: "Luyện phát âm", room: "Zoom" },
                 { day: "Thứ 7", date: "31/10", hasClass: false, note: "Game ghép từ" },
                 { day: "Chủ nhật", date: "01/11", hasClass: true, time: "09:00 - 10:30", subject: "Thi thử định kỳ", room: "Phòng thi" },
@@ -926,7 +891,7 @@ export default function StudentClassesWorkspace({
                             </h5>
 
                             <div className="space-y-2.5">
-                              {lesson.selectedCulturalItems.map((item) => (
+                              {lesson.selectedCulturalItems.map((item: any) => (
                                 <div
                                   key={item.id}
                                   className={`p-3 rounded-xl border transition ${
