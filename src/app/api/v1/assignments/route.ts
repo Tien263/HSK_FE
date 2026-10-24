@@ -60,6 +60,13 @@ export async function GET(request: Request) {
       where,
       include: {
         class: { select: { id: true, name: true, level: true, teacherId: true } },
+        quizSet: {
+          select: {
+            id: true,
+            totalScore: true,
+            questions: { select: { id: true, points: true } },
+          },
+        },
         _count: { select: { attempts: true } },
         attempts: filterStudentId
           ? {
@@ -82,6 +89,8 @@ export async function GET(request: Request) {
         dueAt: a.dueAt,
         status: a.status,
         durationMin: a.durationMin,
+        totalQuestions: a.quizSet?.questions?.length || 0,
+        totalPoints: a.quizSet?.totalScore || 100,
         submittedCount: a._count?.attempts || 0,
         hasAttempted: a.attempts && a.attempts.length > 0,
         latestScore: a.attempts?.[0]?.score ?? null,
@@ -99,7 +108,7 @@ export async function POST(request: Request) {
   try {
     const authUser = await getAuthUser(request);
     const body = await request.json();
-    const { title, classId, classIds, quizSetId, openAt, dueAt, durationMin, mode } = body;
+    const { title, classId, classIds, quizSetId, openAt, dueAt, durationMin, mode, questions, totalPoints } = body;
 
     const targetClassIds: string[] =
       Array.isArray(classIds) && classIds.length > 0
@@ -115,8 +124,67 @@ export async function POST(request: Request) {
       );
     }
 
-    // Nếu không truyền quizSetId thì lấy hoặc tạo một quizSet mặc định
     let validQuizSetId = quizSetId;
+
+    // Nếu có truyền danh sách câu hỏi cụ thể, tạo QuizSet riêng và lưu câu hỏi vào DB
+    if (Array.isArray(questions) && questions.length > 0) {
+      const calcScore =
+        Number(totalPoints) ||
+        questions.reduce((sum: number, q: any) => sum + (Number(q.points) || 5), 0);
+
+      const createdQuiz = await prisma.quizSet.create({
+        data: {
+          title: title.trim(),
+          mode: mode || "EXAM",
+          totalScore: calcScore,
+        },
+      });
+      validQuizSetId = createdQuiz.id;
+
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        let optionsJson = "[]";
+        if (q.options) {
+          optionsJson = typeof q.options === "string" ? q.options : JSON.stringify(q.options);
+        } else if (q.matchingPairs) {
+          optionsJson = JSON.stringify({ pairs: q.matchingPairs });
+        } else if (q.tokens) {
+          optionsJson = JSON.stringify({ tokens: q.tokens });
+        }
+
+        try {
+          const createdQ = await prisma.question.create({
+            data: {
+              type: (q.type || "MULTIPLE_CHOICE").toUpperCase(),
+              content: q.content || q.title || `Câu hỏi ${i + 1}`,
+              pinyinPrompt: q.pinyin || null,
+              audioUrl: q.audioUrl || null,
+              options: optionsJson,
+              correctAnswer:
+                typeof q.correctAnswer === "object"
+                  ? JSON.stringify(q.correctAnswer)
+                  : String(q.correctAnswer || "A"),
+              explanation: q.explanation || null,
+              skill: q.skill || "VOCABULARY",
+              level: q.hskLevel || 1,
+            },
+          });
+
+          await prisma.quizSetQuestion.create({
+            data: {
+              quizSetId: createdQuiz.id,
+              questionId: createdQ.id,
+              orderIndex: i + 1,
+              points: Number(q.points) || 5,
+            },
+          });
+        } catch (e) {
+          console.error("Error creating question in DB:", e);
+        }
+      }
+    }
+
+    // Fallback: nếu không có quizSetId thì tìm hoặc tạo quizSet mặc định
     if (!validQuizSetId) {
       const defaultQuizSet = await prisma.quizSet.findFirst();
       validQuizSetId = defaultQuizSet?.id;

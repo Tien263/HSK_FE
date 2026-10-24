@@ -116,8 +116,8 @@ export default function StudentAssignmentsWorkspace({
                 classId: a.classId,
                 durationMin: a.durationMin || 45,
                 dueAt: a.dueAt ? new Date(a.dueAt).toLocaleDateString("vi-VN") : "Chưa có hạn",
-                totalQuestions: a.totalQuestions || a._count?.questions || 10,
-                totalPoints: a.totalPoints || 100,
+                totalQuestions: a.totalQuestions !== undefined && a.totalQuestions !== null ? a.totalQuestions : (a._count?.questions ?? 10),
+                totalPoints: a.totalPoints !== undefined && a.totalPoints !== null ? a.totalPoints : 100,
                 hasAttempted: a.hasAttempted || false,
                 latestScore: a.latestScore ?? null,
                 status: a.hasAttempted ? "GRADED" : "OPEN",
@@ -150,7 +150,21 @@ export default function StudentAssignmentsWorkspace({
                     cn.toLowerCase().includes((tAss.className || "").toLowerCase())
                 );
 
-              if (matchesClass && !apiAssignments.some((a) => a.title === tAss.title || a.id === tAss.id)) {
+              const existingApiIdx = apiAssignments.findIndex((a) => a.title === tAss.title || a.id === tAss.id);
+              if (existingApiIdx !== -1) {
+                // Enhance existing API assignment with local question counts if available
+                if (tAss.totalQuestions) {
+                  apiAssignments[existingApiIdx].totalQuestions = tAss.totalQuestions;
+                }
+                if (tAss.totalPoints) {
+                  apiAssignments[existingApiIdx].totalPoints = tAss.totalPoints;
+                }
+                if (tAss.durationMin) {
+                  apiAssignments[existingApiIdx].durationMin = tAss.durationMin;
+                }
+              } else if (matchesClass) {
+                const countQ = tAss.totalQuestions || (Array.isArray(tAss.questions) ? tAss.questions.length : 10);
+                const pts = tAss.totalPoints || 100;
                 localAssignments.push({
                   id: tAss.id,
                   title: tAss.title,
@@ -158,8 +172,8 @@ export default function StudentAssignmentsWorkspace({
                   classId: tAss.classId,
                   durationMin: tAss.durationMin || 45,
                   dueAt: tAss.dueAt || "28/10/2026 23:59",
-                  totalQuestions: tAss.totalQuestions || 10,
-                  totalPoints: tAss.totalPoints || 100,
+                  totalQuestions: countQ,
+                  totalPoints: pts,
                   hasAttempted: false,
                   latestScore: null,
                   status: "OPEN",

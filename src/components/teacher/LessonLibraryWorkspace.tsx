@@ -659,10 +659,43 @@ export function LessonLibraryWorkspace({
         teacherNote: assignNote.trim() || undefined,
       };
 
-      setAssignedLessons((prev) => [newAssignment, ...prev]);
+      setAssignedLessons((prev) => {
+        const updated = [newAssignment, ...prev];
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(updated));
+            window.dispatchEvent(new Event("storage"));
+            window.dispatchEvent(new CustomEvent("hanyu_lesson_assigned", { detail: newAssignment }));
+          } catch (e) {}
+        }
+        return updated;
+      });
+
+      // Also call backend assign route if available
+      try {
+        fetch("/api/v1/teacher/lessons/assign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            classId: assignSelectedClassIds[0],
+            classIds: assignSelectedClassIds,
+            lessonId: currentLesson.id,
+            lessonTitle: currentLesson.titleVi,
+            selectedItems: {
+              vocabCount: chosenVocabs.length,
+              grammarCount: chosenGrammars.length,
+              vocabIds: selectedVocabIds,
+              grammarIds: selectedGrammarIds,
+              culturalIds: selectedCulturalIds,
+            },
+            dueDate: assignDueDate,
+            note: assignNote.trim() || undefined,
+          }),
+        }).catch(() => {});
+      } catch (e) {}
 
       showToast(
-        `Đã giao bài "${currentLesson.titleVi}" cho ${targetClassNames.length} lớp học (kèm ${chosenCultural.length} mục văn hóa giao tiếp)!`
+        `Đã giao bài "${currentLesson.titleVi}" cho ${targetClassNames.length} lớp học (${chosenVocabs.length} từ vựng, ${chosenGrammars.length} ngữ pháp, ${chosenCultural.length} mục văn hóa)!`
       );
     }, 500);
   };

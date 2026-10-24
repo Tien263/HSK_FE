@@ -55,11 +55,13 @@ export interface StudentClassItem {
 interface StudentClassesWorkspaceProps {
   currentUser: any;
   onOpenJoinModal?: () => void;
+  onNavigateToTab?: (tab: string) => void;
 }
 
 export default function StudentClassesWorkspace({
   currentUser,
   onOpenJoinModal,
+  onNavigateToTab,
 }: StudentClassesWorkspaceProps) {
   const [classes, setClasses] = useState<StudentClassItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +102,7 @@ export default function StudentClassesWorkspace({
   };
 
   // Assigned Lessons from localStorage / initial data
-  const [assignedLessonsList] = useState<AssignedLessonToClass[]>(() => {
+  const [assignedLessonsList, setAssignedLessonsList] = useState<AssignedLessonToClass[]>(() => {
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem("hanyu_assigned_lessons");
@@ -109,6 +111,21 @@ export default function StudentClassesWorkspace({
     }
     return [];
   });
+
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) setAssignedLessonsList(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("hanyu_lesson_assigned", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("hanyu_lesson_assigned", handleSync);
+    };
+  }, []);
 
   const classAssignedLessons = React.useMemo(() => {
     if (!selectedClass) return [];
@@ -862,13 +879,19 @@ export default function StudentClassesWorkspace({
                             </h4>
                             <p className="text-xs text-[#8F6D3B] font-medium">{lesson.titleVi}</p>
                           </div>
-                          <div className="flex items-center gap-2 text-[11px]">
+                          <div className="flex items-center gap-2 text-[11px] flex-wrap">
                             <span className="px-2.5 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-semibold">
                               Hạn: {lesson.dueDate}
                             </span>
                             <span className="px-2.5 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-bold">
                               🏮 {lesson.selectedCulturalItems?.length || lesson.culturalCount || 0} mục văn hóa
                             </span>
+                            <button
+                              onClick={() => onNavigateToTab?.("lessons")}
+                              className="px-3 py-1 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs ml-auto sm:ml-0"
+                            >
+                              <span>Vào học ngay →</span>
+                            </button>
                           </div>
                         </div>
 

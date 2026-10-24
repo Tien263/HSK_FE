@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Dumbbell,
@@ -147,6 +147,31 @@ export default function StudentPracticeWorkspace({
     (l) => l.number === selectedPracticeLesson
   ) || OFFICIAL_HSK1_15_LESSONS[0];
 
+  const effectiveVocabList = useMemo(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) {
+          const assignedList = JSON.parse(saved);
+          const match = assignedList.find(
+            (a: any) =>
+              a.lessonId === selectedPracticeLesson ||
+              a.lessonId === `hsk1-l${selectedPracticeLesson}` ||
+              a.lessonId === "hsk1-b01" ||
+              a.titleZh === currentLessonData.titleZh
+          );
+          if (match && Array.isArray(match.selectedVocabs) && match.selectedVocabs.length > 0) {
+            const filtered = currentLessonData.vocabList.filter((v) =>
+              match.selectedVocabs.some((sv: any) => sv.hanzi === v.hanzi)
+            );
+            if (filtered.length > 0) return filtered;
+          }
+        }
+      } catch {}
+    }
+    return currentLessonData.vocabList;
+  }, [currentLessonData, selectedPracticeLesson]);
+
   const handleSpeak = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
@@ -157,7 +182,7 @@ export default function StudentPracticeWorkspace({
     }
   };
 
-  const currentVocab = currentLessonData.vocabList[activeCardIndex] || currentLessonData.vocabList[0];
+  const currentVocab = effectiveVocabList[activeCardIndex] || effectiveVocabList[0];
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -231,7 +256,7 @@ export default function StudentPracticeWorkspace({
               Bài {String(currentLessonData.number).padStart(2, "0")}: {currentLessonData.titleVi}
             </span>
             <span>
-              Thẻ {activeCardIndex + 1} / {currentLessonData.vocabList.length}
+              Thẻ {activeCardIndex + 1} / {effectiveVocabList.length}
             </span>
           </div>
 
@@ -278,7 +303,7 @@ export default function StudentPracticeWorkspace({
             <button
               onClick={() => {
                 setShowCardMeaning(false);
-                setActiveCardIndex((prev) => (prev > 0 ? prev - 1 : currentLessonData.vocabList.length - 1));
+                setActiveCardIndex((prev) => (prev > 0 ? prev - 1 : effectiveVocabList.length - 1));
               }}
               className="px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-xs font-semibold text-[#204434] hover:bg-[#FAF7F0] transition cursor-pointer"
             >
@@ -295,7 +320,7 @@ export default function StudentPracticeWorkspace({
             <button
               onClick={() => {
                 setShowCardMeaning(false);
-                setActiveCardIndex((prev) => (prev < currentLessonData.vocabList.length - 1 ? prev + 1 : 0));
+                setActiveCardIndex((prev) => (prev < effectiveVocabList.length - 1 ? prev + 1 : 0));
               }}
               className="px-4 py-2.5 rounded-2xl bg-[#204434] text-white hover:bg-[#183629] text-xs font-bold transition cursor-pointer shadow-xs"
             >

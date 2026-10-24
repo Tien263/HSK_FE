@@ -236,50 +236,110 @@ function AttemptInner() {
   useEffect(() => {
     if (!attemptId) return;
 
-    if (attemptId === "preview" || attemptId.startsWith("demo")) {
-      // Check if user has an active draft exam in localStorage
-      if (typeof window !== "undefined") {
-        try {
-          const savedPackages = localStorage.getItem("hanyu_exam_packages");
-          if (savedPackages) {
-            const parsed = JSON.parse(savedPackages);
-            const firstWithQuestions = parsed.find((p: any) => p.questions && p.questions.length > 0);
-            if (firstWithQuestions) {
-              setQuestions(
-                firstWithQuestions.questions.map((q: any, idx: number) => ({
-                  id: q.id,
-                  orderIndex: idx + 1,
-                  type: q.type,
-                  content: q.content,
-                  pinyinPrompt: q.pinyin || null,
-                  audioUrl: q.audioUrl || null,
-                  imageUrl: q.imageUrl || null,
-                  options:
-                    q.options && q.options.length > 0
-                      ? q.options
-                      : q.matchingPairs
-                      ? { pairs: q.matchingPairs }
-                      : q.tokens
-                      ? { tokens: q.tokens }
-                      : q.flashcard || [],
-                  points: q.points || 5,
-                }))
-              );
-              setAssignmentTitle(firstWithQuestions.title || "Làm thử đề kiểm tra");
-              setLoading(false);
-              return;
+    // Helper: Thử tải câu hỏi từ kho lưu trữ liên thông giữa Giáo viên & Học sinh
+    const tryLoadFromLocalStorage = (): boolean => {
+      if (typeof window === "undefined") return false;
+      try {
+        const sharedRaw = localStorage.getItem("hanyu_shared_assignments");
+        const teacherRaw = localStorage.getItem("hanyu_teacher_assignments");
+        const packagesRaw = localStorage.getItem("hanyu_exam_packages");
+
+        const allAssignments = [
+          ...(sharedRaw ? JSON.parse(sharedRaw) : []),
+          ...(teacherRaw ? JSON.parse(teacherRaw) : []),
+        ];
+        const allPackages = packagesRaw ? JSON.parse(packagesRaw) : [];
+
+        // 1. Khớp theo ID bài tập hoặc tiêu đề
+        const matchedAss = allAssignments.find(
+          (a: any) =>
+            a.id === attemptId ||
+            a.attemptId === attemptId ||
+            (a.id && attemptId.includes(a.id)) ||
+            (a.title && attemptId.toLowerCase().includes(a.id.toLowerCase()))
+        );
+
+        if (matchedAss && Array.isArray(matchedAss.questions) && matchedAss.questions.length > 0) {
+          const mapped = matchedAss.questions.map((q: any, idx: number) => {
+            let opts: any = [];
+            if (Array.isArray(q.options) && q.options.length > 0) {
+              opts = q.options.map((opt: any, optIdx: number) => {
+                if (typeof opt === "string") {
+                  return { id: String.fromCharCode(65 + optIdx), text: opt };
+                }
+                return opt;
+              });
+            } else if (q.matchingPairs) {
+              opts = { pairs: q.matchingPairs };
+            } else if (q.tokens) {
+              opts = { tokens: q.tokens };
+            } else if (q.flashcard) {
+              opts = q.flashcard;
+            } else {
+              opts = q.options || [];
             }
-          }
-        } catch {
-          // ignore
+
+            return {
+              id: q.id || `q-${idx + 1}`,
+              orderIndex: idx + 1,
+              type: q.type || "multiple_choice",
+              content: q.content || q.title || `Câu hỏi ${idx + 1}`,
+              pinyinPrompt: q.pinyin || null,
+              audioUrl: q.audioUrl || null,
+              imageUrl: q.imageUrl || null,
+              options: opts,
+              points: Number(q.points) || 5,
+            };
+          });
+
+          setQuestions(mapped);
+          setAssignmentTitle(matchedAss.title || "Bài tập kiểm tra HSK");
+          setSecondsRemaining((Number(matchedAss.durationMin) || 10) * 60);
+          setLoading(false);
+          return true;
         }
+
+        // 2. Chế độ làm thử đề / preview
+        if (attemptId === "preview" || attemptId.startsWith("demo")) {
+          const firstWithQuestions = allPackages.find((p: any) => p.questions && p.questions.length > 0);
+          if (firstWithQuestions) {
+            setQuestions(
+              firstWithQuestions.questions.map((q: any, idx: number) => ({
+                id: q.id,
+                orderIndex: idx + 1,
+                type: q.type,
+                content: q.content,
+                pinyinPrompt: q.pinyin || null,
+                audioUrl: q.audioUrl || null,
+                imageUrl: q.imageUrl || null,
+                options:
+                  q.options && q.options.length > 0
+                    ? q.options
+                    : q.matchingPairs
+                    ? { pairs: q.matchingPairs }
+                    : q.tokens
+                    ? { tokens: q.tokens }
+                    : q.flashcard || [],
+                points: q.points || 5,
+              }))
+            );
+            setAssignmentTitle(firstWithQuestions.title || "Làm thử đề kiểm tra");
+            setLoading(false);
+            return true;
+          }
+        }
+      } catch (err) {
+        console.error("tryLoadFromLocalStorage error:", err);
       }
-      setQuestions(BENCHMARK_12_QUESTIONS);
-      setAssignmentTitle("Bài thi Chuẩn mực 12 dạng câu hỏi HSK (Bản làm thử)");
-      setLoading(false);
+      return false;
+    };
+
+    // Kiểm tra kho lưu trữ trước
+    if (tryLoadFromLocalStorage()) {
       return;
     }
 
+    // Truy vấn API nếu không có trong localStorage
     fetch(`/api/v1/attempts/${attemptId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -291,14 +351,19 @@ function AttemptInner() {
             router.push(`/s/attempts/${attemptId}/result`);
           }
         } else {
-          setQuestions(BENCHMARK_12_QUESTIONS);
-          setAssignmentTitle("Bài thi Chuẩn mực 12 dạng câu hỏi HSK (Bản làm thử)");
+          // Thử lại lần nữa từ localStorage trước khi fallback
+          if (!tryLoadFromLocalStorage()) {
+            setQuestions(BENCHMARK_12_QUESTIONS);
+            setAssignmentTitle("Bài thi Chuẩn mực 12 dạng câu hỏi HSK (Bản làm thử)");
+          }
         }
         setLoading(false);
       })
       .catch(() => {
-        setQuestions(BENCHMARK_12_QUESTIONS);
-        setAssignmentTitle("Bài thi Chuẩn mực 12 dạng câu hỏi HSK (Bản làm thử)");
+        if (!tryLoadFromLocalStorage()) {
+          setQuestions(BENCHMARK_12_QUESTIONS);
+          setAssignmentTitle("Bài thi Chuẩn mực 12 dạng câu hỏi HSK (Bản làm thử)");
+        }
         setLoading(false);
       });
   }, [attemptId, router]);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import HanziPracticeModal from "./HanziPracticeModal";
 import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
@@ -57,7 +57,7 @@ export default function StudentLessonsWorkspace({
   });
 
   // Danh sách bài học giáo viên đã mở / giao cho lớp
-  const [assignedLessonList] = useState<any[]>(() => {
+  const [assignedLessonList, setAssignedLessonList] = useState<any[]>(() => {
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem("hanyu_assigned_lessons");
@@ -66,6 +66,123 @@ export default function StudentLessonsWorkspace({
     }
     return [];
   });
+
+  useEffect(() => {
+    const handleSyncAssigned = () => {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) setAssignedLessonList(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener("storage", handleSyncAssigned);
+    window.addEventListener("hanyu_lesson_assigned", handleSyncAssigned);
+    return () => {
+      window.removeEventListener("storage", handleSyncAssigned);
+      window.removeEventListener("hanyu_lesson_assigned", handleSyncAssigned);
+    };
+  }, []);
+
+  // Use the 15 official HSK 1 lessons
+  const allLessons = OFFICIAL_HSK1_15_LESSONS;
+
+  // Filter lessons by search query
+  const filteredLessons = allLessons.filter((ls) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      ls.titleZh.toLowerCase().includes(query) ||
+      ls.titleVi.toLowerCase().includes(query) ||
+      ls.pinyin.toLowerCase().includes(query) ||
+      ls.desc.toLowerCase().includes(query) ||
+      `bài ${ls.number}`.includes(query)
+    );
+  });
+
+  const handleSpeak = (text: string) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "zh-CN";
+      utterance.rate = 0.85;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Open lesson modal with exact teacher-selected items applied
+  const openLessonDetail = (ls: Hsk1FullLesson) => {
+    let latestAssigned = assignedLessonList;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) latestAssigned = JSON.parse(saved);
+      } catch {}
+    }
+
+    const matchingAssignment = latestAssigned.find(
+      (a: any) =>
+        a.lessonId === ls.number ||
+        a.lessonId === ls.id ||
+        a.lessonId === "hsk1-b01" ||
+        a.lessonId === "hsk1-01" ||
+        a.lessonId === `hsk1-l${ls.number}` ||
+        a.titleZh === ls.titleZh ||
+        (a.titleVi && a.titleVi.toLowerCase() === ls.titleVi.toLowerCase())
+    );
+
+    const effectiveLesson: Hsk1FullLesson = { ...ls };
+
+    if (matchingAssignment) {
+      // 1. Lọc từ vựng: chỉ giữ lại đúng các từ giáo viên đã tích chọn giao
+      if (
+        Array.isArray(matchingAssignment.selectedVocabs) &&
+        matchingAssignment.selectedVocabs.length > 0
+      ) {
+        effectiveLesson.vocabList = ls.vocabList.filter((v) =>
+          matchingAssignment.selectedVocabs.some(
+            (sv: any) => sv.hanzi === v.hanzi
+          )
+        );
+      }
+
+      // 2. Lọc ngữ pháp: chỉ giữ lại các điểm ngữ pháp giáo viên tích chọn
+      if (
+        Array.isArray(matchingAssignment.selectedGrammars) &&
+        matchingAssignment.selectedGrammars.length > 0
+      ) {
+        effectiveLesson.grammarList = ls.grammarList.filter((g) =>
+          matchingAssignment.selectedGrammars.some(
+            (sg: any) =>
+              (sg.title || sg.name || "").includes(g.title) ||
+              g.title.includes(sg.title || sg.name || "")
+          )
+        );
+      }
+
+      // 3. Hội thoại: nếu giáo viên bỏ chọn thì ẩn
+      if (matchingAssignment.hasDialogue === false) {
+        effectiveLesson.dialogue = [];
+      }
+
+      // 4. Văn hóa giao tiếp: nạp đúng các mục giáo viên chọn giao
+      if (
+        Array.isArray(matchingAssignment.selectedCulturalItems) &&
+        matchingAssignment.selectedCulturalItems.length > 0
+      ) {
+        effectiveLesson.culture = matchingAssignment.selectedCulturalItems.map((ci: any) => ({
+          title: ci.categoryLabel || ci.title || "Văn hóa giao tiếp",
+          content:
+            ci.content ||
+            (ci.zh
+              ? `${ci.zh} (${ci.py || ""}): ${ci.vi || ""}${ci.note ? ` · Lưu ý: ${ci.note}` : ""}`
+              : ""),
+          tags: [ci.categoryLabel || "Văn hóa"],
+        }));
+      }
+    }
+
+    setSelectedLessonModal(effectiveLesson);
+    setLessonModalTab("VOCAB");
+  };
 
   if (classesCount === 0) {
     return (
@@ -93,32 +210,6 @@ export default function StudentLessonsWorkspace({
       </div>
     );
   }
-
-  // Use the 15 official HSK 1 lessons
-  const allLessons = OFFICIAL_HSK1_15_LESSONS;
-
-  // Filter lessons by search query
-  const filteredLessons = allLessons.filter((ls) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase().trim();
-    return (
-      ls.titleZh.toLowerCase().includes(query) ||
-      ls.titleVi.toLowerCase().includes(query) ||
-      ls.pinyin.toLowerCase().includes(query) ||
-      ls.desc.toLowerCase().includes(query) ||
-      `bài ${ls.number}`.includes(query)
-    );
-  });
-
-  const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
 
   const handleGoToPractice = (lesson: Hsk1FullLesson) => {
     try {
@@ -171,13 +262,23 @@ export default function StudentLessonsWorkspace({
       {/* Grid bài học */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredLessons.map((ls) => {
-          const isAssigned = assignedLessonList.some(
-            (a: any) => a.lessonId === ls.number || a.titleZh === ls.titleZh
+          const matchingAss = assignedLessonList.find(
+            (a: any) =>
+              a.lessonId === ls.number ||
+              a.lessonId === ls.id ||
+              a.lessonId === "hsk1-b01" ||
+              a.lessonId === "hsk1-01" ||
+              a.lessonId === `hsk1-l${ls.number}` ||
+              a.titleZh === ls.titleZh
           );
+          const isAssigned = !!matchingAss;
           const isDone = completedLessonIds.includes(ls.number);
           // Bài 1 mở sẵn để học viên làm quen buổi đầu; các bài 2-15 mở khi giáo viên giao hoặc học sinh đã hoàn thành
           const isUnlocked = ls.number === 1 || isAssigned || isDone;
           const isCurrent = isAssigned && !isDone;
+
+          const effectiveVocabCount = matchingAss?.selectedVocabs?.length ?? matchingAss?.vocabCount ?? ls.vocabCount;
+          const effectiveGrammarCount = matchingAss?.selectedGrammars?.length ?? matchingAss?.grammarCount ?? ls.grammarCount;
 
           return (
             <div
@@ -187,8 +288,7 @@ export default function StudentLessonsWorkspace({
                   alert(`Bài học ${ls.number} (${ls.titleVi}) chưa được giáo viên mở khóa cho lớp của bạn. Hãy theo dõi thông báo và dặn dò của giáo viên nhé!`);
                   return;
                 }
-                setSelectedLessonModal(ls);
-                setLessonModalTab("VOCAB");
+                openLessonDetail(ls);
               }}
               className={`p-5 rounded-3xl border shadow-2xs transition cursor-pointer flex flex-col justify-between space-y-3 group ${
                 isUnlocked
@@ -241,9 +341,9 @@ export default function StudentLessonsWorkspace({
 
               <div className="pt-3 border-t border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
                 <div className="flex items-center gap-2 text-[11px]">
-                  <span>{ls.vocabCount} từ</span>
+                  <span>{effectiveVocabCount} từ</span>
                   <span>•</span>
-                  <span>{ls.grammarCount} ngữ pháp</span>
+                  <span>{effectiveGrammarCount} ngữ pháp</span>
                   <span>•</span>
                   <span>{ls.durationMin}p</span>
                 </div>

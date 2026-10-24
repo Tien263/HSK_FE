@@ -14,9 +14,21 @@ export async function POST(request: Request) {
     }
 
     // Check if class exists
-    const targetClass = await prisma.class.findUnique({
+    let targetClass = await prisma.class.findUnique({
       where: { id: classId },
     });
+
+    if (!targetClass) {
+      targetClass = await prisma.class.findFirst({
+        where: {
+          OR: [
+            { id: { endsWith: classId.toLowerCase() } },
+            { id: { endsWith: classId.toUpperCase() } },
+            { name: { contains: classId } },
+          ],
+        },
+      });
+    }
 
     if (!targetClass) {
       return NextResponse.json(

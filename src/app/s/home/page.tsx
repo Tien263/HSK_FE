@@ -851,6 +851,7 @@ export default function StudentHomePage() {
             <StudentClassesWorkspace
               currentUser={currentUser}
               onOpenJoinModal={() => setShowJoinModal(true)}
+              onNavigateToTab={(tab) => setActiveNav(tab)}
             />
           ) : activeNav === "assignments" ? (
             <StudentAssignmentsWorkspace

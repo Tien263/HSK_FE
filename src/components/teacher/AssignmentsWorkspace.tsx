@@ -1122,9 +1122,10 @@ export function AssignmentsWorkspace({
       waitingGradeCount: 0,
       totalQuestions: draftQuestions.length,
       totalPoints: totalExamPoints,
+      questions: draftQuestions,
     };
 
-    // Try posting to API
+    // Try posting to API with full questions payload
     try {
       await fetch("/api/v1/assignments", {
         method: "POST",
@@ -1135,8 +1136,12 @@ export function AssignmentsWorkspace({
         body: JSON.stringify({
           title: newAss.title,
           classId: targetClassId,
+          classIds: [targetClassId],
           dueAt: `${dueDate}T23:59:00.000Z`,
           durationMin: newAss.durationMin,
+          totalPoints: totalExamPoints,
+          totalQuestions: draftQuestions.length,
+          questions: draftQuestions,
           mode: "EXAM",
         }),
       });
@@ -1388,6 +1393,7 @@ export function AssignmentsWorkspace({
     }
 
     const examName = assigningExam ? assigningExam.title : examTitle.trim() || "Bài tập mới";
+    const questionsToAssign = assigningExam ? (assigningExam.questions || draftQuestions) : draftQuestions;
     const totalQ = assigningExam ? assigningExam.questionsCount : draftQuestions.length;
     const totalPts = assigningExam ? assigningExam.totalPoints : totalExamPoints;
     const isScheduled = assignOpenDate > new Date().toISOString().split("T")[0];
@@ -1406,6 +1412,7 @@ export function AssignmentsWorkspace({
       waitingGradeCount: 0,
       totalQuestions: totalQ,
       totalPoints: totalPts,
+      questions: questionsToAssign,
     }));
 
     // Post to backend database
@@ -1421,6 +1428,9 @@ export function AssignmentsWorkspace({
           classIds: targetClasses.map((c) => c.id),
           dueAt: `${assignDueDate}T23:59:00.000Z`,
           durationMin: Number(assignDurationMin) || 45,
+          totalPoints: totalPts,
+          totalQuestions: totalQ,
+          questions: questionsToAssign,
           mode: "EXAM",
         }),
       }).catch((e) => console.error("Post assign error:", e));
