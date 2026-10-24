@@ -413,6 +413,7 @@ export default function StudentHomePage() {
 
       setEnrolling(false);
       setShowJoinModal(false);
+      alert(`Đã gửi yêu cầu tham gia lớp "${verifiedJoinClass.name}" tới cô giáo! Vui lòng chờ cô duyệt nhé.`);
       setVerifiedJoinClass(null);
       setJoinClassCode("");
     } catch (e) {

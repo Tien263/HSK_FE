@@ -87,6 +87,7 @@ model ClassStudent {
   id        String   @id @default(cuid())
   classId   String
   studentId String
+  status    String   @default("APPROVED") // PENDING, APPROVED, REJECTED
   joinedAt  DateTime @default(now())
 
   class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)

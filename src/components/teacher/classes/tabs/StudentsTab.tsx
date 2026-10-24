@@ -8,8 +8,10 @@ import {
   UserPlus,
   Trash2,
   CheckCircle2,
-  MoreVertical,
-  Key,
+  Clock,
+  Check,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import { ClassDetailItem, StudentRowItem } from "../types";
 
@@ -23,6 +25,8 @@ interface StudentsTabProps {
   onBulkRemoveStudents: () => void;
   onOpenManualStudentModal: () => void;
   onSelectStudentDetail?: (student: StudentRowItem) => void;
+  onApproveStudent?: (studentId: string) => Promise<void>;
+  onRejectStudent?: (studentId: string) => Promise<void>;
 }
 
 export default function StudentsTab({
@@ -35,14 +39,28 @@ export default function StudentsTab({
   onBulkRemoveStudents,
   onOpenManualStudentModal,
   onSelectStudentDetail,
+  onApproveStudent,
+  onRejectStudent,
 }: StudentsTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "LEARNING" | "COMPLETED">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "LEARNING" | "PENDING" | "COMPLETED">("ALL");
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Danh sách học sinh đang chờ duyệt
+  const pendingStudents = useMemo(() => {
+    return studentsList.filter((st) => st.enrollmentStatus === "PENDING" || st.status === "PENDING");
+  }, [studentsList]);
+
+  const approvedStudentsCount = useMemo(() => {
+    return studentsList.filter((st) => st.enrollmentStatus !== "PENDING" && st.status !== "PENDING").length;
+  }, [studentsList]);
 
   const filteredStudents = useMemo(() => {
     return studentsList.filter((st) => {
-      if (statusFilter === "LEARNING" && st.status !== "LEARNING") return false;
-      if (statusFilter === "COMPLETED" && st.status !== "COMPLETED") return false;
+      const isPending = st.enrollmentStatus === "PENDING" || st.status === "PENDING";
+      if (statusFilter === "PENDING" && !isPending) return false;
+      if (statusFilter === "LEARNING" && (isPending || st.status !== "LEARNING")) return false;
+      if (statusFilter === "COMPLETED" && (isPending || st.status !== "COMPLETED")) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
       return (
@@ -53,9 +71,102 @@ export default function StudentsTab({
     });
   }, [studentsList, statusFilter, searchQuery]);
 
+  const handleApprove = async (studentId: string) => {
+    if (!onApproveStudent) return;
+    setProcessingId(studentId);
+    try {
+      await onApproveStudent(studentId);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = async (studentId: string) => {
+    if (!onRejectStudent) return;
+    setProcessingId(studentId);
+    try {
+      await onRejectStudent(studentId);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Search & Actions Toolbar */}
+      {/* 1. KHU VỰC THÔNG BÁO YÊU CẦU CHỜ DUYỆT (NẾU CÓ) */}
+      {pendingStudents.length > 0 && (
+        <div className="rounded-3xl bg-amber-50/80 border border-amber-200/80 p-5 shadow-xs space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-800 flex items-center justify-center font-bold">
+                <Clock className="w-4 h-4 text-amber-700 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="font-serif font-bold text-sm text-amber-950">
+                  Có {pendingStudents.length} học sinh vừa nhập mã xin vào lớp
+                </h4>
+                <p className="text-[11px] text-amber-800">
+                  Cô giáo vui lòng kiểm tra danh tính và bấm duyệt để học sinh được bắt đầu học tập.
+                </p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold">
+              Chờ phê duyệt
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+            {pendingStudents.map((st) => (
+              <div
+                key={st.id}
+                className="p-3 rounded-2xl bg-white border border-amber-200/70 shadow-2xs flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-full overflow-hidden relative shrink-0 border border-amber-200">
+                    <Image
+                      src={st.avatar || "/theme/avatar-student.jpg"}
+                      alt={st.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="truncate">
+                    <span className="font-bold text-xs text-[#17382F] block truncate">
+                      {st.name}
+                    </span>
+                    <span className="text-[10px] text-[#6B766D] font-mono block">
+                      @{st.username} • Xin vào: {st.joinedDate}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={processingId === st.id}
+                    onClick={() => handleApprove(st.id)}
+                    className="px-3 py-1.5 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{processingId === st.id ? "Đang duyệt..." : "Duyệt"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processingId === st.id}
+                    onClick={() => handleReject(st.id)}
+                    className="px-2.5 py-1.5 rounded-xl border border-gray-300 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-gray-600 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Từ chối</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2. THANH CÔNG CỤ TÌM KIẾM & BỘ LỌC */}
       <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -64,7 +175,7 @@ export default function StudentsTab({
               <span>Danh sách học sinh ({studentsList.length})</span>
             </h3>
             <p className="text-xs text-[#6B766D] mt-0.5">
-              Theo dõi tiến độ, bài nộp và quản lý học sinh trong lớp {currentClass.name}.
+              {approvedStudentsCount} học sinh chính thức • {pendingStudents.length} học sinh chờ duyệt.
             </p>
           </div>
 
@@ -74,7 +185,7 @@ export default function StudentsTab({
             className="px-4 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer self-start sm:self-auto"
           >
             <UserPlus className="w-4 h-4" />
-            <span>Thêm học sinh vào lớp</span>
+            <span>Thêm học sinh trực tiếp</span>
           </button>
         </div>
 
@@ -94,7 +205,8 @@ export default function StudentsTab({
           <div className="flex items-center gap-1 bg-[#F7F5EE] p-1 rounded-xl border border-[#E5DFD0] text-xs">
             {[
               { id: "ALL", label: `Tất cả (${studentsList.length})` },
-              { id: "LEARNING", label: "Đang học" },
+              { id: "LEARNING", label: `Đang học (${approvedStudentsCount})` },
+              { id: "PENDING", label: `Chờ duyệt (${pendingStudents.length})` },
               { id: "COMPLETED", label: "Hoàn thành" },
             ].map((tab) => (
               <button
@@ -114,7 +226,7 @@ export default function StudentsTab({
         </div>
       </div>
 
-      {/* Bulk action bar */}
+      {/* Bulk Action Bar */}
       {selectedStudentIds.length > 0 && (
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-50 border border-amber-200 shadow-2xs">
           <div className="text-xs font-bold text-amber-900 flex items-center gap-2">
@@ -153,10 +265,12 @@ export default function StudentsTab({
             <Users className="w-6 h-6" />
           </div>
           <h4 className="font-serif font-bold text-sm text-[#17382F]">
-            Lớp học chưa có học sinh nào
+            {statusFilter === "PENDING"
+              ? "Không có yêu cầu vào lớp nào đang chờ duyệt"
+              : "Lớp học chưa có học sinh nào"}
           </h4>
           <p className="text-xs text-[#6B766D] max-w-md mx-auto">
-            Hãy chia sẻ mã lớp <strong>{currentClass.code}</strong> cho học viên tham gia hoặc nhấn <strong>"Thêm học sinh vào lớp"</strong> để cấp tài khoản.
+            Hãy chia sẻ mã lớp <strong>{currentClass.code}</strong> cho học viên tham gia hoặc nhấn <strong>"Thêm học sinh trực tiếp"</strong> để cấp tài khoản.
           </p>
           <button
             type="button"
@@ -192,13 +306,15 @@ export default function StudentsTab({
                 <th className="py-3 px-3">Trạng thái</th>
                 <th className="py-3 px-3">Tiến độ bài học</th>
                 <th className="py-3 px-3">Bài tập đã nộp</th>
-                <th className="py-3 px-3">Ngày vào lớp</th>
+                <th className="py-3 px-3">Ngày xin vào</th>
                 <th className="py-3 px-3 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5DFD0]/60">
               {filteredStudents.map((st) => {
                 const isChecked = selectedStudentIds.includes(st.id);
+                const isPending = st.enrollmentStatus === "PENDING" || st.status === "PENDING";
+
                 return (
                   <tr key={st.id} className="hover:bg-[#F7F5EE]/50 transition">
                     <td className="py-3 px-3.5">
@@ -222,7 +338,7 @@ export default function StudentsTab({
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full overflow-hidden relative shrink-0 border border-[#E5DFD0]">
                           <Image
-                            src={st.avatar || "/theme/avatar-teacher.jpg"}
+                            src={st.avatar || "/theme/avatar-student.jpg"}
                             alt={st.name}
                             fill
                             className="object-cover"
@@ -248,15 +364,22 @@ export default function StudentsTab({
 
                     {/* Status */}
                     <td className="py-3 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          st.status === "COMPLETED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-blue-50 text-blue-700"
-                        }`}
-                      >
-                        {st.statusText || (st.status === "COMPLETED" ? "Hoàn thành" : "Đang học")}
-                      </span>
+                      {isPending ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 w-fit">
+                          <Clock className="w-3 h-3 text-amber-700" />
+                          <span>Chờ duyệt</span>
+                        </span>
+                      ) : (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            st.status === "COMPLETED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-blue-50 text-blue-700"
+                          }`}
+                        >
+                          {st.statusText || (st.status === "COMPLETED" ? "Hoàn thành" : "Đang học")}
+                        </span>
+                      )}
                     </td>
 
                     {/* Progress Bar */}
@@ -286,15 +409,39 @@ export default function StudentsTab({
 
                     {/* Actions */}
                     <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => onRemoveStudent(st)}
-                          title="Xóa khỏi lớp học này"
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {isPending ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={processingId === st.id}
+                              onClick={() => handleApprove(st.id)}
+                              className="px-2.5 py-1 rounded-lg bg-[#1F513F] hover:bg-[#17382F] text-white text-[11px] font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              title="Duyệt vào lớp"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>Duyệt</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={processingId === st.id}
+                              onClick={() => handleReject(st.id)}
+                              className="p-1 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition cursor-pointer"
+                              title="Từ chối yêu cầu"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onRemoveStudent(st)}
+                            title="Xóa khỏi lớp học này"
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

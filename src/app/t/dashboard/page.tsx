@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -315,7 +315,35 @@ export default function TeacherDashboard() {
     desc: string;
     time: string;
     read: boolean;
+    linkUrl?: string;
   }>>([]);
+
+  const fetchDbNotifications = useCallback(async (userId: string) => {
+    try {
+      const res = await fetch(`/api/v1/notifications?userId=${encodeURIComponent(userId)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.items)) {
+        setNotifications(data.items.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          desc: n.message || n.desc,
+          time: n.time || "Vừa xong",
+          read: n.isRead ?? n.read ?? false,
+          linkUrl: n.linkUrl,
+        })));
+      }
+    } catch (e) {
+      console.error("fetchDbNotifications error:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchDbNotifications(currentUser.id);
+      const interval = setInterval(() => fetchDbNotifications(currentUser.id), 12000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser?.id, fetchDbNotifications]);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1024,24 +1052,58 @@ export default function TeacherDashboard() {
                   <div className="flex items-center justify-between pb-2 border-b border-[#E5DEC9]">
                     <span className="font-bold text-xs text-[#204434]">Thông báo mới ({notifications.length})</span>
                     <button
-                      onClick={() =>
-                        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-                      }
-                      className="text-[10px] text-[#315E48] hover:underline"
+                      onClick={async () => {
+                        if (currentUser?.id) {
+                          fetch("/api/v1/notifications", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ markAllAsRead: true, userId: currentUser.id }),
+                          }).catch(() => {});
+                        }
+                        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                      }}
+                      className="text-[10px] text-[#315E48] hover:underline cursor-pointer"
                     >
                       Đánh dấu đã đọc
                     </button>
                   </div>
                   <div className="divide-y divide-[#E5DEC9]/50 max-h-64 overflow-y-auto">
-                    {notifications.map((n) => (
-                      <div key={n.id} className="py-2.5 px-1 hover:bg-[#F8F5ED] rounded-lg transition">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="font-bold text-xs text-[#204434]">{n.title}</span>
-                          <span className="text-[10px] text-[#8ea394]">{n.time}</span>
+                    {notifications.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-gray-500">Chưa có thông báo mới</div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            if (n.id) {
+                              fetch("/api/v1/notifications", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ id: n.id }),
+                              }).catch(() => {});
+                              setNotifications((prev) =>
+                                prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
+                              );
+                            }
+                            if (n.linkUrl && n.linkUrl.includes("tab=classes")) {
+                              setActiveTab("classes");
+                              setShowNotifications(false);
+                            }
+                          }}
+                          className={`py-2.5 px-1.5 hover:bg-[#F8F5ED] rounded-xl transition cursor-pointer ${
+                            !n.read ? "bg-amber-50/50" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className={`text-xs ${!n.read ? "font-bold text-[#17382F]" : "font-semibold text-gray-700"}`}>
+                              {n.title}
+                            </span>
+                            <span className="text-[10px] text-[#8ea394]">{n.time}</span>
+                          </div>
+                          <p className="text-[11px] text-[#315E48] leading-relaxed">{n.desc}</p>
                         </div>
-                        <p className="text-[11px] text-[#315E48]">{n.desc}</p>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               )}

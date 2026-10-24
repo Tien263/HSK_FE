@@ -74,6 +74,19 @@ export async function GET(request: Request) {
       }
     }
 
+    // Lấy trạng thái phê duyệt của học sinh trong từng lớp
+    const studentEnrollments = studentIdForProgress
+      ? await prisma.classStudent.findMany({
+          where: { studentId: studentIdForProgress },
+          select: { classId: true, status: true },
+        })
+      : [];
+
+    const enrollmentStatusByClass: Record<string, string> = {};
+    for (const e of studentEnrollments) {
+      enrollmentStatusByClass[e.classId] = e.status;
+    }
+
     return NextResponse.json({
       success: true,
       teacher: authUser ? { id: authUser.id, name: authUser.name, email: authUser.email } : null,
@@ -81,6 +94,8 @@ export async function GET(request: Request) {
         const meta = decodeClassDescription(c.description, c.createdAt, c.isActive, c.level);
         const submittedCount = attemptsByClass[c.id] || 0;
         const totalAssignments = c._count.assignments;
+        const myEnrollmentStatus = enrollmentStatusByClass[c.id] || "APPROVED";
+        const isPending = myEnrollmentStatus === "PENDING";
 
         // CLASS-002: Chỉ tính % khi totalAssignments > 0, ngược lại là null ("Chưa có dữ liệu tiến độ")
         const progressPercent = totalAssignments > 0
@@ -94,8 +109,10 @@ export async function GET(request: Request) {
           description: meta.text,
           startDate: meta.startDate,
           endDate: meta.endDate,
-          status: meta.status,
-          statusText: meta.statusText,
+          status: isPending ? "PAUSED" : meta.status,
+          statusText: isPending ? "Chờ duyệt" : meta.statusText,
+          enrollmentStatus: myEnrollmentStatus,
+          isPendingApproval: isPending,
           track: meta.track,
           isArchived: !!meta.isArchived,
           totalStudents: c._count.students,

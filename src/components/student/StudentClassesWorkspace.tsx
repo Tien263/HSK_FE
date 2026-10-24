@@ -187,6 +187,13 @@ export default function StudentClassesWorkspace({
   });
 
   const getStatusBadge = (status: string, statusText: string) => {
+    if (statusText === "Chờ duyệt" || status === "PENDING") {
+      return {
+        bg: "bg-amber-100/90 text-amber-900 border-amber-300",
+        dot: "bg-amber-500 animate-pulse",
+        label: "Chờ cô giáo duyệt",
+      };
+    }
     switch (status) {
       case "ACTIVE":
         return {

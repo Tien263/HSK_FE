@@ -201,25 +201,33 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
-        const mapped: StudentRowItem[] = data.items.map((st: any) => ({
-          id: st.id,
-          name: st.name,
-          username: st.username,
-          email: st.email || "",
-          status: st.status === "INACTIVE" ? "INACTIVE" : st.status === "COMPLETED" ? "COMPLETED" : "LEARNING",
-          statusText: st.status === "COMPLETED" ? "Hoàn thành" : "Đang học",
-          progressPercent: st.progressPercent || 0,
-          totalAssignments: st.totalAssignments || 0,
-          submittedAssignments: st.attemptsCount || 0,
-          joinedDate: st.joinedAt ? new Date(st.joinedAt).toLocaleDateString("vi-VN") : "Hôm nay",
-          avatar: st.avatar || "/theme/avatar-teacher.jpg",
-          scoreAvg: st.scoreAvg,
-        }));
+        const mapped: StudentRowItem[] = data.items.map((st: any) => {
+          const isPending = st.enrollmentStatus === "PENDING" || st.status === "PENDING";
+          return {
+            id: st.id,
+            name: st.name,
+            username: st.username,
+            email: st.email || "",
+            status: isPending ? "PENDING" : st.status === "INACTIVE" ? "INACTIVE" : st.status === "COMPLETED" ? "COMPLETED" : "LEARNING",
+            enrollmentStatus: isPending ? "PENDING" : "APPROVED",
+            statusText: isPending ? "Chờ duyệt" : st.status === "COMPLETED" ? "Hoàn thành" : "Đang học",
+            progressPercent: st.progressPercent || 0,
+            totalAssignments: st.totalAssignments || 0,
+            submittedAssignments: st.attemptsCount || 0,
+            joinedDate: st.joinedAt ? new Date(st.joinedAt).toLocaleDateString("vi-VN") : "Hôm nay",
+            avatar: st.avatar || "/theme/avatar-student.jpg",
+            scoreAvg: st.scoreAvg,
+          };
+        });
         setStudentsList(mapped);
 
         // Update studentCount in classes state
         setClasses((prev) =>
-          prev.map((c) => (c.id === classId ? { ...c, studentCount: mapped.length } : c))
+          prev.map((c) =>
+            c.id === classId
+              ? { ...c, studentCount: mapped.filter((s) => s.enrollmentStatus !== "PENDING").length }
+              : c
+          )
         );
       }
     } catch (err) {
@@ -506,6 +514,56 @@ export default function ClassesWorkspace({
     }
   };
 
+  // 7b. Approve Student to Class
+  const handleApproveStudent = async (studentId: string) => {
+    if (!currentClass || !currentUser?.id) return;
+    try {
+      const res = await fetch(`/api/v1/classes/${currentClass.id}/students`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({ studentId, action: "APPROVE" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || "Đã duyệt học sinh vào lớp thành công!");
+        await fetchClassStudents(currentClass.id);
+        await fetchClasses();
+      } else {
+        showToast(data.message || "Lỗi phê duyệt học sinh.");
+      }
+    } catch {
+      showToast("Lỗi kết nối khi duyệt học sinh.");
+    }
+  };
+
+  // 7c. Reject Student Request
+  const handleRejectStudent = async (studentId: string) => {
+    if (!currentClass || !currentUser?.id) return;
+    try {
+      const res = await fetch(`/api/v1/classes/${currentClass.id}/students`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({ studentId, action: "REJECT" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || "Đã từ chối yêu cầu vào lớp.");
+        await fetchClassStudents(currentClass.id);
+        await fetchClasses();
+      } else {
+        showToast(data.message || "Lỗi xử lý từ chối.");
+      }
+    } catch {
+      showToast("Lỗi kết nối khi từ chối học sinh.");
+    }
+  };
+
   // 8. Delete Single Class
   const handleDeleteClass = async () => {
     if (!deletingClass || !currentUser?.id) return;
@@ -646,6 +704,8 @@ export default function ClassesWorkspace({
               onRemoveStudent={handleRemoveStudent}
               onBulkRemoveStudents={handleBulkRemoveStudents}
               onOpenManualStudentModal={() => setIsManualStudentModalOpen(true)}
+              onApproveStudent={handleApproveStudent}
+              onRejectStudent={handleRejectStudent}
             />
           )}
 

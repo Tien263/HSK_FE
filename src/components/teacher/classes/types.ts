@@ -29,7 +29,8 @@ export interface StudentRowItem {
   name: string;
   username: string;
   email?: string;
-  status: "LEARNING" | "INACTIVE" | "COMPLETED";
+  status: "LEARNING" | "INACTIVE" | "COMPLETED" | "PENDING";
+  enrollmentStatus?: "PENDING" | "APPROVED" | "REJECTED";
   statusText: string;
   progressPercent: number;
   totalAssignments: number;

@@ -133,6 +133,7 @@ export async function POST(request: Request) {
 
     // Luôn ghi danh học sinh vào lớp nếu tìm thấy targetClass (bằng classId hoặc classCode)
     if (targetClass) {
+      // Ghi danh học sinh vào lớp với trạng thái PENDING chờ giáo viên duyệt
       await prisma.classStudent.upsert({
         where: {
           classId_studentId: {
@@ -144,10 +145,24 @@ export async function POST(request: Request) {
         create: {
           classId: targetClass.id,
           studentId: student.id,
+          status: "PENDING",
         },
       }).catch((e) => {
         console.error("classStudent upsert error:", e);
       });
+
+      // Tạo thông báo cho giáo viên phụ trách lớp
+      if (targetClass.teacherId) {
+        await prisma.notification.create({
+          data: {
+            userId: targetClass.teacherId,
+            title: `Yêu cầu vào lớp: ${targetClass.name}`,
+            message: `Học sinh ${student.name} (@${student.username}) vừa nhập mã xin vào lớp ${targetClass.name}. Vui lòng kiểm tra và duyệt.`,
+            type: "ENROLL_REQUEST",
+            linkUrl: `/t/dashboard?tab=classes&classId=${targetClass.id}&subtab=students`,
+          },
+        }).catch((err) => console.error("Create notification error:", err));
+      }
 
       enrolledClassInfo = {
         id: targetClass.id,
@@ -155,11 +170,9 @@ export async function POST(request: Request) {
         level: targetClass.level,
         teacherName: targetClass.teacher?.name || "Cô Ning Ning",
         teacherAvatar: targetClass.teacher?.avatar || "/theme/avatar-teacher.jpg",
-        code: targetClass.name.includes("1A")
-          ? "HSK1A"
-          : targetClass.name.includes("HANYU3A")
-          ? "HANYU3A"
-          : targetClass.id.slice(-6).toUpperCase(),
+        status: "PENDING",
+        enrollmentStatus: "PENDING",
+        code: targetClass.id.slice(-6).toUpperCase(),
       };
     }
 

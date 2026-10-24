@@ -58,7 +58,8 @@ export async function GET(
         username: cs.student.username,
         email: cs.student.email,
         avatar: cs.student.avatar,
-        status: cs.student.status,
+        status: cs.status === "PENDING" ? "PENDING" : cs.student.status,
+        enrollmentStatus: cs.status || "APPROVED",
         totalXp: cs.student.totalXp,
         streakDays: cs.student.streakDays,
         attemptsCount: cs.student._count.attempts,
@@ -199,6 +200,107 @@ export async function POST(
   } catch (error) {
     console.error("POST /classes/[id]/students error:", error);
     return NextResponse.json({ success: false, message: "Lỗi cấp tài khoản học sinh." }, { status: 500 });
+  }
+}
+
+// PATCH /api/v1/classes/[id]/students - Phê duyệt hoặc từ chối học sinh vào lớp
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: classId } = await params;
+    const authUser = await getAuthUser(request);
+    const body = await request.json();
+    const { studentId, studentIds, action } = body;
+
+    const targetClass = await prisma.class.findUnique({
+      where: { id: classId },
+      include: { teacher: true },
+    });
+
+    if (!targetClass) {
+      return NextResponse.json({ success: false, message: "Không tìm thấy lớp học." }, { status: 404 });
+    }
+
+    if (authUser && authUser.role === "TEACHER" && targetClass.teacherId !== authUser.id) {
+      return NextResponse.json(
+        { success: false, message: "Bạn không có quyền duyệt học sinh của lớp này." },
+        { status: 403 }
+      );
+    }
+
+    const targetIds: string[] = studentIds || (studentId ? [studentId] : []);
+    if (targetIds.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "Vui lòng chọn học sinh cần duyệt." },
+        { status: 400 }
+      );
+    }
+
+    if (action === "APPROVE") {
+      await prisma.classStudent.updateMany({
+        where: {
+          classId,
+          studentId: { in: targetIds },
+        },
+        data: {
+          status: "APPROVED",
+        },
+      });
+
+      // Tạo thông báo cho từng học sinh
+      for (const sId of targetIds) {
+        await prisma.notification.create({
+          data: {
+            userId: sId,
+            title: `Yêu cầu vào lớp đã được duyệt!`,
+            message: `Giáo viên đã phê duyệt yêu cầu tham gia lớp "${targetClass.name}" của bạn. Chúc bạn học tốt!`,
+            type: "ENROLL_APPROVED",
+            linkUrl: `/s/home`,
+          },
+        }).catch(() => {});
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã duyệt ${targetIds.length} học sinh vào lớp thành công!`,
+      });
+    } else if (action === "REJECT") {
+      await prisma.classStudent.deleteMany({
+        where: {
+          classId,
+          studentId: { in: targetIds },
+        },
+      });
+
+      for (const sId of targetIds) {
+        await prisma.notification.create({
+          data: {
+            userId: sId,
+            title: `Yêu cầu vào lớp không được chấp nhận`,
+            message: `Rất tiếc, yêu cầu tham gia lớp "${targetClass.name}" của bạn không được phê duyệt.`,
+            type: "ENROLL_REJECTED",
+          },
+        }).catch(() => {});
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã từ chối ${targetIds.length} học sinh.`,
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ (cần APPROVE hoặc REJECT)." },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error("PATCH /classes/[id]/students error:", error);
+    return NextResponse.json(
+      { success: false, message: "Lỗi xử lý duyệt học sinh." },
+      { status: 500 }
+    );
   }
 }
 
