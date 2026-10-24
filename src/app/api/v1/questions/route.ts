@@ -113,3 +113,55 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const authUser = await getAuthUser(request);
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    const isAll = searchParams.get("all") === "true";
+
+    let bodyIds: string[] = [];
+    try {
+      const body = await request.json();
+      if (Array.isArray(body?.ids)) bodyIds = body.ids;
+    } catch {}
+
+    const targetIds = id ? [id] : bodyIds;
+
+    if (isAll) {
+      // Xóa tất cả câu hỏi của giáo viên này (hoặc tất cả nếu không có teacherId)
+      const where: any = {};
+      if (authUser?.role === "TEACHER") {
+        where.teacherId = authUser.id;
+      }
+      const deleted = await prisma.question.deleteMany({ where });
+      return NextResponse.json({
+        success: true,
+        message: `Đã xóa toàn bộ ${deleted.count} câu hỏi thành công!`,
+      });
+    }
+
+    if (targetIds.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "Vui lòng cung cấp ID câu hỏi cần xóa." },
+        { status: 400 }
+      );
+    }
+
+    await prisma.question.deleteMany({
+      where: { id: { in: targetIds } },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Đã xóa ${targetIds.length} câu hỏi thành công!`,
+    });
+  } catch (error) {
+    console.error("DELETE /questions error:", error);
+    return NextResponse.json(
+      { success: false, message: "Lỗi xóa câu hỏi khỏi cơ sở dữ liệu" },
+      { status: 500 }
+    );
+  }
+}

@@ -822,10 +822,22 @@ export default function QuestionBankWorkspace({
     showToast(`Đã nhân bản câu hỏi thành bản nháp mới: "${clone.title}"`);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTargetQuestion) return;
-    setQuestions(questions.filter((q) => q.id !== deleteTargetQuestion.id));
-    showToast(`Đã xóa câu hỏi "${deleteTargetQuestion.title}" khỏi Kho câu hỏi của tôi!`);
+    const targetId = deleteTargetQuestion.id;
+
+    // Xóa vĩnh viễn khỏi CSDL PostgreSQL để khi F5 không bị xuất hiện lại
+    try {
+      await fetch(`/api/v1/questions?id=${targetId}`, {
+        method: "DELETE",
+        headers: currentUser?.id ? { "x-user-id": currentUser.id } : {},
+      });
+    } catch (e) {
+      console.warn("Delete question API error:", e);
+    }
+
+    setQuestions((prev) => prev.filter((q) => q.id !== targetId));
+    showToast(`Đã xóa vĩnh viễn câu hỏi khỏi Kho câu hỏi!`);
     setDeleteTargetQuestion(null);
     setOpenActionMenuId(null);
   };
@@ -1064,14 +1076,23 @@ export default function QuestionBankWorkspace({
 
           {questions.length > 0 && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm("Bạn có chắc muốn xóa tất cả câu hỏi trong ngân hàng để tự soạn lại từ đầu không?")) {
+                  try {
+                    await fetch("/api/v1/questions?all=true", {
+                      method: "DELETE",
+                      headers: currentUser?.id ? { "x-user-id": currentUser.id } : {},
+                    });
+                  } catch (e) {
+                    console.warn("Delete all questions error:", e);
+                  }
                   setQuestions([]);
                   setSelectedIds([]);
                   if (typeof window !== "undefined") {
+                    localStorage.setItem(storageKeyQuestions, JSON.stringify([]));
                     localStorage.setItem("hanyu_custom_question_bank", JSON.stringify([]));
                   }
-                  showToast("Đã xóa toàn bộ ngân hàng câu hỏi! Bạn có thể tự soạn câu hỏi mới từ đầu.");
+                  showToast("Đã xóa vĩnh viễn toàn bộ ngân hàng câu hỏi khỏi cơ sở dữ liệu!");
                 }
               }}
               className="px-3.5 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"

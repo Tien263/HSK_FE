@@ -227,6 +227,24 @@ export function AssignmentsWorkspace({
     }
   };
 
+  const handleDeleteAssignment = async (asg: AssignmentItem) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa bài tập "${asg.title}" không?`)) return;
+    try {
+      const res = await fetch(`/api/v1/assignments?id=${asg.id}`, {
+        method: "DELETE",
+        headers: currentUser?.id ? { "x-user-id": currentUser.id } : {},
+      });
+      if (res.ok) {
+        showToast(`Đã xóa bài tập "${asg.title}" thành công!`);
+        fetchData();
+      } else {
+        showToast("Lỗi khi xóa bài tập.");
+      }
+    } catch (e) {
+      showToast("Lỗi kết nối máy chủ.");
+    }
+  };
+
   const handleSaveGrading = async (submissionId: string, score: number, feedback: string) => {
     showToast(`Đã lưu và công bố điểm (${score}đ) thành công!`);
     setIsGradingModalOpen(false);
@@ -303,6 +321,7 @@ export function AssignmentsWorkspace({
           onGradeAssignment={(asg) => {
             setActiveTab("SUBMISSIONS");
           }}
+          onDeleteAssignment={handleDeleteAssignment}
           onAssignExamToClass={() => setIsAssignModalOpen(true)}
         />
       )}

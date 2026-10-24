@@ -268,3 +268,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: "Lỗi tạo bài tập mới." }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const authUser = await getAuthUser(request);
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    let bodyIds: string[] = [];
+    try {
+      const body = await request.json();
+      if (Array.isArray(body?.ids)) bodyIds = body.ids;
+    } catch {}
+
+    const targetIds = id ? [id] : bodyIds;
+
+    if (targetIds.length === 0) {
+      return NextResponse.json({ success: false, message: "Thiếu ID bài tập cần xóa" }, { status: 400 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.attemptAnswer.deleteMany({
+        where: { attempt: { assignmentId: { in: targetIds } } },
+      });
+      await tx.attempt.deleteMany({
+        where: { assignmentId: { in: targetIds } },
+      });
+      await tx.assignmentTarget.deleteMany({
+        where: { assignmentId: { in: targetIds } },
+      });
+      await tx.assignment.deleteMany({
+        where: { id: { in: targetIds } },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Đã xóa ${targetIds.length} bài tập thành công!`,
+    });
+  } catch (error) {
+    console.error("DELETE /assignments error:", error);
+    return NextResponse.json({ success: false, message: "Lỗi xóa bài tập." }, { status: 500 });
+  }
+}

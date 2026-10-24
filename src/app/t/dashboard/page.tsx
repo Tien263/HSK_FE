@@ -266,6 +266,15 @@ export default function TeacherDashboard() {
     }
   }, [router]);
 
+  // Real-time sync (10s polling) for live enrollment requests, student submissions, and progress
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const interval = setInterval(() => {
+      fetchTeacherData(currentUser);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [currentUser?.id]);
+
   // Global search & filter
   const [searchQuery, setSearchQuery] = useState("");
   const [questionBankCount, setQuestionBankCount] = useState(0);

@@ -96,6 +96,7 @@ export default function StudentHomePage() {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeNav, setActiveNav] = useState("home");
+  const [practiceSubMode, setPracticeSubMode] = useState<"vocab" | "grammar" | "game" | "wrong">("vocab");
   const [username, setUsername] = useState("student");
   const [studentName, setStudentName] = useState("Học viên");
   const [studyProfile, setStudyProfile] = useState<StudyProfile | null>(null);
@@ -297,12 +298,16 @@ export default function StudentHomePage() {
         setEditingDailyTime(parsed.dailyTime || 30);
       }
 
-      // Check URL query param for tab
+      // Check URL query param for tab & practice mode
       if (typeof window !== "undefined") {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get("tab");
         if (tab && ["home", "roadmap", "lessons", "classes", "assignments", "practice", "results"].includes(tab)) {
           setActiveNav(tab);
+        }
+        const mode = urlParams.get("mode");
+        if (mode && ["vocab", "grammar", "game", "wrong"].includes(mode)) {
+          setPracticeSubMode(mode as any);
         }
       }
     } catch {}
@@ -320,6 +325,26 @@ export default function StudentHomePage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // Real-time polling (10s) to keep class enrollments, progress, and assignments updated live
+  useEffect(() => {
+    if (!currentUser?.id && !username) return;
+    const interval = setInterval(() => {
+      if (currentUser?.id) {
+        fetchMyClasses(currentUser.id);
+      }
+      const uName = currentUser?.username || username || "student";
+      fetch(`/api/v1/my/summary?username=${encodeURIComponent(uName)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && json.data) {
+            setData(json.data);
+          }
+        })
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [currentUser?.id, currentUser?.username, username]);
 
   // Xác minh mã lớp
   const handleVerifyJoinCode = async () => {
@@ -580,30 +605,62 @@ export default function StudentHomePage() {
 
               {/* Sub-items */}
               <div className="pl-9 pr-2 py-0.5 space-y-1 text-[11px] text-[#315E48]/85 font-normal">
-                <Link
-                  href="/s/review"
-                  className="block py-1 hover:text-[#204434] transition hover:translate-x-0.5"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveNav("practice");
+                    setPracticeSubMode("vocab");
+                  }}
+                  className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
+                    activeNav === "practice" && practiceSubMode === "vocab"
+                      ? "text-[#204434] font-bold"
+                      : "hover:text-[#204434]"
+                  }`}
                 >
                   Luyện từ vựng
-                </Link>
-                <Link
-                  href="/s/review"
-                  className="block py-1 hover:text-[#204434] transition hover:translate-x-0.5"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveNav("practice");
+                    setPracticeSubMode("grammar");
+                  }}
+                  className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
+                    activeNav === "practice" && practiceSubMode === "grammar"
+                      ? "text-[#204434] font-bold"
+                      : "hover:text-[#204434]"
+                  }`}
                 >
                   Luyện ngữ pháp
-                </Link>
-                <Link
-                  href="/s/games"
-                  className="block py-1 hover:text-[#204434] transition hover:translate-x-0.5"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveNav("practice");
+                    setPracticeSubMode("game");
+                  }}
+                  className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
+                    activeNav === "practice" && practiceSubMode === "game"
+                      ? "text-[#204434] font-bold"
+                      : "hover:text-[#204434]"
+                  }`}
                 >
                   Game phản xạ HSK
-                </Link>
-                <Link
-                  href="/s/practice/wrong"
-                  className="block py-1 hover:text-[#204434] transition hover:translate-x-0.5"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveNav("practice");
+                    setPracticeSubMode("wrong");
+                  }}
+                  className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
+                    activeNav === "practice" && practiceSubMode === "wrong"
+                      ? "text-[#204434] font-bold"
+                      : "hover:text-[#204434]"
+                  }`}
                 >
                   Sổ câu hỏi sai
-                </Link>
+                </button>
               </div>
             </div>
 
@@ -870,6 +927,7 @@ export default function StudentHomePage() {
               myClasses={myClasses}
               onOpenJoinModal={() => setShowJoinModal(true)}
               activeHskLevel={activeHskLevel}
+              initialPracticeMode={practiceSubMode}
             />
           ) : activeNav === "results" ? (
             <StudentReportsWorkspace
