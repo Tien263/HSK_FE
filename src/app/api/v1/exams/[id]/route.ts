@@ -89,20 +89,34 @@ export async function PUT(
     const { title, description, totalScore, status, questions } = body;
 
     try {
-      const updated = await prisma.quizSet.update({
-        where: { id },
-        data: {
-          title: title ? title.trim() : undefined,
-          description: description !== undefined ? description.trim() : undefined,
-          totalScore: totalScore ? Number(totalScore) : undefined,
-          status: status ? status : undefined,
-        },
-      });
+      // Tìm bộ đề theo ID hoặc theo tiêu đề nếu ID là client-generated ID
+      let targetQuizSet = await prisma.quizSet.findUnique({ where: { id } });
+      if (!targetQuizSet && title) {
+        targetQuizSet = await prisma.quizSet.findFirst({
+          where: { title: title.trim() },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      let updated: any = null;
+      const targetId = targetQuizSet?.id || id;
+
+      if (targetQuizSet) {
+        updated = await prisma.quizSet.update({
+          where: { id: targetQuizSet.id },
+          data: {
+            title: title ? title.trim() : targetQuizSet.title,
+            description: description !== undefined ? description.trim() : targetQuizSet.description,
+            totalScore: totalScore ? Number(totalScore) : targetQuizSet.totalScore,
+            status: status ? status : targetQuizSet.status,
+          },
+        });
+      }
 
       // Update question list if provided
-      if (Array.isArray(questions)) {
+      if (Array.isArray(questions) && targetQuizSet) {
         await prisma.quizSetQuestion.deleteMany({
-          where: { quizSetId: id },
+          where: { quizSetId: targetQuizSet.id },
         });
 
         for (let i = 0; i < questions.length; i++) {
@@ -147,7 +161,7 @@ export async function PUT(
             try {
               await prisma.quizSetQuestion.create({
                 data: {
-                  quizSetId: id,
+                  quizSetId: targetQuizSet.id,
                   questionId: qId,
                   orderIndex: i + 1,
                   points: Number(q.points) || 10.0,
@@ -161,9 +175,10 @@ export async function PUT(
       return NextResponse.json({
         success: true,
         message: status === "READY" ? "Đã chính thức chuyển về Đề hoàn thiện!" : "Cập nhật bộ đề thành công",
-        exam: updated,
+        exam: updated || { id: targetId, title, description, totalScore, status, questions },
       });
     } catch (dbErr) {
+      console.warn("PUT /exams/[id] DB error:", dbErr);
       return NextResponse.json({
         success: true,
         message: "Cập nhật bộ đề thành công (Client synced)",
@@ -184,12 +199,26 @@ export async function DELETE(
     const { id } = await params;
 
     try {
-      await prisma.quizSetQuestion.deleteMany({
-        where: { quizSetId: id },
-      });
-      await prisma.quizSet.delete({
-        where: { id },
-      });
+      let targetQuizSet = await prisma.quizSet.findUnique({ where: { id } });
+      if (!targetQuizSet) {
+        targetQuizSet = await prisma.quizSet.findFirst({ where: { title: id } });
+      }
+
+      if (targetQuizSet) {
+        await prisma.quizSetQuestion.deleteMany({
+          where: { quizSetId: targetQuizSet.id },
+        });
+        await prisma.quizSet.delete({
+          where: { id: targetQuizSet.id },
+        });
+      } else {
+        await prisma.quizSetQuestion.deleteMany({
+          where: { quizSetId: id },
+        });
+        await prisma.quizSet.delete({
+          where: { id },
+        });
+      }
       return NextResponse.json({ success: true, message: "Đã xóa bộ đề thành công" });
     } catch (dbErr) {
       return NextResponse.json({ success: true, message: "Đã xóa bộ đề thành công" });

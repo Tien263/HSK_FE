@@ -1022,9 +1022,13 @@ export default function QuestionBankWorkspace({
       });
       const examJson = await examRes.json();
       if (examJson.success && examJson.exam?.id) {
-        targetExamId = examJson.exam.id;
-        if (allPackages.length > 0 && allPackages[0].title === targetExamTitle) {
-          allPackages[0].id = targetExamId;
+        const realId = examJson.exam.id;
+        targetExamId = realId;
+        for (const p of allPackages) {
+          if (p.title === targetExamTitle) {
+            p.id = realId;
+            p.status = "DRAFT";
+          }
         }
       }
     } catch (apiErr) {

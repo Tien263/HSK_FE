@@ -137,13 +137,40 @@ export function AssignmentsWorkspace({
       // Merge với localStorage để đảm bảo mọi đề nháp vừa biên soạn đều hiển thị ngay lập tức
       if (typeof window !== "undefined") {
         try {
-          const localRaw = localStorage.getItem("hanyu_exam_packages");
+          const storageKey = currentUser?.id
+            ? `hanyu_exam_packages_${currentUser.id}`
+            : "hanyu_exam_packages";
+          const localRaw =
+            localStorage.getItem(storageKey) ||
+            localStorage.getItem("hanyu_exam_packages");
           if (localRaw) {
             const localList = JSON.parse(localRaw);
             if (Array.isArray(localList)) {
               const existingIds = new Set(mappedExams.map((e) => e.id));
+              const existingTitles = new Set(
+                mappedExams.map((e) => (e.title || "").trim().toLowerCase())
+              );
+
+              let hasChanges = false;
               for (const lp of localList) {
-                if (lp.id && !existingIds.has(lp.id)) {
+                const lpTitle = (lp.title || "").trim().toLowerCase();
+                const matchInDb = mappedExams.find(
+                  (e) =>
+                    e.id === lp.id ||
+                    (e.title || "").trim().toLowerCase() === lpTitle
+                );
+
+                if (matchInDb) {
+                  if (lp.id !== matchInDb.id || lp.status !== matchInDb.status) {
+                    lp.id = matchInDb.id;
+                    lp.status = matchInDb.status;
+                    hasChanges = true;
+                  }
+                } else if (
+                  lp.id &&
+                  !existingIds.has(lp.id) &&
+                  !existingTitles.has(lpTitle)
+                ) {
                   mappedExams.push({
                     id: lp.id,
                     title: lp.title,
@@ -159,7 +186,13 @@ export function AssignmentsWorkspace({
                     questions: lp.questions || [],
                   });
                   existingIds.add(lp.id);
+                  existingTitles.add(lpTitle);
                 }
+              }
+
+              if (hasChanges) {
+                localStorage.setItem(storageKey, JSON.stringify(localList));
+                localStorage.setItem("hanyu_exam_packages", JSON.stringify(localList));
               }
             }
           }
@@ -296,6 +329,41 @@ export function AssignmentsWorkspace({
   };
 
   const handleFinalizeExam = async (pkg: ExamPackageItem) => {
+    // 1. Cập nhật state NGAY LẬP TỨC để UI phản hồi tức thì
+    setExamPackages((prev) =>
+      prev.map((item) =>
+        item.id === pkg.id || (pkg.title && item.title === pkg.title)
+          ? { ...item, status: "READY" }
+          : item
+      )
+    );
+
+    // 2. Cập nhật localStorage ngay lập tức
+    if (typeof window !== "undefined") {
+      const keys = ["hanyu_exam_packages"];
+      if (currentUser?.id) keys.push(`hanyu_exam_packages_${currentUser.id}`);
+      keys.forEach((k) => {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const updated = list.map((item: any) =>
+                item.id === pkg.id || (pkg.title && item.title === pkg.title)
+                  ? { ...item, status: "READY" }
+                  : item
+              );
+              localStorage.setItem(k, JSON.stringify(updated));
+            }
+          }
+        } catch {}
+      });
+    }
+
+    // 3. Tự động chuyển tab sang Đề hoàn thiện kho
+    setActiveTab("READY_EXAMS");
+
+    // 4. Gửi request PUT lên server cập nhật CSDL
     try {
       const res = await fetch(`/api/v1/exams/${pkg.id}`, {
         method: "PUT",
@@ -305,13 +373,13 @@ export function AssignmentsWorkspace({
         },
         body: JSON.stringify({
           status: "READY",
+          title: pkg.title,
         }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         showToast(`Đã hoàn thiện đề "${pkg.title}"! Đề đã chuyển sang mục Đề hoàn thiện kho.`);
         fetchData();
-        setActiveTab("READY_EXAMS");
       } else {
         showToast(data.message || "Lỗi cập nhật trạng thái bộ đề.");
       }
@@ -321,6 +389,41 @@ export function AssignmentsWorkspace({
   };
 
   const handleRevertToDraft = async (pkg: ExamPackageItem) => {
+    // 1. Cập nhật state NGAY LẬP TỨC
+    setExamPackages((prev) =>
+      prev.map((item) =>
+        item.id === pkg.id || (pkg.title && item.title === pkg.title)
+          ? { ...item, status: "DRAFT" }
+          : item
+      )
+    );
+
+    // 2. Cập nhật localStorage
+    if (typeof window !== "undefined") {
+      const keys = ["hanyu_exam_packages"];
+      if (currentUser?.id) keys.push(`hanyu_exam_packages_${currentUser.id}`);
+      keys.forEach((k) => {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const updated = list.map((item: any) =>
+                item.id === pkg.id || (pkg.title && item.title === pkg.title)
+                  ? { ...item, status: "DRAFT" }
+                  : item
+              );
+              localStorage.setItem(k, JSON.stringify(updated));
+            }
+          }
+        } catch {}
+      });
+    }
+
+    // 3. Chuyển tab sang Đề nháp kho
+    setActiveTab("DRAFT_EXAMS");
+
+    // 4. Gửi request PUT lên server
     try {
       const res = await fetch(`/api/v1/exams/${pkg.id}`, {
         method: "PUT",
@@ -330,12 +433,12 @@ export function AssignmentsWorkspace({
         },
         body: JSON.stringify({
           status: "DRAFT",
+          title: pkg.title,
         }),
       });
       if (res.ok) {
         showToast(`Đã chuyển đề "${pkg.title}" về mục Đề nháp kho để tiếp tục chỉnh sửa.`);
         fetchData();
-        setActiveTab("DRAFT_EXAMS");
       } else {
         showToast("Lỗi cập nhật bộ đề.");
       }
@@ -346,6 +449,33 @@ export function AssignmentsWorkspace({
 
   const handleDeleteExam = async (pkg: ExamPackageItem) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa bộ đề "${pkg.title}" khỏi kho không?`)) return;
+
+    // 1. Cập nhật state ngay lập tức
+    setExamPackages((prev) =>
+      prev.filter((p) => p.id !== pkg.id && (!pkg.title || p.title !== pkg.title))
+    );
+
+    // 2. Xóa khỏi localStorage
+    if (typeof window !== "undefined") {
+      const keys = ["hanyu_exam_packages"];
+      if (currentUser?.id) keys.push(`hanyu_exam_packages_${currentUser.id}`);
+      keys.forEach((k) => {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const filtered = list.filter(
+                (item: any) =>
+                  item.id !== pkg.id && (!pkg.title || item.title !== pkg.title)
+              );
+              localStorage.setItem(k, JSON.stringify(filtered));
+            }
+          }
+        } catch {}
+      });
+    }
+
     try {
       const res = await fetch(`/api/v1/exams/${pkg.id}`, {
         method: "DELETE",
