@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Plus, Sparkles, Calendar, BookOpen, Layers } from "lucide-react";
+import { X, BookOpen, User, CheckCircle2, KeyRound } from "lucide-react";
 
 interface CreateClassModalProps {
   isOpen: boolean;
@@ -15,6 +15,7 @@ interface CreateClassModalProps {
     description: string;
   }) => Promise<void>;
   loading: boolean;
+  teacherName?: string;
 }
 
 export default function CreateClassModal({
@@ -22,6 +23,7 @@ export default function CreateClassModal({
   onClose,
   onSubmit,
   loading,
+  teacherName,
 }: CreateClassModalProps) {
   const [name, setName] = useState("");
   const [level, setLevel] = useState(1);
@@ -57,9 +59,9 @@ export default function CreateClassModal({
       <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="p-5 border-b border-[#E5DFD0] flex items-center justify-between bg-white">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#1F513F]/10 text-[#1F513F] flex items-center justify-center">
-              <Plus className="w-4 h-4" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#1F513F]/10 text-[#1F513F] flex items-center justify-center">
+              <BookOpen className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-serif font-bold text-base text-[#17382F]">
@@ -87,6 +89,24 @@ export default function CreateClassModal({
               {error}
             </div>
           )}
+
+          {/* Thông tin giáo viên & trạng thái */}
+          <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-[#F7F5EE] border border-[#E5DFD0] text-xs">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-[#1F513F] shrink-0" />
+              <div>
+                <span className="text-[10px] text-[#6B766D] block">Giáo viên phụ trách</span>
+                <span className="font-bold text-[#17382F]">{teacherName || "Tài khoản hiện tại"}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div>
+                <span className="text-[10px] text-[#6B766D] block">Trạng thái lớp</span>
+                <span className="font-bold text-emerald-700">Đang hoạt động</span>
+              </div>
+            </div>
+          </div>
 
           {/* Tên lớp */}
           <div className="space-y-1.5">
@@ -125,17 +145,25 @@ export default function CreateClassModal({
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[#17382F] block">
-                Chương trình
+                Hệ tiêu chuẩn
               </label>
               <select
                 value={track}
                 onChange={(e) => setTrack(e.target.value as any)}
                 className="w-full bg-white border border-[#E5DFD0] rounded-xl px-3 py-2 text-xs text-[#17382F] focus:outline-hidden cursor-pointer"
               >
-                <option value="HSK">Khung HSK 3.0</option>
+                <option value="HSK">Khung HSK 3.0 (Chuẩn quốc tế)</option>
                 <option value="TOPIC">Giao tiếp theo chủ đề</option>
                 <option value="MAJOR">Tiếng Trung chuyên ngành</option>
               </select>
+            </div>
+          </div>
+
+          {/* Mã tham gia thông báo */}
+          <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/60 text-amber-900 text-xs flex items-center gap-2.5">
+            <KeyRound className="w-4 h-4 text-amber-700 shrink-0" />
+            <div className="text-[11px] leading-tight">
+              <strong>Mã tham gia lớp:</strong> Hệ thống tự động sinh mã duy nhất sau khi nhấn Tạo lớp. Học sinh dùng mã này để vào lớp.
             </div>
           </div>
 

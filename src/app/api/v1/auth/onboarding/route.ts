@@ -60,47 +60,33 @@ export async function POST(request: Request) {
       const code = classCode.trim();
       const normalizedCode = code.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
 
-      if (normalizedCode === "HSK1A" || normalizedCode === "HSK1") {
-        targetClass = await prisma.class.findFirst({
-          where: {
-            OR: [
-              { name: { contains: "HSK 1A" } },
-              { name: { contains: "HSK 1" } },
-            ],
-          },
-          include: { teacher: true },
-        });
-      }
+      // 1. Ưu tiên tìm chính xác theo ID, mã đuôi 6 ký tự hoặc tên lớp
+      targetClass = await prisma.class.findFirst({
+        where: {
+          OR: [
+            { id: code },
+            { id: { endsWith: code.toLowerCase() } },
+            { id: { endsWith: normalizedCode.toLowerCase() } },
+            { name: { equals: code.trim(), mode: "insensitive" } },
+          ],
+        },
+        include: { teacher: true },
+      });
 
-      if (!targetClass && (normalizedCode === "HANYU3A" || normalizedCode === "HSK3" || normalizedCode.includes("HANYU"))) {
-        targetClass = await prisma.class.findFirst({
-          where: {
-            OR: [
-              { name: { contains: "HANYU3A" } },
-              { name: { contains: "HSK 3" } },
-              { description: { contains: "HANYU3A" } },
-            ],
-          },
-          include: { teacher: true },
-        });
-      }
-
+      // 2. Tìm theo tên lớp hoặc mô tả
       if (!targetClass) {
         targetClass = await prisma.class.findFirst({
           where: {
             OR: [
-              { id: code },
-              { id: { endsWith: code.toLowerCase() } },
-              { id: { endsWith: code.toUpperCase() } },
-              { name: { contains: code } },
-              { description: { contains: code } },
+              { name: { contains: code.trim(), mode: "insensitive" } },
+              { description: { contains: code.trim(), mode: "insensitive" } },
             ],
           },
           include: { teacher: true },
         });
       }
 
-      // Fallback: Quét danh sách lớp khớp 6 ký tự cuối của id (mã lớp tạo ra)
+      // 3. Fallback: Quét danh sách lớp khớp 6 ký tự cuối của id (mã lớp tạo ra)
       if (!targetClass) {
         const allClasses = await prisma.class.findMany({
           include: { teacher: true },
@@ -108,8 +94,8 @@ export async function POST(request: Request) {
         targetClass = allClasses.find(
           (c) =>
             c.id.slice(-6).toUpperCase() === normalizedCode ||
-            c.id.toUpperCase().includes(normalizedCode) ||
-            c.name.toUpperCase().includes(normalizedCode)
+            c.id.toUpperCase().endsWith(normalizedCode) ||
+            c.name.trim().toUpperCase() === code.trim().toUpperCase()
         );
       }
 

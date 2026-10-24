@@ -15,49 +15,29 @@ export async function GET(request: Request) {
 
     const normalizedCode = code.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
 
-    // 1. Tìm lớp theo mã thông dụng hoặc trực tiếp
-    let foundClass: any = null;
+    // 1. Ưu tiên tìm chính xác theo ID hoặc 6 ký tự đuôi của mã lớp hoặc tên lớp chính xác
+    let foundClass: any = await prisma.class.findFirst({
+      where: {
+        OR: [
+          { id: code },
+          { id: { endsWith: code.toLowerCase() } },
+          { id: { endsWith: normalizedCode.toLowerCase() } },
+          { name: { equals: code.trim(), mode: "insensitive" } },
+        ],
+      },
+      include: {
+        teacher: true,
+        _count: { select: { students: true } },
+      },
+    });
 
-    if (normalizedCode === "HSK1A" || normalizedCode === "HSK1") {
-      foundClass = await prisma.class.findFirst({
-        where: {
-          OR: [
-            { name: { contains: "HSK 1A" } },
-            { name: { contains: "HSK 1" } },
-          ],
-        },
-        include: {
-          teacher: true,
-          _count: { select: { students: true } },
-        },
-      });
-    }
-
-    if (!foundClass && (normalizedCode === "HANYU3A" || normalizedCode === "HSK3" || normalizedCode.includes("HANYU"))) {
-      foundClass = await prisma.class.findFirst({
-        where: {
-          OR: [
-            { name: { contains: "HANYU3A" } },
-            { name: { contains: "HSK 3" } },
-            { description: { contains: "HANYU3A" } },
-          ],
-        },
-        include: {
-          teacher: true,
-          _count: { select: { students: true } },
-        },
-      });
-    }
-
+    // 2. Tìm theo tên lớp chứa mã hoặc mô tả chứa mã
     if (!foundClass) {
       foundClass = await prisma.class.findFirst({
         where: {
           OR: [
-            { id: code },
-            { id: { endsWith: code.toLowerCase() } },
-            { id: { endsWith: normalizedCode.toLowerCase() } },
-            { name: { contains: code, mode: "insensitive" } },
-            { description: { contains: code, mode: "insensitive" } },
+            { name: { contains: code.trim(), mode: "insensitive" } },
+            { description: { contains: code.trim(), mode: "insensitive" } },
             { description: { contains: normalizedCode, mode: "insensitive" } },
           ],
         },
@@ -68,7 +48,20 @@ export async function GET(request: Request) {
       });
     }
 
-    // 2. Nếu là mã demo HANYU3A mà chưa có lớp trong DB, tự động khởi tạo lớp mẫu HSK 3
+    // 3. Fallback: Quét danh sách lớp khớp 6 ký tự cuối của CUID
+    if (!foundClass) {
+      const allClasses = await prisma.class.findMany({
+        include: { teacher: true, _count: { select: { students: true } } },
+      });
+      foundClass = allClasses.find(
+        (c) =>
+          c.id.slice(-6).toUpperCase() === normalizedCode ||
+          c.id.toUpperCase().endsWith(normalizedCode) ||
+          c.name.trim().toUpperCase() === code.trim().toUpperCase()
+      );
+    }
+
+    // 4. Nếu là mã demo HANYU3A mà chưa có lớp trong DB, tự động khởi tạo lớp mẫu HSK 3
     if (!foundClass && (normalizedCode === "HANYU3A" || normalizedCode.includes("HANYU"))) {
       let teacher = await prisma.user.findFirst({
         where: { role: "TEACHER" },

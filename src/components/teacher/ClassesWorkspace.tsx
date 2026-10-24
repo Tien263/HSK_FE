@@ -739,6 +739,7 @@ export default function ClassesWorkspace({
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateClass}
         loading={creatingClass}
+        teacherName={currentUser?.name || currentUser?.username}
       />
 
       {/* Modal 2: Tùy chỉnh & Công bố bài học */}

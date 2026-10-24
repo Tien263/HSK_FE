@@ -79,10 +79,9 @@ export default function ClassesList({
         <button
           type="button"
           onClick={onOpenCreateClassModal}
-          className="px-5 py-2.5 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-bold shadow-md transition flex items-center gap-2 cursor-pointer self-start md:self-auto"
+          className="px-5 py-2.5 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-bold shadow-md transition flex items-center justify-center cursor-pointer self-start md:self-auto"
         >
-          <Plus className="w-4 h-4" />
-          <span>+ Tạo lớp học mới</span>
+          <span>Tạo lớp học mới</span>
         </button>
       </div>
 
@@ -203,10 +202,9 @@ export default function ClassesList({
             <button
               type="button"
               onClick={onOpenCreateClassModal}
-              className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold hover:bg-[#17382F] transition cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+              className="px-4 py-2 rounded-xl bg-[#1F513F] text-white text-xs font-semibold hover:bg-[#17382F] transition cursor-pointer inline-flex items-center justify-center shadow-xs"
             >
-              <Plus className="w-4 h-4" />
-              <span>Tạo lớp đầu tiên</span>
+              <span>Tạo lớp học mới</span>
             </button>
           )}
         </div>

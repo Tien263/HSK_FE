@@ -1322,7 +1322,7 @@ export default function TeacherDashboard() {
                         }}
                         className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs hover:bg-[#183629] transition"
                       >
-                        + Tạo lớp học mới
+                        Tạo lớp học mới
                       </button>
                     </div>
                   ) : (
