@@ -30,6 +30,7 @@ interface StudentPracticeWorkspaceProps {
   currentUser?: any;
   onNavigateToTab?: (tab: string) => void;
   classesCount?: number;
+  myClasses?: any[];
   onOpenJoinModal?: () => void;
 }
 
@@ -37,6 +38,7 @@ export default function StudentPracticeWorkspace({
   currentUser,
   onNavigateToTab,
   classesCount = 0,
+  myClasses = [],
   onOpenJoinModal,
 }: StudentPracticeWorkspaceProps) {
   const [dueVocabCount, setDueVocabCount] = useState(0);
@@ -155,10 +157,14 @@ export default function StudentPracticeWorkspace({
           const assignedList = JSON.parse(saved);
           const match = assignedList.find(
             (a: any) =>
-              a.lessonId === selectedPracticeLesson ||
-              a.lessonId === `hsk1-l${selectedPracticeLesson}` ||
-              a.lessonId === "hsk1-b01" ||
-              a.titleZh === currentLessonData.titleZh
+              a.id !== "assign-sample-1" &&
+              (a.lessonId === selectedPracticeLesson ||
+                a.lessonId === String(selectedPracticeLesson) ||
+                a.lessonId === `hsk1-b${String(selectedPracticeLesson).padStart(2, "0")}` ||
+                a.lessonId === `hsk1-b${selectedPracticeLesson}` ||
+                a.lessonId === `hsk1-l${selectedPracticeLesson}` ||
+                a.lessonId === `hsk1-${String(selectedPracticeLesson).padStart(2, "0")}` ||
+                (a.titleZh && a.titleZh.trim() === currentLessonData.titleZh.trim()))
           );
           if (match && Array.isArray(match.selectedVocabs) && match.selectedVocabs.length > 0) {
             const filtered = currentLessonData.vocabList.filter((v) =>

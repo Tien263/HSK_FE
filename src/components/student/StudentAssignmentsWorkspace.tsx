@@ -153,13 +153,13 @@ export default function StudentAssignmentsWorkspace({
 
             for (const tAss of allTeacher) {
               const matchesClass =
-                uniqueClassIds.length === 0 ||
-                uniqueClassIds.includes(tAss.classId) ||
-                studentClassNames.some(
-                  (cn) =>
-                    (tAss.className || "").toLowerCase().includes(cn.toLowerCase()) ||
-                    cn.toLowerCase().includes((tAss.className || "").toLowerCase())
-                );
+                (uniqueClassIds.length > 0 || studentClassNames.length > 0) &&
+                (uniqueClassIds.includes(tAss.classId) ||
+                  studentClassNames.some(
+                    (cn) =>
+                      (tAss.className || "").toLowerCase().includes(cn.toLowerCase()) ||
+                      cn.toLowerCase().includes((tAss.className || "").toLowerCase())
+                  ));
 
               const existingApiIdx = apiAssignments.findIndex((a) => a.title === tAss.title || a.id === tAss.id);
               if (existingApiIdx !== -1) {

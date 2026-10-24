@@ -875,6 +875,7 @@ export default function StudentHomePage() {
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
               classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
+              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "lessons" ? (
@@ -882,6 +883,7 @@ export default function StudentHomePage() {
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
               classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
+              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "practice" ? (
@@ -889,6 +891,7 @@ export default function StudentHomePage() {
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
               classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
+              myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "results" ? (

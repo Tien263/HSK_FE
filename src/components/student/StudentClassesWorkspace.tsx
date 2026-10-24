@@ -101,23 +101,35 @@ export default function StudentClassesWorkspace({
     window.speechSynthesis.speak(utterance);
   };
 
+  // Helper to load sanitized assigned lessons (filter out old mock Lesson 5 assign-sample-1)
+  const getSanitizedAssigned = React.useCallback(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem("hanyu_assigned_lessons");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const filtered = parsed.filter(
+          (a: any) =>
+            a.id !== "assign-sample-1" &&
+            !(a.id?.startsWith("assign-mock-") || (a.titleZh === "今天我休息" && a.id?.includes("sample")))
+        );
+        if (filtered.length !== parsed.length) {
+          localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(filtered));
+        }
+        return filtered;
+      }
+    } catch (e) {}
+    return [];
+  }, []);
+
   // Assigned Lessons from localStorage / initial data
   const [assignedLessonsList, setAssignedLessonsList] = useState<AssignedLessonToClass[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
+    return getSanitizedAssigned();
   });
 
   useEffect(() => {
     const handleSync = () => {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) setAssignedLessonsList(JSON.parse(saved));
-      } catch (e) {}
+      setAssignedLessonsList(getSanitizedAssigned());
     };
     window.addEventListener("storage", handleSync);
     window.addEventListener("hanyu_lesson_assigned", handleSync);
@@ -125,7 +137,7 @@ export default function StudentClassesWorkspace({
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("hanyu_lesson_assigned", handleSync);
     };
-  }, []);
+  }, [getSanitizedAssigned]);
 
   const classAssignedLessons = React.useMemo(() => {
     if (!selectedClass) return [];
@@ -612,10 +624,12 @@ export default function StudentClassesWorkspace({
                   </span>
                 </div>
                 <h3 className="font-serif font-bold text-lg text-[#204434]">
-                  Bài 5: Ôn từ vựng & Phản xạ giao tiếp mua sắm HSK 1
+                  {assignedLessonsList.length > 0
+                    ? `${assignedLessonsList[0].titleVi} (${assignedLessonsList[0].titleZh})`
+                    : "Hướng dẫn & Ôn tập theo lộ trình giảng dạy"}
                 </h3>
                 <p className="text-xs text-[#315E48]">
-                  Lớp HSK 1A Tiêu chuẩn · Giảng viên: Cô Vương Lệ (Wang Li)
+                  {classes[0]?.name || "Lớp học chính thức"} · Giảng viên bộ môn
                 </p>
               </div>
             </div>
@@ -656,13 +670,13 @@ export default function StudentClassesWorkspace({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2.5">
               {[
-                { day: "Thứ 2", date: "26/10", hasClass: true, time: "19:30 - 21:00", subject: "Lớp HSK 1A", room: "Meet", done: true },
+                { day: "Thứ 2", date: "26/10", hasClass: true, time: "19:30 - 21:00", subject: classes[0]?.name || "Lớp HSK", room: "Meet", done: true },
                 { day: "Thứ 3", date: "27/10", hasClass: false, note: "Tự học Flashcard" },
-                { day: "Thứ 4", date: "28/10", hasClass: true, time: "19:30 - 21:00", subject: "Lớp HSK 1A", room: "Meet", isToday: true },
-                { day: "Thứ 5", date: "29/10", hasClass: false, note: "Hạn nộp Bài tập 5" },
+                { day: "Thứ 4", date: "28/10", hasClass: true, time: "19:30 - 21:00", subject: classes[0]?.name || "Lớp HSK", room: "Meet", isToday: true },
+                { day: "Thứ 5", date: "29/10", hasClass: false, note: assignedLessonsList[0] ? `Hạn nộp: ${assignedLessonsList[0].titleVi}` : "Ôn tập theo lộ trình" },
                 { day: "Thứ 6", date: "30/10", hasClass: true, time: "19:30 - 21:00", subject: "Luyện phát âm", room: "Zoom" },
                 { day: "Thứ 7", date: "31/10", hasClass: false, note: "Game ghép từ" },
-                { day: "Chủ nhật", date: "01/11", hasClass: true, time: "09:00 - 10:30", subject: "Thi thử HSK 1", room: "Phòng thi" },
+                { day: "Chủ nhật", date: "01/11", hasClass: true, time: "09:00 - 10:30", subject: "Thi thử định kỳ", room: "Phòng thi" },
               ].map((item, idx) => (
                 <div
                   key={idx}

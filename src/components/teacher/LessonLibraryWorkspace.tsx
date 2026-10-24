@@ -248,7 +248,15 @@ export function LessonLibraryWorkspace({
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const filtered = parsed.filter(
+            (a: any) =>
+              a.id !== "assign-sample-1" &&
+              !(a.id?.startsWith("assign-mock-") || (a.titleZh === "今天我休息" && a.id?.includes("sample")))
+          );
+          return filtered;
+        }
       } catch (e) {}
     }
     return [];

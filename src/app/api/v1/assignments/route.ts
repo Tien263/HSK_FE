@@ -37,22 +37,11 @@ export async function GET(request: Request) {
         classIds = Array.from(new Set([...classIds, ...extra]));
       }
 
-      // 3. Nếu chưa có liên kết classStudent trong DB, tìm các lớp học phù hợp với level của học sinh
-      if (classIds.length === 0) {
-        const studentUser = await prisma.user.findUnique({
-          where: { id: filterStudentId },
-          select: { currentHskLevel: true },
-        });
-        const targetLevel = studentUser?.currentHskLevel || 1;
-        const matchedClasses = await prisma.class.findMany({
-          where: { level: targetLevel, isActive: true },
-          select: { id: true },
-        });
-        classIds = matchedClasses.map((c) => c.id);
-      }
-
+      // Chỉ lấy bài tập của các lớp học sinh thực tế đã tham gia
       if (classIds.length > 0) {
         where.classId = { in: classIds };
+      } else {
+        where.classId = "__NO_ENROLLED_CLASS__";
       }
     }
 

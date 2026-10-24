@@ -23,6 +23,7 @@ interface StudentRoadmapWorkspaceProps {
   currentUser?: any;
   onNavigateToTab?: (tab: string) => void;
   classesCount?: number;
+  myClasses?: any[];
   onOpenJoinModal?: () => void;
 }
 
@@ -30,9 +31,90 @@ export default function StudentRoadmapWorkspace({
   currentUser,
   onNavigateToTab,
   classesCount = 0,
+  myClasses = [],
   onOpenJoinModal,
 }: StudentRoadmapWorkspaceProps) {
   const [selectedHskLevel, setSelectedHskLevel] = useState<number>(1);
+
+  // Student class IDs & names memo
+  const studentClassIds = React.useMemo(() => {
+    const ids: string[] = [];
+    if (Array.isArray(myClasses)) {
+      myClasses.forEach((c) => {
+        if (c.id) ids.push(c.id);
+        if (c.code) ids.push(c.code);
+      });
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const profRaw = localStorage.getItem("hanyu_study_profile");
+        if (profRaw) {
+          const prof = JSON.parse(profRaw);
+          if (prof.classInfo?.id) ids.push(prof.classInfo.id);
+          if (prof.classInfo?.code) ids.push(prof.classInfo.code);
+        }
+        const enrolledRaw = localStorage.getItem("hanyu_student_enrolled_classes");
+        if (enrolledRaw) {
+          const enrolled = JSON.parse(enrolledRaw);
+          if (Array.isArray(enrolled)) {
+            enrolled.forEach((c: any) => {
+              if (c.id) ids.push(c.id);
+              if (c.code) ids.push(c.code);
+            });
+          }
+        }
+      } catch {}
+    }
+    return Array.from(new Set(ids));
+  }, [myClasses]);
+
+  const studentClassNames = React.useMemo(() => {
+    const names: string[] = [];
+    if (Array.isArray(myClasses)) {
+      myClasses.forEach((c) => {
+        if (c.name) names.push(c.name);
+      });
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const profRaw = localStorage.getItem("hanyu_study_profile");
+        if (profRaw) {
+          const prof = JSON.parse(profRaw);
+          if (prof.classInfo?.name) names.push(prof.classInfo.name);
+        }
+        const enrolledRaw = localStorage.getItem("hanyu_student_enrolled_classes");
+        if (enrolledRaw) {
+          const enrolled = JSON.parse(enrolledRaw);
+          if (Array.isArray(enrolled)) {
+            enrolled.forEach((c: any) => {
+              if (c.name) names.push(c.name);
+            });
+          }
+        }
+      } catch {}
+    }
+    return Array.from(new Set(names));
+  }, [myClasses]);
+
+  const getSanitizedAssigned = React.useCallback(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem("hanyu_assigned_lessons");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const filtered = parsed.filter(
+          (a: any) =>
+            a.id !== "assign-sample-1" &&
+            !(a.id?.startsWith("assign-mock-") || (a.titleZh === "今天我休息" && a.id?.includes("sample")))
+        );
+        if (filtered.length !== parsed.length) {
+          localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(filtered));
+        }
+        return filtered;
+      }
+    } catch (e) {}
+    return [];
+  }, []);
 
   if (classesCount === 0) {
     return (
@@ -74,21 +156,12 @@ export default function StudentRoadmapWorkspace({
 
   // Đồng bộ danh sách bài học giáo viên đã mở / giao cho lớp
   const [assignedLessonList, setAssignedLessonList] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
+    return getSanitizedAssigned();
   });
 
   useEffect(() => {
     const handleSync = () => {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) setAssignedLessonList(JSON.parse(saved));
-      } catch (e) {}
+      setAssignedLessonList(getSanitizedAssigned());
     };
     window.addEventListener("storage", handleSync);
     window.addEventListener("hanyu_lesson_assigned", handleSync);
@@ -96,19 +169,26 @@ export default function StudentRoadmapWorkspace({
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("hanyu_lesson_assigned", handleSync);
     };
-  }, []);
+  }, [getSanitizedAssigned]);
 
   const isLessonAssignedOrDone = (num: number) => {
-    return (
-      completedLessonIds.includes(num) ||
-      assignedLessonList.some(
-        (a: any) =>
-          a.lessonId === num ||
-          a.lessonId === `hsk1-l${num}` ||
-          a.lessonId === "hsk1-b01" ||
-          a.lessonId === "hsk1-01"
-      )
-    );
+    if (completedLessonIds.includes(num)) return true;
+    if (studentClassIds.length === 0 && studentClassNames.length === 0) return false;
+    return assignedLessonList.some((a: any) => {
+      const isNumMatch =
+        a.lessonId === num ||
+        a.lessonId === String(num) ||
+        a.lessonId === `hsk1-b${String(num).padStart(2, "0")}` ||
+        a.lessonId === `hsk1-b${num}` ||
+        a.lessonId === `hsk1-l${num}` ||
+        a.lessonId === `hsk1-${String(num).padStart(2, "0")}`;
+      if (!isNumMatch) return false;
+
+      const isClassMatch =
+        (!a.classIds || a.classIds.length === 0 || a.classIds.some((cid: string) => studentClassIds.includes(cid))) ||
+        (a.classNames?.some((cn: string) => studentClassNames.some(scn => scn.toLowerCase().includes(cn.toLowerCase()) || cn.toLowerCase().includes(scn.toLowerCase()))));
+      return isClassMatch;
+    });
   };
 
   const s1Active = [1, 2, 3, 4].some(isLessonAssignedOrDone);

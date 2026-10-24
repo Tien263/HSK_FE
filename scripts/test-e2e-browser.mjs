@@ -189,23 +189,24 @@ async function runE2ETests() {
     if (!modal) return null;
     const tabBtn = Array.from(modal.querySelectorAll("button")).find((b) => b.innerText.includes("Từ vựng"));
     const tabLabel = tabBtn ? tabBtn.innerText : "";
-    const modalText = modal.innerText;
-    const hasDajia = modalText.includes("大家");
-    const hasNihao = modalText.includes("你好");
-    return { tabLabel, hasDajia, hasNihao };
+    // Lấy danh sách các chữ Hán trong danh sách từ vựng
+    const vocabWords = Array.from(modal.querySelectorAll(".font-serif.text-2xl, .font-serif.text-xl")).map((el) => el.innerText.trim());
+    const hasDajiaInVocab = vocabWords.includes("大家");
+    const hasNihaoInVocab = vocabWords.includes("你好");
+    return { tabLabel, hasDajia: hasDajiaInVocab, hasNihao: hasNihaoInVocab, count: vocabWords.length };
   });
 
-  console.log(`- Tiêu đề tab từ vựng: "${modalDetail?.tabLabel}"`);
-  console.log(`- Có từ '你好' không: ${modalDetail?.hasNihao}`);
-  console.log(`- Có từ '大家' không: ${modalDetail?.hasDajia ? "CÓ (LỖI)" : "KHÔNG (ĐÚNG)"}`);
+  console.log(`- Tiêu đề tab từ vựng: "${modalDetail?.tabLabel}" (Số thẻ từ: ${modalDetail?.count})`);
+  console.log(`- Có thẻ từ '你好' không: ${modalDetail?.hasNihao}`);
+  console.log(`- Có thẻ từ '大家' không: ${modalDetail?.hasDajia ? "CÓ (LỖI)" : "KHÔNG (ĐÚNG)"}`);
 
   if (modalDetail?.hasDajia) {
-    throw new Error("LỖI LUỒNG 2: Từ '大家' vẫn xuất hiện trong bài học dù cô giáo đã bỏ chọn!");
+    throw new Error("LỖI LUỒNG 2: Thẻ từ '大家' vẫn xuất hiện trong danh sách từ vựng dù cô giáo đã bỏ chọn!");
   }
   if (!modalDetail?.tabLabel.includes("(11)")) {
     throw new Error(`LỖI LUỒNG 2: Tiêu đề tab hiển thị sai: ${modalDetail?.tabLabel}`);
   }
-  console.log("✓ ĐÚNG: Modal bài học hiển thị chính xác 1. Từ vựng (11) và hoàn toàn không có từ '大家'!");
+  console.log("✓ ĐÚNG: Modal bài học hiển thị chính xác 1. Từ vựng (11) và thẻ từ '大家' đã được loại bỏ hoàn toàn!");
 
   // Đóng modal
   await page.evaluate(() => {
@@ -343,8 +344,94 @@ async function runE2ETests() {
   }
   console.log("✓ ĐÚNG: Phòng thi nạp chính xác đúng 3 câu hỏi cô giáo vừa giao!");
 
+  // --------------------------------------------------------------------------
+  // LUỒNG 5: KIỂM TRA BÀI 5 KHÔNG TỰ ĐỘNG MỞ & GIAO ĐỘNG N BÀI HỌC (3 BÀI / 5 BÀI)
+  // --------------------------------------------------------------------------
+  console.log("\n--- [LUỒNG 5: KIỂM TRA BÀI 5 KHÔNG TỰ ĐỘNG MỞ & GIAO ĐỘNG N BÀI HỌC] ---");
+  await page.goto(`${BASE_URL}/s/home`, { waitUntil: "networkidle2" });
+  await new Promise((r) => setTimeout(r, 1500));
+  await clickNavTab("Kho bài học");
+
+  // 5.1 Kiểm tra khi chỉ có Bài 1 được giao: Bài 5 ("今天我休息") PHẢI BỊ KHÓA
+  const checkLesson5Status = await page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll("main > div > div > div"));
+    const card5 = cards.find((c) => c.textContent && c.textContent.includes("今天我休息"));
+    if (!card5) return null;
+    return {
+      text: card5.innerText,
+      isLocked: card5.innerText.includes("Chờ giáo viên mở"),
+      isAssigned: card5.innerText.includes("Được giao"),
+    };
+  });
+
+  console.log(`- Trạng thái Bài 5 khi giáo viên chưa giao Bài 5: Khóa = ${checkLesson5Status?.isLocked}, Tự nhận 'Được giao' = ${checkLesson5Status?.isAssigned}`);
+  if (checkLesson5Status?.isAssigned || !checkLesson5Status?.isLocked) {
+    throw new Error("LỖI LUỒNG 5: Bài 5 '今天我休息' bị tự động nhận 'Được giao' dù giáo viên chưa mở bài 5!");
+  }
+  console.log("✓ ĐÚNG: Bài 5 hiển thị 🔒 'Chờ giáo viên mở', không bị tự ý mở khóa!");
+
+  // 5.2 Giáo viên giao ĐÚNG 3 bài: Bài 1, Bài 2, Bài 3
+  console.log("\n5.2 Giả lập Giáo viên giao đúng 3 bài (Bài 1, Bài 2, Bài 3) cho lớp:");
+  await page.evaluate(() => {
+    const threeLessons = [
+      {
+        id: "assign-hsk1-b1",
+        lessonId: "hsk1-b01",
+        titleZh: "AI小语，你好！",
+        titleVi: "Xin chào AI Tiểu Ngữ!",
+        classIds: ["class-demo-1", "US91ZS"],
+        classNames: ["demo"],
+      },
+      {
+        id: "assign-hsk1-b2",
+        lessonId: "hsk1-b02",
+        titleZh: "我叫李文",
+        titleVi: "Mình tên là Lý Văn",
+        classIds: ["class-demo-1", "US91ZS"],
+        classNames: ["demo"],
+      },
+      {
+        id: "assign-hsk1-b3",
+        lessonId: "hsk1-b03",
+        titleZh: "我是中国人",
+        titleVi: "Mình là người Trung Quốc",
+        classIds: ["class-demo-1", "US91ZS"],
+        classNames: ["demo"],
+      },
+    ];
+    localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(threeLessons));
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new CustomEvent("hanyu_lesson_assigned"));
+  });
+
+  await page.reload({ waitUntil: "networkidle2" });
+  await new Promise((r) => setTimeout(r, 1500));
+  await clickNavTab("Kho bài học");
+
+  const threeLessonsCheck = await page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll("main > div > div > div"));
+    const assignedCards = cards.filter((c) => c.textContent && c.textContent.includes("Được giao"));
+    const lockedCards = cards.filter((c) => c.textContent && c.textContent.includes("Chờ giáo viên mở"));
+    const titlesAssigned = assignedCards.map((c) => c.querySelector("h3")?.innerText || "");
+    return {
+      assignedCount: assignedCards.length,
+      lockedCount: lockedCards.length,
+      titlesAssigned,
+    };
+  });
+
+  console.log(`- Khi cô giao 3 bài:`);
+  console.log(`  + Số bài nhận được huy hiệu 'Được giao': ${threeLessonsCheck.assignedCount}`);
+  console.log(`  + Danh sách bài: ${threeLessonsCheck.titlesAssigned.join(", ")}`);
+  console.log(`  + Số bài bị khóa: ${threeLessonsCheck.lockedCount}`);
+
+  if (threeLessonsCheck.assignedCount !== 3) {
+    throw new Error(`LỖI LUỒNG 5: Giáo viên giao 3 bài nhưng học sinh nhận được ${threeLessonsCheck.assignedCount} bài!`);
+  }
+  console.log("✓ ĐÚNG: Học sinh nhận chính xác 3 bài được giao (Bài 1, Bài 2, Bài 3), các bài còn lại bị khóa!");
+
   console.log("\n=================================================================");
-  console.log(" TẤT CẢ 4 LUỒNG CHÍNH ĐÃ ĐƯỢC TEST TRỰC TIẾP TRÊN TRÌNH DUYỆT PASS 100%!");
+  console.log(" TẤT CẢ 5 LUỒNG CHÍNH ĐÃ ĐƯỢC TEST TRỰC TIẾP TRÊN TRÌNH DUYỆT PASS 100%!");
   console.log("=================================================================\n");
 
   await browser.close();

@@ -1843,29 +1843,7 @@ export const INITIAL_CURATED_LESSONS: CustomCuratedLesson[] = [
   },
 ];
 
-export const INITIAL_ASSIGNED_LESSONS: AssignedLessonToClass[] = [
-  {
-    id: "assign-sample-1",
-    lessonId: "hsk1-b5",
-    titleZh: "今天我休息",
-    titleVi: "Hôm nay tôi nghỉ ngơi",
-    sourceTrackId: "hsk",
-    classIds: ["c1", "cl-1", "class-1"],
-    classNames: ["HSK1-K24 Sơ cấp", "Lớp HSK 1 Cơ bản"],
-    vocabCount: 6,
-    grammarCount: 2,
-    hasDialogue: true,
-    hasReading: false,
-    culturalCount: 4,
-    selectedVocabs: LESSON_5_DETAIL.vocabularies.slice(0, 6),
-    selectedGrammars: LESSON_5_DETAIL.grammars.slice(0, 2),
-    selectedDialogue: LESSON_5_DETAIL.dialogue,
-    selectedCulturalItems: getCulturalSelectionItems(LESSON_5_DETAIL).slice(0, 4),
-    assignedAt: "22/10/2026",
-    dueDate: "29/10/2026",
-    teacherNote: "Yêu cầu các em học thuộc từ vựng và xem kỹ các mẫu câu xin nghỉ phép trong phần Văn hóa giao tiếp nhé!",
-  },
-];
+export const INITIAL_ASSIGNED_LESSONS: AssignedLessonToClass[] = [];
 
 export const INITIAL_LECTURE_MATERIALS: LectureMaterialItem[] = [
   {

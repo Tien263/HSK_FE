@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import HanziPracticeModal from "./HanziPracticeModal";
 import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
@@ -31,6 +31,7 @@ interface StudentLessonsWorkspaceProps {
   currentUser?: any;
   onNavigateToTab?: (tab: string) => void;
   classesCount?: number;
+  myClasses?: any[];
   onOpenJoinModal?: () => void;
 }
 
@@ -38,6 +39,7 @@ export default function StudentLessonsWorkspace({
   currentUser,
   onNavigateToTab,
   classesCount = 0,
+  myClasses = [],
   onOpenJoinModal,
 }: StudentLessonsWorkspaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,6 +48,87 @@ export default function StudentLessonsWorkspace({
   const [lessonModalTab, setLessonModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "PHONETICS" | "CULTURE">("VOCAB");
   const [practiceWord, setPracticeWord] = useState<{ hanzi: string; pinyin: string; meaning: string } | null>(null);
   const [lockedNotification, setLockedNotification] = useState<string | null>(null);
+
+  // Student class IDs & names memo
+  const studentClassIds = useMemo(() => {
+    const ids: string[] = [];
+    if (Array.isArray(myClasses)) {
+      myClasses.forEach((c) => {
+        if (c.id) ids.push(c.id);
+        if (c.code) ids.push(c.code);
+      });
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const profRaw = localStorage.getItem("hanyu_study_profile");
+        if (profRaw) {
+          const prof = JSON.parse(profRaw);
+          if (prof.classInfo?.id) ids.push(prof.classInfo.id);
+          if (prof.classInfo?.code) ids.push(prof.classInfo.code);
+        }
+        const enrolledRaw = localStorage.getItem("hanyu_student_enrolled_classes");
+        if (enrolledRaw) {
+          const enrolled = JSON.parse(enrolledRaw);
+          if (Array.isArray(enrolled)) {
+            enrolled.forEach((c: any) => {
+              if (c.id) ids.push(c.id);
+              if (c.code) ids.push(c.code);
+            });
+          }
+        }
+      } catch {}
+    }
+    return Array.from(new Set(ids));
+  }, [myClasses]);
+
+  const studentClassNames = useMemo(() => {
+    const names: string[] = [];
+    if (Array.isArray(myClasses)) {
+      myClasses.forEach((c) => {
+        if (c.name) names.push(c.name);
+      });
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const profRaw = localStorage.getItem("hanyu_study_profile");
+        if (profRaw) {
+          const prof = JSON.parse(profRaw);
+          if (prof.classInfo?.name) names.push(prof.classInfo.name);
+        }
+        const enrolledRaw = localStorage.getItem("hanyu_student_enrolled_classes");
+        if (enrolledRaw) {
+          const enrolled = JSON.parse(enrolledRaw);
+          if (Array.isArray(enrolled)) {
+            enrolled.forEach((c: any) => {
+              if (c.name) names.push(c.name);
+            });
+          }
+        }
+      } catch {}
+    }
+    return Array.from(new Set(names));
+  }, [myClasses]);
+
+  // Helper to load sanitized assigned lessons (filter out old mock Lesson 5 assign-sample-1)
+  const getSanitizedAssigned = useCallback(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem("hanyu_assigned_lessons");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const filtered = parsed.filter(
+          (a: any) =>
+            a.id !== "assign-sample-1" &&
+            !(a.id?.startsWith("assign-mock-") || (a.titleZh === "今天我休息" && a.id?.includes("sample")))
+        );
+        if (filtered.length !== parsed.length) {
+          localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(filtered));
+        }
+        return filtered;
+      }
+    } catch (e) {}
+    return [];
+  }, []);
 
   // Danh sách bài học đã hoàn thành thực tế của học sinh
   const [completedLessonIds, setCompletedLessonIds] = useState<number[]>(() => {
@@ -60,21 +143,12 @@ export default function StudentLessonsWorkspace({
 
   // Danh sách bài học giáo viên đã mở / giao cho lớp
   const [assignedLessonList, setAssignedLessonList] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
+    return getSanitizedAssigned();
   });
 
   useEffect(() => {
     const handleSyncAssigned = () => {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) setAssignedLessonList(JSON.parse(saved));
-      } catch (e) {}
+      setAssignedLessonList(getSanitizedAssigned());
     };
     window.addEventListener("storage", handleSyncAssigned);
     window.addEventListener("hanyu_lesson_assigned", handleSyncAssigned);
@@ -82,7 +156,47 @@ export default function StudentLessonsWorkspace({
       window.removeEventListener("storage", handleSyncAssigned);
       window.removeEventListener("hanyu_lesson_assigned", handleSyncAssigned);
     };
-  }, []);
+  }, [getSanitizedAssigned]);
+
+  // Strict check whether an assignment applies to lesson ls AND belongs to student's enrolled class
+  const checkLessonAssigned = useCallback(
+    (a: any, ls: Hsk1FullLesson) => {
+      if (!a) return false;
+      // 1. Strict match with lesson
+      const isLessonMatch =
+        a.lessonId === ls.id ||
+        a.lessonId === `hsk1-b${String(ls.number).padStart(2, "0")}` ||
+        a.lessonId === `hsk1-b${ls.number}` ||
+        a.lessonId === `hsk1-l${ls.number}` ||
+        a.lessonId === ls.number ||
+        a.lessonId === String(ls.number) ||
+        (a.titleZh && a.titleZh.trim() === ls.titleZh.trim());
+
+      if (!isLessonMatch) return false;
+
+      // 2. Strict match with student's enrolled classes
+      if (studentClassIds.length === 0 && studentClassNames.length === 0) {
+        return false;
+      }
+
+      const matchesClassId =
+        Array.isArray(a.classIds) &&
+        a.classIds.some((cid: string) => studentClassIds.includes(cid));
+
+      const matchesClassName =
+        Array.isArray(a.classNames) &&
+        a.classNames.some((cn: string) =>
+          studentClassNames.some(
+            (scn) =>
+              scn.toLowerCase().includes(cn.toLowerCase()) ||
+              cn.toLowerCase().includes(scn.toLowerCase())
+          )
+        );
+
+      return matchesClassId || matchesClassName;
+    },
+    [studentClassIds, studentClassNames]
+  );
 
   // Use the 15 official HSK 1 lessons
   const allLessons = OFFICIAL_HSK1_15_LESSONS;
@@ -112,24 +226,8 @@ export default function StudentLessonsWorkspace({
 
   // Open lesson modal with exact teacher-selected items applied
   const openLessonDetail = (ls: Hsk1FullLesson) => {
-    let latestAssigned = assignedLessonList;
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) latestAssigned = JSON.parse(saved);
-      } catch {}
-    }
-
-    const matchingAssignment = latestAssigned.find(
-      (a: any) =>
-        a.lessonId === ls.number ||
-        a.lessonId === ls.id ||
-        a.lessonId === "hsk1-b01" ||
-        a.lessonId === "hsk1-01" ||
-        a.lessonId === `hsk1-l${ls.number}` ||
-        a.titleZh === ls.titleZh ||
-        (a.titleVi && a.titleVi.toLowerCase() === ls.titleVi.toLowerCase())
-    );
+    const latestAssigned = getSanitizedAssigned();
+    const matchingAssignment = latestAssigned.find((a: any) => checkLessonAssigned(a, ls));
 
     const effectiveLesson: Hsk1FullLesson = { ...ls };
 
@@ -266,18 +364,10 @@ export default function StudentLessonsWorkspace({
       {/* Grid bài học */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredLessons.map((ls) => {
-          const matchingAss = assignedLessonList.find(
-            (a: any) =>
-              a.lessonId === ls.number ||
-              a.lessonId === ls.id ||
-              a.lessonId === "hsk1-b01" ||
-              a.lessonId === "hsk1-01" ||
-              a.lessonId === `hsk1-l${ls.number}` ||
-              a.titleZh === ls.titleZh
-          );
+          const matchingAss = assignedLessonList.find((a: any) => checkLessonAssigned(a, ls));
           const isAssigned = !!matchingAss;
           const isDone = completedLessonIds.includes(ls.number);
-          // Bài học chỉ mở khóa khi giáo viên đã giao cho lớp hoặc học sinh đã hoàn thành bài học
+          // Bài học chỉ mở khóa khi giáo viên đã giao cho lớp của học sinh này hoặc học sinh đã hoàn thành
           const isUnlocked = isAssigned || isDone;
           const isCurrent = isAssigned && !isDone;
 
