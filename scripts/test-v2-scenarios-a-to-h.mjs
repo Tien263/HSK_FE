@@ -87,7 +87,29 @@ async function runAllScenarios() {
       }),
     });
     const dataJoinA = await resJoinA.json();
-    assert(dataJoinA.success === true, "Học sinh ghi danh thành công vào lớp trong CSDL");
+    assert(dataJoinA.success === true, "Học sinh gửi yêu cầu vào lớp thành công trong CSDL");
+
+    // Kiểm tra bảo mật: Khi đang ở trạng thái CHỜ DUYỆT (PENDING), học sinh KHÔNG ĐƯỢC PHÉP xem bài học
+    const resPendingLessons = await fetch(`${BASE_URL}/api/v1/classes/${classA.id}/lessons`, {
+      headers: { "x-user-id": student.id },
+    });
+    const dataPendingLessons = await resPendingLessons.json();
+    assert(
+      resPendingLessons.status === 403 && dataPendingLessons.isPendingApproval === true,
+      "Bảo mật: Học sinh đang Chờ duyệt (PENDING) bị chặn không cho truy cập bài học (HTTP 403 & isPendingApproval: true)"
+    );
+
+    // Cô giáo phê duyệt học sinh vào lớp
+    const resApprove = await fetch(`${BASE_URL}/api/v1/classes/${classA.id}/students`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-user-id": teacher.id },
+      body: JSON.stringify({
+        studentId: student.id,
+        action: "APPROVE",
+      }),
+    });
+    const dataApprove = await resApprove.json();
+    assert(dataApprove.success === true, "Cô giáo duyệt học sinh vào lớp thành công");
 
     // Lỗi 01 Verification: Kiểm tra danh sách bài tập của lớp vừa tạo
     const resAsgA = await fetch(`${BASE_URL}/api/v1/assignments?studentId=${student.id}&classId=${classA.id}`, {
@@ -252,6 +274,15 @@ async function runAllScenarios() {
         classCode: classD.code,
         classId: classD.id,
         learningMode: "CLASS",
+      }),
+    });
+
+    await fetch(`${BASE_URL}/api/v1/classes/${classD.id}/students`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-user-id": teacher.id },
+      body: JSON.stringify({
+        studentId: student.id,
+        action: "APPROVE",
       }),
     });
 

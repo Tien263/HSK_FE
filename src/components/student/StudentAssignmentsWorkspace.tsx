@@ -293,6 +293,41 @@ export default function StudentAssignmentsWorkspace({
     }
   };
 
+  const isAllPending =
+    myClasses.length > 0 &&
+    myClasses.every(
+      (c) => c.isPendingApproval === true || c.enrollmentStatus === "PENDING" || c.statusText === "Chờ duyệt"
+    );
+
+  if (!loading && isAllPending) {
+    return (
+      <div className="bg-[#FFFCF6] border border-amber-200/80 rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">
+        <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center mx-auto shadow-2xs">
+          <Clock className="w-8 h-8 text-amber-700 animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <span className="px-3 py-1 rounded-full bg-amber-200/80 text-amber-900 text-xs font-bold">
+            Đang chờ duyệt vào lớp
+          </span>
+          <h3 className="font-serif font-bold text-xl text-[#17382F] mt-2">
+            Bài tập sẽ xuất hiện khi cô giáo phê duyệt
+          </h3>
+          <p className="text-xs text-[#6B766D] leading-relaxed max-w-md mx-auto">
+            Yêu cầu vào lớp của bạn đang trong danh sách chờ cô giáo duyệt. Sau khi được duyệt, các bài tập và đề thi do cô giáo giao sẽ lập tức xuất hiện tại đây!
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => onNavigateToTab?.("classes")}
+            className="px-6 py-2.5 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+          >
+            Xem danh sách lớp của tôi
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!loading && classesCount === 0 && assignments.length === 0) {
     return (
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">

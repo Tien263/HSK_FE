@@ -12,6 +12,7 @@ import {
   AlertCircle,
   X,
   Volume2,
+  Clock,
 } from "lucide-react";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 
@@ -57,14 +58,24 @@ export default function StudentRoadmapWorkspace({
   const [dbClassLessons, setDbClassLessons] = useState<any[]>([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
 
+  const isPendingApproval =
+    activeClass?.isPendingApproval === true ||
+    activeClass?.enrollmentStatus === "PENDING" ||
+    activeClass?.statusText === "Chờ duyệt";
+
   const fetchDbLessons = useCallback(async () => {
-    if (!activeClass?.id) {
+    if (!activeClass?.id || isPendingApproval) {
       setDbClassLessons([]);
       return;
     }
     try {
       setLoadingLessons(true);
-      const res = await fetch(`/api/v1/classes/${activeClass.id}/lessons`);
+      const res = await fetch(
+        `/api/v1/classes/${activeClass.id}/lessons?studentId=${currentUser?.id || ""}`,
+        {
+          headers: currentUser?.id ? { "x-user-id": currentUser.id } : {},
+        }
+      );
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.lessons)) {
@@ -79,7 +90,7 @@ export default function StudentRoadmapWorkspace({
     } finally {
       setLoadingLessons(false);
     }
-  }, [activeClass?.id]);
+  }, [activeClass?.id, currentUser?.id, isPendingApproval]);
 
   useEffect(() => {
     fetchDbLessons();
@@ -123,6 +134,36 @@ export default function StudentRoadmapWorkspace({
     );
   }
 
+  // 2. Pending Approval State: Student has requested to join but teacher hasn't approved yet!
+  if (isPendingApproval) {
+    return (
+      <div className="bg-[#FFFCF6] border border-amber-200/80 rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">
+        <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center mx-auto shadow-2xs">
+          <Clock className="w-8 h-8 text-amber-700 animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <span className="px-3 py-1 rounded-full bg-amber-200/80 text-amber-900 text-xs font-bold">
+            Đang chờ duyệt vào lớp
+          </span>
+          <h3 className="font-serif font-bold text-xl text-[#17382F] mt-2">
+            Yêu cầu vào {activeClass.name} đang chờ cô giáo duyệt
+          </h3>
+          <p className="text-xs text-[#6B766D] leading-relaxed max-w-md mx-auto">
+            Bạn đã gửi yêu cầu tham gia lớp học thành công. Sau khi cô giáo phụ trách kiểm tra và phê duyệt, toàn bộ lộ trình 15 bài học và bài tập sẽ tự động mở khóa nhé!
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => onNavigateToTab?.("classes")}
+            className="px-6 py-2.5 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+          >
+            Xem danh sách lớp của tôi
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Count unlocked/published lessons
   const publishedCount = officialLessons.filter((ls) => {
     const dbLesson = dbClassLessons.find((dl) => dl.lessonNumber === ls.number);
@@ -151,21 +192,9 @@ export default function StudentRoadmapWorkspace({
           </p>
         </div>
 
-        {/* HSK Level Selection */}
-        <div className="flex items-center gap-1.5 bg-[#FFFCF6] border border-[#E5DEC9] p-1 rounded-2xl shadow-2xs overflow-x-auto">
-          {[1, 2, 3, 4, 5, 6].map((lvl) => (
-            <button
-              key={lvl}
-              onClick={() => setSelectedHskLevel(lvl)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
-                selectedHskLevel === lvl
-                  ? "bg-[#204434] text-white shadow-xs"
-                  : "text-[#315E48] hover:text-[#204434] hover:bg-[#FAF7F0]"
-              }`}
-            >
-              HSK {lvl}
-            </button>
-          ))}
+        {/* Cấp độ HSK cố định theo lớp (Không hiển thị thanh chuyển đổi) */}
+        <div className="px-3.5 py-1.5 rounded-xl bg-[#204434]/10 border border-[#204434]/20 text-[#204434] text-xs font-bold shrink-0">
+          Cấp độ HSK {selectedHskLevel}.0
         </div>
       </div>
 

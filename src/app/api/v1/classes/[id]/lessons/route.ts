@@ -39,21 +39,44 @@ export async function GET(
       return NextResponse.json({ success: false, message: "Không tìm thấy lớp học." }, { status: 404 });
     }
 
-    // Bảo mật phân quyền: Nếu là học sinh, PHẢI là thành viên hợp lệ của lớp (Kịch bản E)
-    if (authUser && authUser.role === "STUDENT") {
-      const membership = await prisma.classStudent.findUnique({
-        where: {
-          classId_studentId: {
-            classId: targetClass.id,
-            studentId: authUser.id,
-          },
-        },
+    // Bảo mật phân quyền: Nếu là học sinh, PHẢI là thành viên hợp lệ và ĐÃ ĐƯỢC PHÊ DUYỆT
+    const { searchParams } = new URL(request.url);
+    const studentId = request.headers.get("x-user-id") || searchParams.get("studentId") || (authUser?.role === "STUDENT" ? authUser.id : null);
+
+    if (studentId) {
+      const studentUser = await prisma.user.findUnique({
+        where: { id: studentId },
+        select: { role: true },
       });
-      if (!membership) {
-        return NextResponse.json(
-          { success: false, message: "Bạn không phải là thành viên của lớp này hoặc đã bị xóa khỏi lớp." },
-          { status: 403 }
-        );
+
+      if (studentUser?.role === "STUDENT") {
+        const membership = await prisma.classStudent.findUnique({
+          where: {
+            classId_studentId: {
+              classId: targetClass.id,
+              studentId,
+            },
+          },
+        });
+
+        if (!membership) {
+          return NextResponse.json(
+            { success: false, message: "Bạn không phải là thành viên của lớp này hoặc đã bị xóa khỏi lớp." },
+            { status: 403 }
+          );
+        }
+
+        if (membership.status === "PENDING") {
+          return NextResponse.json(
+            {
+              success: false,
+              isPendingApproval: true,
+              message: "Yêu cầu tham gia lớp học của bạn đang chờ giáo viên phê duyệt. Lộ trình bài học sẽ mở khóa ngay khi được cô giáo duyệt.",
+              lessons: [],
+            },
+            { status: 403 }
+          );
+        }
       }
     }
 

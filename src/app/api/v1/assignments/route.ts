@@ -14,22 +14,30 @@ export async function GET(request: Request) {
 
     let where: any = {};
 
-    if (filterClassId) {
-      where.classId = filterClassId;
-    } else if (filterClassIds) {
-      const ids = filterClassIds.split(",").map((s) => s.trim()).filter(Boolean);
-      where.classId = { in: ids };
-    }
-
     if (authUser && authUser.role === "TEACHER") {
       // Chỉ lấy bài tập thuộc các lớp của giáo viên này
       where.class = { teacherId: authUser.id };
+      if (filterClassId) {
+        where.classId = filterClassId;
+      } else if (filterClassIds) {
+        const ids = filterClassIds.split(",").map((s) => s.trim()).filter(Boolean);
+        where.classId = { in: ids };
+      }
     } else if (filterTeacherId) {
       where.class = { teacherId: filterTeacherId };
+      if (filterClassId) {
+        where.classId = filterClassId;
+      } else if (filterClassIds) {
+        const ids = filterClassIds.split(",").map((s) => s.trim()).filter(Boolean);
+        where.classId = { in: ids };
+      }
     } else if (filterStudentId) {
-      // 1. Chỉ lấy bài tập của các lớp học sinh này đã tham gia trong DB
+      // 1. Chỉ lấy bài tập của các lớp học sinh này đã tham gia VÀ ĐÃ ĐƯỢC DUYỆT (status = APPROVED)
       const enrolled = await prisma.classStudent.findMany({
-        where: { studentId: filterStudentId },
+        where: { 
+          studentId: filterStudentId,
+          status: "APPROVED",
+        },
         select: { classId: true },
       });
       let classIds = enrolled.map((e) => e.classId);
@@ -41,11 +49,24 @@ export async function GET(request: Request) {
         classIds = Array.from(new Set([...classIds, ...extra]));
       }
 
-      // Chỉ lấy bài tập của các lớp học sinh thực tế đã tham gia
-      if (classIds.length > 0) {
+      if (filterClassId) {
+        // Nếu client yêu cầu lọc theo 1 lớp cụ thể, kiểm tra xem học sinh có thuộc lớp đó và đã được duyệt không
+        if (classIds.includes(filterClassId)) {
+          where.classId = filterClassId;
+        } else {
+          where.classId = "__NO_ENROLLED_CLASS__";
+        }
+      } else if (classIds.length > 0) {
         where.classId = { in: classIds };
       } else {
         where.classId = "__NO_ENROLLED_CLASS__";
+      }
+    } else {
+      if (filterClassId) {
+        where.classId = filterClassId;
+      } else if (filterClassIds) {
+        const ids = filterClassIds.split(",").map((s) => s.trim()).filter(Boolean);
+        where.classId = { in: ids };
       }
     }
 
