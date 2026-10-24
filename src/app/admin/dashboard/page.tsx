@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import CurriculumBuilderWorkspace from "@/components/admin/CurriculumBuilderWorkspace";
 import {
   Users,
   UserPlus,
@@ -84,7 +85,9 @@ export default function AdminDashboardPage() {
 
   // State
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "ai" | "otp" | "smtp">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum"
+  >("overview");
 
   // AI Engine State
   const [activeAiProvider, setActiveAiProvider] = useState<"QWEN" | "GROQ" | "GEMINI" | "OPENROUTER">("QWEN");
@@ -733,6 +736,18 @@ export default function AdminDashboardPage() {
             >
               <Server className="w-4 h-4" />
               <span>SMTP Gateway</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("curriculum")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "curriculum"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-[#BC9B6B]" />
+              <span>Kho bài học & Giáo trình HSK</span>
             </button>
 
             <Link
@@ -2076,6 +2091,11 @@ export default function AdminDashboardPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* TAB 4: CURRICULUM & LESSON BUILDER */}
+        {activeTab === "curriculum" && (
+          <CurriculumBuilderWorkspace showToast={showToast} />
         )}
       </main>
 

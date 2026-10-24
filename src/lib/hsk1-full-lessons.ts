@@ -1,7 +1,9 @@
 export interface LessonVocabItem {
+  id?: string;
   hanzi: string;
   pinyin: string;
   meaning: string;
+  type?: string;
   exampleZh?: string;
   examplePy?: string;
   exampleVi?: string;

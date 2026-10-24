@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import HanziiDictionaryDrawer from "@/components/common/HanziiDictionaryDrawer";
 
 export const metadata: Metadata = {
   title: "Lớp Tiếng Trung Cô Ning Ning - Ôn Đúng Bài, Luyện Đúng Chuẩn HSK 3.0",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#061609] text-white font-sans selection:bg-[#c3dc4e] selection:text-[#061609]">
         {children}
+        <HanziiDictionaryDrawer />
       </body>
     </html>
   );
