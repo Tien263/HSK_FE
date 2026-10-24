@@ -210,95 +210,92 @@ export default function StudentRoadmapWorkspace({
       {/* 15 Lessons List */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-xs text-[#315E48] font-bold">
-          <span>DANH SÁCH 15 BÀI HỌC HSK {selectedHskLevel} (BÀI 01 – BÀI 15)</span>
+          <span>DANH SÁCH BÀI HỌC HSK {selectedHskLevel}</span>
           <span>{publishedCount} bài đã được giáo viên công bố</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {officialLessons.map((ls) => {
-            const dbLesson = dbClassLessons.find((dl) => dl.lessonNumber === ls.number);
-            const isUnlocked = dbLesson?.status === "PUBLISHED" || dbLesson?.isPublished === true;
+        {publishedCount === 0 ? (
+          <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#E5DEC9] space-y-3">
+            <div className="w-12 h-12 rounded-full bg-[#FAF7F0] flex items-center justify-center mx-auto text-[#315E48]">
+              <Compass className="w-6 h-6 opacity-60" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-[#204434]">
+                Lớp học hiện chưa có bài học nào được công bố
+              </p>
+              <p className="text-xs text-[#315E48]/70 max-w-sm mx-auto">
+                Giáo viên phụ trách lớp <strong>{displayClassName}</strong> chưa mở khóa bài học nào. Bạn sẽ thấy lộ trình và nội dung bài học tại đây ngay khi giáo viên công bố.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {officialLessons
+              .filter((ls) => {
+                const dbLesson = dbClassLessons.find((dl) => dl.lessonNumber === ls.number);
+                return dbLesson?.status === "PUBLISHED" || dbLesson?.isPublished === true;
+              })
+              .map((ls) => {
+                const dbLesson = dbClassLessons.find((dl) => dl.lessonNumber === ls.number);
 
-            return (
-              <div
-                key={ls.id}
-                onClick={() => {
-                  if (!isUnlocked) {
-                    setLockedNoticeLesson(ls);
-                    return;
-                  }
-                  setSelectedLessonModal({
-                    ...ls,
-                    vocabList: Array.isArray(dbLesson?.selectedVocabs) && dbLesson.selectedVocabs.length > 0
-                      ? dbLesson.selectedVocabs
-                      : ls.vocabList,
-                    grammarList: Array.isArray(dbLesson?.selectedGrammars) && dbLesson.selectedGrammars.length > 0
-                      ? dbLesson.selectedGrammars
-                      : ls.grammarList,
-                    teacherNote: dbLesson?.teacherNote || "",
-                  });
-                }}
-                className={`p-5 rounded-3xl border shadow-2xs transition cursor-pointer flex flex-col justify-between space-y-3 ${
-                  isUnlocked
-                    ? "bg-[#FFFCF6] border-[#E5DEC9] hover:border-[#204434] hover:shadow-md"
-                    : "bg-[#F8F5ED]/70 border-[#E5DEC9]/60 opacity-80"
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48]">
-                      Bài {String(ls.number).padStart(2, "0")}
-                    </span>
+                return (
+                  <div
+                    key={ls.id}
+                    onClick={() => {
+                      setSelectedLessonModal({
+                        ...ls,
+                        vocabList: Array.isArray(dbLesson?.selectedVocabs) && dbLesson.selectedVocabs.length > 0
+                          ? dbLesson.selectedVocabs
+                          : ls.vocabList,
+                        grammarList: Array.isArray(dbLesson?.selectedGrammars) && dbLesson.selectedGrammars.length > 0
+                          ? dbLesson.selectedGrammars
+                          : ls.grammarList,
+                        teacherNote: dbLesson?.teacherNote || "",
+                      });
+                    }}
+                    className="p-5 rounded-3xl border shadow-2xs transition cursor-pointer flex flex-col justify-between space-y-3 bg-[#FFFCF6] border-[#E5DEC9] hover:border-[#204434] hover:shadow-md"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48]">
+                          Bài {String(ls.number).padStart(2, "0")}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Đã mở</span>
+                        </span>
+                      </div>
 
-                    {isUnlocked ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Đã mở</span>
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#FAF7F0] text-gray-500 border border-[#E5DEC9]/80 flex items-center gap-1">
-                        <Lock className="w-3 h-3 text-gray-400" />
-                        <span>Chưa mở</span>
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="font-serif font-bold text-lg text-[#204434] flex items-baseline gap-2">
-                      <span>{ls.titleZh}</span>
-                    </h3>
-                    <div className="text-xs font-sans font-semibold text-[#8F6D3B]">
-                      {ls.pinyin}
+                      <div>
+                        <h3 className="font-serif font-bold text-lg text-[#204434] flex items-baseline gap-2">
+                          <span>{ls.titleZh}</span>
+                        </h3>
+                        <div className="text-xs font-sans font-semibold text-[#8F6D3B]">
+                          {ls.pinyin}
+                        </div>
+                        <p className="text-xs font-medium text-[#204434] mt-0.5">
+                          {ls.titleVi}
+                        </p>
+                        <p className="text-xs text-[#315E48]/85 mt-1.5 line-clamp-2 leading-relaxed">
+                          {ls.desc}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs font-medium text-[#204434] mt-0.5">
-                      {ls.titleVi}
-                    </p>
-                    <p className="text-xs text-[#315E48]/85 mt-1.5 line-clamp-2 leading-relaxed">
-                      {ls.desc}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="pt-3 border-t border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
-                  <span className="text-[11px]">
-                    {isUnlocked ? "Đã công bố nội dung" : "Chờ giáo viên công bố"}
-                  </span>
-                  {isUnlocked ? (
-                    <span className="text-xs font-bold text-[#204434] flex items-center gap-1">
-                      <span>Xem bài học</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                      <Lock className="w-3 h-3" />
-                      <span>Bài học đang khóa</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                    <div className="pt-3 border-t border-[#E5DEC9]/70 flex items-center justify-between text-xs text-[#315E48]">
+                      <span className="text-[11px] text-emerald-700 font-medium">
+                        Đã công bố nội dung
+                      </span>
+                      <span className="text-xs font-bold text-[#204434] flex items-center gap-1">
+                        <span>Xem bài học</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
 
       {/* Locked Lesson Notice Modal */}

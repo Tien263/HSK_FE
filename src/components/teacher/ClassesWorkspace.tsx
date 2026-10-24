@@ -83,6 +83,12 @@ export default function ClassesWorkspace({
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
 
+  // Stable callback ref to prevent infinite loops
+  const onClassCountChangeRef = React.useRef(onClassCountChange);
+  useEffect(() => {
+    onClassCountChangeRef.current = onClassCountChange;
+  }, [onClassCountChange]);
+
   // Selected Class Memo
   const currentClass = useMemo(() => {
     if (!selectedClassId) return null;
@@ -95,7 +101,10 @@ export default function ClassesWorkspace({
 
   // 1. Fetch Classes for Teacher
   const fetchClasses = useCallback(async () => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/classes?teacherId=${currentUser.id}`, {
@@ -136,7 +145,7 @@ export default function ClassesWorkspace({
         });
 
         setClasses(transformed);
-        if (onClassCountChange) onClassCountChange(transformed.length);
+        if (onClassCountChangeRef.current) onClassCountChangeRef.current(transformed.length);
       }
     } catch (err) {
       console.error("fetchClasses error:", err);
@@ -144,7 +153,7 @@ export default function ClassesWorkspace({
     } finally {
       setLoading(false);
     }
-  }, [currentUser?.id, currentUser?.name, onClassCountChange, showToast]);
+  }, [currentUser?.id, currentUser?.name, showToast]);
 
   // 2. Fetch Curriculum Lessons for current class
   const fetchCurriculumLessons = useCallback(async (classId: string, classLevel: number = 1) => {
@@ -244,6 +253,8 @@ export default function ClassesWorkspace({
   useEffect(() => {
     if (currentUser?.id) {
       fetchClasses();
+    } else {
+      setLoading(false);
     }
   }, [currentUser?.id, fetchClasses]);
 

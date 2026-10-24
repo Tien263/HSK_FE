@@ -1649,8 +1649,8 @@ export default function TeacherDashboard() {
           {activeTab === "classes" && (
             <ClassesWorkspace
               currentUser={currentUser}
-              onClassCountChange={() => {
-                if (currentUser) fetchTeacherData(currentUser);
+              onClassCountChange={(count) => {
+                // update class count cleanly without infinite loop
               }}
               onAssignNew={(classId) => {
                 setAssignClassId(classId);
@@ -1663,29 +1663,27 @@ export default function TeacherDashboard() {
           {/* TAB 3: LESSONS (KHO BÀI HỌC) */}
           {/* =================================================================== */}
           {activeTab === "lessons" && (
-            <LessonLibraryWorkspace
-              currentUser={currentUser || undefined}
-              classesList={classesList.map((c) => ({
-                id: c.id,
-                name: c.name,
-                code: c.code,
-                studentCount: c.studentCount,
-              }))}
-              onNavigateToAssignments={(payload) => {
-                const countParts: string[] = [];
-                if (payload.vocabList?.length) countParts.push(`${payload.vocabList.length} từ vựng`);
-                if (payload.grammarList?.length) countParts.push(`${payload.grammarList.length} điểm ngữ pháp`);
-                if (payload.culturalList?.length) countParts.push(`${payload.culturalList.length} mục văn hóa`);
-                showToast(`Đã chuyển ${countParts.join(", ") || "nội dung"} sang module Bài tập!`);
-                setTransferredAssignmentPayload(payload);
-                setAssignTitle(`Bài tập củng cố: ${payload.lessonTitle}`);
-                if (payload.classId) {
-                  setAssignClassId(payload.classId);
-                }
-                setActiveTab("assignments");
-              }}
-              onBackToDashboard={() => setActiveTab("overview")}
-            />
+            <div className="py-20 text-center bg-[#FFFCF6] border border-dashed border-[#E5DEC9] rounded-3xl space-y-4 max-w-xl mx-auto my-12 p-8 shadow-2xs animate-fadeIn">
+              <div className="w-14 h-14 rounded-2xl bg-[#FAF7F0] text-[#315E48] border border-[#E5DEC9] flex items-center justify-center mx-auto shadow-2xs">
+                <BookOpen className="w-7 h-7 text-[#204434]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-serif font-bold text-lg text-[#204434]">
+                  Kho bài học dùng chung đang được hoàn thiện
+                </h3>
+                <p className="text-xs text-[#315E48]/80 max-w-md mx-auto leading-relaxed">
+                  Tính năng kho bài học toàn hệ thống đang trong lộ trình phát triển. Quý thầy/cô vui lòng truy cập mục <strong>Quản lý Lớp học</strong> để tạo bài học và phân phối trực tiếp cho lớp phụ trách.
+                </p>
+              </div>
+              <div className="pt-2">
+                <button
+                  onClick={() => setActiveTab("classes")}
+                  className="px-5 py-2.5 bg-[#204434] text-white rounded-xl text-xs font-bold hover:bg-[#163024] transition shadow-xs"
+                >
+                  Đến Quản lý Lớp học →
+                </button>
+              </div>
+            </div>
           )}
 
           {/* =================================================================== */}
