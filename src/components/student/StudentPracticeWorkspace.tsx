@@ -478,6 +478,8 @@ export default function StudentPracticeWorkspace({
       {activeMode === "grammar" && (
         <GrammarPracticeSuite
           grammarList={grammarList}
+          vocabList={vocabList}
+          dialogueList={currentOfficialLesson?.dialogue || []}
           lessonTitleZh={currentOfficialLesson?.titleZh}
           lessonNumber={selectedPracticeLesson}
           hskLevel={currentHskLevel}
