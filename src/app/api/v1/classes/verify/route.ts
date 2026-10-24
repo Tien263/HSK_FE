@@ -15,14 +15,13 @@ export async function GET(request: Request) {
 
     const normalizedCode = code.toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
 
-    // 1. Ưu tiên tìm chính xác theo ID hoặc 6 ký tự đuôi của mã lớp hoặc tên lớp chính xác
+    // 1. Tìm chính xác theo ID hoặc 6 ký tự mã lớp
     let foundClass: any = await prisma.class.findFirst({
       where: {
         OR: [
           { id: code },
           { id: { endsWith: code.toLowerCase() } },
           { id: { endsWith: normalizedCode.toLowerCase() } },
-          { name: { equals: code.trim(), mode: "insensitive" } },
         ],
       },
       include: {
@@ -30,23 +29,6 @@ export async function GET(request: Request) {
         _count: { select: { students: true } },
       },
     });
-
-    // 2. Tìm theo tên lớp chứa mã hoặc mô tả chứa mã
-    if (!foundClass) {
-      foundClass = await prisma.class.findFirst({
-        where: {
-          OR: [
-            { name: { contains: code.trim(), mode: "insensitive" } },
-            { description: { contains: code.trim(), mode: "insensitive" } },
-            { description: { contains: normalizedCode, mode: "insensitive" } },
-          ],
-        },
-        include: {
-          teacher: true,
-          _count: { select: { students: true } },
-        },
-      });
-    }
 
     // 3. Fallback: Quét danh sách lớp khớp 6 ký tự cuối của CUID
     if (!foundClass) {

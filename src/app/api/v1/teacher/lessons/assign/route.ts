@@ -25,7 +25,6 @@ export async function POST(request: Request) {
           OR: [
             { id: { endsWith: classId.toLowerCase() } },
             { id: { endsWith: classId.toUpperCase() } },
-            { name: { contains: classId } },
           ],
         },
       });

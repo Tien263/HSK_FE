@@ -47,18 +47,35 @@ import {
 interface QuestionBankWorkspaceProps {
   onNavigateToAssignments?: (examId?: string) => void;
   showToast: (msg: string) => void;
+  currentUser?: {
+    id: string;
+    name: string;
+    username?: string;
+    email?: string;
+    role?: string;
+  } | null;
 }
 
 export default function QuestionBankWorkspace({
   onNavigateToAssignments,
   showToast,
+  currentUser,
 }: QuestionBankWorkspaceProps) {
   // =========================================================================
-  // 1. STATE & PERSISTENCE
+  // 1. STATE & PERSISTENCE (Partitioned by teacherId)
   // =========================================================================
+  const storageKeyQuestions = currentUser?.id
+    ? `hanyu_custom_question_bank_${currentUser.id}`
+    : "hanyu_custom_question_bank";
+  const storageKeyExams = currentUser?.id
+    ? `hanyu_exam_packages_${currentUser.id}`
+    : "hanyu_exam_packages";
+
   const [questions, setQuestions] = useState<ExamQuestionItem[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("hanyu_custom_question_bank");
+      const saved =
+        (currentUser?.id && localStorage.getItem(`hanyu_custom_question_bank_${currentUser.id}`)) ||
+        localStorage.getItem("hanyu_custom_question_bank");
       if (saved !== null) {
         try {
           const parsed = JSON.parse(saved);
@@ -74,9 +91,9 @@ export default function QuestionBankWorkspace({
   // Sync to localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("hanyu_custom_question_bank", JSON.stringify(questions));
+      localStorage.setItem(storageKeyQuestions, JSON.stringify(questions));
     }
-  }, [questions]);
+  }, [questions, storageKeyQuestions]);
 
   // Selected row IDs for batch actions
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -125,20 +142,59 @@ export default function QuestionBankWorkspace({
     totalPoints: number;
   } | null>(null);
 
-  // Load / Refresh real draft exams from localStorage
-  const refreshDraftExamsList = () => {
+  // Load questions from DB for this teacher
+  useEffect(() => {
+    async function loadDbQuestions() {
+      try {
+        const teacherParam = currentUser?.id ? `?teacherId=${currentUser.id}` : "";
+        const res = await fetch(`/api/v1/questions${teacherParam}`, {
+          headers: currentUser?.id ? { "x-user-id": currentUser.id } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+            setQuestions(data.items);
+          }
+        }
+      } catch (e) {
+        console.warn("loadDbQuestions error:", e);
+      }
+    }
+    loadDbQuestions();
+  }, [currentUser?.id]);
+
+  // Load / Refresh real draft exams from DB / localStorage
+  const refreshDraftExamsList = async () => {
+    try {
+      const teacherParam = currentUser?.id ? `?teacherId=${currentUser.id}` : "";
+      const res = await fetch(`/api/v1/exams${teacherParam}`, {
+        headers: currentUser?.id ? { "x-user-id": currentUser.id } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.items)) {
+          setDraftExamsList(data.items);
+          if (data.items.length > 0 && !selectedExamId) {
+            setSelectedExamId(data.items[0].id);
+          }
+          return data.items;
+        }
+      }
+    } catch (e) {
+      console.warn("refreshDraftExamsList db error:", e);
+    }
+
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("hanyu_exam_packages");
+        const saved = localStorage.getItem(storageKeyExams) || localStorage.getItem("hanyu_exam_packages");
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            const drafts = parsed.filter((p: any) => p.status === "DRAFT");
-            setDraftExamsList(drafts);
-            if (drafts.length > 0 && !selectedExamId) {
-              setSelectedExamId(drafts[0].id);
+            setDraftExamsList(parsed);
+            if (parsed.length > 0 && !selectedExamId) {
+              setSelectedExamId(parsed[0].id);
             }
-            return drafts;
+            return parsed;
           }
         }
       } catch (e) {}
@@ -618,11 +674,40 @@ export default function QuestionBankWorkspace({
     };
   };
 
+  const syncQuestionToDb = async (q: ExamQuestionItem) => {
+    try {
+      const anyQ = q as any;
+      await fetch("/api/v1/questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
+        body: JSON.stringify({
+          content: q.content || q.title || "Câu hỏi",
+          pinyinPrompt: q.pinyin || null,
+          type: q.type,
+          skill: anyQ.skill || "VOCABULARY",
+          difficulty: q.difficulty || "MEDIUM",
+          level: q.hskLevel || 1,
+          options: q.options || anyQ.matchingPairs || anyQ.orderingTokens || null,
+          correctAnswer: q.correctAnswer || "A",
+          explanation: q.explanation || null,
+          tags: anyQ.topic || "custom",
+          teacherId: currentUser?.id,
+        }),
+      });
+    } catch (err) {
+      console.warn("syncQuestionToDb error:", err);
+    }
+  };
+
   // Save Handlers for the 4 Buttons
   const handleSaveDraft = () => {
     setEditorSaveStatus("SAVING");
     setTimeout(() => {
       const draftQ = buildCurrentEditorQuestion("DRAFT");
+      syncQuestionToDb(draftQ);
       setQuestions((prev) => {
         const idx = prev.findIndex((item) => item.id === draftQ.id);
         if (idx >= 0) {
@@ -646,6 +731,7 @@ export default function QuestionBankWorkspace({
     setEditorSaveStatus("SAVING");
     setTimeout(() => {
       const readyQ = buildCurrentEditorQuestion("READY");
+      syncQuestionToDb(readyQ);
       setQuestions((prev) => {
         const idx = prev.findIndex((item) => item.id === readyQ.id);
         if (idx >= 0) {
@@ -744,7 +830,7 @@ export default function QuestionBankWorkspace({
     setOpenActionMenuId(null);
   };
 
-  const handleConfirmAddToExam = () => {
+  const handleConfirmAddToExam = async () => {
     const questionsToAdd: ExamQuestionItem[] =
       targetBulkQuestionsForExam && targetBulkQuestionsForExam.length > 0
         ? targetBulkQuestionsForExam
@@ -836,9 +922,41 @@ export default function QuestionBankWorkspace({
       };
     }
 
+    // Đồng bộ đề thi lên cơ sở dữ liệu PostgreSQL để hiển thị ngay trong danh sách Bài tập
+    try {
+      const examRes = await fetch("/api/v1/exams", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
+        body: JSON.stringify({
+          title: targetExamTitle,
+          description: "Bộ đề tạo từ Kho câu hỏi của tôi",
+          curriculum: newExamCurriculum,
+          hskLevel: newExamLevel,
+          status: "READY",
+          mode: "EXAM",
+          totalScore: finalPoints,
+          teacherId: currentUser?.id,
+          questions: questionsToAdd,
+        }),
+      });
+      const examJson = await examRes.json();
+      if (examJson.success && examJson.exam?.id) {
+        targetExamId = examJson.exam.id;
+        if (allPackages.length > 0 && allPackages[0].title === targetExamTitle) {
+          allPackages[0].id = targetExamId;
+        }
+      }
+    } catch (apiErr) {
+      console.warn("Could not sync exam to DB:", apiErr);
+    }
+
     // Save to localStorage (Spec Section 4.3 & 7.3)
     if (typeof window !== "undefined") {
       try {
+        localStorage.setItem(storageKeyExams, JSON.stringify(allPackages));
         localStorage.setItem("hanyu_exam_packages", JSON.stringify(allPackages));
       } catch (e) {}
     }

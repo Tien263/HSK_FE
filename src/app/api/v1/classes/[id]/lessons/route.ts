@@ -26,7 +26,6 @@ export async function GET(
           OR: [
             { id: { endsWith: classId.toLowerCase() } },
             { id: { endsWith: classId.toUpperCase() } },
-            { name: { contains: classId } },
           ],
         },
         include: {
@@ -220,7 +219,6 @@ export async function POST(
           OR: [
             { id: { endsWith: classId.toLowerCase() } },
             { id: { endsWith: classId.toUpperCase() } },
-            { name: { contains: classId } },
           ],
         },
       });

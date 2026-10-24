@@ -67,24 +67,10 @@ export async function POST(request: Request) {
             { id: code },
             { id: { endsWith: code.toLowerCase() } },
             { id: { endsWith: normalizedCode.toLowerCase() } },
-            { name: { equals: code.trim(), mode: "insensitive" } },
           ],
         },
         include: { teacher: true },
       });
-
-      // 2. Tìm theo tên lớp hoặc mô tả
-      if (!targetClass) {
-        targetClass = await prisma.class.findFirst({
-          where: {
-            OR: [
-              { name: { contains: code.trim(), mode: "insensitive" } },
-              { description: { contains: code.trim(), mode: "insensitive" } },
-            ],
-          },
-          include: { teacher: true },
-        });
-      }
 
       // 3. Fallback: Quét danh sách lớp khớp 6 ký tự cuối của id (mã lớp tạo ra)
       if (!targetClass) {

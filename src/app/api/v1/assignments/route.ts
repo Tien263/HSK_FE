@@ -225,13 +225,11 @@ export async function POST(request: Request) {
       });
 
       if (!targetClass) {
-        // Fallback: Tìm lớp theo id kết thúc, theo code hoặc theo tên
         targetClass = await prisma.class.findFirst({
           where: {
             OR: [
               { id: { endsWith: cId.toLowerCase() } },
               { id: { endsWith: cId.toUpperCase() } },
-              { name: { contains: cId } },
             ],
           },
         });

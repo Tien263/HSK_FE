@@ -73,8 +73,13 @@ export function AssignmentsWorkspace({
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      const teacherParam = currentUser?.id ? `?teacherId=${currentUser.id}` : "";
+      const authHeaders: Record<string, string> = currentUser?.id ? { "x-user-id": currentUser.id } : {};
+
       // 1. Fetch Assignments from DB
-      const res = await fetch("/api/v1/assignments");
+      const res = await fetch(`/api/v1/assignments${teacherParam}`, {
+        headers: authHeaders,
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
         const mapped: AssignmentItem[] = data.items.map((item: any) => ({
@@ -101,13 +106,39 @@ export function AssignmentsWorkspace({
       } else {
         setAssignments([]);
       }
+
+      // 2. Fetch ExamPackages / QuizSets from DB for this teacher
+      const examRes = await fetch(`/api/v1/exams${teacherParam}`, {
+        headers: authHeaders,
+      });
+      const examData = await examRes.json();
+      if (examData.success && Array.isArray(examData.items)) {
+        const mappedExams: ExamPackageItem[] = examData.items.map((ex: any) => ({
+          id: ex.id,
+          title: ex.title,
+          description: ex.description || "Bộ đề thi",
+          curriculum: ex.curriculum || "HSK 3.0",
+          hskLevel: ex.hskLevel || 1,
+          status: ex.status || "READY",
+          questionsCount: ex.questionsCount || ex.questions?.length || 0,
+          questionCount: ex.questionsCount || ex.questions?.length || 0,
+          totalPoints: ex.totalPoints || ex.totalScore || 100,
+          createdAt: ex.createdAt ? new Date(ex.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
+          updatedAt: ex.createdAt ? new Date(ex.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
+          questions: ex.questions || [],
+        }));
+        setExamPackages(mappedExams);
+      } else {
+        setExamPackages([]);
+      }
     } catch (err) {
       console.warn("fetchData assignments error:", err);
       setAssignments([]);
+      setExamPackages([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     fetchData();
@@ -169,10 +200,15 @@ export function AssignmentsWorkspace({
     try {
       const res = await fetch("/api/v1/assignments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
         body: JSON.stringify({
           title: values.title,
           classId: values.classId,
+          quizSetId: values.examId,
+          openAt: values.openDate,
           dueDate: values.dueDate,
           durationMin: values.durationMin,
           maxAttempts: values.maxAttempts,

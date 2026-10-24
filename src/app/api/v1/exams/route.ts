@@ -7,9 +7,11 @@ let inMemoryQuizSets: any[] = [];
 
 export async function GET(request: Request) {
   try {
+    const authUser = await getAuthUser(request);
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode"); // EXAM, PRACTICE
     const search = searchParams.get("q");
+    const filterTeacherId = searchParams.get("teacherId") || (authUser?.role === "TEACHER" ? authUser.id : null);
 
     let items: any[] = [];
 
@@ -18,6 +20,12 @@ export async function GET(request: Request) {
       if (mode) where.mode = mode;
       if (search) {
         where.title = { contains: search, mode: "insensitive" };
+      }
+      if (filterTeacherId) {
+        where.OR = [
+          { teacherId: filterTeacherId },
+          { teacherId: null },
+        ];
       }
 
       const dbSets = await prisma.quizSet.findMany({
@@ -39,9 +47,15 @@ export async function GET(request: Request) {
         title: qs.title,
         description: qs.description,
         mode: qs.mode,
+        status: qs.status,
+        hskLevel: qs.hskLevel,
+        curriculum: qs.curriculum,
         totalScore: qs.totalScore,
+        totalPoints: qs.totalScore,
         createdAt: qs.createdAt,
+        teacherId: qs.teacherId,
         questionsCount: qs.questions.length,
+        questionCount: qs.questions.length,
         questions: qs.questions.map((item) => ({
           id: item.question.id,
           content: item.question.content,
@@ -56,6 +70,9 @@ export async function GET(request: Request) {
       items = inMemoryQuizSets;
       if (search) {
         items = items.filter((s) => s.title.toLowerCase().includes(search.toLowerCase()));
+      }
+      if (filterTeacherId) {
+        items = items.filter((s) => !s.teacherId || s.teacherId === filterTeacherId);
       }
     }
 
@@ -93,6 +110,7 @@ export async function POST(request: Request) {
     }
 
     let createdExam: any = null;
+    const teacherId = authUser?.id || body.teacherId || null;
 
     try {
       // Create QuizSet in database
@@ -101,7 +119,11 @@ export async function POST(request: Request) {
           title: title.trim(),
           description: description ? description.trim() : null,
           mode,
+          status: status || "READY",
+          hskLevel: Number(hskLevel) || 1,
+          curriculum: curriculum || "HSK 3.0",
           totalScore: Number(totalScore) || 100,
+          teacherId,
         },
       });
 

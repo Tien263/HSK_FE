@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth-server";
 
 export async function GET(request: Request) {
   try {
+    const authUser = await getAuthUser(request);
     const { searchParams } = new URL(request.url);
     const skill = searchParams.get("skill");
+    const filterTeacherId = searchParams.get("teacherId") || (authUser?.role === "TEACHER" ? authUser.id : null);
 
     const where: any = {};
     if (skill && skill !== "ALL") {
       where.skill = skill;
+    }
+    if (filterTeacherId) {
+      where.OR = [
+        { teacherId: filterTeacherId },
+        { teacherId: null },
+      ];
     }
 
     const questions = await prisma.question.findMany({
@@ -49,7 +58,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const authUser = await getAuthUser(request);
     const body = await request.json();
+    const teacherId = authUser?.id || body.teacherId || null;
     const {
       content,
       pinyinPrompt,
@@ -78,10 +89,11 @@ export async function POST(request: Request) {
         skill,
         difficulty,
         level: Number(level) || 1,
-        options: options ? JSON.stringify(options) : null,
+        options: options ? (typeof options === "string" ? options : JSON.stringify(options)) : null,
         correctAnswer: typeof correctAnswer === "string" ? correctAnswer : JSON.stringify(correctAnswer),
         explanation: explanation ? explanation.trim() : null,
         tags,
+        teacherId,
       },
     });
 

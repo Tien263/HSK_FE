@@ -36,6 +36,8 @@ model User {
   xpLogs             XpLog[]
   auditLogs          AuditLog[]
   notifications      Notification[]
+  createdQuestions   Question[]      @relation("TeacherQuestions")
+  createdQuizSets    QuizSet[]       @relation("TeacherQuizSets")
 }
 
 // 2. LỚP HỌC
@@ -205,8 +207,10 @@ model Question {
   difficulty    String   @default("MEDIUM") // EASY, MEDIUM, HARD
   level         Int      @default(1)
   tags          String?  // "Gia đình, Mua sắm"
+  teacherId     String?
   createdAt     DateTime @default(now())
 
+  teacher          User?             @relation("TeacherQuestions", fields: [teacherId], references: [id], onDelete: SetNull)
   quizSetQuestions QuizSetQuestion[]
   attemptAnswers   AttemptAnswer[]
   wrongQuestions   WrongQuestion[]
@@ -215,12 +219,17 @@ model Question {
 model QuizSet {
   id          String   @id @default(cuid())
   lessonId    String?
+  teacherId   String?
   title       String   // Bộ câu hỏi Bài 5 - 购物
   description String?
   mode        String   @default("EXAM") // PRACTICE, EXAM
+  status      String   @default("READY") // DRAFT, READY, ARCHIVED
+  hskLevel    Int      @default(1)
+  curriculum  String   @default("HSK 3.0")
   totalScore  Int      @default(100)
   createdAt   DateTime @default(now())
 
+  teacher     User?             @relation("TeacherQuizSets", fields: [teacherId], references: [id], onDelete: SetNull)
   lesson      Lesson?           @relation(fields: [lessonId], references: [id], onDelete: SetNull)
   questions   QuizSetQuestion[]
   assignments Assignment[]

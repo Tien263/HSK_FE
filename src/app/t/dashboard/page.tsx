@@ -1782,6 +1782,7 @@ export default function TeacherDashboard() {
           {/* =================================================================== */}
           {activeTab === "questions" && (
             <QuestionBankWorkspace
+              currentUser={currentUser || undefined}
               showToast={showToast}
               onNavigateToAssignments={(examId) => {
                 setTargetExamToOpen(examId || null);
