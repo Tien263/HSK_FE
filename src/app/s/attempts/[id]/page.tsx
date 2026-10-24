@@ -33,6 +33,7 @@ interface QuestionItem {
   options: any;
   points: number;
   correctAnswer?: string;
+  explanation?: string;
 }
 
 const BENCHMARK_12_QUESTIONS: QuestionItem[] = [
@@ -511,15 +512,38 @@ function AttemptInner() {
 
       let totalPts = 0;
       let earnedPts = 0;
-      questions.forEach((q) => {
+      const answerDetails = questions.map((q) => {
         const pt = q.points || 5;
         totalPts += pt;
-        const studentA = (answers[q.id] || "").trim().toUpperCase();
-        const correctA = (q.correctAnswer || "A").trim().toUpperCase();
-        if (studentA && studentA === correctA) {
+        const studentA = (answers[q.id] || "").trim();
+        const correctA = (q.correctAnswer || "A").trim();
+        const isCorrect = studentA.toUpperCase() === correctA.toUpperCase();
+        if (isCorrect) {
           earnedPts += pt;
         }
+        return {
+          questionId: q.id,
+          content: q.content,
+          pinyinPrompt: q.pinyinPrompt,
+          options: Array.isArray(q.options) ? q.options : [],
+          userAnswer: studentA,
+          correctAnswer: correctA,
+          isCorrect,
+          scoreEarned: isCorrect ? pt : 0,
+          explanation: q.explanation || `Đáp án đúng là: ${correctA}`,
+        };
       });
+
+      const fullResult = {
+        attemptId,
+        assignmentTitle: assignmentTitle || "Bài tập kiểm tra HSK",
+        score: earnedPts,
+        maxScore: totalPts || 100,
+        durationSec: 20 * 60 - secondsRemaining,
+        submittedAt: new Date().toISOString(),
+        answers: answerDetails,
+      };
+      localStorage.setItem(`hanyu_attempt_result_${attemptId}`, JSON.stringify(fullResult));
 
       const existingSubsRaw = localStorage.getItem("hanyu_student_submissions");
       const subList = existingSubsRaw ? JSON.parse(existingSubsRaw) : [];
@@ -546,6 +570,8 @@ function AttemptInner() {
         totalScore: earnedPts,
         maxScore: totalPts || 100,
         isPublished: true,
+        answers,
+        answersDetails: answerDetails,
       };
 
       const updatedSubs = [
@@ -553,6 +579,32 @@ function AttemptInner() {
         ...subList.filter((s: any) => !(s.assignmentId === attemptId && s.studentId === studentId)),
       ];
       localStorage.setItem("hanyu_student_submissions", JSON.stringify(updatedSubs));
+
+      // Thêm thông báo tức thời cho học sinh & giáo viên
+      try {
+        const studentNotif = {
+          id: "notif-s-" + Date.now(),
+          userId: studentId,
+          title: `Nộp bài thành công: ${assignmentTitle || "Bài kiểm tra"}`,
+          content: `Bạn đã đạt ${earnedPts}/${totalPts || 100} điểm (Đúng ${answerDetails.filter((a) => a.isCorrect).length}/${questions.length} câu). Hệ thống đã lưu điểm số vào hồ sơ học tập của bạn!`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          type: "ASSIGNMENT",
+        };
+        const teacherNotif = {
+          id: "notif-t-" + Date.now(),
+          userId: "teacher",
+          title: `Học viên nộp bài: ${studentName}`,
+          content: `Học viên ${studentName} vừa hoàn thành "${assignmentTitle || "Bài kiểm tra"}" - Điểm: ${earnedPts}/${totalPts || 100} (Đúng ${answerDetails.filter((a) => a.isCorrect).length}/${questions.length} câu).`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          type: "SUBMISSION",
+        };
+        const notifsRaw = localStorage.getItem("hanyu_notifications");
+        const notifList = notifsRaw ? JSON.parse(notifsRaw) : [];
+        localStorage.setItem("hanyu_notifications", JSON.stringify([studentNotif, teacherNotif, ...notifList]));
+      } catch {}
+
       window.dispatchEvent(new Event("storage"));
       window.dispatchEvent(new CustomEvent("hanyu_student_submitted", { detail: newSub }));
     } catch (e) {
@@ -579,34 +631,9 @@ function AttemptInner() {
       });
 
       const result = await res.json();
-      if (result.success) {
-        router.push(`/s/attempts/${attemptId}/result`);
-      } else {
-        // Fallback lưu kết quả cục bộ nếu là bài tập tùy chỉnh do giáo viên vừa tạo
-        try {
-          const localResult = {
-            attemptId,
-            answers,
-            submittedAt: new Date().toISOString(),
-          };
-          localStorage.setItem(`hanyu_attempt_result_${attemptId}`, JSON.stringify(localResult));
-          router.push(`/s/attempts/${attemptId}/result`);
-        } catch {
-          setSubmitting(false);
-        }
-      }
+      router.push(`/s/attempts/${attemptId}/result`);
     } catch {
-      try {
-        const localResult = {
-          attemptId,
-          answers,
-          submittedAt: new Date().toISOString(),
-        };
-        localStorage.setItem(`hanyu_attempt_result_${attemptId}`, JSON.stringify(localResult));
-        router.push(`/s/attempts/${attemptId}/result`);
-      } catch {
-        setSubmitting(false);
-      }
+      router.push(`/s/attempts/${attemptId}/result`);
     }
   };
 

@@ -200,10 +200,59 @@ export function AssignmentsWorkspace({
       }
 
       setExamPackages(mappedExams);
+
+      // 3. Load Submissions for Teacher
+      let mappedSubs: StudentSubmissionItem[] = [];
+      try {
+        const attRes = await fetch(`/api/v1/attempts${teacherParam}`, { headers: authHeaders });
+        const attData = await attRes.json();
+        if (attData.success && Array.isArray(attData.items)) {
+          mappedSubs = attData.items;
+        }
+      } catch (e) {
+        console.warn("fetch attempts error:", e);
+      }
+
+      // Merge với bài nộp lưu cục bộ hanyu_student_submissions
+      if (typeof window !== "undefined") {
+        try {
+          const localSubsRaw = localStorage.getItem("hanyu_student_submissions");
+          if (localSubsRaw) {
+            const localSubs = JSON.parse(localSubsRaw);
+            if (Array.isArray(localSubs)) {
+              localSubs.forEach((ls: any) => {
+                if (!mappedSubs.some((s) => s.id === ls.id)) {
+                  mappedSubs.push({
+                    id: ls.id,
+                    assignmentId: ls.assignmentId,
+                    assignmentTitle: ls.assignmentTitle || "Bài kiểm tra",
+                    studentId: ls.studentId || "student-1",
+                    studentName: ls.studentName || "Học viên",
+                    studentAvatar: ls.studentAvatar || "/theme/avatar-student.jpg",
+                    classId: ls.classId || "",
+                    className: ls.className || "Lớp học",
+                    submittedAt: ls.submittedAt || "Vừa xong",
+                    score: ls.totalScore ?? ls.autoScore ?? ls.score ?? null,
+                    maxScore: ls.maxScore || 100,
+                    submissionStatus: ls.submissionStatus || "SUBMITTED",
+                    gradingStatus: ls.gradingStatus || "AUTO_GRADED",
+                    gradingStatusText: ls.gradingStatus === "GRADED" ? "Đã chấm điểm" : "Chờ duyệt",
+                    attemptNumber: ls.attemptNumber || 1,
+                    feedback: ls.feedback || "",
+                    answers: ls.answers || {},
+                  });
+                }
+              });
+            }
+          }
+        } catch {}
+      }
+      setSubmissions(mappedSubs);
     } catch (err) {
       console.warn("fetchData assignments error:", err);
       setAssignments([]);
       setExamPackages([]);
+      setSubmissions([]);
     } finally {
       setLoading(false);
     }
@@ -281,6 +330,10 @@ export function AssignmentsWorkspace({
   // Handlers
   const handleAssignExam = async (values: any) => {
     try {
+      const pkg = examPackages.find((p) => p.id === values.examId);
+      const pkgQuestions = pkg?.questions || [];
+      const calcPoints = pkg?.totalPoints || 100;
+
       const res = await fetch("/api/v1/assignments", {
         method: "POST",
         headers: {
@@ -291,6 +344,8 @@ export function AssignmentsWorkspace({
           title: values.title,
           classId: values.classId,
           quizSetId: values.examId,
+          questions: pkgQuestions,
+          totalPoints: calcPoints,
           openAt: values.openDate,
           dueDate: values.dueDate,
           durationMin: values.durationMin,
@@ -300,6 +355,38 @@ export function AssignmentsWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        // Đồng bộ lưu cục bộ liên thông ngay lập tức sang học sinh
+        if (typeof window !== "undefined") {
+          try {
+            const newLocalAssignment = {
+              id: data.items?.[0]?.id || `asg-${Date.now()}`,
+              title: values.title,
+              classId: values.classId,
+              className: classesList.find((c) => c.id === values.classId)?.name || "Lớp học",
+              examId: values.examId,
+              questions: pkgQuestions,
+              totalQuestions: pkgQuestions.length,
+              totalPoints: calcPoints,
+              durationMin: values.durationMin || 45,
+              openDate: values.openDate,
+              dueDate: values.dueDate,
+              status: "ACTIVE",
+            };
+            const sharedRaw = localStorage.getItem("hanyu_shared_assignments");
+            const sharedList = sharedRaw ? JSON.parse(sharedRaw) : [];
+            const updatedShared = [
+              newLocalAssignment,
+              ...sharedList.filter((a: any) => a.id !== newLocalAssignment.id),
+            ];
+            localStorage.setItem("hanyu_shared_assignments", JSON.stringify(updatedShared));
+            localStorage.setItem("hanyu_teacher_assignments", JSON.stringify(updatedShared));
+            window.dispatchEvent(new Event("storage"));
+            window.dispatchEvent(
+              new CustomEvent("hanyu_assignment_assigned", { detail: newLocalAssignment })
+            );
+          } catch {}
+        }
+
         showToast("Đã giao bài cho lớp thành công!");
         fetchData();
       } else {
@@ -493,6 +580,57 @@ export function AssignmentsWorkspace({
   };
 
   const handleSaveGrading = async (submissionId: string, score: number, feedback: string) => {
+    // 1. Cập nhật state nội bộ
+    setSubmissions((prev) =>
+      prev.map((s) =>
+        s.id === submissionId
+          ? {
+              ...s,
+              score,
+              feedback,
+              gradingStatus: "GRADED",
+              gradingStatusText: "Đã chấm điểm",
+            }
+          : s
+      )
+    );
+
+    // 2. Lưu vào localStorage và tạo thông báo cho học sinh
+    if (typeof window !== "undefined") {
+      try {
+        const subsRaw = localStorage.getItem("hanyu_student_submissions");
+        if (subsRaw) {
+          const subs = JSON.parse(subsRaw);
+          const updated = subs.map((s: any) =>
+            s.id === submissionId
+              ? {
+                  ...s,
+                  score,
+                  totalScore: score,
+                  autoScore: score,
+                  feedback,
+                  gradingStatus: "GRADED",
+                }
+              : s
+          );
+          localStorage.setItem("hanyu_student_submissions", JSON.stringify(updated));
+          window.dispatchEvent(new Event("storage"));
+        }
+
+        const notif = {
+          id: "notif-grade-" + Date.now(),
+          title: "Giáo viên đã chấm bài kiểm tra của bạn",
+          content: `Bài tập của bạn đã được chấm: ${score} điểm. Lời nhận xét: "${feedback || "Hoàn thành bài tập rất tốt!"}"`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          type: "GRADE",
+        };
+        const notifsRaw = localStorage.getItem("hanyu_notifications");
+        const notifs = notifsRaw ? JSON.parse(notifsRaw) : [];
+        localStorage.setItem("hanyu_notifications", JSON.stringify([notif, ...notifs]));
+      } catch {}
+    }
+
     showToast(`Đã lưu và công bố điểm (${score}đ) thành công!`);
     setIsGradingModalOpen(false);
   };

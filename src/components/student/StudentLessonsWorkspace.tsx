@@ -257,6 +257,24 @@ export default function StudentLessonsWorkspace({
         </div>
       </div>
 
+      {/* Bộ chọn cấp độ HSK 3.0 (Cấp 1 - 9) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cấp độ HSK:</span>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => (
+          <button
+            key={lvl}
+            onClick={() => setSelectedHsk(lvl)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+              selectedHsk === lvl
+                ? "bg-[#204434] text-white shadow-xs"
+                : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+            }`}
+          >
+            HSK {lvl}
+          </button>
+        ))}
+      </div>
+
       {/* Main Content */}
       {loading ? (
         <div className="py-16 text-center text-xs text-[#315E48] bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9]">

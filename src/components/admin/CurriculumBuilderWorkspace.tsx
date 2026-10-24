@@ -302,7 +302,7 @@ export default function CurriculumBuilderWorkspace({
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* =================================================================== */}
-      {/* 1. HEADER & CHỌN CẤP ĐỘ HSK (HSK 1 - 6)                            */}
+      {/* 1. HEADER & CHỌN CẤP ĐỘ HSK 3.0 (CẤP 1 - 9)                         */}
       {/* =================================================================== */}
       <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-6 shadow-2xs space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#BC9B6B]/20">
@@ -312,13 +312,13 @@ export default function CurriculumBuilderWorkspace({
             </div>
             <div>
               <h2 className="text-xl font-serif font-bold text-[#204434] flex items-center gap-2">
-                <span>Quản trị Kho bài học & Giáo trình HSK</span>
+                <span>Quản trị Kho bài học HSK 3.0</span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                  Curriculum Builder
+                  Tiêu chuẩn 9 Cấp (1 - 9)
                 </span>
               </h2>
               <p className="text-xs text-[#315E48] mt-0.5">
-                Biên soạn bài học mẫu, từ vựng, ngữ pháp, hội thoại và xuất bản cho Giáo viên giảng dạy & Học sinh tự học.
+                Biên soạn giáo trình chuẩn HSK 3.0 từ Cấp 1 đến Cấp 9, phân bổ từ vựng, ngữ pháp, đoạn hội thoại và xuất bản cho toàn trường.
               </p>
             </div>
           </div>
@@ -368,22 +368,39 @@ export default function CurriculumBuilderWorkspace({
           </div>
         </div>
 
-        {/* Thanh chọn Level HSK 1 - 6 */}
+        {/* Thanh chọn Level HSK 3.0: 9 Cấp (Sơ cấp 1-3, Trung cấp 4-6, Cao cấp 7-9) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#8F6D3B] mr-2 shrink-0">Chọn cấp độ:</span>
-          {[1, 2, 3, 4, 5, 6].map((lvl) => (
-            <button
-              key={lvl}
-              onClick={() => setSelectedLevel(lvl)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
-                selectedLevel === lvl
-                  ? "bg-[#204434] text-white shadow-xs"
-                  : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
-              }`}
-            >
-              HSK {lvl} ({selectedLevel === lvl ? `${lessons.length} bài` : "Xem"})
-            </button>
-          ))}
+          <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cấp độ HSK 3.0:</span>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => {
+            const tierLabel = lvl <= 3 ? "Sơ cấp" : lvl <= 6 ? "Trung cấp" : "Cao cấp";
+            return (
+              <button
+                key={lvl}
+                onClick={() => setSelectedLevel(lvl)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                  selectedLevel === lvl
+                    ? "bg-[#204434] text-white shadow-xs"
+                    : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+                }`}
+              >
+                <span>HSK {lvl}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded ${
+                    selectedLevel === lvl
+                      ? "bg-white/20 text-white"
+                      : "bg-[#F3EFE6] text-[#8F6D3B]"
+                  }`}
+                >
+                  {tierLabel}
+                </span>
+                {selectedLevel === lvl && (
+                  <span className="text-[10px] text-emerald-300 ml-0.5">
+                    ({lessons.length} bài)
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

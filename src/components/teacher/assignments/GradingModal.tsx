@@ -13,7 +13,9 @@ export default function GradingModal({
   onClose,
   onSaveGrading,
 }: GradingModalProps) {
-  const [score, setScore] = useState<number>(submission?.score ?? 85);
+  const [score, setScore] = useState<number>(
+    submission?.score !== null && submission?.score !== undefined ? submission.score : 0
+  );
   const [feedback, setFeedback] = useState<string>(submission?.feedback || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 

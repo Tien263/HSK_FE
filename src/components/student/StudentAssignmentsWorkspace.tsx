@@ -192,7 +192,27 @@ export default function StudentAssignmentsWorkspace({
           } catch (e) {}
         }
 
-        const combined = [...apiAssignments, ...localAssignments];
+        const subsRaw = typeof window !== "undefined" ? localStorage.getItem("hanyu_student_submissions") : null;
+        const studentSubs = subsRaw ? JSON.parse(subsRaw) : [];
+
+        const combined = [...apiAssignments, ...localAssignments].map((item) => {
+          const foundSub = studentSubs.find(
+            (s: any) =>
+              s.assignmentId === item.id ||
+              s.id === item.id ||
+              (item.id && s.assignmentId && item.id.includes(s.assignmentId))
+          );
+          if (foundSub) {
+            return {
+              ...item,
+              hasAttempted: true,
+              latestScore: foundSub.totalScore ?? foundSub.autoScore ?? foundSub.score ?? null,
+              status: "GRADED" as const,
+              attemptId: foundSub.assignmentId || item.id,
+            };
+          }
+          return item;
+        });
         setAssignments(combined);
       } catch (err) {
         console.error("Failed to fetch assignments:", err);
@@ -210,10 +230,12 @@ export default function StudentAssignmentsWorkspace({
 
     window.addEventListener("storage", handleStorageSync);
     window.addEventListener("hanyu_assignment_assigned", handleStorageSync);
+    window.addEventListener("hanyu_student_submitted", handleStorageSync);
 
     return () => {
       window.removeEventListener("storage", handleStorageSync);
       window.removeEventListener("hanyu_assignment_assigned", handleStorageSync);
+      window.removeEventListener("hanyu_student_submitted", handleStorageSync);
     };
   }, [currentUser, myClasses]);
 

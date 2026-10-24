@@ -150,25 +150,144 @@ function AttemptResultInner() {
     });
   };
 
+  const tryLoadLocalResult = (): boolean => {
+    if (typeof window === "undefined") return false;
+    try {
+      // 1. Kiểm tra trực tiếp theo attemptId
+      const directRaw = localStorage.getItem(`hanyu_attempt_result_${attemptId}`);
+      if (directRaw) {
+        const parsed = JSON.parse(directRaw);
+        if (parsed && Array.isArray(parsed.answers) && parsed.answers.length > 0) {
+          setData(parsed);
+          return true;
+        }
+      }
+
+      // 2. Kiểm tra trong danh sách bài nộp của học sinh
+      const subsRaw = localStorage.getItem("hanyu_student_submissions");
+      if (subsRaw) {
+        const subs = JSON.parse(subsRaw);
+        const found = subs.find(
+          (s: any) =>
+            s.assignmentId === attemptId ||
+            s.id === attemptId ||
+            (attemptId && s.assignmentId && attemptId.includes(s.assignmentId))
+        );
+        if (found && Array.isArray(found.answersDetails) && found.answersDetails.length > 0) {
+          setData({
+            attemptId,
+            assignmentTitle: found.assignmentTitle || "Bài kiểm tra HSK",
+            score: found.totalScore ?? found.autoScore ?? found.score ?? 0,
+            maxScore: found.maxScore || 100,
+            durationSec: 300,
+            answers: found.answersDetails,
+          });
+          return true;
+        }
+      }
+
+      // 3. Khớp từ danh sách bài tập đã giao
+      const sharedRaw = localStorage.getItem("hanyu_shared_assignments");
+      const teacherRaw = localStorage.getItem("hanyu_teacher_assignments");
+      const allAsg = [
+        ...(sharedRaw ? JSON.parse(sharedRaw) : []),
+        ...(teacherRaw ? JSON.parse(teacherRaw) : []),
+      ];
+      const matchedAsg = allAsg.find(
+        (a: any) => a.id === attemptId || (attemptId && a.id && attemptId.includes(a.id))
+      );
+      if (matchedAsg && Array.isArray(matchedAsg.questions) && matchedAsg.questions.length > 0) {
+        const savedAnsRaw = localStorage.getItem(`hanyu_attempt_answers_${attemptId}`);
+        const userAnswers = savedAnsRaw ? JSON.parse(savedAnsRaw) : {};
+        let earnedScore = 0;
+        let totalScore = 0;
+        const details = matchedAsg.questions.map((q: any) => {
+          const pt = Number(q.points) || 5;
+          totalScore += pt;
+          const uA = (userAnswers[q.id] || "").trim();
+          const cA = (q.correctAnswer || "A").trim();
+          const isCorrect = uA.toUpperCase() === cA.toUpperCase();
+          if (isCorrect) earnedScore += pt;
+          return {
+            questionId: q.id,
+            content: q.content || q.title || "Câu hỏi",
+            pinyinPrompt: q.pinyin || null,
+            options: Array.isArray(q.options) ? q.options : [],
+            userAnswer: uA,
+            correctAnswer: cA,
+            isCorrect,
+            scoreEarned: isCorrect ? pt : 0,
+            explanation: q.explanation || `Đáp án đúng là: ${cA}`,
+          };
+        });
+        setData({
+          attemptId,
+          assignmentTitle: matchedAsg.title || "Bài kiểm tra HSK",
+          score: earnedScore,
+          maxScore: totalScore || matchedAsg.totalPoints || 100,
+          durationSec: 180,
+          answers: details,
+        });
+        return true;
+      }
+    } catch (e) {
+      console.warn("tryLoadLocalResult error:", e);
+    }
+    return false;
+  };
+
   useEffect(() => {
-    if (attemptId === "preview" || attemptId?.startsWith("demo")) {
+    if (attemptId === "preview") {
       loadFallbackResult();
       setLoading(false);
       return;
     }
 
+    // 1. Kiểm tra local trước để ưu tiên bài tập giáo viên vừa giao
+    if (tryLoadLocalResult()) {
+      setLoading(false);
+      return;
+    }
+
+    // 2. Fetch API máy chủ
     fetch(`/api/v1/attempts/${attemptId}/result`)
       .then((res) => res.json())
       .then((resData) => {
-        if (resData.success && resData.data) {
+        if (resData.success && resData.data && Array.isArray(resData.data.answers) && resData.data.answers.length > 0) {
           setData(resData.data);
         } else {
-          loadFallbackResult();
+          if (!tryLoadLocalResult()) {
+            if (attemptId?.startsWith("demo")) {
+              loadFallbackResult();
+            } else {
+              setData({
+                attemptId,
+                assignmentTitle: "Bài kiểm tra hoàn tất",
+                score: 0,
+                maxScore: 100,
+                durationSec: 0,
+                answers: [],
+              });
+            }
+          }
         }
         setLoading(false);
       })
       .catch(() => {
-        loadFallbackResult();
+        if (!tryLoadLocalResult()) {
+          if (attemptId?.startsWith("demo")) {
+            loadFallbackResult();
+          } else {
+            setData({
+              attemptId,
+              assignmentTitle: "Bài kiểm tra hoàn tất",
+              score: 0,
+              maxScore: 100,
+              durationSec: 0,
+              answers: [],
+            });
+          }
+        }
         setLoading(false);
       });
   }, [attemptId]);

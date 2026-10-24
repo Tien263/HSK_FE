@@ -117,8 +117,56 @@ export default function StudentReportsWorkspace({
       } catch (e) {
         console.error("Error loading student report summary:", e);
       }
+
+      // Merge với bài nộp thực tế từ localStorage hanyu_student_submissions
+      if (typeof window !== "undefined") {
+        try {
+          const subsRaw = localStorage.getItem("hanyu_student_submissions");
+          if (subsRaw) {
+            const subs = JSON.parse(subsRaw);
+            if (Array.isArray(subs) && subs.length > 0) {
+              setSummary((prev: any) => {
+                const existingAsgs = prev?.assignments ? [...prev.assignments] : [];
+                subs.forEach((s: any) => {
+                  const idx = existingAsgs.findIndex(
+                    (a: any) => a.id === s.assignmentId || a.id === s.id
+                  );
+                  if (idx !== -1) {
+                    existingAsgs[idx] = {
+                      ...existingAsgs[idx],
+                      hasAttempted: true,
+                      latestScore: s.totalScore ?? s.autoScore ?? s.score,
+                    };
+                  } else {
+                    existingAsgs.push({
+                      id: s.assignmentId || s.id,
+                      title: s.assignmentTitle || "Bài kiểm tra",
+                      hasAttempted: true,
+                      latestScore: s.totalScore ?? s.autoScore ?? s.score,
+                    });
+                  }
+                });
+                return {
+                  ...prev,
+                  assignments: existingAsgs,
+                };
+              });
+            }
+          }
+        } catch {}
+      }
     }
     loadData();
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("hanyu_student_submitted", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("hanyu_student_submitted", handleSync);
+    };
   }, [currentUser]);
 
   const studentName = summary?.student?.name || currentUser?.name || currentUser?.username || "Học viên";

@@ -2145,9 +2145,9 @@ export default function QuestionBankWorkspace({
                             onChange={(e) => setNewExamLevel(Number(e.target.value))}
                             className="w-full px-2.5 py-1.5 rounded-xl border border-[#E5DEC9] text-xs text-[#204434]"
                           >
-                            {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => (
                               <option key={lvl} value={lvl}>
-                                HSK {lvl}
+                                HSK {lvl} (HSK 3.0)
                               </option>
                             ))}
                           </select>
@@ -3675,9 +3675,9 @@ export default function QuestionBankWorkspace({
                     onChange={(e) => setAiLevel(Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] font-semibold"
                   >
-                    {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => (
                       <option key={lvl} value={lvl}>
-                        HSK {lvl} (Chuẩn 3.0)
+                        HSK {lvl} (Chuẩn HSK 3.0)
                       </option>
                     ))}
                   </select>

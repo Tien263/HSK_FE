@@ -4,10 +4,12 @@ import { OFFICIAL_HSK2_15_LESSONS } from "./hsk2-full-lessons";
 export function getLessonsByHskLevel(level: number = 1): Hsk1FullLesson[] {
   const lvl = Number(level) || 1;
   let baseLessons: Hsk1FullLesson[] = [];
-  if (lvl === 2) {
+  if (lvl === 1) {
+    baseLessons = [...OFFICIAL_HSK1_15_LESSONS];
+  } else if (lvl === 2) {
     baseLessons = [...OFFICIAL_HSK2_15_LESSONS];
   } else {
-    baseLessons = [...OFFICIAL_HSK1_15_LESSONS];
+    baseLessons = [];
   }
 
   // Nếu Admin đã tùy biến hoặc bổ sung bài học trong kho chung
