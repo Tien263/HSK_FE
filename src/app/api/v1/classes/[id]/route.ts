@@ -326,6 +326,9 @@ export async function DELETE(
           where: { classId },
         });
       }
+      await tx.classLesson.deleteMany({
+        where: { classId },
+      });
       await tx.classStudent.deleteMany({
         where: { classId },
       });

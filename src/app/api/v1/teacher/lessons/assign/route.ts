@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OFFICIAL_HSK1_15_LESSONS } from "@/lib/hsk1-full-lessons";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 
 export async function POST(request: Request) {
   try {
@@ -40,7 +40,8 @@ export async function POST(request: Request) {
 
     // 1. Lưu bản ghi ClassLesson vào PostgreSQL DB theo Nghiệp vụ 3
     const lessonNum = parseInt(String(lessonId).replace(/\D/g, ""), 10) || 1;
-    const baseLesson = OFFICIAL_HSK1_15_LESSONS.find((l) => l.number === lessonNum) || OFFICIAL_HSK1_15_LESSONS[0];
+    const baseLessonsList = getLessonsByHskLevel(targetClass.level);
+    const baseLesson = baseLessonsList.find((l) => l.number === lessonNum) || baseLessonsList[0];
 
     const chosenVocabs = selectedItems?.selectedVocabs || [];
     const chosenGrammars = selectedItems?.selectedGrammars || [];
@@ -84,36 +85,9 @@ export async function POST(request: Request) {
       },
     });
 
-    // 2. Tạo bản ghi giao bài tập phụ trợ (nếu có)
-    let quizSet = await prisma.quizSet.findFirst();
-    if (!quizSet) {
-      quizSet = await prisma.quizSet.create({
-        data: {
-          title: `Lý thuyết bài học: ${lessonTitle || "Bài mới"}`,
-          mode: "PRACTICE",
-          totalScore: 100,
-        },
-      });
-    }
-
-    const assignmentTitle = `Học phần lý thuyết: ${lessonTitle || "Bài học mới"}`;
-
-    const newAssignment = await prisma.assignment.create({
-      data: {
-        quizSetId: quizSet.id,
-        classId: targetClass.id,
-        title: assignmentTitle,
-        openAt: startDate ? new Date(startDate) : new Date(),
-        dueAt: dueDate ? new Date(dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        durationMin: 45,
-        status: "OPEN",
-      },
-    });
-
     return NextResponse.json({
       success: true,
       message: `Đã công bố bài học "${baseLesson.titleVi}" (${lessonNum}) cho lớp ${targetClass.name}!`,
-      assignmentId: newAssignment.id,
     });
   } catch (error: any) {
     console.error("Assign lesson error:", error);

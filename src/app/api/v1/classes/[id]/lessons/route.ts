@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
-import { OFFICIAL_HSK1_15_LESSONS } from "@/lib/hsk1-full-lessons";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 
-// GET /api/v1/classes/[id]/lessons - Lấy lộ trình 15 bài học của lớp
+// GET /api/v1/classes/[id]/lessons - Lấy lộ trình 15 bài học của lớp theo đúng cấp độ HSK
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -39,6 +39,24 @@ export async function GET(
       return NextResponse.json({ success: false, message: "Không tìm thấy lớp học." }, { status: 404 });
     }
 
+    // Bảo mật phân quyền: Nếu là học sinh, PHẢI là thành viên hợp lệ của lớp (Kịch bản E)
+    if (authUser && authUser.role === "STUDENT") {
+      const membership = await prisma.classStudent.findUnique({
+        where: {
+          classId_studentId: {
+            classId: targetClass.id,
+            studentId: authUser.id,
+          },
+        },
+      });
+      if (!membership) {
+        return NextResponse.json(
+          { success: false, message: "Bạn không phải là thành viên của lớp này hoặc đã bị xóa khỏi lớp." },
+          { status: 403 }
+        );
+      }
+    }
+
     // 2. Lấy danh sách các bài học đã được giáo viên lưu / công bố trong DB cho lớp này
     const dbLessons = await prisma.classLesson.findMany({
       where: { classId: targetClass.id },
@@ -50,8 +68,11 @@ export async function GET(
       dbLessonsMap.set(dbl.lessonNumber, dbl);
     }
 
-    // 3. Chuẩn hóa đủ 15 bài học HSK 1 theo đúng quy chuẩn Nghiệp vụ 2
-    const lessons = OFFICIAL_HSK1_15_LESSONS.map((base) => {
+    // 3. Chuẩn hóa đủ 15 bài học theo đúng cấp độ của lớp (HSK 1 / HSK 2...)
+    const hskLevel = targetClass.level || 1;
+    const baseLessonsList = getLessonsByHskLevel(hskLevel);
+
+    const lessons = baseLessonsList.map((base) => {
       const dbRecord = dbLessonsMap.get(base.number);
 
       if (dbRecord) {
@@ -138,7 +159,7 @@ export async function GET(
   }
 }
 
-// POST /api/v1/classes/[id]/lessons - Giáo viên tùy chỉnh & công bố bài học cho lớp (Nghiệp vụ 3)
+// POST /api/v1/classes/[id]/lessons - Giáo viên tùy chỉnh & công bố / lưu nháp / thu hồi bài học cho lớp (Nghiệp vụ 3)
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -150,7 +171,7 @@ export async function POST(
 
     const {
       lessonNumber,
-      status = "PUBLISHED", // "PUBLISHED" | "DRAFT"
+      status = "PUBLISHED", // "PUBLISHED" | "DRAFT" | "LOCKED"
       selectedVocabs = [],
       selectedGrammars = [],
       hasDialogue = true,
@@ -193,10 +214,25 @@ export async function POST(
       );
     }
 
-    // 2. Tìm thông tin bài học gốc từ 15 bài HSK 1
-    const baseLesson = OFFICIAL_HSK1_15_LESSONS.find((l) => l.number === num) || OFFICIAL_HSK1_15_LESSONS[0];
+    // Nếu giáo viên chọn thu hồi / khóa bài:
+    if (status === "LOCKED") {
+      await prisma.classLesson.deleteMany({
+        where: {
+          classId: targetClass.id,
+          lessonNumber: num,
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Đã thu hồi (khóa lại) Bài ${num} của lớp ${targetClass.name}.`,
+      });
+    }
 
-    // 3. Upsert vào bảng ClassLesson trong PostgreSQL DB (Nghiệp vụ 3.4: không tạo trùng, cập nhật đè)
+    // 2. Tìm thông tin bài học gốc theo đúng cấp độ lớp
+    const baseLessonsList = getLessonsByHskLevel(targetClass.level);
+    const baseLesson = baseLessonsList.find((l) => l.number === num) || baseLessonsList[0];
+
+    // 3. Upsert vào bảng ClassLesson trong PostgreSQL DB
     const upserted = await prisma.classLesson.upsert({
       where: {
         classId_lessonNumber: {

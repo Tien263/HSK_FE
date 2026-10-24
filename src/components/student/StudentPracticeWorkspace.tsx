@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import HanziPracticeModal from "./HanziPracticeModal";
 import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 
 interface StudentPracticeWorkspaceProps {
   currentUser?: any;
@@ -32,6 +33,7 @@ interface StudentPracticeWorkspaceProps {
   classesCount?: number;
   myClasses?: any[];
   onOpenJoinModal?: () => void;
+  activeHskLevel?: number;
 }
 
 export default function StudentPracticeWorkspace({
@@ -40,7 +42,10 @@ export default function StudentPracticeWorkspace({
   classesCount = 0,
   myClasses = [],
   onOpenJoinModal,
+  activeHskLevel,
 }: StudentPracticeWorkspaceProps) {
+  const currentHskLevel = activeHskLevel || myClasses[0]?.level || 1;
+  const practiceLessons = useMemo(() => getLessonsByHskLevel(currentHskLevel), [currentHskLevel]);
   const [dueVocabCount, setDueVocabCount] = useState(0);
   const [wrongQuestionCount, setWrongQuestionCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -145,9 +150,9 @@ export default function StudentPracticeWorkspace({
   const streak = currentUser?.streakDays || 0;
   const xp = currentUser?.totalXp || 0;
 
-  const currentLessonData = OFFICIAL_HSK1_15_LESSONS.find(
+  const currentLessonData = practiceLessons.find(
     (l) => l.number === selectedPracticeLesson
-  ) || OFFICIAL_HSK1_15_LESSONS[0];
+  ) || practiceLessons[0];
 
   const effectiveVocabList = useMemo(() => {
     if (typeof window !== "undefined") {
@@ -192,13 +197,32 @@ export default function StudentPracticeWorkspace({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
+      {/* Thông báo nếu chưa tham gia lớp học (Đặc tả V2) */}
+      {classesCount === 0 && myClasses.length === 0 && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-amber-700 shrink-0" />
+            <p className="text-xs font-semibold text-amber-900">
+              Bạn chưa tham gia lớp học nào. Hãy nhập mã lớp để bắt đầu học.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenJoinModal}
+            className="px-4 py-1.5 rounded-xl bg-[#204434] text-white text-xs font-bold shadow-xs hover:bg-[#183629] cursor-pointer shrink-0"
+          >
+            Nhập mã tham gia lớp
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5DEC9]">
         <div>
           <h1 className="text-2xl font-serif font-bold text-[#204434] flex items-center gap-2">
             <span>Phòng luyện tập phản xạ</span>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-semibold border border-[#BC9B6B]/40 font-sans">
-              Theo 15 Bài HSK 1
+              Theo 15 Bài HSK {currentHskLevel}
             </span>
           </h1>
           <p className="text-xs text-[#315E48] mt-1">
@@ -246,7 +270,7 @@ export default function StudentPracticeWorkspace({
               }}
               className="bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#204434] focus:outline-hidden"
             >
-              {OFFICIAL_HSK1_15_LESSONS.map((ls) => (
+              {practiceLessons.map((ls) => (
                 <option key={ls.id} value={ls.number}>
                   Bài {String(ls.number).padStart(2, "0")}: {ls.titleZh} - {ls.titleVi}
                 </option>

@@ -208,6 +208,30 @@ export default function TeacherDashboard() {
           });
         }
       }
+
+      // 3. Đồng bộ danh sách bài tập đã giao để sidebar badge và đếm đề chuẩn xác (Lỗi 02)
+      const resAssignments = await fetch(`/api/v1/assignments?teacherId=${user.id}`, {
+        headers: { "x-user-id": user.id },
+      });
+      if (resAssignments.ok) {
+        const asgData = await resAssignments.json();
+        const asgList = asgData.items || asgData.assignments || [];
+        if (asgData.success && Array.isArray(asgList)) {
+          setAssignmentsList(
+            asgList.map((a: any) => ({
+              id: a.id,
+              title: a.title,
+              className: a.className || a.class?.name || "Lớp học",
+              classId: a.classId,
+              dueAt: a.dueAt ? new Date(a.dueAt).toLocaleDateString("vi-VN") : "Chưa có hạn",
+              status: (a.status === "ACTIVE" || a.status === "OPEN" ? "ACTIVE" : a.status === "CLOSED" ? "CLOSED" : "ACTIVE") as any,
+              submittedCount: a.submittedCount || a._count?.attempts || 0,
+              totalStudents: 0,
+              durationMin: a.durationMin || 45,
+            }))
+          );
+        }
+      }
     } catch (err) {
       console.error("Error loading teacher dashboard data:", err);
     }

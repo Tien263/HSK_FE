@@ -152,14 +152,11 @@ export default function StudentAssignmentsWorkspace({
             ];
 
             for (const tAss of allTeacher) {
+              // Quy tắc nghiêm ngặt: Phải đúng classId, tuyệt đối không khớp mờ tên lớp hoặc tự chèn đề lý thuyết
               const matchesClass =
-                (uniqueClassIds.length > 0 || studentClassNames.length > 0) &&
-                (uniqueClassIds.includes(tAss.classId) ||
-                  studentClassNames.some(
-                    (cn) =>
-                      (tAss.className || "").toLowerCase().includes(cn.toLowerCase()) ||
-                      cn.toLowerCase().includes((tAss.className || "").toLowerCase())
-                  ));
+                Boolean(tAss.classId) &&
+                uniqueClassIds.includes(tAss.classId) &&
+                !String(tAss.title || "").includes("Xin chào AI Tiểu Ngữ");
 
               const existingApiIdx = apiAssignments.findIndex((a) => a.title === tAss.title || a.id === tAss.id);
               if (existingApiIdx !== -1) {
@@ -484,7 +481,7 @@ export default function StudentAssignmentsWorkspace({
             <BookOpen className="w-6 h-6" />
           </div>
           <h4 className="font-serif font-bold text-base text-[#204434]">
-            Chưa có bài tập nào được giao
+            Lớp học hiện chưa có bài tập nào được giao.
           </h4>
           <p className="text-xs text-[#315E48] max-w-md mx-auto leading-relaxed">
             Bạn hiện chưa tham gia lớp học nào hoặc giáo viên phụ trách chưa giao bài tập mới. Hãy vào mục &quot;Lớp học của tôi&quot; để tham gia lớp hoặc nhập mã PIN phòng thi ở trên để vào thi ngay!

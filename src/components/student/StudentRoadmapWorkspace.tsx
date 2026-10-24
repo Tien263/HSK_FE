@@ -18,6 +18,7 @@ import {
   Volume2,
 } from "lucide-react";
 import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 
 interface StudentRoadmapWorkspaceProps {
   currentUser?: any;
@@ -25,6 +26,7 @@ interface StudentRoadmapWorkspaceProps {
   classesCount?: number;
   myClasses?: any[];
   onOpenJoinModal?: () => void;
+  activeHskLevel?: number;
 }
 
 export default function StudentRoadmapWorkspace({
@@ -33,8 +35,22 @@ export default function StudentRoadmapWorkspace({
   classesCount = 0,
   myClasses = [],
   onOpenJoinModal,
+  activeHskLevel,
 }: StudentRoadmapWorkspaceProps) {
-  const [selectedHskLevel, setSelectedHskLevel] = useState<number>(1);
+  const currentLevelFromClass = activeHskLevel || myClasses[0]?.level || 1;
+  const [selectedHskLevel, setSelectedHskLevel] = useState<number>(currentLevelFromClass);
+
+  useEffect(() => {
+    if (activeHskLevel) {
+      setSelectedHskLevel(activeHskLevel);
+    } else if (myClasses[0]?.level) {
+      setSelectedHskLevel(myClasses[0].level);
+    }
+  }, [activeHskLevel, myClasses]);
+
+  const officialLessons = useMemo(() => {
+    return getLessonsByHskLevel(selectedHskLevel);
+  }, [selectedHskLevel]);
   const [lockedNoticeLesson, setLockedNoticeLesson] = useState<Hsk1FullLesson | null>(null);
   const [selectedLessonModal, setSelectedLessonModal] = useState<any | null>(null);
   const [modalTab, setModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE">("VOCAB");
@@ -281,8 +297,8 @@ export default function StudentRoadmapWorkspace({
     };
   };
 
-  const unlockedCount = OFFICIAL_HSK1_15_LESSONS.filter((l) => getLessonInfo(l).isUnlocked).length;
-  const completedCount = OFFICIAL_HSK1_15_LESSONS.filter((l) => getLessonInfo(l).isCompleted).length;
+  const unlockedCount = officialLessons.filter((l) => getLessonInfo(l).isUnlocked).length;
+  const completedCount = officialLessons.filter((l) => getLessonInfo(l).isCompleted).length;
   const totalPercent = Math.min(100, Math.round((completedCount / 15) * 100));
 
   const handleOpenLesson = (ls: Hsk1FullLesson) => {
@@ -314,12 +330,31 @@ export default function StudentRoadmapWorkspace({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
+      {/* Thông báo nếu chưa tham gia lớp học (Đặc tả V2 Phần III & IV) */}
+      {classesCount === 0 && myClasses.length === 0 && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-700 shrink-0" />
+            <p className="text-xs font-semibold text-amber-900">
+              Bạn chưa tham gia lớp học nào. Hãy nhập mã lớp để bắt đầu học.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenJoinModal}
+            className="px-4 py-1.5 rounded-xl bg-[#204434] text-white text-xs font-bold shadow-xs hover:bg-[#183629] cursor-pointer shrink-0"
+          >
+            Nhập mã tham gia lớp
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5DEC9]">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-serif font-bold text-[#204434]">
-              Lộ trình 15 Bài học HSK 1
+              Lộ trình 15 Bài học HSK {selectedHskLevel}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] text-xs font-semibold border border-[#204434]/20">
               15 Bài học liên tục
@@ -393,7 +428,7 @@ export default function StudentRoadmapWorkspace({
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-sm font-bold font-serif text-[#204434] uppercase tracking-wide">
-            Danh sách 15 Bài học HSK 1 (Bài 01 – Bài 15)
+            Danh sách 15 Bài học HSK {selectedHskLevel} (Bài 01 – Bài 15)
           </h2>
           <span className="text-xs text-[#315E48]">
             {unlockedCount} bài đã được giáo viên công bố
@@ -401,7 +436,7 @@ export default function StudentRoadmapWorkspace({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {OFFICIAL_HSK1_15_LESSONS.map((ls) => {
+          {officialLessons.map((ls) => {
             const info = getLessonInfo(ls);
             const isUnlocked = info.isUnlocked;
             const isCompleted = info.isCompleted;

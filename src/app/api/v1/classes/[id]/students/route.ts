@@ -202,7 +202,7 @@ export async function POST(
   }
 }
 
-// DELETE /api/v1/classes/[id]/students - Gỡ học viên khỏi lớp an toàn (không xóa tài khoản)
+// DELETE /api/v1/classes/[id]/students - Gỡ học viên khỏi lớp an toàn (hỗ trợ xóa đơn & xóa nhiều, không xóa tài khoản)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -211,10 +211,28 @@ export async function DELETE(
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const studentId = searchParams.get("studentId");
+    const studentIdParam = searchParams.get("studentId");
+    const studentIdsParam = searchParams.get("studentIds");
 
-    if (!studentId) {
-      return NextResponse.json({ success: false, message: "Thiếu ID học sinh cần gỡ." }, { status: 400 });
+    let targetStudentIds: string[] = [];
+    if (studentIdParam) targetStudentIds.push(studentIdParam);
+    if (studentIdsParam) {
+      targetStudentIds.push(...studentIdsParam.split(",").map((s) => s.trim()).filter(Boolean));
+    }
+
+    try {
+      const body = await request.json();
+      if (Array.isArray(body?.studentIds)) {
+        targetStudentIds.push(...body.studentIds);
+      } else if (body?.studentId) {
+        targetStudentIds.push(body.studentId);
+      }
+    } catch {}
+
+    targetStudentIds = Array.from(new Set(targetStudentIds)).filter(Boolean);
+
+    if (targetStudentIds.length === 0) {
+      return NextResponse.json({ success: false, message: "Thiếu ID học sinh cần gỡ khỏi lớp." }, { status: 400 });
     }
 
     const targetClass = await prisma.class.findUnique({
@@ -231,16 +249,17 @@ export async function DELETE(
       );
     }
 
-    await prisma.classStudent.deleteMany({
+    const deleteResult = await prisma.classStudent.deleteMany({
       where: {
         classId,
-        studentId,
+        studentId: { in: targetStudentIds },
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Đã gỡ học viên khỏi lớp thành công. Tài khoản học viên vẫn được giữ nguyên.",
+      message: `Đã gỡ ${deleteResult.count} học viên khỏi lớp thành công. Tài khoản học viên vẫn được bảo lưu an toàn.`,
+      removedCount: deleteResult.count,
     });
   } catch (error) {
     console.error("DELETE /classes/[id]/students error:", error);

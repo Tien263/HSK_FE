@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { getClassArtwork, normalizeDMY, parseDMY } from "@/lib/class-helper";
 import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 
 // ============================================================================
 // TYPES
@@ -48,6 +49,8 @@ import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lesson
 export interface ClassDetailItem {
   id: string;
   name: string;
+  level?: number;
+  hskLevel?: number;
   track: "HSK" | "TOPIC" | "MAJOR";
   badgeText: string;
   status: "ACTIVE" | "PAUSED" | "UPCOMING" | "ENDED" | "ARCHIVED";
@@ -214,6 +217,8 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
   const [studentSearch, setStudentSearch] = useState("");
   const [studentStatusFilter, setStudentStatusFilter] = useState<"ALL" | "LEARNING" | "INACTIVE" | "COMPLETED">("ALL");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [selectedBulkClassIds, setSelectedBulkClassIds] = useState<string[]>([]);
+  const [isBulkDeletingClasses, setIsBulkDeletingClasses] = useState(false);
 
   // 5. Activity Feed
   const [activities, setActivities] = useState<ActivityFeedItem[]>([]);
@@ -371,6 +376,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
           return {
             id: c.id,
             name: c.name,
+            level: Number(c.level) || 1,
             track: trackType,
             badgeText: trackType === "HSK" ? `HSK ${c.level}.0` : trackType === "TOPIC" ? "Chủ đề" : "Chuyên ngành",
             status: c.status || (c.isActive ? "ACTIVE" : "ENDED"),
@@ -575,8 +581,10 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
     } catch (err) {
       console.warn("fetchCurriculumLessons error:", err);
     }
-    // Fallback: 15 default lessons
-    const defaults = OFFICIAL_HSK1_15_LESSONS.map((ls) => ({
+    // Fallback: 15 default lessons for current class level
+    const classLevel = currentClass?.level || 1;
+    const baseLessons = getLessonsByHskLevel(classLevel);
+    const defaults = baseLessons.map((ls) => ({
       lessonNumber: ls.number,
       titleZh: ls.titleZh,
       titleVi: ls.titleVi,
@@ -595,7 +603,9 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
   };
 
   const handleOpenCustomizeLesson = (lsNumber: number) => {
-    const fullLesson = OFFICIAL_HSK1_15_LESSONS.find((l) => l.number === lsNumber);
+    const classLevel = currentClass?.level || 1;
+    const baseLessons = getLessonsByHskLevel(classLevel);
+    const fullLesson = baseLessons.find((l) => l.number === lsNumber) || baseLessons[0];
     if (!fullLesson) return;
 
     const existing = curriculumLessons.find((cl) => cl.lessonNumber === lsNumber);
@@ -1310,6 +1320,78 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
     }
   };
 
+  const handleBulkRemoveStudents = async () => {
+    if (!currentClass || selectedStudentIds.length === 0 || !currentUser?.id) return;
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} học sinh khỏi lớp "${currentClass.name}"? (Học sinh sẽ bị thu hồi quyền truy cập nội dung lớp này, tài khoản vẫn được bảo lưu).`
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/classes/${currentClass.id}/students`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({ studentIds: selectedStudentIds }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        showToast(data.message || "Lỗi khi xóa học sinh khỏi lớp.");
+        return;
+      }
+      showToast(`Đã xóa ${selectedStudentIds.length} học sinh khỏi lớp "${currentClass.name}" thành công.`);
+      setSelectedStudentIds([]);
+      await fetchClassStudents(currentClass.id);
+      await fetchClasses();
+    } catch (err) {
+      console.error("handleBulkRemoveStudents error:", err);
+      showToast("Lỗi kết nối khi xóa học sinh.");
+    }
+  };
+
+  const handleBulkDeleteClasses = async () => {
+    if (selectedBulkClassIds.length === 0 || !currentUser?.id) return;
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn xóa ${selectedBulkClassIds.length} lớp học đã chọn? Toàn bộ bài học, phân công bài tập và liên kết học sinh của các lớp này sẽ bị xóa an toàn.`
+      )
+    ) {
+      return;
+    }
+    setIsBulkDeletingClasses(true);
+    try {
+      const res = await fetch("/api/v1/classes", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": currentUser.id,
+        },
+        body: JSON.stringify({ classIds: selectedBulkClassIds }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Đã xóa ${selectedBulkClassIds.length} lớp học thành công.`);
+        const deletedIds = selectedBulkClassIds;
+        setSelectedBulkClassIds([]);
+        if (selectedClassId && deletedIds.includes(selectedClassId)) {
+          setSelectedClassId(null);
+        }
+        await fetchClasses();
+      } else {
+        showToast(data.message || "Lỗi xóa hàng loạt lớp học.");
+      }
+    } catch (err) {
+      console.error("handleBulkDeleteClasses error:", err);
+      showToast("Lỗi kết nối khi xóa lớp học.");
+    } finally {
+      setIsBulkDeletingClasses(false);
+    }
+  };
+
   return (
     <div className="space-y-6 text-[#17382F] font-sans">
       
@@ -1657,6 +1739,33 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
         </div>
       ) : (
         <div className="space-y-4">
+          {selectedBulkClassIds.length > 0 && (
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-50 border border-amber-200 shadow-2xs">
+              <div className="text-xs font-bold text-amber-900 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-amber-700" />
+                <span>Đã chọn {selectedBulkClassIds.length} lớp học</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBulkClassIds([])}
+                  className="px-3 py-1.5 rounded-xl border border-amber-300 text-xs font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                >
+                  Bỏ chọn
+                </button>
+                <button
+                  type="button"
+                  disabled={isBulkDeletingClasses}
+                  onClick={handleBulkDeleteClasses}
+                  className="px-3.5 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isBulkDeletingClasses ? "Đang xóa..." : `Xóa ${selectedBulkClassIds.length} lớp đã chọn`}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {viewMode === "GRID" ? (
             /* GRID VIEW */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1664,6 +1773,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
                 const isSelected = cl.id === selectedClassId;
                 const isArchived = cl.isArchived || cl.status === "ARCHIVED";
                 const isEnded = cl.status === "ENDED";
+                const isBulkChecked = selectedBulkClassIds.includes(cl.id);
 
                 return (
                   <div
@@ -1685,11 +1795,27 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                      {/* Top badges */}
+                      {/* Top badges & Select Checkbox */}
                       <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10">
-                        <span className="px-2 py-0.5 rounded-md bg-white/95 text-[#17382F] text-[10px] font-bold shadow-2xs">
-                          {cl.badgeText}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white/90 backdrop-blur-xs rounded-md p-1 flex items-center shadow-2xs"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isBulkChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedBulkClassIds([...selectedBulkClassIds, cl.id]);
+                                else setSelectedBulkClassIds(selectedBulkClassIds.filter((id) => id !== cl.id));
+                              }}
+                              className="w-3.5 h-3.5 rounded border-[#E5DFD0] accent-[#1F513F] cursor-pointer"
+                            />
+                          </div>
+                          <span className="px-2 py-0.5 rounded-md bg-white/95 text-[#17382F] text-[10px] font-bold shadow-2xs">
+                            {cl.badgeText}
+                          </span>
+                        </div>
                         <span
                           className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 shadow-2xs ${
                             isArchived
@@ -2543,7 +2669,33 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
                       </button>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-[#E5DFD0]">
+                    <div className="space-y-3">
+                      {selectedStudentIds.length > 0 && (
+                        <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50 border border-amber-200">
+                          <div className="text-xs font-semibold text-amber-900 flex items-center gap-2">
+                            <Users className="w-4 h-4 text-amber-700" />
+                            <span>Đã chọn {selectedStudentIds.length} học viên</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedStudentIds([])}
+                              className="px-3 py-1.5 rounded-xl border border-amber-300 text-xs font-medium text-amber-900 hover:bg-amber-100 cursor-pointer"
+                            >
+                              Bỏ chọn
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleBulkRemoveStudents}
+                              className="px-3.5 py-1.5 rounded-xl bg-red-600 text-white text-xs font-semibold hover:bg-red-700 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Xóa khỏi lớp ({selectedStudentIds.length})</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="overflow-x-auto rounded-2xl border border-[#E5DFD0]">
                       <table className="w-full text-left text-xs">
                         <thead>
                           <tr className="border-b border-[#E5DFD0] bg-[#F7F5EE]/70 text-[#6B766D] font-semibold text-[11px]">
@@ -2653,7 +2805,8 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
                         </tbody>
                       </table>
                     </div>
-                  )}
+                  </div>
+                )}
 
                 </div>
 
@@ -2707,7 +2860,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
                       Lộ trình 15 bài học – Lớp {currentClass.name}
                     </h3>
                     <span className="px-2.5 py-0.5 rounded-full bg-[#1F513F]/10 text-[#1F513F] text-xs font-semibold">
-                      Khung HSK 3.0 (Cấp 1)
+                      Khung HSK 3.0 (Cấp {currentClass?.level || 1})
                     </span>
                   </div>
                   <p className="text-xs text-[#6B766D] mt-1">
@@ -2727,7 +2880,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {OFFICIAL_HSK1_15_LESSONS.map((ls) => {
+                  {getLessonsByHskLevel(currentClass?.level).map((ls) => {
                     const cl = curriculumLessons.find((c) => c.lessonNumber === ls.number);
                     const isPublished = cl?.status === "PUBLISHED" || cl?.isPublished;
                     const isDraft = cl?.status === "DRAFT";

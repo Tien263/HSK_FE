@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -130,6 +130,12 @@ export default function StudentHomePage() {
   const [userEmail, setUserEmail] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [myClasses, setMyClasses] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+
+  const activeClass = useMemo(() => {
+    return myClasses.find((c) => c.id === selectedClassId) || myClasses[0] || null;
+  }, [myClasses, selectedClassId]);
+  const activeHskLevel = activeClass ? (activeClass.level || 1) : 1;
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -825,6 +831,24 @@ export default function StudentHomePage() {
               )}
             </div>
 
+            {/* Multi-Class Switcher (Đặc tả V2 Phần III & IV) */}
+            {myClasses.length > 1 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs">
+                <span className="text-[11px] font-medium text-[#315E48] hidden md:inline">Lớp đang học:</span>
+                <select
+                  value={selectedClassId || activeClass?.id || ""}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-[#204434] focus:outline-hidden cursor-pointer"
+                >
+                  {myClasses.map((cl) => (
+                    <option key={cl.id} value={cl.id}>
+                      {cl.name} (HSK {cl.level || 1})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Student User Pill */}
             <button
               type="button"
@@ -844,7 +868,7 @@ export default function StudentHomePage() {
                   Xin chào, {studentName}
                 </div>
                 <div className="text-[10px] text-[#315E48]">
-                  HSK 3.0 · {studyProfile?.dailyTime || 30} phút/ngày
+                  HSK {activeHskLevel} · {studyProfile?.dailyTime || 30} phút/ngày
                 </div>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-[#315E48]" />
@@ -877,6 +901,7 @@ export default function StudentHomePage() {
               classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
               myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
               onOpenJoinModal={() => setShowJoinModal(true)}
+              activeHskLevel={activeHskLevel}
             />
           ) : activeNav === "lessons" ? (
             <StudentLessonsWorkspace
@@ -885,6 +910,7 @@ export default function StudentHomePage() {
               classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
               myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
               onOpenJoinModal={() => setShowJoinModal(true)}
+              activeHskLevel={activeHskLevel}
             />
           ) : activeNav === "practice" ? (
             <StudentPracticeWorkspace
@@ -893,6 +919,7 @@ export default function StudentHomePage() {
               classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
               myClasses={myClasses.length > 0 ? myClasses : (studyProfile?.classInfo ? [studyProfile.classInfo] : [])}
               onOpenJoinModal={() => setShowJoinModal(true)}
+              activeHskLevel={activeHskLevel}
             />
           ) : activeNav === "results" ? (
             <StudentReportsWorkspace
@@ -1195,20 +1222,20 @@ export default function StudentHomePage() {
                           <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#204434]/10 border border-[#BC9B6B]/30 relative shrink-0">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={myClasses[0]?.artwork || "/theme/card-hsk-scroll.webp"}
-                              alt={myClasses[0]?.name}
+                              src={activeClass?.artwork || myClasses[0]?.artwork || "/theme/card-hsk-scroll.webp"}
+                              alt={activeClass?.name || myClasses[0]?.name}
                               className="w-full h-full object-cover"
                             />
                           </div>
                           <div className="flex-1 min-w-0">
                             <span className="inline-block px-2 py-0.5 rounded-md bg-[#BC9B6B]/20 text-[#7A5B2E] text-[10px] font-bold mb-1">
-                              {myClasses[0]?.track} · Cấp {myClasses[0]?.level || 1}
+                              {activeClass?.track || myClasses[0]?.track || "HSK"} · Cấp {activeClass?.level || myClasses[0]?.level || 1}
                             </span>
                             <h4 className="font-serif font-bold text-sm text-[#204434] truncate">
-                              {myClasses[0]?.name}
+                              {activeClass?.name || myClasses[0]?.name}
                             </h4>
                             <p className="text-[11px] text-[#315E48] mt-0.5 line-clamp-2 leading-relaxed">
-                              GV: {myClasses[0]?.teacherName} · Mã lớp: {myClasses[0]?.code}
+                              GV: {activeClass?.teacherName || myClasses[0]?.teacherName} · Mã lớp: {activeClass?.code || myClasses[0]?.code}
                             </p>
                           </div>
                         </div>

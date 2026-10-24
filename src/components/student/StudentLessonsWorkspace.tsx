@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import HanziPracticeModal from "./HanziPracticeModal";
 import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import {
   BookOpen,
   Search,
@@ -25,6 +26,7 @@ import {
   Globe,
   Award,
   Lock,
+  AlertCircle,
 } from "lucide-react";
 
 interface StudentLessonsWorkspaceProps {
@@ -33,6 +35,7 @@ interface StudentLessonsWorkspaceProps {
   classesCount?: number;
   myClasses?: any[];
   onOpenJoinModal?: () => void;
+  activeHskLevel?: number;
 }
 
 export default function StudentLessonsWorkspace({
@@ -41,9 +44,19 @@ export default function StudentLessonsWorkspace({
   classesCount = 0,
   myClasses = [],
   onOpenJoinModal,
+  activeHskLevel,
 }: StudentLessonsWorkspaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedHsk, setSelectedHsk] = useState(1);
+  const currentLevelFromClass = activeHskLevel || myClasses[0]?.level || 1;
+  const [selectedHsk, setSelectedHsk] = useState(currentLevelFromClass);
+
+  useEffect(() => {
+    if (activeHskLevel) {
+      setSelectedHsk(activeHskLevel);
+    } else if (myClasses[0]?.level) {
+      setSelectedHsk(myClasses[0].level);
+    }
+  }, [activeHskLevel, myClasses]);
   const [selectedLessonModal, setSelectedLessonModal] = useState<Hsk1FullLesson | null>(null);
   const [lessonModalTab, setLessonModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "PHONETICS" | "CULTURE">("VOCAB");
   const [practiceWord, setPracticeWord] = useState<{ hanzi: string; pinyin: string; meaning: string } | null>(null);
@@ -224,8 +237,8 @@ export default function StudentLessonsWorkspace({
     [studentClassIds, studentClassNames]
   );
 
-  // Use the 15 official HSK 1 lessons
-  const allLessons = OFFICIAL_HSK1_15_LESSONS;
+  // Use the 15 official HSK lessons according to selected HSK level
+  const allLessons = getLessonsByHskLevel(selectedHsk);
 
   // Filter lessons by search query
   const filteredLessons = allLessons.filter((ls) => {
@@ -360,12 +373,31 @@ export default function StudentLessonsWorkspace({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
+      {/* Thông báo nếu chưa tham gia lớp học (Đặc tả V2 Phần III & IV) */}
+      {classesCount === 0 && myClasses.length === 0 && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-700 shrink-0" />
+            <p className="text-xs font-semibold text-amber-900">
+              Bạn chưa tham gia lớp học nào. Hãy nhập mã lớp để bắt đầu học.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenJoinModal}
+            className="px-4 py-1.5 rounded-xl bg-[#204434] text-white text-xs font-bold shadow-xs hover:bg-[#183629] cursor-pointer shrink-0"
+          >
+            Nhập mã tham gia lớp
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5DEC9]">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-serif font-bold text-[#204434]">
-              Kho bài học Chuẩn HSK 1
+              Kho bài học Chuẩn HSK {selectedHsk}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] text-xs font-semibold border border-[#204434]/20">
               15 Bài học chính thức

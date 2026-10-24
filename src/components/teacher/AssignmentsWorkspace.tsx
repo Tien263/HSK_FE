@@ -1739,40 +1739,40 @@ export function AssignmentsWorkspace({
               </div>
             </div>
 
-            {/* BỘ ĐẾM THỐNG KÊ CHUẨN (SPEC SECTION 2.1) */}
+            {/* BỘ ĐẾM THỐNG KÊ CHUẨN (SPEC SECTION 2.1 - ĐẶC TẢ V2.0) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
-                <span className="text-[11px] text-[#315E48] font-medium block">Tổng số đề bài</span>
-                <p className="text-2xl font-serif font-bold text-[#204434]">{kpiMetrics.totalExams}</p>
-                <span className="text-[10px] text-[#315E48]/70">Đang quản lý</span>
+                <span className="text-[11px] text-[#315E48] font-medium block">Tổng đề trong kho</span>
+                <p className="text-2xl font-serif font-bold text-[#204434]">{examPackages.length}</p>
+                <span className="text-[10px] text-[#315E48]/70">Kho đề giáo viên</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
-                <span className="text-[11px] text-[#315E48] font-medium block">Đang mở cho học viên</span>
+                <span className="text-[11px] text-[#315E48] font-medium block">Đề đã giao lớp</span>
+                <p className="text-2xl font-serif font-bold text-[#204434]">{kpiMetrics.totalAssigned}</p>
+                <span className="text-[10px] text-[#315E48]/70">Đã phân phối</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
+                <span className="text-[11px] text-[#315E48] font-medium block">Đang mở nhận bài</span>
                 <p className="text-2xl font-serif font-bold text-emerald-700">{kpiMetrics.totalOpen}</p>
-                <span className="text-[10px] text-emerald-700 font-medium">Đang nhận bài</span>
+                <span className="text-[10px] text-emerald-700 font-medium">Học sinh làm bài</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#FFFCF6] to-[#FFF9EE] border border-[#BC9B6B]/60 space-y-1 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-[#8F6D3B] font-bold block">Chờ chấm thủ công</span>
+                  <span className="text-[11px] text-[#8F6D3B] font-bold block">Chờ chấm</span>
                   <span className="w-2 h-2 rounded-full bg-[#BC9B6B] animate-pulse" />
                 </div>
                 <p className="text-2xl font-serif font-bold text-[#8F6D3B]">{kpiMetrics.totalWaitingGrade}</p>
-                <span className="text-[10px] text-[#8F6D3B]">Tự luận, chép từ nộp ảnh</span>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] space-y-1 shadow-2xs">
-                <span className="text-[11px] text-[#315E48] font-medium block">Đã đóng hạn nộp</span>
-                <p className="text-2xl font-serif font-bold text-gray-600">{kpiMetrics.totalClosed}</p>
-                <span className="text-[10px] text-gray-500">Đã khóa bài nộp</span>
+                <span className="text-[10px] text-[#8F6D3B]">Lượt nộp cần xử lý</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-amber-200 space-y-1 shadow-2xs">
-                <span className="text-[11px] text-amber-800 font-medium block">Đề nháp (Đang soạn)</span>
+                <span className="text-[11px] text-amber-800 font-medium block">Đề nháp kho</span>
                 <p className="text-2xl font-serif font-bold text-amber-700">{kpiMetrics.totalDrafts}</p>
-                <span className="text-[10px] text-amber-700">Chưa giao lớp</span>
+                <span className="text-[10px] text-amber-700">Chưa công bố</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-emerald-200 space-y-1 shadow-2xs">
-                <span className="text-[11px] text-emerald-800 font-medium block">Đã chấm & Công bố</span>
-                <p className="text-2xl font-serif font-bold text-[#204434]">{kpiMetrics.totalPublished}</p>
-                <span className="text-[10px] text-emerald-700">Học viên đã xem</span>
+                <span className="text-[11px] text-emerald-800 font-medium block">Đã chấm điểm</span>
+                <p className="text-2xl font-serif font-bold text-emerald-700">{kpiMetrics.totalGraded}</p>
+                <span className="text-[10px] text-emerald-700">Hoàn tất chấm</span>
               </div>
             </div>
 
@@ -1782,7 +1782,7 @@ export function AssignmentsWorkspace({
                 {[
                   {
                     id: "ALL",
-                    label: `Tất cả đề (${assignments.filter((a) => a.status !== "ARCHIVED").length})`,
+                    label: `Tất cả đề đã giao (${assignments.filter((a) => a.status !== "ARCHIVED").length})`,
                   },
                   {
                     id: "OPEN",
@@ -1799,12 +1799,12 @@ export function AssignmentsWorkspace({
                   },
                   {
                     id: "DRAFT_EXAMS",
-                    label: `Đề nháp (${kpiMetrics.totalDrafts})`,
+                    label: `Đề nháp kho (${kpiMetrics.totalDrafts})`,
                     isDraftTab: true,
                   },
                   {
                     id: "READY_EXAMS",
-                    label: `Đề đã hoàn thiện (${kpiMetrics.totalReady})`,
+                    label: `Đề hoàn thiện kho (${kpiMetrics.totalReady})`,
                   },
                   {
                     id: "ARCHIVED",
