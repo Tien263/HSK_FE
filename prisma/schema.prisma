@@ -5,6 +5,7 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 // 1. NGƯỜI DÙNG & PHÂN QUYỀN (Admin, Giáo viên, Học sinh)
@@ -51,6 +52,35 @@ model Class {
   teacher     User           @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
   students    ClassStudent[]
   assignments Assignment[]
+  lessons     ClassLesson[]
+}
+
+model ClassLesson {
+  id               String   @id @default(cuid())
+  classId          String
+  lessonId         String   // "hsk1-01", "hsk1-b01", etc.
+  lessonNumber     Int      // 1 to 15
+  titleZh          String
+  titleVi          String
+  pinyin           String?
+  status           String   @default("PUBLISHED") // DRAFT, PUBLISHED
+  vocabCount       Int      @default(0)
+  grammarCount     Int      @default(0)
+  hasDialogue      Boolean  @default(true)
+  hasReading       Boolean  @default(true)
+  culturalCount    Int      @default(0)
+  selectedVocabs   String?  // JSON stringified array of selected vocabularies
+  selectedGrammars String?  // JSON stringified array of selected grammars
+  selectedDialogue String?  // JSON stringified dialogue
+  selectedCultural String?  // JSON stringified cultural items
+  teacherNote      String?
+  dueDate          String?
+  publishedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  class            Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, lessonNumber])
 }
 
 model ClassStudent {

@@ -146,17 +146,43 @@ export default function StudentLessonsWorkspace({
     return getSanitizedAssigned();
   });
 
+  // DB class lessons
+  const [dbClassLessons, setDbClassLessons] = useState<any[]>([]);
+
+  const fetchDbLessons = useCallback(async () => {
+    const classId = studentClassIds[0];
+    if (!classId) return;
+    try {
+      const res = await fetch(`/api/v1/classes/${classId}/lessons`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.lessons)) {
+          setDbClassLessons(data.lessons);
+        }
+      }
+    } catch (e) {
+      console.warn("fetchDbLessons error:", e);
+    }
+  }, [studentClassIds]);
+
+  useEffect(() => {
+    fetchDbLessons();
+  }, [fetchDbLessons]);
+
   useEffect(() => {
     const handleSyncAssigned = () => {
       setAssignedLessonList(getSanitizedAssigned());
+      fetchDbLessons();
     };
     window.addEventListener("storage", handleSyncAssigned);
     window.addEventListener("hanyu_lesson_assigned", handleSyncAssigned);
+    window.addEventListener("hanyu_class_enrolled", handleSyncAssigned);
     return () => {
       window.removeEventListener("storage", handleSyncAssigned);
       window.removeEventListener("hanyu_lesson_assigned", handleSyncAssigned);
+      window.removeEventListener("hanyu_class_enrolled", handleSyncAssigned);
     };
-  }, [getSanitizedAssigned]);
+  }, [getSanitizedAssigned, fetchDbLessons]);
 
   // Strict check whether an assignment applies to lesson ls AND belongs to student's enrolled class
   const checkLessonAssigned = useCallback(
@@ -227,7 +253,9 @@ export default function StudentLessonsWorkspace({
   // Open lesson modal with exact teacher-selected items applied
   const openLessonDetail = (ls: Hsk1FullLesson) => {
     const latestAssigned = getSanitizedAssigned();
-    const matchingAssignment = latestAssigned.find((a: any) => checkLessonAssigned(a, ls));
+    const localAss = latestAssigned.find((a: any) => checkLessonAssigned(a, ls));
+    const dbLesson = dbClassLessons.find((dl) => dl.lessonNumber === ls.number);
+    const matchingAssignment = (dbLesson?.selectedVocabs && dbLesson.selectedVocabs.length > 0) ? dbLesson : localAss;
 
     const effectiveLesson: Hsk1FullLesson = { ...ls };
 
@@ -364,10 +392,16 @@ export default function StudentLessonsWorkspace({
       {/* Grid bài học */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredLessons.map((ls) => {
-          const matchingAss = assignedLessonList.find((a: any) => checkLessonAssigned(a, ls));
-          const isAssigned = !!matchingAss;
+          const dbLesson = dbClassLessons.find((dl) => dl.lessonNumber === ls.number);
+          const isPublishedInDb = dbLesson?.status === "PUBLISHED" || dbLesson?.isPublished;
+          const isDraftInDb = dbLesson?.status === "DRAFT";
+
+          const localAss = assignedLessonList.find((a: any) => checkLessonAssigned(a, ls));
+          const matchingAss = (dbLesson?.selectedVocabs && dbLesson.selectedVocabs.length > 0) ? dbLesson : localAss;
+
+          const isAssigned = isPublishedInDb || (!!localAss && !isDraftInDb);
           const isDone = completedLessonIds.includes(ls.number);
-          // Bài học chỉ mở khóa khi giáo viên đã giao cho lớp của học sinh này hoặc học sinh đã hoàn thành
+          // Bài học chỉ mở khóa khi giáo viên đã công bố cho lớp của học sinh này hoặc học sinh đã hoàn thành
           const isUnlocked = isAssigned || isDone;
           const isCurrent = isAssigned && !isDone;
 

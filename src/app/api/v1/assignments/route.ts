@@ -8,6 +8,7 @@ export async function GET(request: Request) {
     const authUser = await getAuthUser(request);
     const { searchParams } = new URL(request.url);
     const filterClassId = searchParams.get("classId");
+    const filterClassIds = searchParams.get("classIds");
     const filterTeacherId = searchParams.get("teacherId");
     const filterStudentId = searchParams.get("studentId") || (authUser?.role === "STUDENT" ? authUser.id : null);
 
@@ -15,6 +16,9 @@ export async function GET(request: Request) {
 
     if (filterClassId) {
       where.classId = filterClassId;
+    } else if (filterClassIds) {
+      const ids = filterClassIds.split(",").map((s) => s.trim()).filter(Boolean);
+      where.classId = { in: ids };
     }
 
     if (authUser && authUser.role === "TEACHER") {

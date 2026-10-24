@@ -55,8 +55,10 @@ export async function GET(request: Request) {
           OR: [
             { id: code },
             { id: { endsWith: code.toLowerCase() } },
-            { name: { contains: code } },
-            { description: { contains: code } },
+            { id: { endsWith: normalizedCode.toLowerCase() } },
+            { name: { contains: code, mode: "insensitive" } },
+            { description: { contains: code, mode: "insensitive" } },
+            { description: { contains: normalizedCode, mode: "insensitive" } },
           ],
         },
         include: {

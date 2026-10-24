@@ -36,8 +36,10 @@ import {
   RotateCcw,
   Sparkles,
   Layers,
+  Lock,
 } from "lucide-react";
 import { getClassArtwork, normalizeDMY, parseDMY } from "@/lib/class-helper";
+import { OFFICIAL_HSK1_15_LESSONS, Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 
 // ============================================================================
 // TYPES
@@ -189,8 +191,19 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
 
   // 2. Class detail subtab
   const [detailSubTab, setDetailSubTab] = useState<
-    "overview" | "students" | "assignments" | "materials" | "schedule" | "reports" | "settings"
+    "overview" | "curriculum" | "students" | "assignments" | "materials" | "schedule" | "reports" | "settings"
   >("overview");
+
+  // 2b. Class 15-Lesson Curriculum & Custom Distribution State
+  const [curriculumLessons, setCurriculumLessons] = useState<any[]>([]);
+  const [loadingCurriculum, setLoadingCurriculum] = useState(false);
+  const [customizingLesson, setCustomizingLesson] = useState<Hsk1FullLesson | null>(null);
+  const [customVocabs, setCustomVocabs] = useState<string[]>([]);
+  const [customGrammars, setCustomGrammars] = useState<string[]>([]);
+  const [customHasDialogue, setCustomHasDialogue] = useState(true);
+  const [customTeacherNote, setCustomTeacherNote] = useState("");
+  const [customDueDate, setCustomDueDate] = useState("");
+  const [savingCurriculumLesson, setSavingCurriculumLesson] = useState(false);
 
   // 3. Join Method Subtab
   const [joinMethodTab, setJoinMethodTab] = useState<"code" | "link" | "email" | "issue">("code");
@@ -549,13 +562,172 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
     }
   };
 
+  const fetchCurriculumLessons = async (classId: string) => {
+    setLoadingCurriculum(true);
+    try {
+      const res = await fetch(`/api/v1/classes/${classId}/lessons`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.lessons)) {
+        setCurriculumLessons(data.lessons);
+        setLoadingCurriculum(false);
+        return;
+      }
+    } catch (err) {
+      console.warn("fetchCurriculumLessons error:", err);
+    }
+    // Fallback: 15 default lessons
+    const defaults = OFFICIAL_HSK1_15_LESSONS.map((ls) => ({
+      lessonNumber: ls.number,
+      titleZh: ls.titleZh,
+      titleVi: ls.titleVi,
+      pinyin: ls.pinyin,
+      status: "LOCKED",
+      isPublished: false,
+      vocabCount: ls.vocabCount,
+      grammarCount: ls.grammarCount,
+      selectedVocabs: ls.vocabList,
+      selectedGrammars: ls.grammarList,
+      selectedDialogue: ls.dialogue,
+      teacherNote: "",
+    }));
+    setCurriculumLessons(defaults);
+    setLoadingCurriculum(false);
+  };
+
+  const handleOpenCustomizeLesson = (lsNumber: number) => {
+    const fullLesson = OFFICIAL_HSK1_15_LESSONS.find((l) => l.number === lsNumber);
+    if (!fullLesson) return;
+
+    const existing = curriculumLessons.find((cl) => cl.lessonNumber === lsNumber);
+    setCustomizingLesson(fullLesson);
+
+    if (existing && Array.isArray(existing.selectedVocabs) && existing.selectedVocabs.length > 0) {
+      setCustomVocabs(existing.selectedVocabs.map((v: any) => v.hanzi));
+    } else {
+      setCustomVocabs(fullLesson.vocabList.map((v) => v.hanzi));
+    }
+
+    if (existing && Array.isArray(existing.selectedGrammars) && existing.selectedGrammars.length > 0) {
+      setCustomGrammars(existing.selectedGrammars.map((g: any) => g.title || g.name));
+    } else {
+      setCustomGrammars(fullLesson.grammarList.map((g) => g.title));
+    }
+
+    setCustomHasDialogue(existing ? existing.hasDialogue !== false : true);
+    setCustomTeacherNote(existing?.teacherNote || "");
+    setCustomDueDate(existing?.dueDate || "");
+  };
+
+  const handleSaveCurriculumLesson = async (targetStatus: "PUBLISHED" | "DRAFT") => {
+    if (!currentClass || !customizingLesson) return;
+    setSavingCurriculumLesson(true);
+
+    const chosenVocabs = customizingLesson.vocabList.filter((v) =>
+      customVocabs.includes(v.hanzi)
+    );
+    const chosenGrammars = customizingLesson.grammarList.filter((g) =>
+      customGrammars.includes(g.title)
+    );
+
+    try {
+      const res = await fetch(`/api/v1/classes/${currentClass.id}/lessons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lessonNumber: customizingLesson.number,
+          titleZh: customizingLesson.titleZh,
+          titleVi: customizingLesson.titleVi,
+          pinyin: customizingLesson.pinyin,
+          status: targetStatus,
+          selectedVocabs: chosenVocabs,
+          selectedGrammars: chosenGrammars,
+          selectedDialogue: customHasDialogue ? customizingLesson.dialogue : [],
+          teacherNote: customTeacherNote,
+          dueDate: customDueDate,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok || !resData.success) {
+        showToast(resData.message || "Lỗi cập nhật bài học.");
+        setSavingCurriculumLesson(false);
+        return;
+      }
+
+      // Sync to localStorage hanyu_assigned_lessons for cross-tab reactive updates
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("hanyu_assigned_lessons");
+          let arr = raw ? JSON.parse(raw) : [];
+          arr = arr.filter(
+            (a: any) =>
+              !(
+                (a.lessonId === customizingLesson.number ||
+                  a.lessonId === `hsk1-b${String(customizingLesson.number).padStart(2, "0")}` ||
+                  a.lessonId === `hsk1-${String(customizingLesson.number).padStart(2, "0")}`) &&
+                Array.isArray(a.classIds) &&
+                a.classIds.includes(currentClass.id)
+              )
+          );
+
+          if (targetStatus === "PUBLISHED") {
+            const newAss = {
+              id: `assign-${currentClass.id}-${customizingLesson.number}-${Date.now()}`,
+              lessonId: `hsk1-b${String(customizingLesson.number).padStart(2, "0")}`,
+              lessonNumber: customizingLesson.number,
+              titleZh: customizingLesson.titleZh,
+              titleVi: customizingLesson.titleVi,
+              classIds: [currentClass.id, currentClass.code],
+              classNames: [currentClass.name],
+              vocabCount: chosenVocabs.length,
+              grammarCount: chosenGrammars.length,
+              selectedVocabs: chosenVocabs,
+              selectedGrammars: chosenGrammars,
+              hasDialogue: customHasDialogue,
+              selectedDialogue: customHasDialogue ? customizingLesson.dialogue : [],
+              teacherNote: customTeacherNote,
+              dueDate: customDueDate,
+              assignedAt: new Date().toLocaleDateString("vi-VN"),
+              status: "PUBLISHED",
+            };
+            arr.unshift(newAss);
+          }
+
+          localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(arr));
+          window.dispatchEvent(new Event("hanyu_lesson_assigned"));
+          window.dispatchEvent(new Event("storage"));
+        } catch (e) {}
+      }
+
+      await fetchCurriculumLessons(currentClass.id);
+      setCustomizingLesson(null);
+      setSavingCurriculumLesson(false);
+
+      if (targetStatus === "PUBLISHED") {
+        showToast(
+          `🎉 Đã công bố Bài ${customizingLesson.number} cho lớp "${currentClass.name}" (${chosenVocabs.length} từ vựng, ${chosenGrammars.length} ngữ pháp)!`
+        );
+      } else {
+        showToast(
+          `📝 Đã lưu bản nháp Bài ${customizingLesson.number}. Học sinh chưa thể thấy bài này.`
+        );
+      }
+    } catch (err) {
+      console.error("Save curriculum lesson error:", err);
+      showToast("Lỗi kết nối khi lưu bài học.");
+      setSavingCurriculumLesson(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedClassId) {
       fetchClassStudents(selectedClassId);
       fetchClassAssignments(selectedClassId);
+      fetchCurriculumLessons(selectedClassId);
     } else {
       setStudentsList([]);
       setClassAssignments([]);
+      setCurriculumLessons([]);
     }
   }, [selectedClassId]);
 
@@ -1901,6 +2073,7 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
 
             {[
               { id: "overview", label: "Tổng quan" },
+              { id: "curriculum", label: "Lộ trình 15 bài" },
               { id: "students", label: `Học sinh (${studentsList.length})` },
               { id: "assignments", label: "Bài tập" },
               { id: "materials", label: "Tài liệu" },
@@ -2519,6 +2692,133 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
 
               </div>
 
+            </div>
+          )}
+
+          {/* ----------------------------------------------------------------- */}
+          {/* TAB: LỘ TRÌNH 15 BÀI (NGHIỆP VỤ 3: TÙY CHỈNH & CÔNG BỐ) */}
+          {/* ----------------------------------------------------------------- */}
+          {detailSubTab === "curriculum" && (
+            <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-6 shadow-2xs space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-[#E5DFD0]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-serif font-bold text-[#17382F]">
+                      Lộ trình 15 bài học – Lớp {currentClass.name}
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#1F513F]/10 text-[#1F513F] text-xs font-semibold">
+                      Khung HSK 3.0 (Cấp 1)
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#6B766D] mt-1">
+                    Quản lý và phân phối chính xác nội dung học cho lớp. Chỉ những từ vựng, ngữ pháp cô/thầy tích chọn mới được chuyển đến học sinh.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#1F513F] bg-[#1F513F]/10 px-3 py-1.5 rounded-xl">
+                    Đã công bố: {curriculumLessons.filter((l) => l.status === "PUBLISHED" || l.isPublished).length} / 15 bài
+                  </span>
+                </div>
+              </div>
+
+              {loadingCurriculum ? (
+                <div className="py-12 text-center text-xs text-[#6B766D]">
+                  Đang đồng bộ lộ trình bài học của lớp...
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {OFFICIAL_HSK1_15_LESSONS.map((ls) => {
+                    const cl = curriculumLessons.find((c) => c.lessonNumber === ls.number);
+                    const isPublished = cl?.status === "PUBLISHED" || cl?.isPublished;
+                    const isDraft = cl?.status === "DRAFT";
+
+                    const effectiveVocabCount = cl?.vocabCount ?? (cl?.selectedVocabs?.length || ls.vocabCount);
+                    const effectiveGrammarCount = cl?.grammarCount ?? (cl?.selectedGrammars?.length || ls.grammarCount);
+
+                    return (
+                      <div
+                        key={ls.number}
+                        className={`rounded-2xl border p-4.5 flex flex-col justify-between space-y-3 transition ${
+                          isPublished
+                            ? "bg-white border-emerald-300 shadow-2xs ring-1 ring-emerald-500/10"
+                            : isDraft
+                            ? "bg-[#FFFDF7] border-amber-300 shadow-2xs"
+                            : "bg-[#FBF9F2]/70 border-[#E5DFD0]"
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono font-bold text-[#8F6D3B]">
+                              Bài {String(ls.number).padStart(2, "0")}
+                            </span>
+                            {isPublished ? (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Đã công bố</span>
+                              </span>
+                            ) : isDraft ? (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Bản nháp</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold flex items-center gap-1">
+                                <Lock className="w-3 h-3 text-gray-400" />
+                                <span>Chưa mở</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <h4 className="font-serif font-bold text-base text-[#17382F] leading-snug">
+                              {ls.titleZh}
+                            </h4>
+                            <p className="text-[11px] text-[#6B766D] font-mono">{ls.pinyin}</p>
+                            <p className="text-xs font-medium text-[#17382F] mt-0.5">{ls.titleVi}</p>
+                          </div>
+
+                          <div className="pt-2 border-t border-[#E5DFD0]/60 flex items-center gap-2 text-[11px] text-[#6B766D] flex-wrap">
+                            <span className="font-semibold text-[#1F513F]">
+                              {effectiveVocabCount}/{ls.vocabCount} từ vựng
+                            </span>
+                            <span>•</span>
+                            <span>{effectiveGrammarCount}/{ls.grammarCount} ngữ pháp</span>
+                          </div>
+
+                          {cl?.teacherNote && (
+                            <div className="p-2 rounded-xl bg-[#F7F5EE] border border-[#E5DFD0]/70 text-[11px] text-[#6B766D] italic">
+                              "{cl.teacherNote}"
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCustomizeLesson(ls.number)}
+                            className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                              isPublished
+                                ? "bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                                : isDraft
+                                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                                : "bg-[#1F513F] hover:bg-[#17382F] text-white"
+                            }`}
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>
+                              {isPublished
+                                ? "Chỉnh sửa bài đã công bố"
+                                : isDraft
+                                ? "Tiếp tục chỉnh sửa & Công bố"
+                                : "Tùy chỉnh & Công bố bài này"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -3539,6 +3839,247 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 5B: TÙY CHỈNH VÀ CÔNG BỐ BÀI HỌC CHO LỚP */}
+      {/* ===================================================================== */}
+      {customizingLesson && currentClass && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF7] border border-[#E5DFD0] rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between pb-3 border-b border-[#E5DFD0]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-[#1F513F]/10 text-[#1F513F] text-[10px] font-bold font-mono">
+                    Bài {String(customizingLesson.number).padStart(2, "0")}
+                  </span>
+                  <h3 className="font-serif font-bold text-base text-[#17382F]">
+                    {customizingLesson.titleZh} ({customizingLesson.titleVi})
+                  </h3>
+                </div>
+                <p className="text-xs text-[#6B766D] mt-1">
+                  Lớp tiếp nhận: <strong className="text-[#17382F]">{currentClass.name}</strong> (Mã: {currentClass.code})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomizingLesson(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mục 1: Chọn từ vựng */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-[#17382F] uppercase tracking-wide">
+                    1. Tích chọn từ vựng cần dạy ({customVocabs.length} / {customizingLesson.vocabList.length} từ)
+                  </h4>
+                  <p className="text-[11px] text-[#6B766D]">
+                    Học sinh sẽ chỉ nhìn thấy và học những từ được tích chọn bên dưới.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCustomVocabs(customizingLesson.vocabList.map((v) => v.hanzi))}
+                    className="text-[11px] font-semibold text-[#1F513F] hover:underline cursor-pointer"
+                  >
+                    Chọn tất cả
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setCustomVocabs([])}
+                    className="text-[11px] font-semibold text-[#9D493E] hover:underline cursor-pointer"
+                  >
+                    Bỏ chọn hết
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1 bg-[#FBF9F2] rounded-2xl border border-[#E5DFD0]">
+                {customizingLesson.vocabList.map((v) => {
+                  const isChecked = customVocabs.includes(v.hanzi);
+                  return (
+                    <label
+                      key={v.hanzi}
+                      className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition ${
+                        isChecked
+                          ? "bg-white border-[#1F513F] shadow-2xs"
+                          : "bg-white/50 border-[#E5DFD0] opacity-60"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setCustomVocabs((prev) => [...prev, v.hanzi]);
+                          } else {
+                            setCustomVocabs((prev) => prev.filter((h) => h !== v.hanzi));
+                          }
+                        }}
+                        className="rounded border-[#E5DFD0] text-[#1F513F] focus:ring-[#1F513F] mt-0.5"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-serif font-bold text-sm text-[#17382F]">{v.hanzi}</span>
+                          <span className="text-[10px] font-mono text-[#8F6D3B]">{v.pinyin}</span>
+                        </div>
+                        <div className="text-[11px] text-[#6B766D] truncate">{v.meaning}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mục 2: Chọn ngữ pháp */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-[#17382F] uppercase tracking-wide">
+                    2. Tích chọn điểm ngữ pháp ({customGrammars.length} / {customizingLesson.grammarList.length} điểm)
+                  </h4>
+                  <p className="text-[11px] text-[#6B766D]">
+                    Các điểm ngữ pháp cốt lõi giáo viên yêu cầu học sinh nắm vững.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCustomGrammars(customizingLesson.grammarList.map((g) => g.title))}
+                    className="text-[11px] font-semibold text-[#1F513F] hover:underline cursor-pointer"
+                  >
+                    Chọn tất cả
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setCustomGrammars([])}
+                    className="text-[11px] font-semibold text-[#9D493E] hover:underline cursor-pointer"
+                  >
+                    Bỏ chọn hết
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto p-1 bg-[#FBF9F2] rounded-2xl border border-[#E5DFD0]">
+                {customizingLesson.grammarList.map((g) => {
+                  const isChecked = customGrammars.includes(g.title);
+                  return (
+                    <label
+                      key={g.title}
+                      className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition ${
+                        isChecked
+                          ? "bg-white border-[#1F513F] shadow-2xs"
+                          : "bg-white/50 border-[#E5DFD0] opacity-60"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setCustomGrammars((prev) => [...prev, g.title]);
+                          } else {
+                            setCustomGrammars((prev) => prev.filter((t) => t !== g.title));
+                          }
+                        }}
+                        className="rounded border-[#E5DFD0] text-[#1F513F] focus:ring-[#1F513F] mt-0.5"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-serif font-bold text-xs text-[#17382F]">{g.title}</div>
+                        <div className="text-[11px] font-mono text-[#8F6D3B] mt-0.5">{g.structure}</div>
+                        <div className="text-[11px] text-[#6B766D] mt-0.5">Ví dụ: {g.example}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mục 3: Hội thoại & Dặn dò */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#17382F] block">
+                  3. Hội thoại & Đàm thoại
+                </label>
+                <label className="p-3 rounded-xl border border-[#E5DFD0] bg-[#FBF9F2] flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customHasDialogue}
+                    onChange={(e) => setCustomHasDialogue(e.target.checked)}
+                    className="rounded border-[#E5DFD0] text-[#1F513F] focus:ring-[#1F513F]"
+                  />
+                  <span className="text-xs text-[#17382F] font-medium">Bao gồm bài hội thoại mẫu ({customizingLesson.dialogue.length} lượt thoại)</span>
+                </label>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#17382F] block">
+                  4. Hạn hoàn thành (Tùy chọn)
+                </label>
+                <input
+                  type="date"
+                  value={customDueDate}
+                  onChange={(e) => setCustomDueDate(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-[#E5DFD0] bg-[#FBF9F2] text-xs text-[#17382F] outline-none focus:border-[#1F513F] focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#17382F] block">
+                5. Lời dặn dò của giáo viên cho lớp (Ghi chú học tập)
+              </label>
+              <textarea
+                value={customTeacherNote}
+                onChange={(e) => setCustomTeacherNote(e.target.value)}
+                placeholder="Ví dụ: Các em học thuộc 8 từ vựng đầu tiên và luyện đọc đoạn hội thoại trước buổi học thứ Năm..."
+                rows={2}
+                className="w-full p-2.5 rounded-xl border border-[#E5DFD0] bg-[#FBF9F2] text-xs text-[#17382F] outline-none focus:border-[#1F513F] focus:bg-white"
+              />
+            </div>
+
+            {/* Action buttons */}
+            <div className="pt-3 border-t border-[#E5DFD0] flex items-center justify-between gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setCustomizingLesson(null)}
+                className="px-4 py-2 rounded-xl border border-[#E5DFD0] bg-white text-xs font-semibold text-[#6B766D] hover:bg-gray-50 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+
+              <div className="flex items-center gap-2">
+                {/* NÚT LƯU BẢN NHÁP */}
+                <button
+                  type="button"
+                  disabled={savingCurriculumLesson}
+                  onClick={() => handleSaveCurriculumLesson("DRAFT")}
+                  className="px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                >
+                  {savingCurriculumLesson ? "Đang lưu..." : "Lưu bản nháp"}
+                </button>
+
+                {/* NÚT LƯU VÀ CÔNG BỐ CHO LỚP */}
+                <button
+                  type="button"
+                  disabled={savingCurriculumLesson || customVocabs.length === 0}
+                  onClick={() => handleSaveCurriculumLesson("PUBLISHED")}
+                  className="px-5 py-2 rounded-xl bg-[#1F513F] hover:bg-[#17382F] text-white text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{savingCurriculumLesson ? "Đang công bố..." : "Lưu và công bố cho lớp"}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

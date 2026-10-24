@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { OFFICIAL_HSK1_15_LESSONS } from "@/lib/hsk1-full-lessons";
 
 export async function POST(request: Request) {
   try {
@@ -37,7 +38,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // Ensure a QuizSet exists for assignment link
+    // 1. Lưu bản ghi ClassLesson vào PostgreSQL DB theo Nghiệp vụ 3
+    const lessonNum = parseInt(String(lessonId).replace(/\D/g, ""), 10) || 1;
+    const baseLesson = OFFICIAL_HSK1_15_LESSONS.find((l) => l.number === lessonNum) || OFFICIAL_HSK1_15_LESSONS[0];
+
+    const chosenVocabs = selectedItems?.selectedVocabs || [];
+    const chosenGrammars = selectedItems?.selectedGrammars || [];
+    const chosenCultural = selectedItems?.selectedCulturalItems || [];
+
+    await prisma.classLesson.upsert({
+      where: {
+        classId_lessonNumber: {
+          classId: targetClass.id,
+          lessonNumber: lessonNum,
+        },
+      },
+      update: {
+        status: "PUBLISHED",
+        vocabCount: chosenVocabs.length > 0 ? chosenVocabs.length : (selectedItems?.vocabCount || baseLesson.vocabCount),
+        grammarCount: chosenGrammars.length > 0 ? chosenGrammars.length : (selectedItems?.grammarCount || baseLesson.grammarCount),
+        selectedVocabs: chosenVocabs.length > 0 ? JSON.stringify(chosenVocabs) : null,
+        selectedGrammars: chosenGrammars.length > 0 ? JSON.stringify(chosenGrammars) : null,
+        selectedDialogue: selectedItems?.selectedDialogue ? JSON.stringify(selectedItems.selectedDialogue) : null,
+        selectedCultural: chosenCultural.length > 0 ? JSON.stringify(chosenCultural) : null,
+        teacherNote: note ? String(note).trim() : null,
+        dueDate: dueDate ? String(dueDate).trim() : null,
+        updatedAt: new Date(),
+      },
+      create: {
+        classId: targetClass.id,
+        lessonNumber: lessonNum,
+        lessonId: baseLesson.id,
+        titleZh: baseLesson.titleZh,
+        titleVi: baseLesson.titleVi,
+        pinyin: baseLesson.pinyin,
+        status: "PUBLISHED",
+        vocabCount: chosenVocabs.length > 0 ? chosenVocabs.length : (selectedItems?.vocabCount || baseLesson.vocabCount),
+        grammarCount: chosenGrammars.length > 0 ? chosenGrammars.length : (selectedItems?.grammarCount || baseLesson.grammarCount),
+        selectedVocabs: chosenVocabs.length > 0 ? JSON.stringify(chosenVocabs) : null,
+        selectedGrammars: chosenGrammars.length > 0 ? JSON.stringify(chosenGrammars) : null,
+        selectedDialogue: selectedItems?.selectedDialogue ? JSON.stringify(selectedItems.selectedDialogue) : null,
+        selectedCultural: chosenCultural.length > 0 ? JSON.stringify(chosenCultural) : null,
+        teacherNote: note ? String(note).trim() : null,
+        dueDate: dueDate ? String(dueDate).trim() : null,
+      },
+    });
+
+    // 2. Tạo bản ghi giao bài tập phụ trợ (nếu có)
     let quizSet = await prisma.quizSet.findFirst();
     if (!quizSet) {
       quizSet = await prisma.quizSet.create({
@@ -65,7 +112,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Đã giao bài học "${lessonTitle}" thành công cho lớp ${targetClass.name}!`,
+      message: `Đã công bố bài học "${baseLesson.titleVi}" (${lessonNum}) cho lớp ${targetClass.name}!`,
       assignmentId: newAssignment.id,
     });
   } catch (error: any) {
