@@ -136,12 +136,12 @@ export default function MockExamsSection() {
 
             {/* CTA Button */}
             <div className="pt-6">
-              <button
-                onClick={() => alert(`Tính năng phòng thi thật HSK ${exam.level} đang kết nối trực tiếp vào giao diện làm bài!`)}
-                className="w-full py-3 rounded-xl bg-white/10 hover:bg-amber-500 hover:text-slate-950 text-white font-semibold text-sm transition-all duration-200 text-center block border border-white/10 group-hover:border-transparent"
+              <Link
+                href="/s/home?tab=assignments"
+                className="w-full py-3 rounded-xl bg-white/10 hover:bg-amber-500 hover:text-slate-950 text-white font-semibold text-sm transition-all duration-200 text-center block border border-white/10 group-hover:border-transparent cursor-pointer"
               >
                 Vào thi thử ngay
-              </button>
+              </Link>
             </div>
           </div>
         ))}

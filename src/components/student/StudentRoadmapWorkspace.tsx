@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Compass,
@@ -72,6 +72,50 @@ export default function StudentRoadmapWorkspace({
     return [];
   });
 
+  // Đồng bộ danh sách bài học giáo viên đã mở / giao cho lớp
+  const [assignedLessonList, setAssignedLessonList] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const saved = localStorage.getItem("hanyu_assigned_lessons");
+        if (saved) setAssignedLessonList(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("hanyu_lesson_assigned", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("hanyu_lesson_assigned", handleSync);
+    };
+  }, []);
+
+  const isLessonAssignedOrDone = (num: number) => {
+    return (
+      completedLessonIds.includes(num) ||
+      assignedLessonList.some(
+        (a: any) =>
+          a.lessonId === num ||
+          a.lessonId === `hsk1-l${num}` ||
+          a.lessonId === "hsk1-b01" ||
+          a.lessonId === "hsk1-01"
+      )
+    );
+  };
+
+  const s1Active = [1, 2, 3, 4].some(isLessonAssignedOrDone);
+  const s2Active = [5, 6, 7, 8].some(isLessonAssignedOrDone);
+  const s3Active = [9, 10, 11, 12].some(isLessonAssignedOrDone);
+  const s4Active = [13, 14, 15].some(isLessonAssignedOrDone);
+
   // Tính số bài đã học trong từng chặng
   const s1Done = completedLessonIds.filter((id) => [1, 2, 3, 4].includes(id)).length;
   const s2Done = completedLessonIds.filter((id) => [5, 6, 7, 8].includes(id)).length;
@@ -88,7 +132,7 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 1,
       title: "Chặng 1: Nền tảng Ngữ âm & Chào hỏi ban đầu",
       desc: "Làm chủ 21 Thanh mẫu, 36 Vận mẫu, 4 Thanh điệu và các mẫu câu chào hỏi, giới thiệu tên tuổi, gia đình.",
-      status: s1Done === 4 ? "COMPLETED" : "IN_PROGRESS",
+      status: s1Done === 4 ? "COMPLETED" : s1Active ? "IN_PROGRESS" : "LOCKED",
       progress: Math.round((s1Done / 4) * 100),
       xpEarned: s1Done * 100,
       badge: "Ngữ âm chuẩn xác",
@@ -100,7 +144,7 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 2,
       title: "Chặng 2: Sinh hoạt, Thời gian & Nghỉ ngơi",
       desc: "Học cách nói về ngày nghỉ, trao đổi số điện thoại, thời gian biểu tan làm và nghề nghiệp của các thành viên gia đình.",
-      status: s1Done === 4 ? (s2Done === 4 ? "COMPLETED" : "IN_PROGRESS") : "LOCKED",
+      status: s2Done === 4 ? "COMPLETED" : s2Active || (s1Done === 4) ? "IN_PROGRESS" : "LOCKED",
       progress: Math.round((s2Done / 4) * 100),
       xpEarned: s2Done * 100,
       badge: "Giao tiếp sinh hoạt",
@@ -112,7 +156,7 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 3,
       title: "Chặng 3: Học tập, Mua sắm & Đời sống",
       desc: "Nói về trường học, hỏi giá cả mua sắm đồ ăn thức uống, đời sống sinh viên đại học và dự báo thời tiết.",
-      status: s2Done === 4 ? (s3Done === 4 ? "COMPLETED" : "IN_PROGRESS") : "LOCKED",
+      status: s3Done === 4 ? "COMPLETED" : s3Active || (s2Done === 4) ? "IN_PROGRESS" : "LOCKED",
       progress: Math.round((s3Done / 4) * 100),
       xpEarned: s3Done * 100,
       badge: "Đời sống thực tế",
@@ -124,7 +168,7 @@ export default function StudentRoadmapWorkspace({
       stageNumber: 4,
       title: "Chặng 4: Giao tiếp mở rộng & Vượt ải HSK 1",
       desc: "Mẫu câu gọi món/uống trà, xem phim giải trí, hẹn gặp tại sân bay và tổng kết 150 từ vựng cốt lõi chuẩn bị thi.",
-      status: s3Done === 4 ? (s4Done === 3 ? "COMPLETED" : "IN_PROGRESS") : "LOCKED",
+      status: s4Done === 3 ? "COMPLETED" : s4Active || (s3Done === 4) ? "IN_PROGRESS" : "LOCKED",
       progress: Math.round((s4Done / 3) * 100),
       xpEarned: s4Done * 100,
       badge: "Chiến binh HSK 1",

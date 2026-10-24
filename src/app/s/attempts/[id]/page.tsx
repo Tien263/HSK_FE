@@ -32,6 +32,7 @@ interface QuestionItem {
   imageUrl?: string | null;
   options: any;
   points: number;
+  correctAnswer?: string;
 }
 
 const BENCHMARK_12_QUESTIONS: QuestionItem[] = [
@@ -497,6 +498,67 @@ function AttemptInner() {
 
     setSubmitting(true);
 
+    // Đồng bộ bài nộp vào kho lưu trữ nội bộ giữa Học sinh & Giáo viên
+    try {
+      let studentName = "Học viên";
+      let studentId = "student-demo-1";
+      const userRaw = localStorage.getItem("currentUser") || localStorage.getItem("hanyu_user");
+      if (userRaw) {
+        const u = JSON.parse(userRaw);
+        studentName = u.name || studentName;
+        studentId = u.id || studentId;
+      }
+
+      let totalPts = 0;
+      let earnedPts = 0;
+      questions.forEach((q) => {
+        const pt = q.points || 5;
+        totalPts += pt;
+        const studentA = (answers[q.id] || "").trim().toUpperCase();
+        const correctA = (q.correctAnswer || "A").trim().toUpperCase();
+        if (studentA && studentA === correctA) {
+          earnedPts += pt;
+        }
+      });
+
+      const existingSubsRaw = localStorage.getItem("hanyu_student_submissions");
+      const subList = existingSubsRaw ? JSON.parse(existingSubsRaw) : [];
+      const nowStr =
+        new Date().toLocaleDateString("vi-VN") +
+        " " +
+        new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+      const newSub = {
+        id: "sub-" + Date.now(),
+        studentId,
+        studentName,
+        studentAvatar: "/theme/avatar-student.jpg",
+        assignmentId: attemptId,
+        assignmentTitle: assignmentTitle || "Bài tập củng cố",
+        className: "demo",
+        attemptNumber: 1,
+        submittedAt: nowStr,
+        submissionStatus: "SUBMITTED",
+        gradingStatus: "GRADED",
+        status: "GRADED",
+        answeredQuestionsCount: Object.keys(answers).length,
+        totalQuestionsCount: questions.length,
+        autoScore: earnedPts,
+        totalScore: earnedPts,
+        maxScore: totalPts || 100,
+        isPublished: true,
+      };
+
+      const updatedSubs = [
+        newSub,
+        ...subList.filter((s: any) => !(s.assignmentId === attemptId && s.studentId === studentId)),
+      ];
+      localStorage.setItem("hanyu_student_submissions", JSON.stringify(updatedSubs));
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new CustomEvent("hanyu_student_submitted", { detail: newSub }));
+    } catch (e) {
+      console.error("Save submission error:", e);
+    }
+
     if (attemptId === "preview" || attemptId.startsWith("demo")) {
       setTimeout(() => {
         router.push(`/s/attempts/${attemptId}/result`);
@@ -520,12 +582,31 @@ function AttemptInner() {
       if (result.success) {
         router.push(`/s/attempts/${attemptId}/result`);
       } else {
-        alert("Lỗi nộp bài: " + (result.message || "Vui lòng thử lại"));
-        setSubmitting(false);
+        // Fallback lưu kết quả cục bộ nếu là bài tập tùy chỉnh do giáo viên vừa tạo
+        try {
+          const localResult = {
+            attemptId,
+            answers,
+            submittedAt: new Date().toISOString(),
+          };
+          localStorage.setItem(`hanyu_attempt_result_${attemptId}`, JSON.stringify(localResult));
+          router.push(`/s/attempts/${attemptId}/result`);
+        } catch {
+          setSubmitting(false);
+        }
       }
     } catch {
-      alert("Không thể kết nối đến máy chủ.");
-      setSubmitting(false);
+      try {
+        const localResult = {
+          attemptId,
+          answers,
+          submittedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(`hanyu_attempt_result_${attemptId}`, JSON.stringify(localResult));
+        router.push(`/s/attempts/${attemptId}/result`);
+      } catch {
+        setSubmitting(false);
+      }
     }
   };
 

@@ -24,6 +24,7 @@ import {
   Headphones,
   Globe,
   Award,
+  Lock,
 } from "lucide-react";
 
 interface StudentLessonsWorkspaceProps {
@@ -44,6 +45,7 @@ export default function StudentLessonsWorkspace({
   const [selectedLessonModal, setSelectedLessonModal] = useState<Hsk1FullLesson | null>(null);
   const [lessonModalTab, setLessonModalTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "PHONETICS" | "CULTURE">("VOCAB");
   const [practiceWord, setPracticeWord] = useState<{ hanzi: string; pinyin: string; meaning: string } | null>(null);
+  const [lockedNotification, setLockedNotification] = useState<string | null>(null);
 
   // Danh sách bài học đã hoàn thành thực tế của học sinh
   const [completedLessonIds, setCompletedLessonIds] = useState<number[]>(() => {
@@ -178,6 +180,8 @@ export default function StudentLessonsWorkspace({
           tags: [ci.categoryLabel || "Văn hóa"],
         }));
       }
+      (effectiveLesson as any).teacherNote = matchingAssignment.teacherNote;
+      (effectiveLesson as any).dueDate = matchingAssignment.dueDate;
     }
 
     setSelectedLessonModal(effectiveLesson);
@@ -273,8 +277,8 @@ export default function StudentLessonsWorkspace({
           );
           const isAssigned = !!matchingAss;
           const isDone = completedLessonIds.includes(ls.number);
-          // Bài 1 mở sẵn để học viên làm quen buổi đầu; các bài 2-15 mở khi giáo viên giao hoặc học sinh đã hoàn thành
-          const isUnlocked = ls.number === 1 || isAssigned || isDone;
+          // Bài học chỉ mở khóa khi giáo viên đã giao cho lớp hoặc học sinh đã hoàn thành bài học
+          const isUnlocked = isAssigned || isDone;
           const isCurrent = isAssigned && !isDone;
 
           const effectiveVocabCount = matchingAss?.selectedVocabs?.length ?? matchingAss?.vocabCount ?? ls.vocabCount;
@@ -285,7 +289,8 @@ export default function StudentLessonsWorkspace({
               key={ls.id}
               onClick={() => {
                 if (!isUnlocked) {
-                  alert(`Bài học ${ls.number} (${ls.titleVi}) chưa được giáo viên mở khóa cho lớp của bạn. Hãy theo dõi thông báo và dặn dò của giáo viên nhé!`);
+                  setLockedNotification(`Bài học ${ls.number} (${ls.titleVi}) chưa được giáo viên mở khóa cho lớp của bạn. Hãy theo dõi thông báo và dặn dò của giáo viên nhé!`);
+                  setTimeout(() => setLockedNotification(null), 4000);
                   return;
                 }
                 openLessonDetail(ls);
@@ -382,6 +387,21 @@ export default function StudentLessonsWorkspace({
                 </h3>
                 <p className="text-xs font-semibold text-[#315E48]">{selectedLessonModal.titleVi}</p>
                 <p className="text-xs text-[#315E48]/80 mt-1">{selectedLessonModal.desc}</p>
+
+                {(selectedLessonModal as any).teacherNote && (
+                  <div className="mt-3 p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2.5 animate-fadeIn">
+                    <Bookmark className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-amber-950 block">Dặn dò của giáo viên phụ trách:</span>
+                      <p className="mt-0.5 text-amber-800 leading-relaxed">{(selectedLessonModal as any).teacherNote}</p>
+                      {(selectedLessonModal as any).dueDate && (
+                        <span className="text-[11px] font-semibold text-amber-700 mt-1 block">
+                          Hạn hoàn thành: {(selectedLessonModal as any).dueDate}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button
@@ -649,6 +669,21 @@ export default function StudentLessonsWorkspace({
           initialPinyin={practiceWord.pinyin}
           initialMeaning={practiceWord.meaning}
         />
+      )}
+
+      {/* Floating Notification for Locked Lesson */}
+      {lockedNotification && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-[#204434] text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 border border-[#BC9B6B]/40 animate-slideUp">
+          <Lock className="w-5 h-5 text-[#BC9B6B] shrink-0" />
+          <span className="text-xs leading-relaxed">{lockedNotification}</span>
+          <button
+            type="button"
+            onClick={() => setLockedNotification(null)}
+            className="ml-auto text-white/70 hover:text-white cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
     </div>
   );

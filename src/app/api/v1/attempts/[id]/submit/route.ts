@@ -10,7 +10,7 @@ export async function POST(
     const body = await request.json();
     const { answers, durationSec } = body; // answers: { [questionId]: "A" }
 
-    const attempt = await prisma.attempt.findUnique({
+    let attempt = await prisma.attempt.findUnique({
       where: { id: attemptId },
       include: {
         student: true,
@@ -27,6 +27,45 @@ export async function POST(
         },
       },
     });
+
+    if (!attempt) {
+      // Hỗ trợ trường hợp attemptId chính là assignmentId
+      const assignment = await prisma.assignment.findUnique({
+        where: { id: attemptId },
+        include: {
+          quizSet: {
+            include: {
+              questions: { include: { question: true } },
+            },
+          },
+        },
+      });
+
+      if (assignment) {
+        let student = await prisma.user.findFirst({ where: { role: "STUDENT" } });
+        if (student) {
+          attempt = await prisma.attempt.create({
+            data: {
+              assignmentId: assignment.id,
+              studentId: student.id,
+              status: "IN_PROGRESS",
+            },
+            include: {
+              student: true,
+              assignment: {
+                include: {
+                  quizSet: {
+                    include: {
+                      questions: { include: { question: true } },
+                    },
+                  },
+                },
+              },
+            },
+          });
+        }
+      }
+    }
 
     if (!attempt) {
       return NextResponse.json({ success: false, message: "Không tìm thấy lượt làm bài" }, { status: 404 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { Sparkles, ArrowRight, Clock, Award, Headphones } from "lucide-react";
 
@@ -71,15 +72,13 @@ export default function SpecialExamBanner() {
             </div>
 
             {/* Action CTA Button */}
-            <button
-              onClick={() =>
-                alert("Hệ thống đề thi thử HSK đang sẵn sàng kết nối trực tiếp vào giao diện thi thử!")
-              }
-              className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#e86a24] text-white font-semibold text-base shadow-xl shadow-orange-950/40 hover:bg-[#d45a16] hover:scale-[1.02] transition-all duration-200"
+            <Link
+              href="/s/home?tab=assignments"
+              className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#e86a24] text-white font-semibold text-base shadow-xl shadow-orange-950/40 hover:bg-[#d45a16] hover:scale-[1.02] transition-all duration-200 cursor-pointer"
             >
               <span>Vào phòng thi ngay</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
         </div>
       </div>

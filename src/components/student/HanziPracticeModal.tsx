@@ -190,7 +190,7 @@ export default function HanziPracticeModal({
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Trình duyệt của bạn chưa hỗ trợ Web Speech API. Vui lòng thử trên Chrome hoặc Edge!");
+      setSpeechStatusText("Trình duyệt chưa hỗ trợ Web Speech API. Vui lòng mở trang web trên Google Chrome hoặc Microsoft Edge để luyện phát âm AI!");
       return;
     }
 

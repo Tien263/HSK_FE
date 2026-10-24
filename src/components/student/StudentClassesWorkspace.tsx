@@ -631,7 +631,8 @@ export default function StudentClassesWorkspace({
                 <span>Vào lớp Google Meet ngay</span>
               </a>
               <button
-                onClick={() => alert("Đang tải tài liệu chuẩn bị trước buổi học...")}
+                type="button"
+                onClick={() => onNavigateToTab?.("lessons")}
                 className="px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] text-xs font-semibold shadow-2xs transition cursor-pointer"
               >
                 Tài liệu trước buổi học

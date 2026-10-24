@@ -327,14 +327,28 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
               const regRaw = localStorage.getItem("hanyu_class_enrolled_students");
               if (regRaw) {
                 const reg = JSON.parse(regRaw);
-                const list = reg[c.id] || reg[formattedCode] || [];
+                const list = reg[c.id] || (c.code ? reg[c.code] : null) || reg[formattedCode] || [];
                 localEnrolledCount = list.length;
               }
               const profRaw = localStorage.getItem("hanyu_study_profile");
               if (profRaw && localEnrolledCount === 0) {
                 const p = JSON.parse(profRaw);
-                if (p.classInfo?.id === c.id || p.classCode === formattedCode) {
+                const codeMatch =
+                  (p.classCode || "").toUpperCase() === (c.code || formattedCode || "").toUpperCase();
+                if (p.classInfo?.id === c.id || codeMatch) {
                   localEnrolledCount = 1;
+                }
+              }
+              const enrolledClassesRaw = localStorage.getItem("hanyu_student_enrolled_classes");
+              if (enrolledClassesRaw && localEnrolledCount === 0) {
+                const enrolled = JSON.parse(enrolledClassesRaw);
+                if (Array.isArray(enrolled)) {
+                  const hasEnrolled = enrolled.some(
+                    (ec: any) =>
+                      ec.id === c.id ||
+                      (ec.code || "").toUpperCase() === (c.code || formattedCode || "").toUpperCase()
+                  );
+                  if (hasEnrolled) localEnrolledCount = 1;
                 }
               }
             } catch (e) {}
@@ -400,6 +414,20 @@ export default function ClassesWorkspace({ currentUser, onClassCountChange, onAs
       setStudentsList([]);
       setLoading(false);
     }
+
+    const handleSync = () => {
+      if (currentUser?.id) {
+        fetchClasses();
+      }
+    };
+
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("hanyu_class_enrolled", handleSync);
+
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("hanyu_class_enrolled", handleSync);
+    };
   }, [currentUser?.id]);
 
   // ==========================================================================

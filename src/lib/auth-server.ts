@@ -51,8 +51,10 @@ export async function getAuthUser(request: Request): Promise<AuthUser | null> {
       return null;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id: userId }, { username: userId }],
+      },
       select: {
         id: true,
         username: true,

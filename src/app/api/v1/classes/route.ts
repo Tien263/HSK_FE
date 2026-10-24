@@ -157,8 +157,10 @@ export async function POST(request: Request) {
     }
 
     // Kiểm tra giáo viên có tồn tại trong DB không
-    const teacherUser = await prisma.user.findUnique({
-      where: { id: effectiveTeacherId },
+    const teacherUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ id: effectiveTeacherId }, { username: effectiveTeacherId }],
+      },
     });
 
     if (!teacherUser || (teacherUser.role !== "TEACHER" && teacherUser.role !== "ADMIN")) {

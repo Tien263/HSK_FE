@@ -294,16 +294,15 @@ export default function LoginPage() {
                     <span>Ghi nhớ</span>
                   </label>
 
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert("Vui lòng liên hệ giáo viên hoặc sử dụng tính năng xác minh qua email.");
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError("Để lấy lại mật khẩu tài khoản học tập nội bộ, vui lòng liên hệ trực tiếp giáo viên phụ trách hoặc quản trị viên hệ thống.");
                     }}
-                    className="text-[#315E48] hover:text-[#204434] hover:underline font-medium"
+                    className="text-[#315E48] hover:text-[#204434] hover:underline font-medium cursor-pointer"
                   >
                     Quên mật khẩu?
-                  </a>
+                  </button>
                 </div>
 
                 {/* Submit Button */}

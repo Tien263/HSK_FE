@@ -182,6 +182,22 @@ export function AssignmentsWorkspace({
     }
   }, [submissions]);
 
+  // Lắng nghe sự kiện học sinh nộp bài để giáo viên cập nhật ngay lập tức
+  useEffect(() => {
+    const handleSyncSubmissions = () => {
+      try {
+        const saved = localStorage.getItem("hanyu_student_submissions");
+        if (saved) setSubmissions(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener("storage", handleSyncSubmissions);
+    window.addEventListener("hanyu_student_submitted", handleSyncSubmissions);
+    return () => {
+      window.removeEventListener("storage", handleSyncSubmissions);
+      window.removeEventListener("hanyu_student_submitted", handleSyncSubmissions);
+    };
+  }, []);
+
   // Submissions Filters
   const [subFilterClass, setSubFilterClass] = useState("ALL");
   const [subFilterExam, setSubFilterExam] = useState("ALL");

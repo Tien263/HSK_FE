@@ -169,6 +169,7 @@ export default function StudentHomePage() {
     confirmPassword: "",
   });
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
+  const [saveErrorMsg, setSaveErrorMsg] = useState("");
 
   const handleOpenSettings = () => {
     setProfileForm({
@@ -223,12 +224,14 @@ export default function StudentHomePage() {
 
   const handleSavePassword = (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveErrorMsg("");
+    setSaveSuccessMsg("");
     if (!securityForm.newPassword || securityForm.newPassword.length < 6) {
-      alert("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      setSaveErrorMsg("Mật khẩu mới phải có ít nhất 6 ký tự!");
       return;
     }
     if (securityForm.newPassword !== securityForm.confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp!");
+      setSaveErrorMsg("Mật khẩu xác nhận không khớp!");
       return;
     }
     setSaveSuccessMsg("Đổi mật khẩu thành công!");
@@ -418,6 +421,12 @@ export default function StudentHomePage() {
           }
         }
         localStorage.setItem("hanyu_class_enrolled_students", JSON.stringify(registry));
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(
+          new CustomEvent("hanyu_class_enrolled", {
+            detail: { classId: verifiedJoinClass.id, classCode: verifiedJoinClass.code },
+          })
+        );
       } catch (e) {
         console.error("Registry save error:", e);
       }
@@ -453,7 +462,7 @@ export default function StudentHomePage() {
       setJoinClassCode("");
     } catch (e) {
       setEnrolling(false);
-      alert("Không thể ghi danh vào lớp. Vui lòng thử lại.");
+      setJoinClassError("Không thể ghi danh vào lớp. Vui lòng thử lại.");
     }
   };
 
@@ -865,28 +874,28 @@ export default function StudentHomePage() {
             <StudentRoadmapWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length}
+              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "lessons" ? (
             <StudentLessonsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length}
+              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "practice" ? (
             <StudentPracticeWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length}
+              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "results" ? (
             <StudentReportsWorkspace
               currentUser={currentUser}
               onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length}
+              classesCount={myClasses.length || (studyProfile?.classInfo ? 1 : 0)}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : (
@@ -2013,6 +2022,14 @@ export default function StudentHomePage() {
               <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fadeIn">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{saveSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Error Alert Banner */}
+            {saveErrorMsg && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{saveErrorMsg}</span>
               </div>
             )}
 

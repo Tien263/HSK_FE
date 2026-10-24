@@ -90,6 +90,17 @@ export default function StudentAssignmentsWorkspace({
               if (prof.classInfo?.code) studentClassIds.push(prof.classInfo.code);
               if (prof.classInfo?.name) studentClassNames.push(prof.classInfo.name);
             }
+            const enrolledRaw = localStorage.getItem("hanyu_student_enrolled_classes");
+            if (enrolledRaw) {
+              const enrolled = JSON.parse(enrolledRaw);
+              if (Array.isArray(enrolled)) {
+                enrolled.forEach((c: any) => {
+                  if (c.id) studentClassIds.push(c.id);
+                  if (c.code) studentClassIds.push(c.code);
+                  if (c.name) studentClassNames.push(c.name);
+                });
+              }
+            }
           } catch (e) {}
         }
 
@@ -195,6 +206,18 @@ export default function StudentAssignmentsWorkspace({
     }
 
     fetchAssignments();
+
+    const handleStorageSync = () => {
+      fetchAssignments();
+    };
+
+    window.addEventListener("storage", handleStorageSync);
+    window.addEventListener("hanyu_assignment_assigned", handleStorageSync);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageSync);
+      window.removeEventListener("hanyu_assignment_assigned", handleStorageSync);
+    };
   }, [currentUser, myClasses]);
 
   // Filtered assignments
