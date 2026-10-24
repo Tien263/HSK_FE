@@ -28,6 +28,7 @@ import {
   Award,
 } from "lucide-react";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import VocabPracticeSuite from "./practice/VocabPracticeSuite";
 
 export type PracticeSubMode = "vocab" | "grammar" | "game" | "wrong";
 
@@ -459,183 +460,15 @@ export default function StudentPracticeWorkspace({
       </div>
 
       {/* =================================================================== */}
-      {/* 1. CHẾ ĐỘ 1: LUYỆN TỪ VỰNG (FLASHCARD & TRẮC NGHIỆM PHẢN XẠ)        */}
+      {/* 1. CHẾ ĐỘ 1: LUYỆN TỪ VỰNG CHUYÊN SÂU (6 DẠNG BÀI TẬP TƯƠNG TÁC)   */}
       {/* =================================================================== */}
       {activeMode === "vocab" && (
-        <div className="space-y-6">
-          {vocabList.length > 0 && currentVocab ? (
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/50 shadow-sm space-y-6">
-              {/* Tiêu đề thanh công cụ bài luyện */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5DEC9]">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#204434] text-white flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-[#BC9B6B]" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif font-bold text-base text-[#204434]">
-                      Luyện phản xạ từ vựng · Bài {String(selectedPracticeLesson).padStart(2, "0")}
-                    </h3>
-                    <p className="text-xs text-[#315E48]">
-                      Lật thẻ học từ và làm trắc nghiệm kiểm tra phản xạ nhanh nghĩa tiếng Việt.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setVocabQuizMode(!vocabQuizMode);
-                      setQuizSelectedOption(null);
-                      setQuizIsAnswered(false);
-                    }}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border cursor-pointer ${
-                      vocabQuizMode
-                        ? "bg-[#8F6D3B] text-white border-[#8F6D3B]"
-                        : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#FAF7F0]"
-                    }`}
-                  >
-                    <FileQuestion className="w-3.5 h-3.5" />
-                    <span>{vocabQuizMode ? "Đang mở trắc nghiệm" : "Bật thử thách trắc nghiệm"}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Khung thẻ Flashcard / Trắc nghiệm */}
-              <div className="p-6 sm:p-8 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex flex-col items-center justify-center text-center space-y-5">
-                <div className="flex items-center justify-between w-full max-w-md text-xs text-[#315E48]">
-                  <span className="font-mono font-bold text-[#8F6D3B]">
-                    Bài {String(selectedPracticeLesson).padStart(2, "0")} · {currentOfficialLesson?.titleZh}
-                  </span>
-                  <span>
-                    Từ vựng <strong>{activeCardIndex + 1}</strong> / {vocabList.length}
-                  </span>
-                </div>
-
-                {/* Thẻ hiển thị chữ Hán */}
-                <div
-                  onClick={() => !vocabQuizMode && setShowCardMeaning(!showCardMeaning)}
-                  className="w-full max-w-md min-h-[200px] p-8 rounded-3xl bg-white border-2 border-[#E5DEC9] hover:border-[#204434] transition shadow-md flex flex-col items-center justify-center cursor-pointer space-y-3 group"
-                >
-                  <div className="font-serif font-bold text-5xl text-[#204434] group-hover:scale-105 transition-transform tracking-wide">
-                    {currentVocab.hanzi}
-                  </div>
-
-                  {(!vocabQuizMode && showCardMeaning) || vocabQuizMode ? (
-                    <div className="space-y-1.5 animate-fadeIn">
-                      <div className="text-lg font-mono font-bold text-[#8F6D3B]">
-                        {currentVocab.pinyin}
-                      </div>
-                      {!vocabQuizMode && (
-                        <div className="text-base font-bold text-[#204434]">
-                          {currentVocab.meaningVi || currentVocab.meaning}
-                        </div>
-                      )}
-                      {currentVocab.exampleZh && (
-                        <div className="pt-2 text-xs text-[#6B766D] border-t border-gray-100 italic">
-                          <p className="font-medium text-[#204434]">{currentVocab.exampleZh}</p>
-                          <p>{currentVocab.exampleVi}</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[#315E48]/70 italic flex items-center gap-1 pt-2">
-                      <span>Chạm vào thẻ để xem Phiên âm & Ý nghĩa</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Chế độ Trắc nghiệm (Quiz Mode) */}
-                {vocabQuizMode ? (
-                  <div className="w-full max-w-md space-y-2 pt-2">
-                    <p className="text-xs font-bold text-[#204434] text-left">
-                      Chọn nghĩa tiếng Việt chính xác của từ trên:
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold">
-                      {vocabQuizOptions.map((opt, idx) => {
-                        const isCorrect = opt === (currentVocab.meaningVi || currentVocab.meaning);
-                        const isSelected = quizSelectedOption === opt;
-                        let btnStyle = "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]";
-                        if (quizIsAnswered) {
-                          if (isCorrect) {
-                            btnStyle = "bg-emerald-600 text-white border-emerald-600 font-bold";
-                          } else if (isSelected) {
-                            btnStyle = "bg-rose-500 text-white border-rose-500 line-through";
-                          }
-                        }
-
-                        return (
-                          <button
-                            key={idx}
-                            disabled={quizIsAnswered}
-                            onClick={() => {
-                              setQuizSelectedOption(opt);
-                              setQuizIsAnswered(true);
-                              if (isCorrect) {
-                                handleSpeak(currentVocab.hanzi);
-                              }
-                            }}
-                            className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${btnStyle}`}
-                          >
-                            <span>{opt}</span>
-                            {quizIsAnswered && isCorrect && <Check className="w-4 h-4 text-white" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Nút điều khiển lật thẻ */}
-                <div className="flex items-center gap-3 pt-2">
-                  <button
-                    onClick={() => handleSpeak(currentVocab.hanzi)}
-                    className="p-3 rounded-2xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#204434] hover:text-white transition cursor-pointer shadow-xs"
-                    title="Phát âm chữ này"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowCardMeaning(false);
-                      setQuizSelectedOption(null);
-                      setQuizIsAnswered(false);
-                      setActiveCardIndex((prev) => (prev > 0 ? prev - 1 : vocabList.length - 1));
-                    }}
-                    className="px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-xs font-semibold text-[#204434] hover:bg-[#FAF7F0] transition cursor-pointer"
-                  >
-                    Từ trước
-                  </button>
-
-                  {!vocabQuizMode && (
-                    <button
-                      onClick={() => setShowCardMeaning(!showCardMeaning)}
-                      className="px-5 py-2.5 rounded-2xl bg-[#BC9B6B] hover:bg-[#a58656] text-white text-xs font-bold transition cursor-pointer shadow-xs"
-                    >
-                      {showCardMeaning ? "Ẩn đáp án" : "Hiện đáp án"}
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setShowCardMeaning(false);
-                      setQuizSelectedOption(null);
-                      setQuizIsAnswered(false);
-                      setActiveCardIndex((prev) => (prev < vocabList.length - 1 ? prev + 1 : 0));
-                    }}
-                    className="px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-xs font-semibold text-[#204434] hover:bg-[#FAF7F0] transition cursor-pointer"
-                  >
-                    Từ kế tiếp
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="py-12 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#E5DEC9]">
-              <p className="text-xs text-[#315E48]">Bài học này chưa có danh sách từ vựng.</p>
-            </div>
-          )}
-        </div>
+        <VocabPracticeSuite
+          vocabList={vocabList}
+          lessonTitleZh={currentOfficialLesson?.titleZh}
+          lessonNumber={selectedPracticeLesson}
+          handleSpeak={handleSpeak}
+        />
       )}
 
       {/* =================================================================== */}
