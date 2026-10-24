@@ -116,8 +116,9 @@ export function AssignmentsWorkspace({
         headers: authHeaders,
       });
       const examData = await examRes.json();
+      let mappedExams: ExamPackageItem[] = [];
       if (examData.success && Array.isArray(examData.items)) {
-        const mappedExams: ExamPackageItem[] = examData.items.map((ex: any) => ({
+        mappedExams = examData.items.map((ex: any) => ({
           id: ex.id,
           title: ex.title,
           description: ex.description || "Bộ đề thi",
@@ -131,10 +132,41 @@ export function AssignmentsWorkspace({
           updatedAt: ex.createdAt ? new Date(ex.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
           questions: ex.questions || [],
         }));
-        setExamPackages(mappedExams);
-      } else {
-        setExamPackages([]);
       }
+
+      // Merge với localStorage để đảm bảo mọi đề nháp vừa biên soạn đều hiển thị ngay lập tức
+      if (typeof window !== "undefined") {
+        try {
+          const localRaw = localStorage.getItem("hanyu_exam_packages");
+          if (localRaw) {
+            const localList = JSON.parse(localRaw);
+            if (Array.isArray(localList)) {
+              const existingIds = new Set(mappedExams.map((e) => e.id));
+              for (const lp of localList) {
+                if (lp.id && !existingIds.has(lp.id)) {
+                  mappedExams.push({
+                    id: lp.id,
+                    title: lp.title,
+                    description: lp.description || "Bộ đề thi",
+                    curriculum: lp.curriculum || "HSK 3.0",
+                    hskLevel: lp.hskLevel || 1,
+                    status: lp.status || "DRAFT",
+                    questionsCount: lp.questionsCount || lp.questions?.length || 0,
+                    questionCount: lp.questionsCount || lp.questions?.length || 0,
+                    totalPoints: lp.totalPoints || 100,
+                    createdAt: lp.createdAt || "Hôm nay",
+                    updatedAt: lp.updatedAt || "Hôm nay",
+                    questions: lp.questions || [],
+                  });
+                  existingIds.add(lp.id);
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+
+      setExamPackages(mappedExams);
     } catch (err) {
       console.warn("fetchData assignments error:", err);
       setAssignments([]);
@@ -147,6 +179,20 @@ export function AssignmentsWorkspace({
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Tự động chuyển tab khi bấm "Mở đề vừa cập nhật" từ Ngân hàng câu hỏi
+  useEffect(() => {
+    if (initialExamId && examPackages.length > 0) {
+      const found = examPackages.find((p) => p.id === initialExamId);
+      if (found) {
+        if (found.status === "DRAFT") {
+          setActiveTab("DRAFT_EXAMS");
+        } else {
+          setActiveTab("READY_EXAMS");
+        }
+      }
+    }
+  }, [initialExamId, examPackages]);
 
   // Dynamic KPI Metrics
   const kpiMetrics: AssignmentKpiData = useMemo(() => {
