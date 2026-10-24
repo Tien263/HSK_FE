@@ -65,8 +65,10 @@ export interface ExamPackageItem {
   hskLevel: number;
   status: "DRAFT" | "READY" | "USED";
   questionCount: number;
+  questionsCount?: number;
   totalPoints: number;
   updatedAt: string;
+  createdAt?: string;
   questions?: any[];
 }
 
