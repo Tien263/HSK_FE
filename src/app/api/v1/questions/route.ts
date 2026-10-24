@@ -2,6 +2,50 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
 
+function formatQuestionForClient(q: any) {
+  let parsedOptions: any = [];
+  try {
+    parsedOptions = typeof q.options === "string" ? JSON.parse(q.options) : q.options || [];
+  } catch {
+    parsedOptions = [];
+  }
+
+  return {
+    id: q.id,
+    source: "MINE" as const,
+    sourceId: q.teacherId || "custom",
+    sourceLesson: q.tags || "Ngân hàng cá nhân",
+    subtitle:
+      q.type === "multiple_choice"
+        ? "Chọn 1 đáp án đúng"
+        : q.type === "true_false"
+        ? "Phán đoán Đúng / Sai"
+        : q.type === "fill_blank"
+        ? "Điền từ vào chỗ trống"
+        : q.type === "sentence_ordering"
+        ? "Sắp xếp từ thành câu"
+        : "Luyện tập HSK",
+    status: (q.tags?.includes("draft") ? "DRAFT" : "READY") as "DRAFT" | "READY",
+    type: q.type || "multiple_choice",
+    title: (q.content || "Câu hỏi").slice(0, 45),
+    content: q.content,
+    pinyinPrompt: q.pinyinPrompt,
+    pinyin: q.pinyinPrompt || "",
+    points: 5,
+    difficulty: (q.difficulty || "MEDIUM") as "EASY" | "MEDIUM" | "HARD",
+    hskLevel: q.level || 1,
+    level: q.level || 1,
+    curriculum: "HSK 3.0",
+    skill: q.skill || "VOCABULARY",
+    options: parsedOptions,
+    correctAnswer: q.correctAnswer,
+    explanation: q.explanation || "",
+    createdAt: q.createdAt ? new Date(q.createdAt).toLocaleDateString("vi-VN") : new Date().toLocaleDateString("vi-VN"),
+    usedInExamCount: q.quizSetQuestions?.length || 0,
+    usedInExams: [],
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const authUser = await getAuthUser(request);
@@ -22,33 +66,19 @@ export async function GET(request: Request) {
 
     const questions = await prisma.question.findMany({
       where,
+      include: {
+        quizSetQuestions: {
+          select: { quizSetId: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
-    const items = questions.map((q) => {
-      let parsedOptions = [];
-      try {
-        parsedOptions = typeof q.options === "string" ? JSON.parse(q.options) : q.options;
-      } catch {
-        parsedOptions = [];
-      }
-
-      return {
-        id: q.id,
-        type: q.type,
-        content: q.content,
-        pinyinPrompt: q.pinyinPrompt,
-        skill: q.skill,
-        difficulty: q.difficulty,
-        level: q.level,
-        correctAnswer: q.correctAnswer,
-        explanation: q.explanation,
-        options: parsedOptions,
-      };
-    });
+    const items = questions.map(formatQuestionForClient);
 
     return NextResponse.json({ success: true, items });
   } catch (error) {
+    console.error("GET /api/v1/questions error:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi tải ngân hàng câu hỏi" },
       { status: 500 }
@@ -61,10 +91,53 @@ export async function POST(request: Request) {
     const authUser = await getAuthUser(request);
     const body = await request.json();
     const teacherId = authUser?.id || body.teacherId || null;
+
+    // Hỗ trợ BATCH IMPORT (nhiều câu hỏi cùng lúc từ CSV hoặc AI generator)
+    if (Array.isArray(body.items) && body.items.length > 0) {
+      const itemsToCreate = body.items.map((item: any) => {
+        let opts = item.options;
+        if (opts && typeof opts !== "string") {
+          opts = JSON.stringify(opts);
+        }
+        let correctAns = item.correctAnswer;
+        if (correctAns && typeof correctAns !== "string") {
+          correctAns = JSON.stringify(correctAns);
+        }
+
+        return {
+          content: (item.content || item.title || "Câu hỏi").trim(),
+          pinyinPrompt: (item.pinyinPrompt || item.pinyin || "").trim() || null,
+          type: item.type || "multiple_choice",
+          skill: item.skill || "VOCABULARY",
+          difficulty: item.difficulty || "MEDIUM",
+          level: Number(item.level || item.hskLevel) || 1,
+          options: opts || null,
+          correctAnswer: correctAns || "A",
+          explanation: (item.explanation || "").trim() || null,
+          tags: item.tags || (item.status === "DRAFT" ? "draft" : "csv_import"),
+          teacherId,
+        };
+      });
+
+      const createdQuestions = await prisma.$transaction(
+        itemsToCreate.map((data: any) => prisma.question.create({ data }))
+      );
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Đã lưu thành công ${createdQuestions.length} câu hỏi vào cơ sở dữ liệu!`,
+          items: createdQuestions.map(formatQuestionForClient),
+        },
+        { status: 201 }
+      );
+    }
+
+    // Đơn lẻ 1 câu hỏi
     const {
       content,
       pinyinPrompt,
-      type = "single_choice",
+      type = "multiple_choice",
       skill = "VOCABULARY",
       difficulty = "MEDIUM",
       level = 1,
@@ -101,7 +174,7 @@ export async function POST(request: Request) {
       {
         success: true,
         message: "Đã lưu câu hỏi vào kho cá nhân thành công!",
-        item: newQuestion,
+        item: formatQuestionForClient(newQuestion),
       },
       { status: 201 }
     );

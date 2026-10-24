@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import VocabPracticeSuite from "./practice/VocabPracticeSuite";
+import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
 
 export type PracticeSubMode = "vocab" | "grammar" | "game" | "wrong";
 
@@ -472,71 +473,16 @@ export default function StudentPracticeWorkspace({
       )}
 
       {/* =================================================================== */}
-      {/* 2. CHẾ ĐỘ 2: LUYỆN NGỮ PHÁP (GRAMMAR BREAKDOWN & EXAMPLES)          */}
+      {/* 2. CHẾ ĐỘ 2: LUYỆN NGỮ PHÁP (LÝ THUYẾT + BÀI TẬP 5 DẠNG TƯƠNG TÁC)   */}
       {/* =================================================================== */}
       {activeMode === "grammar" && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E5DEC9]">
-            <div>
-              <h3 className="font-serif font-bold text-lg text-[#204434] flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-[#8F6D3B]" />
-                <span>Điểm ngữ pháp trọng tâm · Bài {String(selectedPracticeLesson).padStart(2, "0")}</span>
-              </h3>
-              <p className="text-xs text-[#315E48] mt-0.5">
-                Cấu trúc câu, quy tắc ngữ pháp chuẩn và câu ví dụ ứng dụng trong giao tiếp hàng ngày.
-              </p>
-            </div>
-          </div>
-
-          {grammarList.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {grammarList.map((g: any, index: number) => (
-                <div
-                  key={index}
-                  className="p-5 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/40 hover:border-[#204434] transition shadow-xs space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] text-[11px] font-bold">
-                      Ngữ pháp #{index + 1}
-                    </span>
-                    <button
-                      onClick={() => handleSpeak(g.example || g.title)}
-                      className="p-1.5 rounded-lg border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] transition"
-                      title="Nghe câu ví dụ"
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <h4 className="font-serif font-bold text-base text-[#204434]">
-                    {g.title}
-                  </h4>
-
-                  {g.structure && (
-                    <div className="p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] text-xs font-mono font-semibold text-[#8F6D3B]">
-                      Cấu trúc: {g.structure}
-                    </div>
-                  )}
-
-                  <p className="text-xs text-[#315E48] leading-relaxed">
-                    {g.explanation || g.desc || "Xem ví dụ minh họa bên dưới để hiểu rõ ngữ cảnh sử dụng."}
-                  </p>
-
-                  {g.example && (
-                    <div className="pt-2 border-t border-[#E5DEC9]/80 text-xs space-y-1">
-                      <span className="font-bold text-[#8F6D3B] text-[11px]">Ví dụ minh họa:</span>
-                      <p className="font-medium text-[#204434]">{g.example}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#E5DEC9]">
-              <p className="text-xs text-[#315E48]">Bài học này chưa có điểm ngữ pháp nào được lưu.</p>
-            </div>
-          )}
-        </div>
+        <GrammarPracticeSuite
+          grammarList={grammarList}
+          lessonTitleZh={currentOfficialLesson?.titleZh}
+          lessonNumber={selectedPracticeLesson}
+          hskLevel={currentHskLevel}
+          handleSpeak={handleSpeak}
+        />
       )}
 
       {/* =================================================================== */}

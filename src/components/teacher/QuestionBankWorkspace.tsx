@@ -152,7 +152,7 @@ export default function QuestionBankWorkspace({
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+          if (data.success && Array.isArray(data.items)) {
             setQuestions(data.items);
           }
         }
@@ -410,15 +410,40 @@ export default function QuestionBankWorkspace({
     reader.readAsText(file, "UTF-8");
   };
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     if (importPreviewQuestions.length === 0) {
       showToast("Không có câu hỏi nào để nạp!");
       return;
     }
 
-    setQuestions((prev) => [...importPreviewQuestions, ...prev]);
+    try {
+      const res = await fetch("/api/v1/questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
+        body: JSON.stringify({
+          items: importPreviewQuestions,
+          teacherId: currentUser?.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.items)) {
+        setQuestions((prev) => [...data.items, ...prev]);
+        showToast(`Đã lưu thành công ${data.items.length} câu hỏi mới từ CSV vào cơ sở dữ liệu!`);
+      } else {
+        setQuestions((prev) => [...importPreviewQuestions, ...prev]);
+        showToast(`Đã nạp ${importPreviewQuestions.length} câu hỏi vào phiên làm việc!`);
+      }
+    } catch (err) {
+      console.error("handleConfirmImport error:", err);
+      setQuestions((prev) => [...importPreviewQuestions, ...prev]);
+      showToast(`Đã nạp ${importPreviewQuestions.length} câu hỏi vào danh sách!`);
+    }
+
     setIsImportModalOpen(false);
-    showToast(`Đã nhập thành công ${importPreviewQuestions.length} câu hỏi mới vào kho!`);
     setImportPreviewQuestions([]);
     setImportFileName("");
   };
@@ -490,11 +515,33 @@ export default function QuestionBankWorkspace({
     }
   };
 
-  const handleConfirmAddAiQuestions = () => {
+  const handleConfirmAddAiQuestions = async () => {
     if (aiGeneratedResults.length === 0) return;
-    setQuestions((prev) => [...aiGeneratedResults, ...prev]);
+    try {
+      const res = await fetch("/api/v1/questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
+        body: JSON.stringify({
+          items: aiGeneratedResults,
+          teacherId: currentUser?.id,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.items)) {
+        setQuestions((prev) => [...data.items, ...prev]);
+        showToast(`Đã thêm thành công và lưu ${data.items.length} câu hỏi AI vào cơ sở dữ liệu!`);
+      } else {
+        setQuestions((prev) => [...aiGeneratedResults, ...prev]);
+        showToast(`Đã thêm thành công ${aiGeneratedResults.length} câu hỏi AI!`);
+      }
+    } catch (err) {
+      setQuestions((prev) => [...aiGeneratedResults, ...prev]);
+      showToast(`Đã thêm thành công ${aiGeneratedResults.length} câu hỏi AI!`);
+    }
     setIsAiModalOpen(false);
-    showToast(`Đã thêm thành công ${aiGeneratedResults.length} câu hỏi AI vào Ngân hàng câu hỏi!`);
     setAiGeneratedResults([]);
   };
 
@@ -913,12 +960,13 @@ export default function QuestionBankWorkspace({
 
       allPackages = [newDraftPkg, ...allPackages];
     } else {
-      const pkgIdx = allPackages.findIndex((p) => p.id === targetExamId);
-      if (pkgIdx === -1) {
+      const existingPkg =
+        draftExamsList.find((p) => p.id === targetExamId) ||
+        allPackages.find((p) => p.id === targetExamId);
+      if (!existingPkg) {
         showToast("Vui lòng chọn một đề nháp hợp lệ!");
         return;
       }
-      const existingPkg = allPackages[pkgIdx];
       targetExamTitle = existingPkg.title;
       const existingQuestions = existingPkg.questions || [];
 
@@ -928,13 +976,27 @@ export default function QuestionBankWorkspace({
       finalPoints = updatedQuestions.reduce((sum, q) => sum + (q.points || 5), 0);
       allDraftQuestions = updatedQuestions;
 
-      allPackages[pkgIdx] = {
-        ...existingPkg,
-        questions: updatedQuestions,
-        questionsCount: finalCount,
-        totalPoints: finalPoints,
-        updatedAt: nowFormatted,
-      };
+      const pkgIdx = allPackages.findIndex((p) => p.id === targetExamId);
+      if (pkgIdx >= 0) {
+        allPackages[pkgIdx] = {
+          ...existingPkg,
+          questions: updatedQuestions,
+          questionsCount: finalCount,
+          totalPoints: finalPoints,
+          updatedAt: nowFormatted,
+        };
+      } else {
+        allPackages = [
+          {
+            ...existingPkg,
+            questions: updatedQuestions,
+            questionsCount: finalCount,
+            totalPoints: finalPoints,
+            updatedAt: nowFormatted,
+          },
+          ...allPackages,
+        ];
+      }
     }
 
     // Đồng bộ đề thi lên cơ sở dữ liệu PostgreSQL để hiển thị ngay trong danh sách Bài tập
@@ -968,6 +1030,9 @@ export default function QuestionBankWorkspace({
     } catch (apiErr) {
       console.warn("Could not sync exam to DB:", apiErr);
     }
+
+    // Refresh danh sách đề thi từ cơ sở dữ liệu
+    refreshDraftExamsList();
 
     // Save to localStorage (Spec Section 4.3 & 7.3)
     if (typeof window !== "undefined") {
