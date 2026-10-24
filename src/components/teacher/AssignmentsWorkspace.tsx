@@ -15,6 +15,7 @@ import AssignmentKpiCards from "./assignments/AssignmentKpiCards";
 import AssignmentFilterTabs from "./assignments/AssignmentFilterTabs";
 import AssignmentListTable from "./assignments/AssignmentListTable";
 import SubmissionsListTable from "./assignments/SubmissionsListTable";
+import ExamPackagesTable from "./assignments/ExamPackagesTable";
 import AssignExamModal from "./assignments/AssignExamModal";
 import GradingModal from "./assignments/GradingModal";
 import LiveExamQrModal from "./assignments/LiveExamQrModal";
@@ -57,6 +58,9 @@ export function AssignmentsWorkspace({
 
   // 3. Modals State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedExamForAssign, setSelectedExamForAssign] = useState<string | undefined>(
+    initialExamId || undefined
+  );
   const [isGradingModalOpen, setIsGradingModalOpen] = useState(false);
   const [activeGradingSub, setActiveGradingSub] = useState<StudentSubmissionItem | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -245,6 +249,73 @@ export function AssignmentsWorkspace({
     }
   };
 
+  const handleFinalizeExam = async (pkg: ExamPackageItem) => {
+    try {
+      const res = await fetch(`/api/v1/exams/${pkg.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
+        body: JSON.stringify({
+          status: "READY",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Đã hoàn thiện đề "${pkg.title}"! Đề đã chuyển sang mục Đề hoàn thiện kho.`);
+        fetchData();
+        setActiveTab("READY_EXAMS");
+      } else {
+        showToast(data.message || "Lỗi cập nhật trạng thái bộ đề.");
+      }
+    } catch (e) {
+      showToast("Lỗi kết nối máy chủ.");
+    }
+  };
+
+  const handleRevertToDraft = async (pkg: ExamPackageItem) => {
+    try {
+      const res = await fetch(`/api/v1/exams/${pkg.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
+        },
+        body: JSON.stringify({
+          status: "DRAFT",
+        }),
+      });
+      if (res.ok) {
+        showToast(`Đã chuyển đề "${pkg.title}" về mục Đề nháp kho để tiếp tục chỉnh sửa.`);
+        fetchData();
+        setActiveTab("DRAFT_EXAMS");
+      } else {
+        showToast("Lỗi cập nhật bộ đề.");
+      }
+    } catch (e) {
+      showToast("Lỗi kết nối máy chủ.");
+    }
+  };
+
+  const handleDeleteExam = async (pkg: ExamPackageItem) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa bộ đề "${pkg.title}" khỏi kho không?`)) return;
+    try {
+      const res = await fetch(`/api/v1/exams/${pkg.id}`, {
+        method: "DELETE",
+        headers: currentUser?.id ? { "x-user-id": currentUser.id } : {},
+      });
+      if (res.ok) {
+        showToast(`Đã xóa bộ đề "${pkg.title}" thành công!`);
+        fetchData();
+      } else {
+        showToast("Lỗi khi xóa bộ đề.");
+      }
+    } catch (e) {
+      showToast("Lỗi kết nối máy chủ.");
+    }
+  };
+
   const handleSaveGrading = async (submissionId: string, score: number, feedback: string) => {
     showToast(`Đã lưu và công bố điểm (${score}đ) thành công!`);
     setIsGradingModalOpen(false);
@@ -311,6 +382,34 @@ export function AssignmentsWorkspace({
             setIsGradingModalOpen(true);
           }}
         />
+      ) : activeTab === "DRAFT_EXAMS" ? (
+        <ExamPackagesTable
+          mode="DRAFT"
+          examPackages={examPackages}
+          searchQuery={searchQuery}
+          onFinalizeExam={handleFinalizeExam}
+          onRevertToDraft={handleRevertToDraft}
+          onDeleteExam={handleDeleteExam}
+          onAssignExamToClass={(pkg) => {
+            setSelectedExamForAssign(pkg.id);
+            setIsAssignModalOpen(true);
+          }}
+          onNavigateToQuestionBank={() => onNavigateToQuestionBank?.("ALL")}
+        />
+      ) : activeTab === "READY_EXAMS" ? (
+        <ExamPackagesTable
+          mode="READY"
+          examPackages={examPackages}
+          searchQuery={searchQuery}
+          onFinalizeExam={handleFinalizeExam}
+          onRevertToDraft={handleRevertToDraft}
+          onDeleteExam={handleDeleteExam}
+          onAssignExamToClass={(pkg) => {
+            setSelectedExamForAssign(pkg.id);
+            setIsAssignModalOpen(true);
+          }}
+          onSwitchToDraftTab={() => setActiveTab("DRAFT_EXAMS")}
+        />
       ) : (
         <AssignmentListTable
           assignments={filteredAssignments}
@@ -332,6 +431,7 @@ export function AssignmentsWorkspace({
         onClose={() => setIsAssignModalOpen(false)}
         classesList={classesList}
         examPackages={examPackages}
+        preselectedExamId={selectedExamForAssign}
         onConfirmAssign={handleAssignExam}
       />
 

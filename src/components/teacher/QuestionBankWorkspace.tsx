@@ -884,6 +884,7 @@ export default function QuestionBankWorkspace({
     let targetExamTitle = "";
     let finalCount = 0;
     let finalPoints = 0;
+    let allDraftQuestions: ExamQuestionItem[] = questionsToAdd;
 
     if (isCreatingNewExamInPopup) {
       if (!newExamTitle.trim()) {
@@ -894,6 +895,7 @@ export default function QuestionBankWorkspace({
       targetExamTitle = newExamTitle.trim();
       finalCount = questionsToAdd.length;
       finalPoints = questionsToAdd.reduce((sum, q) => sum + (q.points || 5), 0);
+      allDraftQuestions = questionsToAdd;
 
       const newDraftPkg: ExamPackageItem = {
         id: targetExamId,
@@ -924,6 +926,7 @@ export default function QuestionBankWorkspace({
       const updatedQuestions = [...existingQuestions, ...questionsToAdd];
       finalCount = updatedQuestions.length;
       finalPoints = updatedQuestions.reduce((sum, q) => sum + (q.points || 5), 0);
+      allDraftQuestions = updatedQuestions;
 
       allPackages[pkgIdx] = {
         ...existingPkg,
@@ -943,15 +946,16 @@ export default function QuestionBankWorkspace({
           ...(currentUser?.id ? { "x-user-id": currentUser.id } : {}),
         },
         body: JSON.stringify({
+          id: targetExamId.startsWith("exam-draft-") ? undefined : targetExamId,
           title: targetExamTitle,
           description: "Bộ đề tạo từ Kho câu hỏi của tôi",
           curriculum: newExamCurriculum,
           hskLevel: newExamLevel,
-          status: "READY",
+          status: "DRAFT", // Luôn là ĐỀ NHÁP khi thêm từ kho
           mode: "EXAM",
           totalScore: finalPoints,
           teacherId: currentUser?.id,
-          questions: questionsToAdd,
+          questions: allDraftQuestions,
         }),
       });
       const examJson = await examRes.json();

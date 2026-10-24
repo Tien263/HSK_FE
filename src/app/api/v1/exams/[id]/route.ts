@@ -86,7 +86,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, description, totalScore, questions } = body;
+    const { title, description, totalScore, status, questions } = body;
 
     try {
       const updated = await prisma.quizSet.update({
@@ -95,6 +95,7 @@ export async function PUT(
           title: title ? title.trim() : undefined,
           description: description !== undefined ? description.trim() : undefined,
           totalScore: totalScore ? Number(totalScore) : undefined,
+          status: status ? status : undefined,
         },
       });
 
@@ -106,12 +107,48 @@ export async function PUT(
 
         for (let i = 0; i < questions.length; i++) {
           const q = questions[i];
-          if (q.id) {
+          let qId = q.id;
+          let questionExists = false;
+
+          if (qId) {
+            try {
+              const existing = await prisma.question.findUnique({ where: { id: qId } });
+              if (existing) questionExists = true;
+            } catch {}
+          }
+
+          if (!questionExists) {
+            try {
+              let parsedOpts = q.options;
+              if (parsedOpts && typeof parsedOpts !== "string") {
+                parsedOpts = JSON.stringify(parsedOpts);
+              }
+              const createdQ = await prisma.question.create({
+                data: {
+                  content: q.content || q.title || "Câu hỏi kiểm tra",
+                  pinyinPrompt: q.pinyin || q.pinyinPrompt || null,
+                  type: q.type || "single_choice",
+                  skill: (q as any).skill || "VOCABULARY",
+                  difficulty: q.difficulty || "MEDIUM",
+                  level: Number(q.hskLevel || q.level) || 1,
+                  options: parsedOpts || null,
+                  correctAnswer: typeof q.correctAnswer === "string" ? q.correctAnswer : JSON.stringify(q.correctAnswer || "A"),
+                  explanation: q.explanation || null,
+                  tags: (q as any).topic || "custom",
+                },
+              });
+              qId = createdQ.id;
+            } catch (createErr) {
+              console.warn("Could not create question in DB:", createErr);
+            }
+          }
+
+          if (qId) {
             try {
               await prisma.quizSetQuestion.create({
                 data: {
                   quizSetId: id,
-                  questionId: q.id,
+                  questionId: qId,
                   orderIndex: i + 1,
                   points: Number(q.points) || 10.0,
                 },
@@ -123,14 +160,14 @@ export async function PUT(
 
       return NextResponse.json({
         success: true,
-        message: "Cập nhật bộ đề thành công",
+        message: status === "READY" ? "Đã chính thức chuyển về Đề hoàn thiện!" : "Cập nhật bộ đề thành công",
         exam: updated,
       });
     } catch (dbErr) {
       return NextResponse.json({
         success: true,
         message: "Cập nhật bộ đề thành công (Client synced)",
-        exam: { id, title, description, totalScore, questions },
+        exam: { id, title, description, totalScore, status, questions },
       });
     }
   } catch (error) {
@@ -147,6 +184,9 @@ export async function DELETE(
     const { id } = await params;
 
     try {
+      await prisma.quizSetQuestion.deleteMany({
+        where: { quizSetId: id },
+      });
       await prisma.quizSet.delete({
         where: { id },
       });

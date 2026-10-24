@@ -31,12 +31,23 @@ export default function AssignExamModal({
   preselectedExamId,
   onConfirmAssign,
 }: AssignExamModalProps) {
+  const readyExamPackages = examPackages.filter((p) => p.status === "READY");
+  const draftExamPackages = examPackages.filter((p) => p.status === "DRAFT");
+
   const [selectedClassId, setSelectedClassId] = useState(
     preselectedClassId || classesList[0]?.id || ""
   );
   const [selectedExamId, setSelectedExamId] = useState(
-    preselectedExamId || examPackages[0]?.id || ""
+    preselectedExamId || readyExamPackages[0]?.id || ""
   );
+
+  React.useEffect(() => {
+    if (preselectedExamId) {
+      setSelectedExamId(preselectedExamId);
+    } else if (readyExamPackages.length > 0 && !selectedExamId) {
+      setSelectedExamId(readyExamPackages[0].id);
+    }
+  }, [preselectedExamId, readyExamPackages]);
   const [customTitle, setCustomTitle] = useState("");
   const [openDate, setOpenDate] = useState(new Date().toISOString().split("T")[0]);
   const [dueDate, setDueDate] = useState(
@@ -104,22 +115,35 @@ export default function AssignExamModal({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="space-y-4 pt-4 text-xs">
+          {/* Cảnh báo nếu chưa có đề hoàn thiện */}
+          {readyExamPackages.length === 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <span>Chưa có đề thi nào ở trạng thái Hoàn thiện</span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                Bạn hiện có <strong>{draftExamPackages.length} đề nháp</strong>. Theo quy trình, câu hỏi thêm vào đề sẽ nằm trong <em>Đề nháp kho</em>. Bạn vui lòng vào tab <strong>&quot;Đề nháp kho&quot;</strong> và bấm <strong>&quot;Hoàn thiện đề&quot;</strong> trước khi giao cho học sinh.
+              </p>
+            </div>
+          )}
+
           {/* 1. Chọn Đề thi */}
           <div className="space-y-1">
-            <label className="font-bold text-[#204434] block">Đề thi trong kho</label>
+            <label className="font-bold text-[#204434] block">Đề thi đã hoàn thiện trong kho</label>
             <select
               value={selectedExamId}
               onChange={(e) => setSelectedExamId(e.target.value)}
               className="w-full px-3 py-2 bg-white border border-[#E5DEC9] rounded-xl text-[#204434] focus:outline-none focus:border-[#204434]"
             >
-              {examPackages.length > 0 ? (
-                examPackages.map((p) => (
+              {readyExamPackages.length > 0 ? (
+                readyExamPackages.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.title} (HSK {p.hskLevel} • {p.questionCount || 0} câu)
+                    {p.title} (HSK {p.hskLevel} • {p.questionCount || p.questions?.length || 0} câu • {p.totalPoints || 100}đ)
                   </option>
                 ))
               ) : (
-                <option value="">(Chưa có đề trong kho - hãy tạo đề trước)</option>
+                <option value="">(Chưa có đề hoàn thiện - vui lòng hoàn thiện đề nháp trước)</option>
               )}
             </select>
           </div>
@@ -238,8 +262,8 @@ export default function AssignExamModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 bg-[#204434] hover:bg-[#163024] text-white rounded-xl font-bold transition shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+              disabled={isSubmitting || !selectedExamId || readyExamPackages.length === 0}
+              className="px-5 py-2 bg-[#204434] hover:bg-[#163024] text-white rounded-xl font-bold transition shadow-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-3.5 h-3.5" />
               {isSubmitting ? "Đang giao..." : "Xác nhận giao bài"}

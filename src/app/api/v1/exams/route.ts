@@ -92,6 +92,7 @@ export async function POST(request: Request) {
     const authUser = await getAuthUser(request);
     const body = await request.json();
     const {
+      id: customId,
       title,
       description = "Bộ đề thi biên soạn",
       mode = "EXAM",
@@ -113,54 +114,125 @@ export async function POST(request: Request) {
     const teacherId = authUser?.id || body.teacherId || null;
 
     try {
-      // Create QuizSet in database
-      const newQuizSet = await prisma.quizSet.create({
-        data: {
-          title: title.trim(),
-          description: description ? description.trim() : null,
-          mode,
-          status: status || "READY",
-          hskLevel: Number(hskLevel) || 1,
-          curriculum: curriculum || "HSK 3.0",
-          totalScore: Number(totalScore) || 100,
-          teacherId,
-        },
-      });
+      let targetQuizSet: any = null;
+      if (customId) {
+        targetQuizSet = await prisma.quizSet.findUnique({ where: { id: customId } });
+      }
 
-      // Link questions if provided
+      if (targetQuizSet) {
+        targetQuizSet = await prisma.quizSet.update({
+          where: { id: targetQuizSet.id },
+          data: {
+            title: title.trim(),
+            description: description ? description.trim() : targetQuizSet.description,
+            mode,
+            status: status || targetQuizSet.status || "DRAFT",
+            hskLevel: Number(hskLevel) || targetQuizSet.hskLevel,
+            curriculum: curriculum || targetQuizSet.curriculum,
+            totalScore: Number(totalScore) || targetQuizSet.totalScore,
+          },
+        });
+      } else {
+        targetQuizSet = await prisma.quizSet.create({
+          data: {
+            title: title.trim(),
+            description: description ? description.trim() : null,
+            mode,
+            status: status || "DRAFT",
+            hskLevel: Number(hskLevel) || 1,
+            curriculum: curriculum || "HSK 3.0",
+            totalScore: Number(totalScore) || 100,
+            teacherId,
+          },
+        });
+      }
+
+      // Link questions if provided, ensuring every question exists in Question table
+      const linkedQuestions: any[] = [];
       if (Array.isArray(questions) && questions.length > 0) {
         for (let i = 0; i < questions.length; i++) {
           const qItem = questions[i];
-          // Ensure question exists or upsert it
-          if (qItem.id) {
+          let qId = qItem.id;
+          let questionExists = false;
+
+          if (qId) {
             try {
-              await prisma.quizSetQuestion.create({
+              const existing = await prisma.question.findUnique({ where: { id: qId } });
+              if (existing) questionExists = true;
+            } catch {}
+          }
+
+          if (!questionExists) {
+            try {
+              let parsedOpts = qItem.options;
+              if (parsedOpts && typeof parsedOpts !== "string") {
+                parsedOpts = JSON.stringify(parsedOpts);
+              }
+              const createdQ = await prisma.question.create({
                 data: {
-                  quizSetId: newQuizSet.id,
-                  questionId: qItem.id,
+                  content: qItem.content || qItem.title || "Câu hỏi kiểm tra",
+                  pinyinPrompt: qItem.pinyin || qItem.pinyinPrompt || null,
+                  type: qItem.type || "single_choice",
+                  skill: (qItem as any).skill || "VOCABULARY",
+                  difficulty: qItem.difficulty || "MEDIUM",
+                  level: Number(qItem.hskLevel || qItem.level) || Number(hskLevel) || 1,
+                  options: parsedOpts || null,
+                  correctAnswer: typeof qItem.correctAnswer === "string" ? qItem.correctAnswer : JSON.stringify(qItem.correctAnswer || "A"),
+                  explanation: qItem.explanation || null,
+                  tags: (qItem as any).topic || "teacher_custom",
+                  teacherId,
+                },
+              });
+              qId = createdQ.id;
+            } catch (createQErr) {
+              console.warn("Could not create question in DB:", createQErr);
+            }
+          }
+
+          if (qId) {
+            try {
+              await prisma.quizSetQuestion.upsert({
+                where: {
+                  quizSetId_questionId: {
+                    quizSetId: targetQuizSet.id,
+                    questionId: qId,
+                  },
+                },
+                update: {
+                  orderIndex: i + 1,
+                  points: Number(qItem.points) || 10.0,
+                },
+                create: {
+                  quizSetId: targetQuizSet.id,
+                  questionId: qId,
                   orderIndex: i + 1,
                   points: Number(qItem.points) || 10.0,
                 },
               });
+              linkedQuestions.push({
+                id: qId,
+                content: qItem.content || qItem.title,
+                points: Number(qItem.points) || 10.0,
+              });
             } catch (linkErr) {
-              console.warn("Could not link question id:", qItem.id, linkErr);
+              console.warn("Could not link question id:", qId, linkErr);
             }
           }
         }
       }
 
       createdExam = {
-        id: newQuizSet.id,
-        title: newQuizSet.title,
-        description: newQuizSet.description,
-        mode: newQuizSet.mode,
-        curriculum,
-        hskLevel,
-        status,
-        totalPoints: totalScore,
-        questionsCount: questions.length,
-        questions,
-        createdAt: newQuizSet.createdAt,
+        id: targetQuizSet.id,
+        title: targetQuizSet.title,
+        description: targetQuizSet.description,
+        mode: targetQuizSet.mode,
+        curriculum: targetQuizSet.curriculum,
+        hskLevel: targetQuizSet.hskLevel,
+        status: targetQuizSet.status,
+        totalPoints: targetQuizSet.totalScore,
+        questionsCount: linkedQuestions.length || questions.length,
+        questions: linkedQuestions.length > 0 ? linkedQuestions : questions,
+        createdAt: targetQuizSet.createdAt,
       };
     } catch (dbErr) {
       console.warn("Neon DB create fallback to in-memory store:", dbErr);
@@ -184,7 +256,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        message: "Tạo bộ đề kiểm tra thành công!",
+        message: status === "DRAFT" ? "Đã lưu vào Đề nháp kho thành công!" : "Đã tạo bộ đề thi hoàn thiện!",
         exam: createdExam,
       },
       { status: 201 }
