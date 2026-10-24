@@ -1,0 +1,27 @@
+<svg viewBox="0 0 120 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Bamboo main stalk -->
+  <path d="M-5,160 Q20,110 35,60 Q45,25 50,0" stroke="#253d2e" stroke-width="3" stroke-linecap="round"/>
+  <!-- Bamboo joint ring 1 -->
+  <ellipse cx="22" cy="105" rx="4" ry="2" fill="#182c20" transform="rotate(-25 22 105)"/>
+  <!-- Bamboo joint ring 2 -->
+  <ellipse cx="38" cy="55" rx="3.5" ry="1.8" fill="#182c20" transform="rotate(-25 38 55)"/>
+
+  <!-- Secondary twig 1 -->
+  <path d="M22,105 Q35,90 48,82" stroke="#253d2e" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Cluster of bamboo leaves 1 -->
+  <path d="M48,82 Q65,80 82,90 Q68,85 48,82 Z" fill="#2d4938"/>
+  <path d="M48,82 Q60,72 75,76 Q62,76 48,82 Z" fill="#3b5e48"/>
+  <path d="M48,82 Q55,95 62,112 Q56,98 48,82 Z" fill="#253d2e"/>
+
+  <!-- Secondary twig 2 -->
+  <path d="M38,55 Q55,42 72,40" stroke="#253d2e" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Cluster of bamboo leaves 2 -->
+  <path d="M72,40 Q95,35 115,48 Q98,42 72,40 Z" fill="#2d4938"/>
+  <path d="M72,40 Q90,28 108,32 Q92,32 72,40 Z" fill="#3b5e48"/>
+  <path d="M72,40 Q85,50 98,68 Q88,52 72,40 Z" fill="#253d2e"/>
+  <path d="M72,40 Q80,20 88,8 Q82,22 72,40 Z" fill="#4d755c"/>
+
+  <!-- Lower hanging leaves -->
+  <path d="M12,125 Q25,138 32,158 Q24,142 12,125 Z" fill="#2d4938"/>
+  <path d="M12,125 Q32,130 45,142 Q30,132 12,125 Z" fill="#3b5e48"/>
+</svg>
