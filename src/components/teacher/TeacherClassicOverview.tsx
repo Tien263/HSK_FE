@@ -119,6 +119,16 @@ export default function TeacherClassicOverview({currentUser,onNavigate,onClass,o
                         <FileCheck2 className="w-4 h-4" />
                         <span>Tạo bài tập</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("mock-exams")}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold border border-amber-300 shadow-2xs transition cursor-pointer"
+                        title="Quản lý và xuất bản các bộ đề thi thử mô phỏng HSK cho học sinh"
+                      >
+                        <Award className="w-4 h-4 text-amber-700" />
+                        <span>Đề thi thử HSK</span>
+                      </button>
                     </div>
                   </div>
                 </section>
