@@ -74,6 +74,23 @@ export default function AiDialogueRoleplayModal({
     }>
   >([]);
 
+  // Gợi ý phản hồi và ô nhập văn bản tự do
+  const [typedText, setTypedText] = useState("");
+  const [currentSuggestions, setCurrentSuggestions] = useState<
+    Array<{ zh: string; pinyin: string; vi: string }>
+  >([
+    { zh: "你好！很高兴和你聊天。", pinyin: "Nǐ hǎo! Hěn gāoxìng hé nǐ liáotiān.", vi: "Chào bạn! Rất vui được trò chuyện với bạn." },
+    { zh: "你叫什么名字？", pinyin: "Nǐ jiào shénme míngzi?", vi: "Bạn tên là gì?" },
+    { zh: "你今天过得怎么样？", pinyin: "Nǐ jīntiān guò de zěnmeyàng?", vi: "Hôm nay bạn thế nào?" },
+  ]);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [freeChatHistory]);
+
   // Khởi tạo dialogue từ bài học
   useEffect(() => {
     if (initialDialogue && initialDialogue.length > 0) {
@@ -166,6 +183,7 @@ export default function AiDialogueRoleplayModal({
           lessonNumber,
           hskLevel,
           studentId,
+          history: freeChatHistory.map((m) => ({ sender: m.sender, zh: m.zh })),
         }),
       });
 
@@ -195,6 +213,11 @@ export default function AiDialogueRoleplayModal({
               : []),
           ]);
 
+          // Cập nhật gợi ý câu đối đáp mới từ AI
+          if (data.suggestedReplies && Array.isArray(data.suggestedReplies) && data.suggestedReplies.length > 0) {
+            setCurrentSuggestions(data.suggestedReplies);
+          }
+
           // Tự động phát âm câu đối đáp của AI
           if (data.aiReplyZh) {
             setTimeout(() => speakText(data.aiReplyZh), 600);
@@ -206,6 +229,14 @@ export default function AiDialogueRoleplayModal({
     } finally {
       setChecking(false);
     }
+  };
+
+  // Gửi câu nói bằng văn bản nhập từ bàn phím hoặc bấm từ gợi ý
+  const handleSendTypedText = (textToSend?: string) => {
+    const text = (textToSend || typedText).trim();
+    if (!text || checking) return;
+    setTypedText("");
+    verifySpeechWithBackend(text);
   };
 
   // Lưu hoặc thêm câu thoại mới
@@ -493,44 +524,98 @@ export default function AiDialogueRoleplayModal({
         {/* CHẾ ĐỘ 2: TRÒ CHUYỆN TỰ DO KHÔNG GIỚI HẠN CHỦ ĐỀ                    */}
         {/* =================================================================== */}
         {talkMode === "FREE_TALK" && (
-          <div className="space-y-4">
-            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-[#8F6D3B] flex items-center gap-2">
-              <Sparkles className="w-4 h-4 shrink-0 text-amber-600" />
-              <span>
-                Bạn có thể nói <strong>bất kỳ câu tiếng Trung nào</strong>. Hệ thống sẽ tra cứu kho từ điển để đối chiếu từ vựng, chấm điểm thanh điệu và AI sẽ đối đáp lại tự nhiên!
-              </span>
+          <div className="space-y-3.5">
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-[#8F6D3B] flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 shrink-0 text-amber-600" />
+                <span>
+                  Trò chuyện tự do cùng <strong>AI Tiểu Ngữ</strong>: Nói hoặc gõ bất kỳ câu gì, AI sẽ đối đáp liên tục, đa dạng chủ đề và gợi ý câu tiếp theo!
+                </span>
+              </div>
+              {freeChatHistory.length > 0 && (
+                <button
+                  onClick={() => {
+                    setFreeChatHistory([]);
+                    setCheckResult(null);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-bold flex items-center gap-1 transition"
+                  title="Xóa lịch sử và bắt đầu cuộc trò chuyện mới"
+                >
+                  <RotateCcw className="w-3 h-3" /> Bắt đầu lại
+                </button>
+              )}
             </div>
 
-            {/* Danh sách hội thoại tự do */}
-            <div className="space-y-3 min-h-[180px] max-h-60 overflow-y-auto p-3 bg-white rounded-2xl border border-[#E5DEC9]">
+            {/* Khung chat cuộn mượt mà */}
+            <div
+              ref={chatContainerRef}
+              className="space-y-3.5 min-h-[220px] max-h-[300px] overflow-y-auto p-4 bg-white rounded-3xl border border-[#E5DEC9] shadow-inner"
+            >
               {freeChatHistory.length === 0 ? (
-                <div className="text-center py-8 text-xs text-[#315E48]">
-                  Chưa có hội thoại nào. Hãy bấm Micro bên dưới và bắt đầu nói chuyện với AI!
+                <div className="text-center py-10 text-xs text-[#315E48] space-y-2">
+                  <div className="text-3xl">🤖💬</div>
+                  <p className="font-bold text-sm text-[#204434]">
+                    Chào bạn! Tôi là Tiểu Ngữ, rất vui được luyện khẩu ngữ cùng bạn.
+                  </p>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Bạn có thể bấm vào một trong các câu gợi ý bên dưới, gõ phím hoặc bấm nút Micro để bắt đầu trò chuyện nhé!
+                  </p>
                 </div>
               ) : (
                 freeChatHistory.map((msg, idx) => (
                   <div
                     key={idx}
-                    className={`flex flex-col ${
-                      msg.sender === "STUDENT" ? "items-end" : "items-start"
+                    className={`flex items-start gap-2.5 ${
+                      msg.sender === "STUDENT" ? "flex-row-reverse" : "flex-row"
                     }`}
                   >
                     <div
-                      className={`max-w-md p-3.5 rounded-2xl text-xs space-y-1 shadow-2xs ${
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs ${
                         msg.sender === "STUDENT"
                           ? "bg-[#204434] text-white"
-                          : "bg-[#FAF7F0] border border-[#E5DEC9] text-[#204434]"
+                          : "bg-amber-100 text-amber-800 border border-amber-200"
                       }`}
                     >
-                      <span className="font-serif font-bold text-sm block">{msg.zh}</span>
+                      {msg.sender === "STUDENT" ? "Me" : "AI"}
+                    </div>
+
+                    <div
+                      className={`max-w-md p-3.5 rounded-2xl text-xs space-y-1 shadow-2xs ${
+                        msg.sender === "STUDENT"
+                          ? "bg-[#204434] text-white rounded-tr-none"
+                          : "bg-[#FAF7F0] border border-[#E5DEC9] text-[#204434] rounded-tl-none"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-serif font-bold text-base block">{msg.zh}</span>
+                        {msg.sender === "AI" && (
+                          <button
+                            onClick={() => speakText(msg.zh)}
+                            className="p-1 rounded-lg hover:bg-white text-slate-500 hover:text-[#204434] transition shrink-0"
+                            title="Nghe lại phát âm của AI"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
                       {msg.pinyin && (
-                        <span className="font-mono text-[11px] block opacity-90">{msg.pinyin}</span>
+                        <span className="font-mono text-[11px] block text-emerald-700 font-medium">
+                          {msg.pinyin}
+                        </span>
                       )}
-                      {msg.vi && <p className="text-[11px] opacity-80">{msg.vi}</p>}
+                      {msg.vi && (
+                        <p className="text-[11px] text-slate-600 font-sans italic">{msg.vi}</p>
+                      )}
 
                       {msg.score && (
-                        <div className="pt-1 text-[10px] text-amber-300 font-bold">
-                          Điểm phát âm: {msg.score}/100đ
+                        <div className="pt-1 text-[10px] text-amber-300 font-bold border-t border-white/20 mt-1 flex items-center justify-between">
+                          <span>Điểm phát âm: {msg.score}/100đ</span>
+                          {msg.vocab && msg.vocab.length > 0 && (
+                            <span className="text-[9px] opacity-80">
+                              Tra được {msg.vocab.length} từ điển
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -539,22 +624,73 @@ export default function AiDialogueRoleplayModal({
               )}
             </div>
 
-            {/* Nút Micro thu âm tự do */}
-            <div className="flex items-center justify-center gap-3 pt-1">
+            {/* Gợi ý câu trả lời nhanh từ AI */}
+            {currentSuggestions.length > 0 && (
+              <div className="space-y-1.5 pt-0.5">
+                <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  Gợi ý câu đối đáp tiếp theo (Bấm để chọn ngay):
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {currentSuggestions.map((sug, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSendTypedText(sug.zh)}
+                      disabled={checking || isRecording}
+                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-200/90 hover:border-amber-400 text-left transition shadow-2xs group cursor-pointer text-xs"
+                      title={sug.vi}
+                    >
+                      <span className="font-bold text-[#204434] block group-hover:text-amber-800 font-serif">
+                        {sug.zh}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block truncate max-w-xs">
+                        {sug.pinyin} · {sug.vi}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Khung nhập văn bản hoặc thu âm bằng Micro */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={typedText}
+                  onChange={(e) => setTypedText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSendTypedText();
+                  }}
+                  placeholder="Gõ tiếng Trung để trò chuyện hoặc bấm micro..."
+                  disabled={checking || isRecording}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-xs text-[#204434] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#204434] transition shadow-2xs font-medium"
+                />
+              </div>
+
+              <button
+                onClick={() => handleSendTypedText()}
+                disabled={!typedText.trim() || checking || isRecording}
+                className="px-4 py-2.5 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                title="Gửi tin nhắn"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden sm:inline">Gửi</span>
+              </button>
+
               <button
                 onClick={handleStartRecording}
                 disabled={isRecording || checking}
-                className={`px-8 py-3 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer transition ${
+                className={`px-4 sm:px-5 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer transition ${
                   isRecording
-                    ? "bg-red-500 text-white animate-pulse"
-                    : "bg-[#204434] hover:bg-[#183629] text-white"
+                    ? "bg-rose-600 text-white animate-pulse"
+                    : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
                 }`}
+                title="Nói bằng giọng nói qua Microphone"
               >
-                <Mic className="w-5 h-5" />
-                <span>
-                  {isRecording
-                    ? "Đang lắng nghe... Nói bất kỳ điều gì bằng tiếng Trung"
-                    : "Bấm Micro và bắt đầu nói chuyện tự do"}
+                <Mic className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {isRecording ? "Đang nghe..." : "Nói Micro"}
                 </span>
               </button>
             </div>
