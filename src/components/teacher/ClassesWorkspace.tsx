@@ -1,5 +1,7 @@
 "use client";
 
+import ClassDiagnosticsModal from "./ClassDiagnosticsModal";
+
 import TeachingMaterialsWorkspace from "@/components/learning/TeachingMaterialsWorkspace";
 import AppleScheduleCalendar from "./AppleScheduleCalendar";
 import ClassReportWorkspace from "./ClassReportWorkspace";
@@ -45,6 +47,7 @@ export default function ClassesWorkspace({
   const [classes, setClasses] = useState<ClassDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(initialClassId||null);
+  const [isDiagnosticsModalOpen, setIsDiagnosticsModalOpen] = useState(false);
   const [selectedBulkClassIds, setSelectedBulkClassIds] = useState<string[]>([]);
   const [isBulkDeletingClasses, setIsBulkDeletingClasses] = useState(false);
 
@@ -745,7 +748,15 @@ export default function ClassesWorkspace({
           {/* TAB 7: BÁO CÁO */}
           {detailSubTab === "reports" && <ClassReportWorkspace classes={[currentClass]} currentUser={currentUser} showToast={showToast} onNavigateToTab={tab=>setDetailSubTab(tab==="classes"?"students":tab as any)}/>}
 
-          {/* TAB 8: CÀI ĐẶT LỚP */}
+          {isDiagnosticsModalOpen && currentClass && (
+        <ClassDiagnosticsModal
+          isOpen={isDiagnosticsModalOpen}
+          onClose={() => setIsDiagnosticsModalOpen(false)}
+          classId={currentClass.id}
+          className={currentClass.name}
+        />
+      )}
+      {/* TAB 8: CÀI ĐẶT LỚP */}
           {detailSubTab === "settings" && (<div className="space-y-5"><ClassSettingsForm key={currentClass.id} classroom={currentClass} onSaved={()=>{void fetchClasses();}}/>
             <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-6 shadow-2xs space-y-4">
               <h3 className="font-serif font-bold text-base text-[#17382F]">

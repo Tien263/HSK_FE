@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import Link from "next/link";
 import {
   Bell,
   User,
@@ -33,6 +34,7 @@ import { useCurriculumLessons } from "@/lib/use-curriculum";
 import VocabPracticeSuite from "./practice/VocabPracticeSuite";
 import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
 import ComprehensivePracticeSuite from "./practice/ComprehensivePracticeSuite";
+import ClassLeaderboardModal from "./ClassLeaderboardModal";
 import {
   getMemoryStats,
   getWeeklyStudyMinutes,
@@ -158,6 +160,7 @@ export default function StudentPracticeWorkspace({
   const [retryResult, setRetryResult] = useState<Record<string, "CORRECT" | "INCORRECT">>({});
   const [submittingRetry, setSubmittingRetry] = useState<Record<string, boolean>>({});
   const [retrySuccessMsg, setRetrySuccessMsg] = useState<Record<string, string>>({});
+  const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
 
   // Fetch Class Lessons
   const fetchLessons = useCallback(async () => {
@@ -540,7 +543,23 @@ export default function StudentPracticeWorkspace({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <Link
+            href="/s/mock-exam"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#BC9B6B]/60 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
+            title="Vào phòng thi thử mô phỏng HSK chuẩn quốc tế"
+          >
+            <Award className="w-4 h-4 text-[#8F6D3B]" />
+            <span>Thi thử HSK</span>
+          </Link>
+          <button
+            onClick={() => setShowLeaderboard(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-xs text-xs font-bold transition cursor-pointer"
+            title="Xem Bảng Vàng Thi Đua"
+          >
+            <Trophy className="w-4 h-4 fill-white" />
+            <span>Bảng vàng thi đua</span>
+          </button>
           <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs text-xs font-semibold text-[#8F6D3B]">
             <Flame className="w-4 h-4 text-[#9D493E] fill-[#9D493E]" />
             <span>{streak} ngày liên tục</span>
@@ -1302,6 +1321,15 @@ export default function StudentPracticeWorkspace({
           </div>
         </div>
       </div>
+
+      {/* Modal Bảng Vàng Thi Đua Lớp & Toàn Trường */}
+      <ClassLeaderboardModal
+        isOpen={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        classId={activeClass?.id}
+        className={activeClass?.name}
+        currentUserId={currentUser?.id}
+      />
     </div>
   );
 }

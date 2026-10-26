@@ -35,7 +35,9 @@ import {
   Lightbulb,
   Link2,
   Image as ImageIcon,
+  PenTool,
 } from "lucide-react";
+import HanziPracticeModal from "@/components/student/HanziPracticeModal";
 import {
   saveMemoryRecord,
   getMemoryRecords,
@@ -140,6 +142,10 @@ export default function VocabPracticeSuite({
   const [assembledTokens, setAssembledTokens] = useState<string[]>([]);
   const [availableTokens, setAvailableTokens] = useState<{ id: string; text: string }[]>([]);
   const [orderResult, setOrderResult] = useState<"CORRECT" | "INCORRECT" | null>(null);
+
+  // Modal Luyện viết nét chữ Hán & Phát âm AI
+  const [isHanziModalOpen, setIsHanziModalOpen] = useState(false);
+  const [hanziModalTarget, setHanziModalTarget] = useState<any>(null);
 
   // Memory Records & Sync
   const [memoryRecords, setMemoryRecords] = useState<any[]>([]);
@@ -968,33 +974,45 @@ export default function VocabPracticeSuite({
             </div>
 
             {/* Hàng Nút Điều Khiển Thẻ Flashcard */}
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => handleSpeak(currentVocab.hanzi)}
-                className="p-3 rounded-2xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] shadow-2xs transition cursor-pointer"
+                className="p-2.5 sm:p-3 rounded-2xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] shadow-2xs transition cursor-pointer"
                 title="Phát âm chữ này"
               >
                 <Volume2 className="w-4 h-4" />
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  setHanziModalTarget(currentVocab);
+                  setIsHanziModalOpen(true);
+                }}
+                className="px-3.5 py-2.5 rounded-2xl bg-amber-50/80 border border-amber-300 text-[#8F6D3B] hover:bg-amber-100 text-xs font-bold shadow-2xs transition cursor-pointer flex items-center gap-1.5"
+                title="Luyện viết từng nét trên ô Mễ & Khẩu ngữ Micro AI"
+              >
+                <PenTool className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                <span>Luyện viết & Phát âm AI</span>
+              </button>
+              <button
+                type="button"
                 onClick={handlePrevWord}
-                className="px-5 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-xs font-bold text-[#204434] hover:bg-[#FAF7F0] shadow-2xs transition cursor-pointer"
+                className="px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-xs font-bold text-[#204434] hover:bg-[#FAF7F0] shadow-2xs transition cursor-pointer"
               >
                 Từ trước
               </button>
               <button
                 type="button"
                 onClick={() => setShowCardMeaning(!showCardMeaning)}
-                className="px-6 py-2.5 rounded-2xl bg-[#A58656] hover:bg-[#8F6D3B] text-white text-xs font-bold shadow-2xs transition cursor-pointer"
+                className="px-5 py-2.5 rounded-2xl bg-[#A58656] hover:bg-[#8F6D3B] text-white text-xs font-bold shadow-2xs transition cursor-pointer"
               >
                 {showCardMeaning ? "Ẩn đáp án" : "Lật thẻ xem nghĩa"}
               </button>
               <button
                 type="button"
                 onClick={handleNextWord}
-                className="px-6 py-2.5 rounded-2xl bg-[#17382F] hover:bg-[#0f241e] text-white text-xs font-bold shadow-2xs transition cursor-pointer"
+                className="px-5 py-2.5 rounded-2xl bg-[#17382F] hover:bg-[#0f241e] text-white text-xs font-bold shadow-2xs transition cursor-pointer"
               >
                 Từ kế tiếp
               </button>
@@ -1513,6 +1531,22 @@ export default function VocabPracticeSuite({
           )}
         </div>
       )}
+
+      {/* Modal Luyện viết nét thuận bút & Khẩu ngữ Micro AI */}
+      <HanziPracticeModal
+        isOpen={isHanziModalOpen}
+        onClose={() => setIsHanziModalOpen(false)}
+        initialHanzi={hanziModalTarget?.hanzi || currentVocab?.hanzi || "你"}
+        initialPinyin={hanziModalTarget?.pinyin || currentVocab?.pinyin || "nǐ"}
+        initialMeaning={
+          hanziModalTarget?.meaningVi ||
+          hanziModalTarget?.meaning ||
+          currentVocab?.meaningVi ||
+          ""
+        }
+        studentId={studentId}
+        username={studentId}
+      />
     </div>
   );
 }

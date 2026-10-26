@@ -23,6 +23,7 @@ interface ClassHeaderProps {
   setActiveSubTab: (tab: any) => void;
   onBackToList: () => void;
   studentsCount: number;
+  onOpenDiagnostics?: () => void;
 }
 
 export default function ClassHeader({
@@ -31,6 +32,7 @@ export default function ClassHeader({
   setActiveSubTab,
   onBackToList,
   studentsCount,
+  onOpenDiagnostics,
 }: ClassHeaderProps) {
   const tabs = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },

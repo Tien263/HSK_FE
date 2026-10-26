@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import HanziiLogo from "@/components/common/HanziiLogo";
+import HanziWriter from "hanzi-writer";
 import {
   X,
   Volume2,
@@ -14,6 +15,8 @@ import {
   PenTool,
   Palette,
   Check,
+  Play,
+  HelpCircle,
 } from "lucide-react";
 
 interface HanziPracticeModalProps {
@@ -30,6 +33,8 @@ interface HanziPracticeModalProps {
   initialHanzi?: string;
   initialPinyin?: string;
   initialMeaning?: string;
+  username?: string;
+  studentId?: string;
 }
 
 const DEFAULT_HSK1_HANZI = [
@@ -50,6 +55,8 @@ export default function HanziPracticeModal({
   initialHanzi = "你",
   initialPinyin = "nǐ",
   initialMeaning = "Bạn, anh, chị",
+  username = "student",
+  studentId,
 }: HanziPracticeModalProps) {
   const practiceList = useMemo(() => {
     if (words && words.length > 0) return words;
@@ -64,6 +71,13 @@ export default function HanziPracticeModal({
   const [inkColor, setInkColor] = useState("#204434");
   const [hasDrawn, setHasDrawn] = useState(false);
   const [writtenScore, setWrittenScore] = useState<number | null>(null);
+  const [earnedXpMsg, setEarnedXpMsg] = useState<string | null>(null);
+
+  // HanziWriter Interactive State
+  const writerContainerRef = useRef<HTMLDivElement | null>(null);
+  const writerInstanceRef = useRef<any>(null);
+  const [isQuizMode, setIsQuizMode] = useState<boolean>(false);
+  const [quizScore, setQuizScore] = useState<number | null>(null);
 
   // Speech Recognition state
   const [isRecording, setIsRecording] = useState(false);
@@ -81,6 +95,92 @@ export default function HanziPracticeModal({
     strokes: 7,
     radical: "亻",
     rule: "Trái trước phải sau",
+  };
+
+  // Cộng XP thật vào tài khoản học sinh
+  const awardXp = async (amount: number, reason: string) => {
+    if (!username) return;
+    try {
+      const res = await fetch("/api/v1/my/games/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          score: amount,
+          maxCombo: 1,
+          gameType: "HANZI_PRACTICE",
+        }),
+      });
+      if (res.ok) {
+        setEarnedXpMsg(`+${amount} XP`);
+      }
+    } catch (e) {
+      console.warn("awardXp error:", e);
+    }
+  };
+
+  // Khởi tạo HanziWriter cho chữ Hán hiện tại
+  useEffect(() => {
+    if (!isOpen || activeTab !== "WRITE" || !writerContainerRef.current) return;
+
+    // Reset container
+    writerContainerRef.current.innerHTML = "";
+    setIsQuizMode(false);
+    setQuizScore(null);
+    setEarnedXpMsg(null);
+
+    try {
+      const writer = HanziWriter.create(writerContainerRef.current, currentItem.hanzi, {
+        width: 160,
+        height: 160,
+        padding: 10,
+        strokeColor: inkColor,
+        radicalColor: "#BC9B6B",
+        outlineColor: "#E5DEC9",
+        showOutline: true,
+        showCharacter: true,
+        charDataLoader: (char, onComplete) => {
+          fetch(`/api/dictionary/strokes/${encodeURIComponent(char)}`)
+            .then((r) => (r.ok ? r.json() : Promise.reject()))
+            .then((data) => onComplete(data))
+            .catch(() => {
+              fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/${char}.json`)
+                .then((r) => r.json())
+                .then((data) => onComplete(data))
+                .catch(() => {});
+            });
+        },
+      });
+
+      writerInstanceRef.current = writer;
+    } catch (e) {
+      console.warn("HanziWriter initialization error:", e);
+    }
+  }, [isOpen, activeTab, currentIdx, inkColor, currentItem.hanzi]);
+
+  // Xem hoạt họa nét vẽ
+  const handleAnimate = () => {
+    if (writerInstanceRef.current) {
+      writerInstanceRef.current.showCharacter();
+      writerInstanceRef.current.animateCharacter();
+    }
+  };
+
+  // Bắt đầu thi viết nét theo thuận bút
+  const handleStartQuiz = () => {
+    if (!writerInstanceRef.current) return;
+    setIsQuizMode(true);
+    setQuizScore(null);
+    setEarnedXpMsg(null);
+
+    writerInstanceRef.current.quiz({
+      onComplete: (summary: any) => {
+        const mistakes = summary?.totalMistakes || 0;
+        const finalScore = Math.max(70, 100 - mistakes * 8);
+        setQuizScore(finalScore);
+        awardXp(15, `Hoàn thành viết đúng chữ '${currentItem.hanzi}' đạt ${finalScore}đ`);
+      },
+    });
   };
 
   // Clear and setup canvas
@@ -216,6 +316,7 @@ export default function HanziPracticeModal({
         if (isMatch) {
           setSpeechAccuracy(98);
           setSpeechStatusText("Xuất sắc! Phát âm rất chuẩn thanh điệu Bắc Kinh (+20 XP)");
+          awardXp(20, `Phát âm chuẩn chữ Hán '${currentItem.hanzi}'`);
         } else {
           setSpeechAccuracy(75);
           setSpeechStatusText(`Máy nhận diện âm: "${spoken}". Hãy nghe lại và thử đọc nhấn rõ thanh điệu hơn!`);
@@ -319,24 +420,40 @@ export default function HanziPracticeModal({
         {activeTab === "WRITE" && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              {/* Reference Sample Hanzi */}
+              {/* Reference Sample Hanzi & HanziWriter Animation */}
               <div className="flex flex-col items-center space-y-2">
-                <span className="text-[10px] uppercase font-bold text-[#315E48]">Mẫu chữ Hán:</span>
-                <div className="w-40 h-40 bg-[#FAF7F0] rounded-2xl border-2 border-dashed border-[#BC9B6B]/60 flex items-center justify-center relative shadow-inner">
-                  <span className="font-serif text-7xl font-bold text-[#204434]/85 select-none">
-                    <HanziiLogo char={currentItem.hanzi} className="font-serif" />
-                  </span>
+                <div className="flex items-center justify-between w-full px-1">
+                  <span className="text-[10px] uppercase font-bold text-[#315E48]">Nét vẽ mẫu:</span>
+                  <button
+                    onClick={handleAnimate}
+                    className="text-[10px] font-bold text-[#204434] hover:text-[#8F6D3B] flex items-center gap-1 cursor-pointer"
+                    title="Chạy hoạt họa nét bút"
+                  >
+                    <Play className="w-3 h-3 fill-[#204434]" />
+                    <span>Xem vẽ nét</span>
+                  </button>
+                </div>
+                <div className="w-40 h-40 bg-[#FAF7F0] rounded-2xl border-2 border-dashed border-[#BC9B6B]/60 flex items-center justify-center relative shadow-inner overflow-hidden">
+                  <div ref={writerContainerRef} className="w-full h-full flex items-center justify-center" />
                   <button
                     onClick={handleSpeakSample}
-                    className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] shadow-2xs"
-                    title="Nghe mẫu"
+                    className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] shadow-2xs cursor-pointer z-10"
+                    title="Nghe phát âm"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <span className="text-xs font-mono font-bold text-[#8F6D3B]">
-                  {currentItem.strokes} nét · Bộ: {currentItem.radical}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-[#8F6D3B]">
+                    {currentItem.strokes} nét · Bộ: {currentItem.radical}
+                  </span>
+                  <button
+                    onClick={handleStartQuiz}
+                    className="text-[10px] px-2 py-0.5 rounded-lg bg-[#204434] text-white font-bold hover:bg-[#183629] transition cursor-pointer"
+                  >
+                    {isQuizMode ? "Đang thi nét..." : "Thử thách viết"}
+                  </button>
+                </div>
               </div>
 
               {/* Interactive Canvas */}
@@ -401,13 +518,23 @@ export default function HanziPracticeModal({
               </button>
             </div>
 
+            {quizScore && (
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                  <span>Hoàn thành viết đúng thuận bút chữ Hán: <strong>{quizScore}/100đ</strong></span>
+                </div>
+                <span className="font-bold text-[#8F6D3B]">{earnedXpMsg || "+15 XP"}</span>
+              </div>
+            )}
+
             {writtenScore && (
               <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between animate-fadeIn">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-700" />
                   <span>Nét chữ rất đẹp và chuẩn tỷ lệ ô vuông: <strong>{writtenScore}/100đ</strong></span>
                 </div>
-                <span className="font-bold text-[#8F6D3B]">+15 XP</span>
+                <span className="font-bold text-[#8F6D3B]">{earnedXpMsg || "+15 XP"}</span>
               </div>
             )}
           </div>
