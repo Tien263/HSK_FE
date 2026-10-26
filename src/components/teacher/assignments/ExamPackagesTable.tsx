@@ -227,6 +227,37 @@ export default function ExamPackagesTable({
                         <span>Hoàn thiện đề</span>
                       </button>
                     ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isLoadingThis}
+                          onClick={async () => {
+                          try {
+                            const res = await fetch("/api/v1/mock-exams", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                title: pkg.title,
+                                description: pkg.description,
+                                hskLevel: pkg.hskLevel || 1,
+                                totalScore: pkg.totalPoints || 200,
+                                questions: pkg.questions || [],
+                              }),
+                            });
+                            if (res.ok) {
+                              alert("Đã xuất bản thành công vào Phòng thi thử HSK toàn trường!");
+                            }
+                          } catch (e) {
+                            alert("Có lỗi khi đưa đề vào phòng thi thử.");
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold transition shadow-2xs cursor-pointer"
+                        title="Đưa đề thi này vào Phòng thi thử HSK cho học sinh toàn trường thi thử"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Thi thử HSK</span>
+                      </button>
+
                       <button
                         type="button"
                         disabled={isLoadingThis}
@@ -235,7 +266,8 @@ export default function ExamPackagesTable({
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>Giao bài cho lớp</span>
-                      </button>
+                        </button>
+                      </>
                     )}
 
                     {mode === "READY" && (

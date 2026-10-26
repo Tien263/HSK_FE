@@ -229,6 +229,8 @@ export default function HanziPracticeModal({
   const [quizFeedback, setQuizFeedback] = useState<string | null>(null);
   const [mistakesCount, setMistakesCount] = useState<number>(0);
   const [isQuizFinished, setIsQuizFinished] = useState<boolean>(false);
+  const [currentStrokeIdx, setCurrentStrokeIdx] = useState<number>(0);
+  const [totalStrokesCount, setTotalStrokesCount] = useState<number>(0);
 
   // Lưu điểm hoàn thành của từng chữ Hán trong từ ghép { 0: 100, 1: 95 }
   const [completedChars, setCompletedChars] = useState<Record<number, number>>({});
@@ -273,12 +275,15 @@ export default function HanziPracticeModal({
 
   // Khởi tạo HanziWriter cho chữ Hán đơn được chọn (Kích thước lớn 270x270 px)
   const initWriter = useCallback(
-    (char: string, startInQuiz = false) => {
+    (char: string) => {
       if (!writerContainerRef.current) return;
 
       writerContainerRef.current.innerHTML = "";
+      setIsQuizMode(false);
       setIsQuizFinished(false);
       setMistakesCount(0);
+      setCurrentStrokeIdx(0);
+      setTotalStrokesCount(0);
       setQuizFeedback(null);
 
       try {
@@ -288,19 +293,21 @@ export default function HanziPracticeModal({
           padding: 16,
           strokeColor: inkColor,
           radicalColor: "#BC9B6B",
-          outlineColor: showFaintOutline ? "#DFD7C0" : "transparent",
+          outlineColor: "#DFD7C0",
           showOutline: showFaintOutline,
-          showCharacter: !startInQuiz,
+          showCharacter: true,
           strokeAnimationSpeed: 1,
           delayBetweenStrokes: 180,
           charDataLoader: (targetChar, onComplete) => {
-            // Tải stroke data qua local API route trước (đã có hanzi-writer-data local)
             fetch(`/api/dictionary/strokes/${encodeURIComponent(targetChar)}`)
               .then((r) => (r.ok ? r.json() : Promise.reject()))
               .then((data) => onComplete(data))
               .catch(() => {
-                // Fallback CDN nếu cần
-                fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/${encodeURIComponent(targetChar)}.json`)
+                fetch(
+                  `https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/${encodeURIComponent(
+                    targetChar
+                  )}.json`
+                )
                   .then((r) => r.json())
                   .then((data) => onComplete(data))
                   .catch((err) => {
@@ -311,98 +318,130 @@ export default function HanziPracticeModal({
         });
 
         writerInstanceRef.current = writer;
-
-        if (startInQuiz) {
-          setIsQuizMode(true);
-          writer.quiz({
-            onMistake: (strokeData: any) => {
-              setMistakesCount((prev) => {
-                const updated = prev + 1;
-                setQuizFeedback(
-                  `❌ Nét chưa đúng thứ tự hoặc sai hướng nét (Phạm ${updated} lỗi). Hãy quan sát kỹ lại!`
-                );
-                return updated;
-              });
-            },
-            onCorrectStroke: (strokeData: any) => {
-              setQuizFeedback(
-                `✓ Đúng nét thứ ${strokeData.strokeNum + 1}/${strokeData.totalStrokes}! Tiếp tục nào.`
-              );
-            },
-            onComplete: (summary: any) => {
-              const totalMistakes = summary?.totalMistakes ?? 0;
-              let calculatedScore = 100;
-              if (totalMistakes === 1) calculatedScore = 92;
-              else if (totalMistakes === 2) calculatedScore = 84;
-              else if (totalMistakes === 3) calculatedScore = 75;
-              else if (totalMistakes === 4) calculatedScore = 65;
-              else if (totalMistakes >= 5) calculatedScore = Math.max(35, 60 - (totalMistakes - 4) * 8);
-
-              setQuizScore(calculatedScore);
-              setIsQuizFinished(true);
-
-              if (calculatedScore >= 70) {
-                setCompletedChars((prev) => ({
-                  ...prev,
-                  [selectedCharIdx]: calculatedScore,
-                }));
-                awardXp(15, `Hoàn thành viết chữ '${char}' đạt ${calculatedScore}đ`);
-                setQuizFeedback(
-                  `🎉 Xuất sắc! Bạn đã viết đúng trọn vẹn chữ '${char}' với ${calculatedScore} điểm!`
-                );
-              } else {
-                setQuizFeedback(
-                  `⚠️ Bạn phạm ${totalMistakes} lỗi nét. Điểm: ${calculatedScore}đ (Chưa đạt). Hãy bấm 'Viết lại' để rèn luyện nhé!`
-                );
-              }
-            },
-          });
-        } else {
-          setIsQuizMode(false);
-        }
       } catch (e) {
         console.warn("HanziWriter init error:", e);
       }
     },
-    [inkColor, showFaintOutline, selectedCharIdx, awardXp]
+    [inkColor, showFaintOutline]
   );
 
+  // Chỉ khởi tạo writer khi mở modal, đổi tab hoặc đổi chữ Hán
   useEffect(() => {
     if (isOpen && activeTab === "WRITE") {
-      initWriter(activeChar, false);
+      initWriter(activeChar);
     }
   }, [isOpen, activeTab, activeChar, initWriter]);
 
   // Chạy hoạt họa viết mẫu
   const handleAnimate = () => {
-    if (writerInstanceRef.current) {
+    const writer = writerInstanceRef.current;
+    if (writer) {
       setIsQuizMode(false);
       setIsQuizFinished(false);
-      writerInstanceRef.current.showCharacter();
-      writerInstanceRef.current.animateCharacter();
+      writer.cancelQuiz();
+      writer.showCharacter();
+      writer.animateCharacter();
+      setQuizFeedback("▶️ Đang chạy hoạt họa thứ tự thuận bút viết mẫu...");
     }
   };
 
-  // Bắt đầu chế độ Thử thách tự viết (HanziWriter Quiz)
+  // Bắt đầu chế độ Thử thách tự viết (HanziWriter Quiz) - KHÔNG HỦY WRITER ĐỂ TRÁNH MẤT SỰ KIỆN
   const handleStartQuiz = () => {
+    const writer = writerInstanceRef.current;
+    if (!writer) return;
+
+    setIsQuizMode(true);
+    setIsQuizFinished(false);
     setQuizScore(null);
-    initWriter(activeChar, true);
+    setMistakesCount(0);
+    setCurrentStrokeIdx(0);
+    setQuizFeedback("✍️ Chế độ thi viết đã bật! Hãy tự vẽ nét đầu tiên trên ô Mễ.");
+
+    writer.cancelQuiz();
+    writer.hideCharacter();
+    if (showFaintOutline) {
+      writer.showOutline();
+    } else {
+      writer.hideOutline();
+    }
+
+    writer.quiz({
+      showOutline: showFaintOutline,
+      showHintAfterMisses: 3,
+      onMistake: (strokeData: any) => {
+        setMistakesCount((prev) => {
+          const updated = prev + 1;
+          setQuizFeedback(
+            `❌ Nét chưa chuẩn hoặc sai chiều nét (Phạm ${updated} lỗi). Bấm 'Gợi ý nét' nếu bạn cần trợ giúp!`
+          );
+          return updated;
+        });
+      },
+      onCorrectStroke: (strokeData: any) => {
+        const cur = strokeData.strokeNum + 1;
+        const total = strokeData.strokeNum + 1 + (strokeData.strokesRemaining ?? 0);
+        setCurrentStrokeIdx(cur);
+        setTotalStrokesCount(total);
+        setQuizFeedback(`✓ Đúng nét ${cur}/${total}! Rất tốt, tiếp tục vẽ nét tiếp theo.`);
+      },
+      onComplete: (summary: any) => {
+        const totalMistakes = summary?.totalMistakes ?? 0;
+        let calculatedScore = 100;
+        if (totalMistakes === 1) calculatedScore = 92;
+        else if (totalMistakes === 2) calculatedScore = 84;
+        else if (totalMistakes === 3) calculatedScore = 75;
+        else if (totalMistakes === 4) calculatedScore = 65;
+        else if (totalMistakes >= 5) calculatedScore = Math.max(35, 60 - (totalMistakes - 4) * 8);
+
+        setQuizScore(calculatedScore);
+        setIsQuizFinished(true);
+
+        if (calculatedScore >= 70) {
+          setCompletedChars((prev) => ({
+            ...prev,
+            [selectedCharIdx]: calculatedScore,
+          }));
+          awardXp(15, `Hoàn thành viết chữ '${activeChar}' đạt ${calculatedScore}đ`);
+          setQuizFeedback(
+            `🎉 Xuất sắc! Bạn đã viết hoàn chỉnh chữ '${activeChar}' đạt ${calculatedScore} điểm!`
+          );
+        } else {
+          setQuizFeedback(
+            `⚠️ Bạn phạm ${totalMistakes} lỗi nét. Điểm: ${calculatedScore}đ (Chưa đạt). Hãy bấm 'Viết lại từ đầu' để rèn luyện nhé!`
+          );
+        }
+      },
+    });
   };
 
-  // Gợi ý nét tiếp theo khi đang làm Quiz
+  // Gợi ý nét tiếp theo khi đang làm Quiz (Chạy hoạt họa nét hiện tại chính xác, không còn undefined)
   const handleGiveHint = () => {
-    if (writerInstanceRef.current && isQuizMode) {
-      writerInstanceRef.current.animateStroke();
+    const writer = writerInstanceRef.current;
+    if (writer) {
+      const strokeToAnimate = currentStrokeIdx;
+      try {
+        writer.animateStroke(strokeToAnimate);
+        const displayTotal = totalStrokesCount > 0 ? `/${totalStrokesCount}` : "";
+        setQuizFeedback(
+          `💡 Đang chiếu gợi ý nét thứ ${strokeToAnimate + 1}${displayTotal}. Hãy chú ý hướng bút và điểm dừng!`
+        );
+      } catch (err) {
+        console.warn("Hint error:", err);
+      }
     }
   };
 
-  // Bật/tắt nét mờ
+  // Bật/tắt nét mờ - CHỈ GỌI METHOD CỦA INSTANCE, KHÔNG TẠO LẠI ĐỂ TRÁNH MẤT KHẢ NĂNG VẼ
   const toggleFaintOutline = () => {
     const nextVal = !showFaintOutline;
     setShowFaintOutline(nextVal);
-    if (writerInstanceRef.current) {
-      if (nextVal) writerInstanceRef.current.showOutline();
-      else writerInstanceRef.current.hideOutline();
+    const writer = writerInstanceRef.current;
+    if (writer) {
+      if (nextVal) {
+        writer.showOutline();
+      } else {
+        writer.hideOutline();
+      }
     }
   };
 
