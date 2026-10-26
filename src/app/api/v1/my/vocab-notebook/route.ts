@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-export const dynamic = "force-dynamic";
+import { unstable_rethrow } from "next/navigation";
 
 export async function GET(request: Request) {
   try {
@@ -143,6 +142,7 @@ export async function GET(request: Request) {
       items,
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Lỗi lấy sổ tay từ vựng:", error);
     return NextResponse.json({ success: false, message: "Lỗi tải sổ tay từ vựng" }, { status: 500 });
   }

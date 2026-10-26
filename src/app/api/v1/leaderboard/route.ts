@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { unstable_rethrow } from "next/navigation";
 
 export async function GET(request: Request) {
   try {
@@ -70,6 +71,7 @@ export async function GET(request: Request) {
       currentUserRank: currentRank,
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("GET /api/v1/leaderboard error:", error);
     return NextResponse.json(
       { success: false, message: "Lỗi tải bảng xếp hạng" },

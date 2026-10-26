@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-export const dynamic = "force-dynamic";
+import { unstable_rethrow } from "next/navigation";
 
 export async function GET(request: Request) {
   try {
@@ -117,6 +116,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("GET /api/v1/my/daily-quests error:", error);
     return NextResponse.json({ success: false, message: "Lỗi tải nhiệm vụ hàng ngày" }, { status: 500 });
   }

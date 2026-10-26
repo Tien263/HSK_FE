@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-export const dynamic = "force-dynamic";
+import { unstable_rethrow } from "next/navigation";
 
 export async function GET(request: Request) {
   try {
@@ -156,6 +155,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("GET /api/v1/reports/hsk-radar error:", error);
     return NextResponse.json({ success: false, message: "Lỗi tính toán chỉ số năng lực" }, { status: 500 });
   }
