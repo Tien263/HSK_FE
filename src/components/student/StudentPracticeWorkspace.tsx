@@ -29,12 +29,16 @@ import {
   ChevronRight,
   RefreshCw,
   Award,
+  Headphones,
+  PenTool,
 } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import VocabPracticeSuite from "./practice/VocabPracticeSuite";
 import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
 import ComprehensivePracticeSuite from "./practice/ComprehensivePracticeSuite";
 import ClassLeaderboardModal from "./ClassLeaderboardModal";
+import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
+import AiWritingCheckerModal from "./AiWritingCheckerModal";
 import {
   getMemoryStats,
   getWeeklyStudyMinutes,
@@ -161,6 +165,8 @@ export default function StudentPracticeWorkspace({
   const [submittingRetry, setSubmittingRetry] = useState<Record<string, boolean>>({});
   const [retrySuccessMsg, setRetrySuccessMsg] = useState<Record<string, string>>({});
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
+  const [showAiDialogueModal, setShowAiDialogueModal] = useState<boolean>(false);
+  const [showAiWritingModal, setShowAiWritingModal] = useState<boolean>(false);
 
   // Fetch Class Lessons
   const fetchLessons = useCallback(async () => {
@@ -544,6 +550,24 @@ export default function StudentPracticeWorkspace({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => setShowAiDialogueModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
+            title="Luyện khẩu ngữ hội thoại 2 chiều và trò chuyện tự do có Từ Điển chấm điểm"
+          >
+            <Headphones className="w-4 h-4 text-[#BC9B6B]" />
+            <span>🎙️ Khẩu ngữ AI</span>
+          </button>
+
+          <button
+            onClick={() => setShowAiWritingModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
+            title="Sửa lỗi ngữ pháp, trật tự từ và chấm đoạn văn tiếng Trung kết nối Từ Điển"
+          >
+            <PenTool className="w-4 h-4 text-[#8F6D3B]" />
+            <span>✍️ Sửa viết AI</span>
+          </button>
+
           <Link
             href="/s/mock-exam"
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#BC9B6B]/60 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
@@ -1329,6 +1353,26 @@ export default function StudentPracticeWorkspace({
         classId={activeClass?.id}
         className={activeClass?.name}
         currentUserId={currentUser?.id}
+      />
+
+      {/* Modal Luyện Khẩu Ngữ & Hội Thoại AI (Nói AI kiểm tra & kết nối kho từ điển) */}
+      <AiDialogueRoleplayModal
+        isOpen={showAiDialogueModal}
+        onClose={() => setShowAiDialogueModal(false)}
+        initialDialogue={currentOfficialLesson?.dialogue || []}
+        lessonTitle={currentOfficialLesson?.titleZh || "Bài học HSK"}
+        lessonNumber={selectedPracticeLesson}
+        hskLevel={currentHskLevel}
+        studentId={currentUser?.id}
+      />
+
+      {/* Modal Sửa Lỗi Ngữ Pháp & Chấm Đoạn Văn AI (Viết AI kiểm tra & đối chiếu kho từ điển) */}
+      <AiWritingCheckerModal
+        isOpen={showAiWritingModal}
+        onClose={() => setShowAiWritingModal(false)}
+        lessonTitle={currentOfficialLesson?.titleZh || "Bài học HSK"}
+        lessonNumber={selectedPracticeLesson}
+        hskLevel={currentHskLevel}
       />
     </div>
   );
