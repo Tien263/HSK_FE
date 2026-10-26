@@ -41,6 +41,7 @@ import {
   BookOpen,
   FileCheck2,
   Bot,
+  Menu,
 } from "lucide-react";
 
 interface UserItem {
@@ -89,8 +90,15 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum"
   >("overview");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  function selectAdminTab(tab: typeof activeTab) { setActiveTab(tab); const url = new URL(window.location.href); url.hash = tab; window.history.replaceState(null, "", url); }
+  function selectAdminTab(tab: typeof activeTab) {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+    const url = new URL(window.location.href);
+    url.hash = tab;
+    window.history.replaceState(null, "", url);
+  }
   useEffect(() => {
     const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum"].includes(tab)) setActiveTab(tab as typeof activeTab); };
     const timer = setTimeout(sync, 0); window.addEventListener("hashchange", sync);
@@ -529,12 +537,108 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6] lg:pl-64">
-      <aside data-dictionary-exclusion="sidebar" aria-label="Điều hướng quản trị" className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[#E5DEC9] bg-[#F8F5ED] lg:flex">
-        <div className="pointer-events-none absolute inset-0 bg-cover bg-bottom opacity-70" style={{backgroundImage:"url('/theme/dashboard/sidebar-bg.webp')"}} />
-        <Link href="/" className="relative flex items-center gap-3 px-6 pb-8 pt-7"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#204434] font-serif text-xl text-[#FFFCF6]">宁</span><span><strong className="block font-serif text-xl">Hanyu</strong><small className="text-[9px] font-bold uppercase tracking-[.18em] text-[#64755d]">Không gian quản trị</small></span></Link>
-        <nav className="relative flex-1 space-y-2 px-4">{([{id:"overview",label:"Tổng quan",icon:BarChart3},{id:"curriculum",label:"Kho giáo trình HSK",icon:BookOpen},{id:"users",label:"Tài khoản & phân quyền",icon:Users},{id:"ai",label:"Trợ lý AI",icon:Sparkles},{id:"otp",label:"Xác thực OTP",icon:Mail},{id:"smtp",label:"Cấu hình email",icon:Server}] as const).map(({id,label,icon:Icon})=><button key={id} onClick={()=>selectAdminTab(id)} aria-current={activeTab===id?"page":undefined} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-xs font-semibold transition ${activeTab===id?"bg-[#204434] text-white shadow-sm":"text-[#526c50] hover:bg-[#204434]/5"}`}><Icon size={17}/>{label}</button>)}<div className="my-5 border-t border-[#D7C9AB]/60"/><Link href="/admin/dictionary" className="flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-semibold text-[#526c50]"><BookOpen size={17}/>Duyệt từ điển</Link><Link href="/admin/media" className="flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-semibold text-[#526c50]"><Upload size={17}/>Thư viện media</Link></nav>
-        <div className="relative m-4 rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6]/90 p-4"><p className="flex items-center gap-2 text-xs font-bold"><ShieldCheck size={16}/>{currentUser?.name||"Quản trị viên"}</p><p className="mt-2 text-[10px] text-[#7e8b71]">Chăm chút học liệu · Nuôi dưỡng tri thức</p><button onClick={handleLogout} className="mt-4 flex items-center gap-2 text-xs text-[#9D493E]"><LogOut size={13}/>Đăng xuất</button></div>
+    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6] lg:pl-64 pb-16 lg:pb-0">
+      {/* Mobile Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div
+          role="presentation"
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 lg:hidden transition-opacity"
+        />
+      )}
+
+      {/* Admin Sidebar Navigation */}
+      <aside
+        data-dictionary-exclusion="sidebar"
+        aria-label="Điều hướng quản trị"
+        className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col border-r border-[#E5DEC9] bg-[#F8F5ED] transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          mobileMenuOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+        }`}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 bg-cover bg-bottom opacity-70"
+          style={{ backgroundImage: "url('/theme/dashboard/sidebar-bg.webp')" }}
+        />
+        <div className="relative flex items-center justify-between px-6 pb-6 pt-7">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#204434] font-serif text-xl text-[#FFFCF6]">
+              宁
+            </span>
+            <span>
+              <strong className="block font-serif text-xl">Hanyu</strong>
+              <small className="text-[9px] font-bold uppercase tracking-[.18em] text-[#64755d]">
+                Không gian quản trị
+              </small>
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(false)}
+            className="lg:hidden p-1.5 rounded-xl hover:bg-black/5 text-[#526c50] cursor-pointer"
+            aria-label="Đóng menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <nav className="relative flex-1 space-y-2 px-4 overflow-y-auto">
+          {(
+            [
+              { id: "overview", label: "Tổng quan", icon: BarChart3 },
+              { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
+              { id: "users", label: "Tài khoản & phân quyền", icon: Users },
+              { id: "ai", label: "Trợ lý AI", icon: Sparkles },
+              { id: "otp", label: "Xác thực OTP", icon: Mail },
+              { id: "smtp", label: "Cấu hình email", icon: Server },
+            ] as const
+          ).map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => selectAdminTab(id)}
+              aria-current={activeTab === id ? "page" : undefined}
+              className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-xs font-semibold transition cursor-pointer ${
+                activeTab === id
+                  ? "bg-[#204434] text-white shadow-sm"
+                  : "text-[#526c50] hover:bg-[#204434]/5"
+              }`}
+            >
+              <Icon size={17} />
+              {label}
+            </button>
+          ))}
+          <div className="my-5 border-t border-[#D7C9AB]/60" />
+          <Link
+            href="/admin/dictionary"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-semibold text-[#526c50] hover:bg-[#204434]/5 transition"
+          >
+            <BookOpen size={17} />
+            Duyệt từ điển
+          </Link>
+          <Link
+            href="/admin/media"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-semibold text-[#526c50] hover:bg-[#204434]/5 transition"
+          >
+            <Upload size={17} />
+            Thư viện media
+          </Link>
+        </nav>
+        <div className="relative m-4 rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6]/90 p-4">
+          <p className="flex items-center gap-2 text-xs font-bold">
+            <ShieldCheck size={16} />
+            {currentUser?.name || "Quản trị viên"}
+          </p>
+          <p className="mt-2 text-[10px] text-[#7e8b71]">
+            Chăm chút học liệu · Nuôi dưỡng tri thức
+          </p>
+          <button
+            onClick={handleLogout}
+            className="mt-4 flex items-center gap-2 text-xs text-[#9D493E] hover:underline cursor-pointer"
+          >
+            <LogOut size={13} />
+            Đăng xuất
+          </button>
+        </div>
       </aside>
       {/* Toast Notification */}
       {toast && (
@@ -557,7 +661,15 @@ export default function AdminDashboardPage() {
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 bg-[#FFFCF6]/90 backdrop-blur-md border-b border-[#BC9B6B]/25 shadow-xs">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-8 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 rounded-xl bg-[#204434]/5 border border-[#BC9B6B]/25 text-[#204434] hover:bg-[#204434]/10 lg:hidden cursor-pointer shrink-0 transition"
+              aria-label="Mở menu quản trị"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <Link href="/" className="flex items-center gap-2.5 group">
               <div className="w-9 h-9 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-lg font-bold shadow-md group-hover:scale-105 transition-transform">
                 <span>宁</span>
@@ -2314,6 +2426,72 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+      {/* Mobile Bottom Navigation Bar cho Admin */}
+      <nav
+        aria-label="Điều hướng nhanh quản trị trên điện thoại"
+        className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-[#FFFCF6]/95 backdrop-blur-md border-t border-[#E5DEC9] px-3 py-1.5 flex items-center justify-around shadow-lg"
+      >
+        <button
+          type="button"
+          onClick={() => selectAdminTab("overview")}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeTab === "overview"
+              ? "text-[#204434] font-bold"
+              : "text-[#526c50]/70 hover:text-[#204434]"
+          }`}
+        >
+          <BarChart3 className="w-5 h-5 stroke-[1.9]" />
+          <span className="text-[10px] mt-0.5">Tổng quan</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => selectAdminTab("curriculum")}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeTab === "curriculum"
+              ? "text-[#204434] font-bold"
+              : "text-[#526c50]/70 hover:text-[#204434]"
+          }`}
+        >
+          <BookOpen className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Giáo trình</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => selectAdminTab("users")}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeTab === "users"
+              ? "text-[#204434] font-bold"
+              : "text-[#526c50]/70 hover:text-[#204434]"
+          }`}
+        >
+          <Users className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Tài khoản</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => selectAdminTab("ai")}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeTab === "ai"
+              ? "text-[#204434] font-bold"
+              : "text-[#526c50]/70 hover:text-[#204434]"
+          }`}
+        >
+          <Sparkles className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Trợ lý AI</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#526c50]/70 hover:text-[#204434] transition cursor-pointer"
+        >
+          <Menu className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Menu</span>
+        </button>
+      </nav>
     </div>
   );
 }

@@ -40,6 +40,8 @@ import {
   Mail,
   Shield,
   Key,
+  Menu,
+  PenTool,
 } from "lucide-react";
 import StudentClassesWorkspace from "@/components/student/StudentClassesWorkspace";
 import StudentAssignmentsWorkspace from "@/components/student/StudentAssignmentsWorkspace";
@@ -110,6 +112,7 @@ export default function StudentHomePage() {
     setIsMounted(true);
   }, []);
   const [activeNav, setActiveNav] = useState("home");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [practiceSubMode, setPracticeSubMode] = useState<"vocab" | "grammar" | "game" | "wrong">("vocab");
   const [username, setUsername] = useState("student");
   const [studentName, setStudentName] = useState("Học viên");
@@ -479,10 +482,25 @@ export default function StudentHomePage() {
 
   return (
     <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6] flex">
+      {/* Mobile Backdrop Overlay */}
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 z-40 bg-black/45 backdrop-blur-xs lg:hidden cursor-pointer"
+          aria-label="Đóng menu"
+        />
+      )}
+
       {/* ========================================================================= */}
       {/* 1. SIDEBAR TRÁI (CÓ PHONG CẢNH THỦY MẶC DƯỚI THANH MENU) */}
       {/* ========================================================================= */}
-      <aside data-dictionary-exclusion="sidebar" className="fixed inset-y-0 left-0 w-60 bg-[#F8F5ED] border-r border-[#E5DEC9] z-40 hidden lg:flex flex-col justify-between shadow-xs overflow-hidden">
+      <aside
+        data-dictionary-exclusion="sidebar"
+        className={`fixed inset-y-0 left-0 w-60 bg-[#F8F5ED] border-r border-[#E5DEC9] z-50 flex flex-col justify-between shadow-xl lg:shadow-xs overflow-hidden transition-transform duration-300 ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
         {/* Background Image: phong_cảnh_thủy_mặc_giữa_sương_mờ.png spanning full sidebar */}
         <div
           className="absolute inset-0 w-full h-full pointer-events-none z-0 bg-bottom bg-no-repeat bg-cover opacity-85 mix-blend-multiply transition-opacity duration-300"
@@ -492,7 +510,7 @@ export default function StudentHomePage() {
         {/* Content Container (z-10 ensures no text or buttons are covered) */}
         <div className="relative z-10 flex flex-col flex-1">
           {/* Logo Brand Header */}
-          <div className="h-16 px-5 flex items-center gap-2.5">
+          <div className="h-16 px-5 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2.5 group">
               <div className="w-8 h-8 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-base font-bold shadow-xs group-hover:scale-105 transition-transform">
                 <span>宁</span>
@@ -504,6 +522,15 @@ export default function StudentHomePage() {
                 </div>
               </div>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="lg:hidden p-1.5 rounded-xl hover:bg-black/5 text-[#315E48] cursor-pointer"
+              aria-label="Đóng menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Nav List */}
@@ -511,7 +538,10 @@ export default function StudentHomePage() {
             {/* 1. Trang chủ */}
             <button
               type="button"
-              onClick={() => setActiveNav("home")}
+              onClick={() => {
+                setActiveNav("home");
+                setMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
                 activeNav === "home"
                   ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
@@ -525,7 +555,10 @@ export default function StudentHomePage() {
             {/* 2. Lộ trình của tôi */}
             <button
               type="button"
-              onClick={() => setActiveNav("roadmap")}
+              onClick={() => {
+                setActiveNav("roadmap");
+                setMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
                 activeNav === "roadmap"
                   ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
@@ -539,7 +572,10 @@ export default function StudentHomePage() {
             {/* 3. Kho bài học & Khám phá */}
             <button
               type="button"
-              onClick={() => setActiveNav("lessons")}
+              onClick={() => {
+                setActiveNav("lessons");
+                setMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
                 activeNav === "lessons"
                   ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
@@ -553,7 +589,10 @@ export default function StudentHomePage() {
             {/* 4. Lớp học của tôi */}
             <button
               type="button"
-              onClick={() => setActiveNav("classes")}
+              onClick={() => {
+                setActiveNav("classes");
+                setMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
                 activeNav === "classes"
                   ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
@@ -567,7 +606,10 @@ export default function StudentHomePage() {
             {/* 5. Bài tập & Phòng thi */}
             <button
               type="button"
-              onClick={() => setActiveNav("assignments")}
+              onClick={() => {
+                setActiveNav("assignments");
+                setMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer text-left ${
                 activeNav === "assignments"
                   ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
@@ -585,7 +627,10 @@ export default function StudentHomePage() {
             <div className="pt-0.5">
               <button
                 type="button"
-                onClick={() => setActiveNav("practice")}
+                onClick={() => {
+                  setActiveNav("practice");
+                  setMobileMenuOpen(false);
+                }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer text-left ${
                   activeNav === "practice"
                     ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
@@ -606,6 +651,7 @@ export default function StudentHomePage() {
                   onClick={() => {
                     setActiveNav("practice");
                     setPracticeSubMode("vocab");
+                    setMobileMenuOpen(false);
                   }}
                   className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
                     activeNav === "practice" && practiceSubMode === "vocab"
@@ -620,6 +666,7 @@ export default function StudentHomePage() {
                   onClick={() => {
                     setActiveNav("practice");
                     setPracticeSubMode("grammar");
+                    setMobileMenuOpen(false);
                   }}
                   className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
                     activeNav === "practice" && practiceSubMode === "grammar"
@@ -634,6 +681,7 @@ export default function StudentHomePage() {
                   onClick={() => {
                     setActiveNav("practice");
                     setPracticeSubMode("game");
+                    setMobileMenuOpen(false);
                   }}
                   className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
                     activeNav === "practice" && practiceSubMode === "game"
@@ -648,6 +696,7 @@ export default function StudentHomePage() {
                   onClick={() => {
                     setActiveNav("practice");
                     setPracticeSubMode("wrong");
+                    setMobileMenuOpen(false);
                   }}
                   className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
                     activeNav === "practice" && practiceSubMode === "wrong"
@@ -663,7 +712,10 @@ export default function StudentHomePage() {
             {/* 7. Kết quả & Báo cáo */}
             <button
               type="button"
-              onClick={() => setActiveNav("results")}
+              onClick={() => {
+                setActiveNav("results");
+                setMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
                 activeNav === "results"
                   ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
@@ -677,7 +729,10 @@ export default function StudentHomePage() {
             {/* 8. Hồ sơ & Cài đặt */}
             <button
               type="button"
-              onClick={handleOpenSettings}
+              onClick={() => {
+                handleOpenSettings();
+                setMobileMenuOpen(false);
+              }}
               className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434] transition cursor-pointer text-left"
             >
               <Settings className="w-4 h-4 stroke-[1.8]" />
@@ -729,12 +784,21 @@ export default function StudentHomePage() {
       {/* ========================================================================= */}
       {/* 2. KHU VỰC NỘI DUNG CHÍNH (MAIN VIEWPORT) */}
       {/* ========================================================================= */}
-      <div className="flex-1 lg:pl-60 flex flex-col min-h-screen">
+      <div className="flex-1 lg:pl-60 flex flex-col min-h-screen pb-20 lg:pb-0">
         {/* Top Header Bar */}
         <header className="h-16 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#F8F5ED]/90 backdrop-blur-md border-b border-[#E5DEC9]">
-          {/* Search bar */}
-          <div className="flex-1 max-w-xl">
-            <div className="relative">
+          {/* Hamburger button on mobile + Search bar */}
+          <div className="flex items-center gap-2.5 flex-1 max-w-xl">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] lg:hidden transition shrink-0 cursor-pointer shadow-2xs"
+              aria-label="Mở menu danh mục"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="relative flex-1">
               <Search className="w-4 h-4 text-[#315E48] absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -2438,6 +2502,85 @@ export default function StudentHomePage() {
           </div>
         </div>
       )}
+
+      {/* Thanh điều hướng đáy màn hình dành cho Mobile (Thumb Navigation) */}
+      <nav
+        aria-label="Điều hướng nhanh trên điện thoại"
+        className="fixed bottom-0 inset-x-0 z-30 lg:hidden bg-[#FFFCF6]/95 backdrop-blur-md border-t border-[#E5DEC9] px-2 py-1.5 flex items-center justify-around shadow-lg"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setActiveNav("home");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeNav === "home"
+              ? "text-[#204434] font-bold"
+              : "text-[#315E48]/70 hover:text-[#204434]"
+          }`}
+        >
+          <Home className="w-5 h-5 stroke-[1.9]" />
+          <span className="text-[10px] mt-0.5">Trang chủ</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveNav("lessons");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeNav === "lessons"
+              ? "text-[#204434] font-bold"
+              : "text-[#315E48]/70 hover:text-[#204434]"
+          }`}
+        >
+          <BookOpen className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Bài học</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveNav("practice");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeNav === "practice"
+              ? "text-[#204434] font-bold"
+              : "text-[#315E48]/70 hover:text-[#204434]"
+          }`}
+        >
+          <PenTool className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Luyện tập</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveNav("assignments");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+            activeNav === "assignments"
+              ? "text-[#204434] font-bold"
+              : "text-[#315E48]/70 hover:text-[#204434]"
+          }`}
+        >
+          <FileText className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Bài tập</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#315E48]/70 hover:text-[#204434] transition cursor-pointer"
+        >
+          <Menu className="w-5 h-5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Menu</span>
+        </button>
+      </nav>
 
       {/* Modal Sổ Tay Từ Vựng SRS 5 Hộp Leitner */}
       <VocabNotebookModal
