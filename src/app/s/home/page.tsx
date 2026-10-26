@@ -47,6 +47,10 @@ import StudentRoadmapWorkspace from "@/components/student/StudentRoadmapWorkspac
 import StudentLessonsWorkspace from "@/components/student/StudentLessonsWorkspace";
 import StudentPracticeWorkspace from "@/components/student/StudentPracticeWorkspace";
 import StudentReportsWorkspace from "@/components/student/StudentReportsWorkspace";
+import DailyQuestsModal from "@/components/student/DailyQuestsModal";
+import VocabNotebookModal from "@/components/student/VocabNotebookModal";
+import MistakeNotebookModal from "@/components/student/MistakeNotebookModal";
+import HskRadarAnalyticsModal from "@/components/student/HskRadarAnalyticsModal";
 import { getClassArtwork } from "@/lib/class-helper";
 import {
   getWeeklyStudySeconds,
@@ -135,6 +139,10 @@ export default function StudentHomePage() {
 
   // Settings & Notification State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
+  const [showVocabNotebookModal, setShowVocabNotebookModal] = useState(false);
+  const [showMistakeNotebookModal, setShowMistakeNotebookModal] = useState(false);
+  const [showHskRadarModal, setShowHskRadarModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [hasUnreadNotification, setHasUnreadNotification] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -1050,7 +1058,11 @@ export default function StudentHomePage() {
                 </div>
 
                 {/* 4. Chuỗi học tập */}
-                <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs flex items-center gap-3">
+                <div
+                  onClick={() => setShowDailyQuestsModal(true)}
+                  className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs flex items-center gap-3 cursor-pointer hover:border-orange-400 transition"
+                  title="Bấm để xem nhiệm vụ nhận XP hôm nay"
+                >
                   <div className="w-9 h-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
                     <Flame className="w-4 h-4" />
                   </div>
@@ -1061,6 +1073,65 @@ export default function StudentHomePage() {
                     </div>
                   </div>
                 </div>
+              </section>
+
+              {/* QUICK ACTIONS BAR: NHIỆM VỤ, SỔ TỪ VỰNG SRS, SỔ CÂU SAI, RADAR NĂNG LỰC */}
+              <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDailyQuestsModal(true)}
+                  className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300 hover:border-amber-500 hover:shadow-sm text-left transition group cursor-pointer flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-[11px] font-bold text-amber-800 flex items-center gap-1">
+                      <span>🔥 Nhiệm vụ & Streak</span>
+                    </div>
+                    <div className="text-xs text-amber-900 font-semibold mt-0.5">Nhận XP hàng ngày</div>
+                  </div>
+                  <span className="text-base group-hover:scale-110 transition">🎁</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowVocabNotebookModal(true)}
+                  className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-300 hover:border-teal-500 hover:shadow-sm text-left transition group cursor-pointer flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-[11px] font-bold text-teal-800 flex items-center gap-1">
+                      <span>📖 Sổ từ vựng SRS</span>
+                    </div>
+                    <div className="text-xs text-teal-900 font-semibold mt-0.5">Leitner 5 Hộp nhớ lâu</div>
+                  </div>
+                  <span className="text-base group-hover:scale-110 transition">🗂️</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowMistakeNotebookModal(true)}
+                  className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-300 hover:border-rose-500 hover:shadow-sm text-left transition group cursor-pointer flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-[11px] font-bold text-rose-800 flex items-center gap-1">
+                      <span>🎯 Sổ câu sai</span>
+                    </div>
+                    <div className="text-xs text-rose-900 font-semibold mt-0.5">Gỡ điểm yếu thi cử</div>
+                  </div>
+                  <span className="text-base group-hover:scale-110 transition">⚡</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowHskRadarModal(true)}
+                  className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-300 hover:border-indigo-500 hover:shadow-sm text-left transition group cursor-pointer flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-[11px] font-bold text-indigo-800 flex items-center gap-1">
+                      <span>📊 Radar 5 Kỹ năng</span>
+                    </div>
+                    <div className="text-xs text-indigo-900 font-semibold mt-0.5">Dự đoán tỷ lệ đỗ HSK</div>
+                  </div>
+                  <span className="text-base group-hover:scale-110 transition">📈</span>
+                </button>
               </section>
 
               {/* PHÂN NHÁNH GIAO DIỆN CHÍNH: CHƯA VÀO LỚP VS ĐÃ VÀO LỚP */}
@@ -2367,6 +2438,51 @@ export default function StudentHomePage() {
           </div>
         </div>
       )}
+
+      {/* Modal Sổ Tay Từ Vựng SRS 5 Hộp Leitner */}
+      <VocabNotebookModal
+        isOpen={showVocabNotebookModal}
+        onClose={() => setShowVocabNotebookModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+      />
+
+      {/* Modal Sổ Tay Câu Sai & Luyện Khắc Phục Điểm Yếu */}
+      <MistakeNotebookModal
+        isOpen={showMistakeNotebookModal}
+        onClose={() => setShowMistakeNotebookModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+      />
+
+      {/* Modal Nhiệm Vụ Hàng Ngày & Chuỗi Streak Ngày Học */}
+      <DailyQuestsModal
+        isOpen={showDailyQuestsModal}
+        onClose={() => setShowDailyQuestsModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+        onXpClaimed={(newXp) => {
+          if (currentUser) {
+            setCurrentUser({ ...currentUser, totalXp: newXp });
+          }
+        }}
+      />
+
+      {/* Modal Radar Năng Lực 5 Kỹ Năng & Dự Đoán Tỷ Lệ Đỗ HSK */}
+      <HskRadarAnalyticsModal
+        isOpen={showHskRadarModal}
+        onClose={() => setShowHskRadarModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+        onOpenSpeaking={() => {
+          setActiveNav("practice");
+        }}
+        onOpenWriting={() => {
+          setActiveNav("practice");
+        }}
+        onOpenVocab={() => setShowVocabNotebookModal(true)}
+        onOpenMistakes={() => setShowMistakeNotebookModal(true)}
+      />
     </div>
   );
 }

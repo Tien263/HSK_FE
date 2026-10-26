@@ -310,6 +310,22 @@ export default function VocabPracticeSuite({
     setFavorites(updated);
     try {
       localStorage.setItem(`hsk_fav_${studentId}`, JSON.stringify(updated));
+      if (nextState) {
+        // Đồng bộ trực tiếp vào cơ sở dữ liệu Sổ tay từ vựng SRS
+        fetch("/api/v1/my/vocab-notebook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId,
+            hanzi: currentVocab.hanzi,
+            pinyin: currentVocab.pinyin,
+            meaningVi: currentVocab.meaningVi || currentVocab.meaning,
+            wordType: currentVocab.wordType,
+            exampleHanzi: currentVocab.exampleHanzi,
+            exampleMeaning: currentVocab.exampleMeaning,
+          }),
+        }).catch(() => {});
+      }
     } catch {}
   };
 

@@ -39,6 +39,10 @@ import ComprehensivePracticeSuite from "./practice/ComprehensivePracticeSuite";
 import ClassLeaderboardModal from "./ClassLeaderboardModal";
 import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
 import AiWritingCheckerModal from "./AiWritingCheckerModal";
+import VocabNotebookModal from "./VocabNotebookModal";
+import MistakeNotebookModal from "./MistakeNotebookModal";
+import DailyQuestsModal from "./DailyQuestsModal";
+import HskRadarAnalyticsModal from "./HskRadarAnalyticsModal";
 import {
   getMemoryStats,
   getWeeklyStudyMinutes,
@@ -167,6 +171,10 @@ export default function StudentPracticeWorkspace({
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
   const [showAiDialogueModal, setShowAiDialogueModal] = useState<boolean>(false);
   const [showAiWritingModal, setShowAiWritingModal] = useState<boolean>(false);
+  const [showVocabNotebookModal, setShowVocabNotebookModal] = useState<boolean>(false);
+  const [showMistakeNotebookModal, setShowMistakeNotebookModal] = useState<boolean>(false);
+  const [showDailyQuestsModal, setShowDailyQuestsModal] = useState<boolean>(false);
+  const [showHskRadarModal, setShowHskRadarModal] = useState<boolean>(false);
 
   // Fetch Class Lessons
   const fetchLessons = useCallback(async () => {
@@ -550,6 +558,42 @@ export default function StudentPracticeWorkspace({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => setShowDailyQuestsModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-xs text-xs font-bold transition cursor-pointer"
+            title="Xem nhiệm vụ hàng ngày và chuỗi ngày học Streak"
+          >
+            <Flame className="w-4 h-4 fill-white" />
+            <span>Nhiệm vụ & Streak</span>
+          </button>
+
+          <button
+            onClick={() => setShowVocabNotebookModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
+            title="Mở Sổ tay từ vựng cá nhân & Thẻ Flashcard SRS Leitner 5 hộp"
+          >
+            <BookOpen className="w-4 h-4 text-[#204434]" />
+            <span>📖 Sổ từ vựng SRS</span>
+          </button>
+
+          <button
+            onClick={() => setShowMistakeNotebookModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-rose-300 hover:bg-rose-50 text-rose-800 shadow-2xs text-xs font-bold transition cursor-pointer"
+            title="Xem các câu hỏi đã làm sai và chế độ luyện phục hồi"
+          >
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
+            <span>🎯 Sổ câu sai</span>
+          </button>
+
+          <button
+            onClick={() => setShowHskRadarModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-800 shadow-2xs text-xs font-bold transition cursor-pointer"
+            title="Biểu đồ đa giác Radar 5 kỹ năng và dự đoán tỷ lệ đỗ HSK"
+          >
+            <TrendingUp className="w-4 h-4 text-indigo-600" />
+            <span>📊 Radar HSK</span>
+          </button>
+
           <button
             onClick={() => setShowAiDialogueModal(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
@@ -1373,6 +1417,43 @@ export default function StudentPracticeWorkspace({
         lessonTitle={currentOfficialLesson?.titleZh || "Bài học HSK"}
         lessonNumber={selectedPracticeLesson}
         hskLevel={currentHskLevel}
+      />
+
+      {/* Modal Sổ Tay Từ Vựng SRS 5 Hộp Leitner */}
+      <VocabNotebookModal
+        isOpen={showVocabNotebookModal}
+        onClose={() => setShowVocabNotebookModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+      />
+
+      {/* Modal Sổ Tay Câu Sai & Luyện Khắc Phục Điểm Yếu */}
+      <MistakeNotebookModal
+        isOpen={showMistakeNotebookModal}
+        onClose={() => setShowMistakeNotebookModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+      />
+
+      {/* Modal Nhiệm Vụ Hàng Ngày & Chuỗi Streak Ngày Học */}
+      <DailyQuestsModal
+        isOpen={showDailyQuestsModal}
+        onClose={() => setShowDailyQuestsModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+        onXpClaimed={() => refreshMemoryStats()}
+      />
+
+      {/* Modal Radar Năng Lực 5 Kỹ Năng & Dự Đoán Tỷ Lệ Đỗ HSK */}
+      <HskRadarAnalyticsModal
+        isOpen={showHskRadarModal}
+        onClose={() => setShowHskRadarModal(false)}
+        studentId={currentUser?.id}
+        studentUsername={currentUser?.username}
+        onOpenSpeaking={() => setShowAiDialogueModal(true)}
+        onOpenWriting={() => setShowAiWritingModal(true)}
+        onOpenVocab={() => setShowVocabNotebookModal(true)}
+        onOpenMistakes={() => setShowMistakeNotebookModal(true)}
       />
     </div>
   );
