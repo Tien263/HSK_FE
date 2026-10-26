@@ -623,6 +623,7 @@ export default function StudentPracticeWorkspace({
           lessonTitleZh={currentOfficialLesson?.titleZh}
           lessonNumber={selectedPracticeLesson}
           hskLevel={currentHskLevel}
+          studentId={currentUser?.id}
           handleSpeak={handleSpeak}
         />
       )}

@@ -2,6 +2,13 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
+  recordStudyTime,
+  getTodayStudySeconds,
+  getWeeklyStudySeconds,
+  formatStudyTimeVi,
+  formatTimerMMSS,
+} from "@/lib/memory-review-service";
+import {
   GraduationCap,
   Volume2,
   CheckCircle2,
@@ -72,6 +79,7 @@ interface GrammarPracticeSuiteProps {
   lessonTitleZh?: string;
   lessonNumber?: number;
   hskLevel?: number;
+  studentId?: string;
   handleSpeak: (text: string) => void;
 }
 
@@ -253,8 +261,21 @@ export default function GrammarPracticeSuite({
   lessonTitleZh = "Bài học HSK",
   lessonNumber = 1,
   hskLevel = 1,
+  studentId = "guest",
   handleSpeak,
 }: GrammarPracticeSuiteProps) {
+  // Thời gian học thực tế hôm nay & trong tuần (ĐỘNG 100%)
+  const [todayStudySec, setTodayStudySec] = useState(() => getTodayStudySeconds(studentId));
+  const [weeklyStudySec, setWeeklyStudySec] = useState(() => getWeeklyStudySeconds(studentId));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      recordStudyTime(5, studentId);
+      setTodayStudySec(getTodayStudySeconds(studentId));
+      setWeeklyStudySec(getWeeklyStudySeconds(studentId));
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [studentId]);
   // Chuẩn hóa danh sách cấu trúc ngữ pháp động
   const normalizedGrammars: NormalizedGrammarPoint[] = useMemo(() => {
     return normalizeGrammarList(grammarList, lessonNumber);
@@ -503,10 +524,13 @@ export default function GrammarPracticeSuite({
           </div>
           <div>
             <div className="text-lg font-serif font-bold text-[#204434]">
-              28 phút
+              {formatStudyTimeVi(todayStudySec)}
             </div>
             <p className="text-[10px] text-[#6B766D] font-medium">
               Thời gian luyện Hôm nay
+            </p>
+            <p className="text-[9px] text-[#8F6D3B] truncate" title={`Tuần này: ${formatStudyTimeVi(weeklyStudySec)}`}>
+              Tuần này: {formatStudyTimeVi(weeklyStudySec)}
             </p>
           </div>
         </div>
@@ -937,7 +961,7 @@ export default function GrammarPracticeSuite({
                     <Clock className="w-3.5 h-3.5 text-[#8F6D3B]" />
                     Thời gian:
                   </span>
-                  <strong className="text-[#17382F] font-mono">28:15</strong>
+                  <strong className="text-[#17382F] font-mono">{formatTimerMMSS(todayStudySec)}</strong>
                 </div>
               </div>
             </div>

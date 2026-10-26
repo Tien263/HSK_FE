@@ -40,6 +40,10 @@ import {
   saveMemoryRecord,
   getMemoryRecords,
   MemoryStatus,
+  recordStudyTime,
+  getTodayStudySeconds,
+  getWeeklyStudySeconds,
+  formatStudyTimeVi,
 } from "@/lib/memory-review-service";
 import {
   getEtymology,
@@ -138,6 +142,19 @@ export default function VocabPracticeSuite({
   // Memory Records & Sync
   const [memoryRecords, setMemoryRecords] = useState<any[]>([]);
   const [ratingFeedback, setRatingFeedback] = useState<string | null>(null);
+  
+  // Thời gian học thực tế hôm nay & trong tuần (ĐỘNG 100%)
+  const [todayStudySec, setTodayStudySec] = useState(() => getTodayStudySeconds(studentId));
+  const [weeklyStudySec, setWeeklyStudySec] = useState(() => getWeeklyStudySeconds(studentId));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      recordStudyTime(5, studentId);
+      setTodayStudySec(getTodayStudySeconds(studentId));
+      setWeeklyStudySec(getWeeklyStudySeconds(studentId));
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [studentId]);
 
   // Tìm kiếm & Sắp xếp danh sách từ vựng bên trái
   const [searchQuery, setSearchQuery] = useState("");
@@ -609,10 +626,13 @@ export default function VocabPracticeSuite({
           </div>
           <div>
             <div className="text-lg font-serif font-bold text-[#204434]">
-              36 phút
+              {formatStudyTimeVi(todayStudySec)}
             </div>
             <p className="text-[10px] text-[#6B766D] font-medium">
               Thời gian luyện Hôm nay
+            </p>
+            <p className="text-[9px] text-[#8F6D3B] truncate" title={`Tuần này: ${formatStudyTimeVi(weeklyStudySec)}`}>
+              Tuần này: {formatStudyTimeVi(weeklyStudySec)}
             </p>
           </div>
         </div>
