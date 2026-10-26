@@ -54,6 +54,10 @@ export interface ReadingItem {
   contentVi: string;
   wordCount: number;
   extraVocabs?: {
+    id?: string;
+    exampleZh?: string;
+    examplePy?: string;
+    exampleVi?: string;
     hanzi: string;
     pinyin: string;
     meaningVi: string;
@@ -1740,6 +1744,7 @@ export function getCulturalSelectionItems(lesson: FullLessonDetail): CulturalSel
       type: "PHRASE",
       categoryLabel: "Mẫu câu khuyên dùng",
       title: `Mẫu câu ${idx + 1}`,
+      note: exp.usage,
       zh: exp.zh,
       py: exp.py,
       vi: exp.vi,
@@ -1773,6 +1778,7 @@ export function getCulturalSelectionItems(lesson: FullLessonDetail): CulturalSel
     });
   });
 
+  if(cn.comparisonNote)items.push({id:`cult-${lesson.id}-comparison`,type:"POLITE",categoryLabel:"Lưu ý ngữ dụng",title:"Lưu ý ngữ dụng",content:cn.comparisonNote});
   // 6. Practice Scenario (Tình huống thực hành / áp dụng)
   if (cn.practiceScenario) {
     items.push({

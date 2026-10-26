@@ -38,6 +38,9 @@ model User {
   notifications      Notification[]
   createdQuestions   Question[]      @relation("TeacherQuestions")
   createdQuizSets    QuizSet[]       @relation("TeacherQuizSets")
+  teacherVocabulary TeacherVocabulary[]
+  savedTeacherLessons TeacherSavedLesson[]
+  teachingMaterials TeachingMaterial[]
 }
 
 // 2. LỚP HỌC
@@ -55,6 +58,8 @@ model Class {
   students    ClassStudent[]
   assignments Assignment[]
   lessons     ClassLesson[]
+  materials   MaterialClass[]
+  schedules   ClassSchedule[]
 }
 
 model ClassLesson {
@@ -79,6 +84,7 @@ model ClassLesson {
   dueDate          String?
   publishedAt      DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  content          Json?
 
   class            Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
 
@@ -99,6 +105,14 @@ model ClassStudent {
 }
 
 // 3. GIÁO TRÌNH, CẤP ĐỘ & BÀI HỌC (Curriculum, Level, Lesson)
+model CurriculumContent {
+  hskLevel  Int      @id
+  lessons   Json
+  revision  Int      @default(1)
+  isDeleted Boolean  @default(false)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 model Curriculum {
   id          String   @id @default(cuid())
   title       String   // Giáo trình chuẩn HSK 3.0
@@ -214,6 +228,104 @@ model Question {
   quizSetQuestions QuizSetQuestion[]
   attemptAnswers   AttemptAnswer[]
   wrongQuestions   WrongQuestion[]
+  privateVocabulary TeacherVocabulary?
+  editorData Json?
+}
+
+model TeacherSavedLesson {
+  id String @id @default(cuid())
+  teacherId String
+  sourceLessonId String
+  title String
+  kind String @default("SAVED")
+  content Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  teacher User @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  @@index([teacherId, updatedAt])
+}
+
+model TeacherVocabulary {
+  id         String    @id @default(cuid())
+  teacherId  String
+  hanzi      String
+  pinyin     String
+  meaning    String
+  wordType   String    @default("")
+  exampleZh  String    @default("")
+  examplePy  String    @default("")
+  exampleVi  String    @default("")
+  hskLevel   Int       @default(1)
+  questionId String?   @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+  teacher    User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@unique([teacherId, hanzi, pinyin])
+}
+
+model TeachingMaterial {
+  id          String          @id @default(cuid())
+  teacherId   String
+  title       String
+  description String          @default("")
+  fileName    String
+  mimeType    String
+  byteSize    Int
+  content     Bytes
+  createdAt   DateTime        @default(now())
+  teacher     User            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classes     MaterialClass[]
+
+  @@index([teacherId, createdAt])
+}
+
+model MaterialClass {
+  materialId String
+  classId    String
+  sharedAt   DateTime         @default(now())
+  material   TeachingMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  class      Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@id([materialId, classId])
+  @@index([classId])
+}
+
+model ClassSchedule {
+  id         String              @id @default(cuid())
+  classId    String
+  title      String
+  startDate  String
+  endDate    String?
+  weekdays   Int[]
+  startTime  String
+  endTime    String
+  room       String              @default("")
+  meetUrl    String              @default("")
+  color String @default("emerald")
+  revision   Int                 @default(1)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @default(now()) @updatedAt
+  class      Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  exceptions ScheduleException[]
+
+  @@index([classId])
+}
+
+model ScheduleException {
+  id           String        @id @default(cuid())
+  scheduleId   String
+  originalDate String
+  date         String
+  startTime    String
+  endTime      String
+  cancelled    Boolean       @default(false)
+  note         String        @default("")
+  revision     Int           @default(1)
+  schedule     ClassSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, originalDate])
 }
 
 model QuizSet {
@@ -411,4 +523,73 @@ model Setting {
   atRiskOwedCount     Int    @default(2)   // Nợ từ 2 bài trở lên
   xpPerQuestion       Int    @default(1)
   xpPerAssignment     Int    @default(10)
+}
+
+// 10. TỪ ĐIỂN NGOẠI TUYẾN (CC-CEDICT + Unihan)
+enum DictionaryMeaningViStatus {
+  MISSING
+  GENERATED
+  REVIEWED
+}
+
+model DictionaryEntry {
+  id              Int      @id @default(autoincrement())
+  simplified      String
+  traditional     String
+  pinyinNumbered  String   // Original CC-CEDICT reading, e.g. "xue2 xi2".
+  pinyin          String   // Tone-marked reading, e.g. "xué xí".
+  pinyinSearch    String   // Lowercase, toneless, no spaces; ü normalized to v.
+  definitionsEn   String[] @default([])
+  definitionsVi   String[] @default([]) // Vietnamese meanings, separate from Han-Viet readings.
+  meaningViSource String?  // Source or generator/model identifier.
+  meaningViStatus DictionaryMeaningViStatus @default(MISSING)
+  meaningViUpdatedAt DateTime?
+  meaningViRevision Int @default(0)
+  meaningViSearch String @default("")
+  source          String   @default("CC-CEDICT")
+  sourceVersion   String?  // Release date/version from the imported file.
+  importedAt      DateTime @default(now())
+
+  characters DictionaryEntryCharacter[]
+
+  // Preserve polyphonic entries and different traditional variants.
+  // The importer merges definitions only for this exact lexical key.
+  @@unique([traditional, simplified, pinyinNumbered], map: "dictionary_entry_lexical_key")
+  @@index([simplified], map: "dictionary_entry_simplified_idx")
+  @@index([traditional], map: "dictionary_entry_traditional_idx")
+  @@index([pinyinSearch], map: "dictionary_entry_pinyin_search_idx")
+}
+
+model DictionaryCharacter {
+  character     String   @id // One Unicode code point; not limited to BMP.
+  hanViet       String?  // Original kVietnamese field, including alternate readings.
+  source        String   @default("Unihan")
+  sourceVersion String?
+  importedAt    DateTime @default(now())
+
+  entries DictionaryEntryCharacter[]
+}
+
+model DictionaryEntryCharacter {
+  entryId               Int
+  position              Int    // Zero-based Unicode code-point position in traditional.
+  traditionalCharacter  String
+  simplifiedCharacter   String? // Null if the two spellings cannot align by position.
+
+  entry     DictionaryEntry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  character DictionaryCharacter @relation(fields: [traditionalCharacter], references: [character], onDelete: Restrict)
+
+  // Position preserves repeated characters in a word, e.g. 妈妈.
+  @@id([entryId, position])
+  @@index([traditionalCharacter], map: "dictionary_entry_character_traditional_idx")
+}
+
+model DictionarySentenceTranslation {
+  key            String   @id // SHA-256 of direction + normalized source text.
+  sourceText     String
+  translatedText String
+  pinyin         String
+  targetLanguage String
+  model          String
+  createdAt      DateTime @default(now())
 }

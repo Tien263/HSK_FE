@@ -267,27 +267,8 @@ export default function StudentHomePage() {
   };
 
   useEffect(() => {
-    let currentU = "student";
-    try {
-      const stored = localStorage.getItem("currentUser");
-      if (stored) {
-        const u = JSON.parse(stored);
-        setCurrentUser(u);
-        if (u.username) {
-          currentU = u.username;
-          setUsername(u.username);
-        }
-        if (u.name) {
-          setStudentName(u.name);
-        }
-        if (u.email) {
-          setUserEmail(u.email);
-        }
-        if (u.id) {
-          fetchMyClasses(u.id);
-        }
-      }
-
+    let currentU = "";
+    const load=async()=>{try{const response=await fetch("/api/v1/auth/session",{cache:"no-store"});const session=await response.json();if(!response.ok||session.user?.role!=="STUDENT"){router.replace("/login");return;}const u=session.user;currentU=u.username;setCurrentUser(u);setUsername(u.username);setStudentName(u.name);localStorage.setItem("currentUser",JSON.stringify(u));await fetchMyClasses(u.id);
       const profileStored = localStorage.getItem("hanyu_study_profile");
       if (profileStored) {
         const parsed = JSON.parse(profileStored);
@@ -324,6 +305,7 @@ export default function StudentHomePage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    };void load();
   }, []);
 
   // Real-time polling (10s) to keep class enrollments, progress, and assignments updated live
@@ -379,7 +361,7 @@ export default function StudentHomePage() {
     setEnrolling(true);
 
     try {
-      await fetch("/api/v1/auth/onboarding", {
+      const enrollResponse=await fetch("/api/v1/auth/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -393,6 +375,7 @@ export default function StudentHomePage() {
         }),
       });
 
+      const enrollData=await enrollResponse.json();if(!enrollResponse.ok||!enrollData.success)throw new Error(enrollData.message||"Không thể tham gia lớp.");
       const updatedProfile: StudyProfile = {
         ...(studyProfile || {
           mainTrack: "hsk",
@@ -421,12 +404,6 @@ export default function StudentHomePage() {
         localStorage.setItem("currentUser", JSON.stringify(updatedUser));
       }
 
-      setMyClasses([
-        {
-          ...verifiedJoinClass,
-          artwork: getClassArtwork(verifiedJoinClass.track || "HSK", verifiedJoinClass.level || 1, 0, verifiedJoinClass.name),
-        },
-      ]);
 
       if (currentUser?.id) fetchMyClasses(currentUser.id);
 
@@ -464,7 +441,8 @@ export default function StudentHomePage() {
   };
 
   // Đăng xuất
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch("/api/v1/auth/logout",{method:"POST"});
     localStorage.removeItem("currentUser");
     sessionStorage.removeItem("currentUser");
     router.push("/login");
@@ -486,7 +464,7 @@ export default function StudentHomePage() {
       {/* ========================================================================= */}
       {/* 1. SIDEBAR TRÁI (CÓ PHONG CẢNH THỦY MẶC DƯỚI THANH MENU) */}
       {/* ========================================================================= */}
-      <aside className="fixed inset-y-0 left-0 w-60 bg-[#F8F5ED] border-r border-[#E5DEC9] z-40 hidden lg:flex flex-col justify-between shadow-xs overflow-hidden">
+      <aside data-dictionary-exclusion="sidebar" className="fixed inset-y-0 left-0 w-60 bg-[#F8F5ED] border-r border-[#E5DEC9] z-40 hidden lg:flex flex-col justify-between shadow-xs overflow-hidden">
         {/* Background Image: phong_cảnh_thủy_mặc_giữa_sương_mờ.png spanning full sidebar */}
         <div
           className="absolute inset-0 w-full h-full pointer-events-none z-0 bg-bottom bg-no-repeat bg-cover opacity-85 mix-blend-multiply transition-opacity duration-300"
@@ -707,7 +685,7 @@ export default function StudentHomePage() {
                   {studentName}
                 </span>
                 <span className="text-[10px] text-[#315E48] block">
-                  HSK 1 · 50 XP
+                  HSK {data?.student?.currentHskLevel ?? currentUser?.currentHskLevel ?? "—"} · {data?.student?.totalXp ?? "—"} XP
                 </span>
               </div>
             </div>

@@ -55,6 +55,7 @@ export interface StudentSubmissionItem {
   attemptNumber: number;
   feedback?: string;
   answers?: Record<string, any>;
+  answerDetails?: {questionId:string;content:string;userAnswer:string;correctAnswer:string;points:number;scoreEarned:number}[];
 }
 
 export interface ExamPackageItem {

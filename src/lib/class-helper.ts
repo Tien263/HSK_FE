@@ -1,3 +1,4 @@
+import { hskArtwork } from "./hsk-theme";
 // Utility functions for Class management, date formatting, status calculation, and artwork selection
 
 export interface ClassMetadata {
@@ -214,15 +215,7 @@ export function decodeClassDescription(
  * Resolves Lỗi 4 – Ảnh card đang bị lặp.
  */
 export function getClassArtwork(track: string, level: number = 1, index: number = 0, name: string = ""): string {
-  const hskArtworks = [
-    "/theme/dashboard/card-hsk.webp",
-    "/theme/phong_canh_thuy_mac_voi_sach_cuon_va_tre.jpg",
-    "/theme/tinh_vat_thu_phong_giua_son_thuy_mo_suong.jpg",
-    "/theme/pillar-01-scroll.jpg",
-    "/theme/card-hsk-scroll.webp",
-  ];
-
-  const topicArtworks = [
+const topicArtworks = [
     "/theme/dashboard/card-topic.webp",
     "/theme/tinh_vat_tra_ben_canh_hoa_mai_dao.jpg",
     "/theme/course-02-fan-bamboo.jpg",
@@ -252,5 +245,5 @@ export function getClassArtwork(track: string, level: number = 1, index: number 
   if (norm === "MAJOR" || norm.includes("CHUYÊN NGÀNH") || norm.includes("KINH TẾ") || norm.includes("THƯƠNG MẠI")) {
     return majorArtworks[(hash + index) % majorArtworks.length];
   }
-  return hskArtworks[(hash + level + index) % hskArtworks.length];
+  return hskArtwork(level);
 }

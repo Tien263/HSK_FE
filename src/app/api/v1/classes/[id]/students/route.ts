@@ -1,3 +1,5 @@
+import { learningReport } from "@/lib/learning-reports";
+import { classAccess, PortalError } from "@/lib/portal-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
@@ -11,6 +13,9 @@ export async function GET(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
 
     const targetClass = await prisma.class.findUnique({
       where: { id: classId },
@@ -29,7 +34,7 @@ export async function GET(
     }
 
     const classStudents = await prisma.classStudent.findMany({
-      where: { classId },
+      where: { classId, status:{not:"REJECTED"} },
       include: {
         student: {
           select: {
@@ -50,6 +55,7 @@ export async function GET(
       orderBy: { joinedAt: "desc" },
     });
 
+    const report=await learningReport(authUser,classId);
     return NextResponse.json({
       success: true,
       items: classStudents.map((cs) => ({
@@ -65,6 +71,11 @@ export async function GET(
         attemptsCount: cs.student._count.attempts,
         wrongCount: cs.student._count.wrongQuestions,
         joinedAt: cs.joinedAt,
+        progressPercent: (()=>{const row=report.students.find(item=>item.id===cs.studentId);return row?.expected?Math.round(row.completed/row.expected*100):null;})(),
+        totalAssignments: report.students.find(item=>item.id===cs.studentId)?.expected??0,
+        submittedAssignments: report.students.find(item=>item.id===cs.studentId)?.completed??0,
+        scoreAvg: report.students.find(item=>item.id===cs.studentId)?.averageScore??null,
+        lastActive: report.students.find(item=>item.id===cs.studentId)?.lastActive??null,
       })),
     });
   } catch (error) {
@@ -81,6 +92,9 @@ export async function POST(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
     const body = await request.json();
     const { name, username, email, password } = body;
 
@@ -211,6 +225,9 @@ export async function PATCH(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
     const body = await request.json();
     const { studentId, studentIds, action } = body;
 
@@ -312,6 +329,9 @@ export async function DELETE(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
     const { searchParams } = new URL(request.url);
     const studentIdParam = searchParams.get("studentId");
     const studentIdsParam = searchParams.get("studentIds");

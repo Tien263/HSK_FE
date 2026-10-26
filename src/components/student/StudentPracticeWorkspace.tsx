@@ -27,7 +27,7 @@ import {
   RefreshCw,
   Award,
 } from "lucide-react";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import { useCurriculumLessons } from "@/lib/use-curriculum";
 import VocabPracticeSuite from "./practice/VocabPracticeSuite";
 import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
 
@@ -69,9 +69,7 @@ export default function StudentPracticeWorkspace({
   const [loading, setLoading] = useState(true);
 
   // Official fallback curriculum lessons
-  const officialLessons = useMemo(() => {
-    return getLessonsByHskLevel(currentHskLevel);
-  }, [currentHskLevel]);
+  const { lessons: officialLessons } = useCurriculumLessons(currentHskLevel);
 
   const [selectedPracticeLesson, setSelectedPracticeLesson] = useState<number>(1);
 
@@ -184,7 +182,7 @@ export default function StudentPracticeWorkspace({
 
   // Danh sách từ vựng: Ưu tiên từ vựng cô giáo đã tùy biến cho bài học này, nếu chưa có thì lấy từ vựng chuẩn của bài
   const vocabList = useMemo(() => {
-    if (currentDbLesson?.selectedVocabs && Array.isArray(currentDbLesson.selectedVocabs) && currentDbLesson.selectedVocabs.length > 0) {
+    if (currentDbLesson?.selectedVocabs && Array.isArray(currentDbLesson.selectedVocabs)) {
       return currentDbLesson.selectedVocabs;
     }
     return currentOfficialLesson?.vocabList || (currentOfficialLesson as any)?.vocabularies || [];
@@ -192,7 +190,7 @@ export default function StudentPracticeWorkspace({
 
   // Danh sách ngữ pháp: Ưu tiên điểm ngữ pháp cô giáo đã chọn cho bài học này
   const grammarList = useMemo(() => {
-    if (currentDbLesson?.selectedGrammars && Array.isArray(currentDbLesson.selectedGrammars) && currentDbLesson.selectedGrammars.length > 0) {
+    if (currentDbLesson?.selectedGrammars && Array.isArray(currentDbLesson.selectedGrammars)) {
       return currentDbLesson.selectedGrammars;
     }
     return currentOfficialLesson?.grammarList || (currentOfficialLesson as any)?.grammarPoints || [];
@@ -218,7 +216,7 @@ export default function StudentPracticeWorkspace({
     const others = vocabList
       .filter((v: any) => (v.meaningVi || v.meaning) !== correctMeaning)
       .map((v: any) => v.meaningVi || v.meaning);
-    
+
     // Xáo trộn 3 đáp án nhiễu
     const shuffledOthers = [...others].sort(() => 0.5 - Math.random()).slice(0, 3);
     const all = [correctMeaning, ...shuffledOthers].sort(() => 0.5 - Math.random());

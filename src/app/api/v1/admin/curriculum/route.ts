@@ -1,149 +1,49 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-server";
-import { OFFICIAL_HSK1_15_LESSONS } from "@/lib/hsk1-full-lessons";
-import { OFFICIAL_HSK2_15_LESSONS } from "@/lib/hsk2-full-lessons";
-import fs from "fs";
-import path from "path";
+import { getDictionaryAdmin, dictionarySameOrigin } from "@/lib/dictionary-session";
+import { readCurriculum } from "@/lib/curriculum-server";
+import { normalizeLessons, CurriculumFormatError } from "@/lib/curriculum-format";
+import type { Prisma } from "@/generated/prisma";
 
-// File storage fallback để lưu trữ giáo trình tùy biến của Admin một cách bền vững
-const STORAGE_DIR = path.join(process.cwd(), "data", "curriculum");
-
-function ensureStorageDir() {
-  if (!fs.existsSync(STORAGE_DIR)) {
-    fs.mkdirSync(STORAGE_DIR, { recursive: true });
-  }
-}
-
-function getCurriculumFilePath(level: number) {
-  ensureStorageDir();
-  return path.join(STORAGE_DIR, `hsk_level_${level}.json`);
-}
-
+const headers = { "Cache-Control": "no-store" };
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const level = Number(searchParams.get("level")) || 1;
-
-    // 1. Kiểm tra file storage tùy biến của admin trước
-    const filePath = getCurriculumFilePath(level);
-    if (fs.existsSync(filePath)) {
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf-8");
-        const parsed = JSON.parse(fileContent);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return NextResponse.json({
-            success: true,
-            source: "ADMIN_CUSTOM",
-            level,
-            items: parsed,
-          });
-        }
-      } catch (e) {
-        console.warn("Could not read custom curriculum file:", e);
-      }
-    }
-
-    // 2. Mặc định trả về giáo trình chuẩn của hệ thống
-    const defaultLessons = level === 2 ? OFFICIAL_HSK2_15_LESSONS : OFFICIAL_HSK1_15_LESSONS;
-
-    return NextResponse.json({
-      success: true,
-      source: "OFFICIAL_DEFAULT",
-      level,
-      items: defaultLessons,
-    });
-  } catch (error) {
-    console.error("GET /api/v1/admin/curriculum error:", error);
-    return NextResponse.json(
-      { success: false, message: "Lỗi tải giáo trình bài học" },
-      { status: 500 }
-    );
-  }
+    if (!await getDictionaryAdmin(request)) return NextResponse.json({ success: false, message: "Vui lòng xác thực tài khoản admin." }, { status: 403, headers });
+    const level = Number(new URL(request.url).searchParams.get("level") ?? 1);
+    if (!Number.isInteger(level) || level < 1 || level > 9) return NextResponse.json({ success: false, message: "Cấp HSK phải từ 1 đến 9." }, { status: 400, headers });
+    return NextResponse.json({ success: true, ...await readCurriculum(level) }, { headers });
+  } catch { return NextResponse.json({ success: false, message: "Không tải được giáo trình từ máy chủ. Vui lòng thử lại." }, { status: 503, headers }); }
 }
-
 export async function POST(request: Request) {
   try {
-    const authUser = await getAuthUser(request);
-    // Cho phép admin hoặc dev lưu bài học
-    const body = await request.json();
-    const { level = 1, lessons } = body;
-
-    if (!Array.isArray(lessons) || lessons.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Danh sách bài học không được để trống" },
-        { status: 400 }
-      );
-    }
-
-    // 1. Lưu vào file storage
-    const filePath = getCurriculumFilePath(Number(level) || 1);
-    fs.writeFileSync(filePath, JSON.stringify(lessons, null, 2), "utf-8");
-
-    // 2. Cố gắng đồng bộ thêm vào database nếu có Level
-    try {
-      let dbLevel = await prisma.level.findFirst({
-        where: { hskLevel: Number(level) || 1 },
-      });
-
-      if (!dbLevel) {
-        const curr = await prisma.curriculum.findFirst();
-        dbLevel = await prisma.level.create({
-          data: {
-            curriculumId: curr?.id || "curriculum-default",
-            hskLevel: Number(level) || 1,
-            title: `HSK ${Number(level) || 1}`,
-            isOpen: true,
-          },
-        });
-      }
-
-      // Upsert các bài học vào bảng Lesson của Prisma
-      for (const les of lessons) {
-        const lesNum = les.number || 1;
-        const lesTitle = les.titleZh ? `${les.titleZh} (${les.titleVi || ""})` : `Bài ${lesNum}`;
-        const existing = await prisma.lesson.findFirst({
-          where: {
-            levelId: dbLevel.id,
-            lessonNumber: lesNum,
-          },
-        });
-
-        if (existing) {
-          await prisma.lesson.update({
-            where: { id: existing.id },
-            data: {
-              title: lesTitle,
-              description: les.desc || les.pinyin || "",
-              status: "PUBLISHED",
-            },
-          });
-        } else {
-          await prisma.lesson.create({
-            data: {
-              levelId: dbLevel.id,
-              lessonNumber: lesNum,
-              title: lesTitle,
-              description: les.desc || les.pinyin || "",
-              status: "PUBLISHED",
-            },
-          });
-        }
-      }
-    } catch (dbErr) {
-      console.warn("Curriculum DB sync optional warning:", dbErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Đã lưu và xuất bản thành công ${lessons.length} bài học HSK ${level} vào kho chung!`,
-      count: lessons.length,
+    if (!dictionarySameOrigin(request)) return NextResponse.json({ success: false, message: "Nguồn yêu cầu không hợp lệ." }, { status: 403, headers });
+    const admin = await getDictionaryAdmin(request);
+    if (!admin) return NextResponse.json({ success: false, message: "Chỉ admin có quyền biên tập giáo trình." }, { status: 403, headers });
+    const text = await request.text();
+    if (Buffer.byteLength(text) > 8 * 1024 * 1024) return NextResponse.json({ success: false, message: "Nội dung tối đa 8 MB." }, { status: 413, headers });
+    let body;
+    try { body = JSON.parse(text); } catch { return NextResponse.json({ success: false, message: "JSON không hợp lệ." }, { status: 400, headers }); }
+    const { level, revision, isDeleted = false } = body ?? {};
+    if (!Number.isInteger(level) || level < 1 || level > 9 || !Number.isSafeInteger(revision) || revision < 0 || typeof isDeleted !== "boolean" || !Array.isArray(body.lessons)) throw new CurriculumFormatError("Cần cấp HSK, danh sách bài và phiên bản dữ liệu hợp lệ.");
+    const lessons = normalizeLessons(body.lessons, level);
+    if (isDeleted && lessons.length) throw new CurriculumFormatError("Cấp HSK đã xóa phải có danh sách bài rỗng.");
+    const result = await prisma.$transaction(async tx => {
+      const before = await tx.curriculumContent.findUnique({ where: { hskLevel: level } });
+      if ((before?.revision ?? 0) !== revision) return null;
+      const data = { lessons: lessons as unknown as Prisma.InputJsonValue, isDeleted, revision: revision + 1 };
+      if (before) {
+        const updated = await tx.curriculumContent.updateMany({ where: { hskLevel: level, revision }, data });
+        if (updated.count !== 1) return null;
+      } else await tx.curriculumContent.create({ data: { hskLevel: level, ...data } });
+      await tx.auditLog.create({ data: { userId: admin.id, action: isDeleted ? "CURRICULUM_DELETE_LEVEL" : "CURRICULUM_SAVE", entity: `CurriculumContent:${level}`, details: JSON.stringify({ previousRevision: revision, previousCount: Array.isArray(before?.lessons) ? before.lessons.length : null, nextCount: lessons.length, isDeleted }) } });
+      return { success: true, level, items: lessons, revision: revision + 1, isDeleted, updatedAt: new Date().toISOString() };
     });
+    if (!result) return NextResponse.json({ success: false, message: "Giáo trình đã được sửa ở phiên khác. Tải lại dữ liệu trước khi lưu." }, { status: 409, headers });
+    return NextResponse.json(result, { headers });
   } catch (error) {
-    console.error("POST /api/v1/admin/curriculum error:", error);
-    return NextResponse.json(
-      { success: false, message: "Lỗi lưu giáo trình bài học" },
-      { status: 500 }
-    );
+    if (error instanceof CurriculumFormatError) return NextResponse.json({ success: false, message: error.message }, { status: 400, headers });
+    if ((error as { code?: string })?.code === "P2002") return NextResponse.json({ success: false, message: "Giáo trình vừa được sửa ở phiên khác. Hãy tải lại." }, { status: 409, headers });
+    console.error("Curriculum save failed", error instanceof Error ? error.name : "Unknown");
+    return NextResponse.json({ success: false, message: "Chưa lưu được vào database. Dữ liệu chưa được xuất bản; vui lòng thử lại." }, { status: 503, headers });
   }
 }

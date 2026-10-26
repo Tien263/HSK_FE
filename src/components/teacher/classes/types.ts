@@ -32,13 +32,13 @@ export interface StudentRowItem {
   status: "LEARNING" | "INACTIVE" | "COMPLETED" | "PENDING";
   enrollmentStatus?: "PENDING" | "APPROVED" | "REJECTED";
   statusText: string;
-  progressPercent: number;
+  progressPercent: number | null;
   totalAssignments: number;
   submittedAssignments: number;
   joinedDate: string;
   avatar: string;
   lastActive?: string;
-  scoreAvg?: number;
+  scoreAvg?: number | null;
 }
 
 export interface ActivityFeedItem {

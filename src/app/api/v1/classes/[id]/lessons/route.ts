@@ -1,7 +1,10 @@
+import { prepareClassContent, storedClassContent } from "@/lib/class-lesson-content";
+import { classAccess, PortalError } from "@/lib/portal-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import { getServerLessonsByHskLevel } from "@/lib/curriculum-server";
+import { blankLesson } from "@/lib/curriculum-format";
 
 // GET /api/v1/classes/[id]/lessons - Lấy lộ trình 15 bài học của lớp theo đúng cấp độ HSK
 export async function GET(
@@ -11,6 +14,9 @@ export async function GET(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
 
     // 1. Kiểm tra lớp học
     let targetClass = await prisma.class.findUnique({
@@ -40,7 +46,7 @@ export async function GET(
 
     // Bảo mật phân quyền: Nếu là học sinh, PHẢI là thành viên hợp lệ và ĐÃ ĐƯỢC PHÊ DUYỆT
     const { searchParams } = new URL(request.url);
-    const studentId = request.headers.get("x-user-id") || searchParams.get("studentId") || (authUser?.role === "STUDENT" ? authUser.id : null);
+    const studentId = authUser.role === "STUDENT" ? authUser.id : null;
 
     if (studentId) {
       const studentUser = await prisma.user.findUnique({
@@ -92,22 +98,29 @@ export async function GET(
 
     // 3. Chuẩn hóa đủ 15 bài học theo đúng cấp độ của lớp (HSK 1 / HSK 2...)
     const hskLevel = targetClass.level || 1;
-    const baseLessonsList = getLessonsByHskLevel(hskLevel);
+    const baseLessonsList = await getServerLessonsByHskLevel(hskLevel);
+    for (const record of dbLessons) if (!baseLessonsList.some(lesson => lesson.number === record.lessonNumber)) {
+      baseLessonsList.push({ ...blankLesson(hskLevel, record.lessonNumber), id: record.lessonId, titleZh: record.titleZh, titleVi: record.titleVi, pinyin: record.pinyin || "" });
+    }
+    baseLessonsList.sort((a, b) => a.number - b.number);
 
     const lessons = baseLessonsList.map((base) => {
       const dbRecord = dbLessonsMap.get(base.number);
 
-      if (dbRecord) {
+      if (dbRecord && (authUser.role !== "STUDENT" || dbRecord.status === "PUBLISHED")) {
+        const content = storedClassContent(dbRecord,base,hskLevel);
         let parsedVocabs = [];
         let parsedGrammars = [];
         let parsedCultural = [];
+        let parsedDialogue = base.dialogue;
 
         try {
-          parsedVocabs = dbRecord.selectedVocabs ? JSON.parse(dbRecord.selectedVocabs) : [];
+          parsedVocabs = dbRecord.selectedVocabs ? JSON.parse(dbRecord.selectedVocabs) : base.vocabList;
         } catch {}
         try {
-          parsedGrammars = dbRecord.selectedGrammars ? JSON.parse(dbRecord.selectedGrammars) : [];
+          parsedGrammars = dbRecord.selectedGrammars ? JSON.parse(dbRecord.selectedGrammars) : base.grammarList;
         } catch {}
+        try { parsedDialogue = dbRecord.selectedDialogue ? JSON.parse(dbRecord.selectedDialogue) : base.dialogue; } catch {}
         try {
           parsedCultural = dbRecord.selectedCultural ? JSON.parse(dbRecord.selectedCultural) : [];
         } catch {}
@@ -126,10 +139,12 @@ export async function GET(
           status: dbRecord.status, // "PUBLISHED" | "DRAFT"
           isPublished,
           isUnlocked: isPublished,
-          vocabCount: parsedVocabs.length > 0 ? parsedVocabs.length : dbRecord.vocabCount || base.vocabCount,
-          grammarCount: parsedGrammars.length > 0 ? parsedGrammars.length : dbRecord.grammarCount || base.grammarCount,
-          selectedVocabs: parsedVocabs,
-          selectedGrammars: parsedGrammars,
+          vocabCount: content.vocabList.length,
+          grammarCount: content.grammarList.length,
+          selectedVocabs: content.vocabList,
+          selectedGrammars: content.grammarList,
+          selectedDialogue: content.dialogue,
+          content,
           selectedCultural: parsedCultural,
           hasDialogue: dbRecord.hasDialogue,
           hasReading: dbRecord.hasReading,
@@ -189,6 +204,9 @@ export async function POST(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
     const body = await request.json();
 
     const {
@@ -196,6 +214,7 @@ export async function POST(
       status = "PUBLISHED", // "PUBLISHED" | "DRAFT" | "LOCKED"
       selectedVocabs = [],
       selectedGrammars = [],
+      selectedDialogue,
       hasDialogue = true,
       hasReading = true,
       selectedCultural = [],
@@ -204,8 +223,8 @@ export async function POST(
     } = body;
 
     const num = Number(lessonNumber);
-    if (!num || num < 1 || num > 15) {
-      return NextResponse.json({ success: false, message: "Số thứ tự bài học không hợp lệ (1 - 15)." }, { status: 400 });
+    if (!Number.isInteger(num) || num < 1 || num > 9999) {
+      return NextResponse.json({ success: false, message: "Số thứ tự bài học không hợp lệ (1 - 9999)." }, { status: 400 });
     }
 
     // 1. Kiểm tra lớp học và quyền giáo viên
@@ -250,8 +269,12 @@ export async function POST(
     }
 
     // 2. Tìm thông tin bài học gốc theo đúng cấp độ lớp
-    const baseLessonsList = getLessonsByHskLevel(targetClass.level);
-    const baseLesson = baseLessonsList.find((l) => l.number === num) || baseLessonsList[0];
+    const baseLessonsList = await getServerLessonsByHskLevel(targetClass.level);
+    const previous = await prisma.classLesson.findUnique({where:{classId_lessonNumber:{classId:targetClass.id,lessonNumber:num}}});
+    const baseLesson = baseLessonsList.find((l) => l.number === num) || (previous ? storedClassContent(previous,undefined,targetClass.level) : undefined);
+    if (!baseLesson) return NextResponse.json({ success: false, message: "Bài học không còn trong kho chung. Hãy tải lại giáo trình." }, { status: 404 });
+
+    const content = prepareClassContent(baseLesson,{...body,selectedVocabs,selectedGrammars,selectedDialogue,hasDialogue});
 
     // 3. Upsert vào bảng ClassLesson trong PostgreSQL DB
     const upserted = await prisma.classLesson.upsert({
@@ -268,8 +291,10 @@ export async function POST(
         hasDialogue: Boolean(hasDialogue),
         hasReading: Boolean(hasReading),
         culturalCount: Array.isArray(selectedCultural) ? selectedCultural.length : 0,
-        selectedVocabs: JSON.stringify(selectedVocabs),
-        selectedGrammars: JSON.stringify(selectedGrammars),
+        selectedVocabs: JSON.stringify(content.vocabList),
+        content: JSON.parse(JSON.stringify(content)),
+        selectedGrammars: JSON.stringify(content.grammarList),
+        selectedDialogue: JSON.stringify(content.dialogue),
         selectedCultural: JSON.stringify(selectedCultural),
         teacherNote: teacherNote ? String(teacherNote).trim() : null,
         dueDate: dueDate ? String(dueDate).trim() : null,
@@ -288,8 +313,10 @@ export async function POST(
         hasDialogue: Boolean(hasDialogue),
         hasReading: Boolean(hasReading),
         culturalCount: Array.isArray(selectedCultural) ? selectedCultural.length : 0,
-        selectedVocabs: JSON.stringify(selectedVocabs),
-        selectedGrammars: JSON.stringify(selectedGrammars),
+        selectedVocabs: JSON.stringify(content.vocabList),
+        content: JSON.parse(JSON.stringify(content)),
+        selectedGrammars: JSON.stringify(content.grammarList),
+        selectedDialogue: JSON.stringify(content.dialogue),
         selectedCultural: JSON.stringify(selectedCultural),
         teacherNote: teacherNote ? String(teacherNote).trim() : null,
         dueDate: dueDate ? String(dueDate).trim() : null,

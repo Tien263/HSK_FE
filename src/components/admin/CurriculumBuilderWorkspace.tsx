@@ -1,30 +1,42 @@
-"use client";
+﻿<button
+                onClick={() => setEditorTab("richcontent")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  editorTab === "richcontent"
+                    ? "bg-[#204434] text-white"
+                    : "text-[#315E48] hover:bg-white"
+                }`}
+              >
+                6. Đọc hiểu & Văn hóa giao tiếp
+              </button>"use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import Image from "next/image";
+import { hskArtwork } from "@/lib/hsk-theme";
+import React, { useState, useEffect, useRef } from "react";
 import {
   BookOpen,
   Plus,
   Download,
   Upload,
-  Save,
   Trash2,
   Edit3,
   CheckCircle2,
   Volume2,
-  Sparkles,
   Layers,
-  HelpCircle,
   MessageSquare,
   FileText,
   Compass,
   ArrowRight,
   X,
   RotateCcw,
-  AlertCircle,
-  Copy,
+  BookMarked,
+  Globe2,
 } from "lucide-react";
 import { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import { blankLesson, normalizeLessons, type CurriculumScope } from "@/lib/curriculum-format";
+import CurriculumImportDialog, { downloadCurriculumFile } from "./CurriculumImportDialog";
+import DictionaryReauthentication from "./DictionaryReauthentication";
+import { RichReadingEditor, RichCultureEditor } from "@/components/teacher/LessonRichSections";
+import type { ReadingItem, CulturalNoteItem } from "@/lib/lesson-data";
 
 interface CurriculumBuilderWorkspaceProps {
   showToast: (msg: string, type?: "success" | "error") => void;
@@ -36,15 +48,24 @@ export default function CurriculumBuilderWorkspace({
   // Cấp độ HSK đang chọn (1 - 6)
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
 
+  useEffect(() => { const timer = setTimeout(() => { const value = Number(new URL(window.location.href).searchParams.get("hsk")); if (value >= 1 && value <= 9 && Number.isInteger(value)) setSelectedLevel(value); }, 0); return () => clearTimeout(timer); }, []);
+
   // Danh sách bài học của cấp độ đang chọn
   const [lessons, setLessons] = useState<Hsk1FullLesson[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [isDeleted, setIsDeleted] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [reauthenticate, setReauthenticate] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const savingRef = useRef(false);
+  const [importSettings, setImportSettings] = useState<{ scope: CurriculumScope; target?: number } | null>(null);
 
   // Modal chỉnh sửa chi tiết bài học
   const [editingLesson, setEditingLesson] = useState<Hsk1FullLesson | null>(null);
   const [editorTab, setEditorTab] = useState<
-    "info" | "vocab" | "grammar" | "dialogue" | "phonetics"
+    "info" | "vocab" | "grammar" | "dialogue" | "phonetics" | "richcontent"
   >("info");
 
   // State thêm từ vựng mới trong editor
@@ -67,347 +88,72 @@ export default function CurriculumBuilderWorkspace({
   const [newDialPinyin, setNewDialPinyin] = useState("");
   const [newDialVi, setNewDialVi] = useState("");
 
-  // Tải giáo trình khi đổi level
   useEffect(() => {
-    async function loadCurriculum() {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`);
-        const data = await res.json();
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setLessons(data.items);
-        } else {
-          // Fallback sang resolver
-          const localLessons = getLessonsByHskLevel(selectedLevel);
-          setLessons(localLessons);
-        }
-      } catch (e) {
-        const localLessons = getLessonsByHskLevel(selectedLevel);
-        setLessons(localLessons);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadCurriculum();
-  }, [selectedLevel]);
+    const controller = new AbortController();
+    const timer = setTimeout(() => { setLoading(true); setLoadError(""); setLessons([]); setEditingLesson(null);
+    fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => { const data = await response.json(); if (response.status === 403 || response.status === 401) { setReauthenticate(true); return; } if (!response.ok || !data.success) throw new Error(data.message || "Chưa tải được giáo trình."); if (!controller.signal.aborted) { setLessons(data.items); setRevision(data.revision); setIsDeleted(data.isDeleted); setReauthenticate(false); } })
+      .catch(error => { if (!controller.signal.aborted) setLoadError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }, 100);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [selectedLevel, refresh]);
 
-  // Phát âm TTS
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window && text) {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = "zh-CN";
-      utt.rate = 0.85;
-      window.speechSynthesis.speak(utt);
-    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window && text) { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.lang = "zh-CN"; utterance.rate = .85; window.speechSynthesis.speak(utterance); }
   };
-
-  // 1. TẢI VỀ FILE TEMPLATE MẪU (.JSON)
-  const handleDownloadTemplate = () => {
-    const templateSample = {
-      level: selectedLevel,
-      description: `Template mẫu cấu trúc giáo trình HSK ${selectedLevel} chuẩn`,
-      lessons: lessons.slice(0, 2).map((l) => ({
-        id: l.id,
-        number: l.number,
-        titleZh: l.titleZh,
-        pinyin: l.pinyin,
-        titleVi: l.titleVi || "Tiêu đề tiếng Việt",
-        desc: l.desc || "Mô tả bài học",
-        vocabList: l.vocabList || [],
-        grammarList: l.grammarList || [],
-        dialogue: l.dialogue || [],
-        phonetics: l.phonetics || {
-          title: "Luyện phát âm",
-          rule: "Quy tắc phát âm thanh mẫu/vận mẫu",
-          examples: ["a", "o", "e"],
-        },
-        culture: l.culture || "Nét đẹp văn hóa Trung Hoa gắn với bài học",
-      })),
-    };
-
-    const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateSample, null, 2));
-    const downloadAnchor = document.createElement("a");
-    downloadAnchor.setAttribute("href", jsonStr);
-    downloadAnchor.setAttribute("download", `template_giao_trinh_HSK${selectedLevel}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-
-    showToast(`Đã xuất template mẫu HSK ${selectedLevel} thành công!`);
-  };
-
-  // 2. NHẬP FILE GIÁO TRÌNH (.JSON)
-  const handleImportJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
-
-        let incomingLessons: Hsk1FullLesson[] = [];
-        if (Array.isArray(parsed)) {
-          incomingLessons = parsed;
-        } else if (Array.isArray(parsed.lessons)) {
-          incomingLessons = parsed.lessons;
-        }
-
-        if (incomingLessons.length === 0) {
-          showToast("File không chứa danh sách bài học hợp lệ!", "error");
-          return;
-        }
-
-        setLessons(incomingLessons);
-        showToast(`Đã nạp thành công ${incomingLessons.length} bài học từ file JSON! Bấm "Lưu & Xuất bản" để áp dụng.`);
-      } catch (err) {
-        showToast("Lỗi định dạng file JSON!", "error");
-      }
-    };
-    reader.readAsText(file, "UTF-8");
-  };
-
-  // 3. THÊM BÀI HỌC MỚI VÀO CẤP ĐỘ NÀY
-  const handleAddNewLesson = () => {
-    const nextNumber = lessons.length > 0 ? Math.max(...lessons.map((l) => l.number)) + 1 : 1;
-    const newLesson: Hsk1FullLesson = {
-      id: `hsk${selectedLevel}-${String(nextNumber).padStart(2, "0")}`,
-      number: nextNumber,
-      titleZh: `新课 ${nextNumber}`,
-      pinyin: `Xīn kè ${nextNumber}`,
-      titleVi: `Bài mới số ${nextNumber}`,
-      desc: `Nội dung và mục tiêu kiến thức bài số ${nextNumber} - HSK ${selectedLevel}`,
-      durationMin: 45,
-      vocabCount: 1,
-      grammarCount: 1,
-      isUnlockedDefault: true,
-      unlockedScheduleText: "Đã mở khóa",
-      vocabList: [
-        {
-          id: `v-new-1`,
-          hanzi: "学习",
-          pinyin: "xuéxí",
-          meaning: "học tập",
-          type: "Động từ",
-          exampleZh: "我们学习汉语。",
-          exampleVi: "Chúng tôi học tiếng Trung.",
-        },
-      ],
-      grammarList: [
-        {
-          title: "Cấu trúc câu khẳng định cơ bản",
-          structure: "Chủ ngữ + Động từ + Tân ngữ",
-          example: "我学习汉语。",
-          explanation: "Trật tự câu cơ bản trong tiếng Trung tương tự tiếng Việt (SVO).",
-        },
-      ],
-      dialogue: [
-        {
-          speaker: "李明",
-          zh: "你好！你在做什么？",
-          pinyin: "Nǐ hǎo! Nǐ zài zuò shénme?",
-          vi: "Chào bạn! Bạn đang làm gì đấy?",
-        },
-        {
-          speaker: "王美",
-          zh: "你好！我在学习汉语。",
-          pinyin: "Nǐ hǎo! Wǒ zài xuéxí Hànyǔ.",
-          vi: "Chào bạn! Tôi đang học tiếng Trung.",
-        },
-      ],
-      phonetics: {
-        title: `Ngữ âm trọng tâm bài ${nextNumber}`,
-        rule: "Phân biệt các thanh mẫu và biến điệu chuẩn",
-        examples: ["mā", "má", "mǎ", "mà"],
-      },
-      culture: `Góc văn hóa ứng dụng bài học số ${nextNumber}`,
-    };
-
-    setLessons([...lessons, newLesson]);
-    setEditingLesson(newLesson);
-    setEditorTab("info");
-    showToast(`Đã thêm Bài ${nextNumber}. Bạn có thể chỉnh sửa chi tiết ngay!`);
-  };
-
-  // 4. LƯU & XUẤT BẢN TOÀN BỘ GIÁO TRÌNH
-  const handleSaveAndPublishAll = async () => {
-    if (lessons.length === 0) {
-      showToast("Chưa có bài học nào để xuất bản!", "error");
-      return;
-    }
-
-    setSaving(true);
+  async function persist(next: Hsk1FullLesson[], deleted = false) {
+    if (savingRef.current) return false;
+    savingRef.current = true; setSaving(true);
     try {
-      // 1. Lưu vào Server API
-      const res = await fetch("/api/v1/admin/curriculum", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          level: selectedLevel,
-          lessons,
-        }),
-      });
-
-      const data = await res.json();
-
-      // 2. Đồng bộ vào localStorage để resolver client dùng ngay lập tức
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-          JSON.stringify(lessons)
-        );
-      }
-
-      if (res.ok && data.success) {
-        showToast(
-          `Đã xuất bản thành công ${lessons.length} bài học HSK ${selectedLevel}! Toàn bộ Giáo viên và Học sinh sẽ thấy bài học mới ngay lập tức.`
-        );
-      } else {
-        showToast(data.message || "Đã lưu vào bộ nhớ cục bộ hệ thống.");
-      }
-    } catch (e) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-          JSON.stringify(lessons)
-        );
-      }
-      showToast("Đã lưu và xuất bản vào bộ nhớ hệ thống thành công!");
-    } finally {
-      setSaving(false);
-    }
+      const normalized = normalizeLessons(next, selectedLevel);
+      const response = await fetch("/api/v1/admin/curriculum", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ level: selectedLevel, revision, lessons: normalized, isDeleted: deleted }) });
+      const data = await response.json();
+      if (response.status === 403 || response.status === 401) setReauthenticate(true);
+      if (!response.ok || !data.success) throw new Error(data.message || "Chưa lưu được vào database.");
+      setLessons(data.items); setRevision(data.revision); setIsDeleted(data.isDeleted);
+      window.dispatchEvent(new Event("curriculum-updated"));
+      showToast(`Đã lưu HSK ${selectedLevel} vào kho chung (${data.items.length} bài).`);
+      return true;
+    } catch (error) { showToast(error instanceof Error ? error.message : "Không lưu được. Dữ liệu chưa được xuất bản.", "error"); return false; }
+    finally { savingRef.current = false; setSaving(false); }
+  }
+  const handleAddNewLesson = async () => {
+    const number = lessons.length ? Math.max(...lessons.map(lesson => lesson.number)) + 1 : 1;
+    const lesson = { ...blankLesson(selectedLevel, number), titleVi: `Bài mới số ${number}` };
+    if (await persist([...lessons, lesson])) { setEditingLesson(lesson); setEditorTab("info"); }
   };
-
-  // 5. LƯU BÀI HỌC ĐANG CHỈNH SỬA
-  const handleSaveEditingLesson = () => {
+  const handleSaveEditingLesson = async () => {
     if (!editingLesson) return;
-    setLessons((prev) =>
-      prev.map((l) => (l.number === editingLesson.number ? editingLesson : l))
-    );
-    setEditingLesson(null);
-    showToast(`Đã cập nhật xong Bài ${editingLesson.number}! Nhớ bấm "Lưu & Xuất bản" để áp dụng cho toàn hệ thống.`);
+    const next = lessons.map(lesson => lesson.number === editingLesson.number ? editingLesson : lesson);
+    if (await persist(next)) setEditingLesson(null);
   };
-
-  // Xóa bài học
-  const handleDeleteLesson = (num: number) => {
-    if (!confirm(`Bạn có chắc muốn xóa Bài ${num} khỏi giáo trình HSK ${selectedLevel}?`)) {
-      return;
-    }
-    setLessons((prev) => prev.filter((l) => l.number !== num));
-    showToast(`Đã xóa Bài ${num}.`);
+  const handleDeleteLesson = async (number: number) => {
+    if (!confirm(`Xóa Bài ${number} khỏi kho chung HSK ${selectedLevel}? Thay đổi được lưu ngay; bản học liệu đã giao cho lớp vẫn được giữ riêng.`)) return;
+    await persist(lessons.filter(lesson => lesson.number !== number));
   };
-
+  const handleDeleteLevel = async () => {
+    if (!confirm(`Xóa toàn bộ ${lessons.length} bài của HSK ${selectedLevel} khỏi kho chung để tạo lại? Thay đổi được lưu ngay.`)) return;
+    await persist([], true);
+  };
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* =================================================================== */}
-      {/* 1. HEADER & CHỌN CẤP ĐỘ HSK 3.0 (CẤP 1 - 9)                         */}
-      {/* =================================================================== */}
-      <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-6 shadow-2xs space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#BC9B6B]/20">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#204434] text-white flex items-center justify-center font-bold shadow-sm">
-              <BookOpen className="w-6 h-6 text-[#BC9B6B]" />
-            </div>
-            <div>
-              <h2 className="text-xl font-serif font-bold text-[#204434] flex items-center gap-2">
-                <span>Quản trị Kho bài học HSK 3.0</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                  Tiêu chuẩn 9 Cấp (1 - 9)
-                </span>
-              </h2>
-              <p className="text-xs text-[#315E48] mt-0.5">
-                Biên soạn giáo trình chuẩn HSK 3.0 từ Cấp 1 đến Cấp 9, phân bổ từ vựng, ngữ pháp, đoạn hội thoại và xuất bản cho toàn trường.
-              </p>
-            </div>
-          </div>
+      <section className="relative overflow-hidden rounded-3xl border border-[#E5DEC9] bg-[#FFFCF6] p-5 sm:p-7"><Image src={hskArtwork(selectedLevel)} alt="" fill sizes="1200px" className="object-cover opacity-25"/><div className="absolute inset-0 bg-linear-to-r from-[#FFFCF6] via-[#FFFCF6]/70 to-transparent"/>
 
-          {/* Các nút hành động chính */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Tải template mẫu */}
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Tải về file JSON mẫu để chỉnh sửa"
-            >
-              <Download className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Tải Template (.JSON)</span>
-            </button>
-
-            {/* Nhập file JSON */}
-            <label className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
-              <Upload className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Nhập file (.JSON)</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImportJsonFile}
-              />
-            </label>
-
-            {/* Thêm bài mới */}
-            <button
-              onClick={handleAddNewLesson}
-              className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-            >
-              <Plus className="w-4 h-4 text-[#BC9B6B]" />
-              <span>Thêm bài học mới</span>
-            </button>
-
-            {/* Lưu & Xuất bản toàn bộ */}
-            <button
-              disabled={saving || lessons.length === 0}
-              onClick={handleSaveAndPublishAll}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] hover:from-[#17382F] hover:to-[#204434] text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-md shadow-[#204434]/20 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4 text-[#BC9B6B]" />
-              <span>{saving ? "Đang xuất bản..." : "Lưu & Xuất bản kho chung"}</span>
-            </button>
+        <div className="relative flex flex-wrap items-start justify-between gap-5">
+          <div><p className="mb-2 text-[10px] font-bold uppercase tracking-[.18em] text-[#8F6D3B]">Học liệu chung · Biên soạn & xuất bản</p><h2 className="font-serif text-2xl font-bold text-[#204434]">Kho bài học & giáo trình</h2><p className="mt-2 max-w-xl text-xs leading-6 text-[#64755d]">Quản lý từng cấp HSK, từng bài và từng phần nội dung. Mọi thao tác lưu, xóa, nhập file đều được ghi vào kho chung.</p></div>
+          <div className="flex flex-wrap gap-2">
+            <button disabled={saving || loading} onClick={() => setRefresh(value => value + 1)} className="flex items-center gap-2 rounded-xl border border-[#D7C9AB] bg-[#FFFCF6] px-3 py-2.5 text-xs font-bold"><RotateCcw size={14} />Tải lại</button>
+            <button disabled={saving || loading || !!loadError || reauthenticate || isDeleted} onClick={() => downloadCurriculumFile(`hsk${selectedLevel}-sao-luu.json`, JSON.stringify({ level: selectedLevel, lessons }, null, 2))} className="flex items-center gap-2 rounded-xl border border-[#D7C9AB] bg-[#FFFCF6] px-3 py-2.5 text-xs font-bold disabled:opacity-40"><Download size={14} />Xuất bản sao JSON</button>
           </div>
         </div>
-
-        {/* Thanh chọn Level HSK 3.0: 9 Cấp (Sơ cấp 1-3, Trung cấp 4-6, Cao cấp 7-9) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cấp độ HSK 3.0:</span>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => {
-            const tierLabel = lvl <= 3 ? "Sơ cấp" : lvl <= 6 ? "Trung cấp" : "Cao cấp";
-            return (
-              <button
-                key={lvl}
-                onClick={() => setSelectedLevel(lvl)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  selectedLevel === lvl
-                    ? "bg-[#204434] text-white shadow-xs"
-                    : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
-                }`}
-              >
-                <span>HSK {lvl}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded ${
-                    selectedLevel === lvl
-                      ? "bg-white/20 text-white"
-                      : "bg-[#F3EFE6] text-[#8F6D3B]"
-                  }`}
-                >
-                  {tierLabel}
-                </span>
-                {selectedLevel === lvl && (
-                  <span className="text-[10px] text-emerald-300 ml-0.5">
-                    ({lessons.length} bài)
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* =================================================================== */}
-      {/* 2. DANH SÁCH BÀI HỌC TRONG CẤP ĐỘ                                   */}
-      {/* =================================================================== */}
-      {loading ? (
+        <div className="relative mt-6 flex flex-wrap gap-2" aria-label="Chọn cấp HSK">{[1,2,3,4,5,6,7,8,9].map(level => <button key={level} disabled={saving} onClick={() => { if (level === selectedLevel) return; setLoading(true); setLessons([]); setSelectedLevel(level); const url = new URL(window.location.href); url.searchParams.set("hsk", String(level)); window.history.replaceState(null, "", url); }} aria-pressed={selectedLevel === level} className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition ${selectedLevel === level ? "border-[#204434] bg-[#204434] text-white" : "border-[#E5DEC9] bg-[#FFFCF6]/90 text-[#64755d] hover:border-[#315E48]"}`}>HSK {level}</button>)}</div>
+      </section>
+      {reauthenticate && <DictionaryReauthentication onAuthenticated={() => { setReauthenticate(false); setRefresh(value => value + 1); }} />}
+      {loadError && <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">{loadError} <button onClick={() => setRefresh(value => value + 1)} className="ml-3 underline">Thử tải lại</button></p>}
+      {!reauthenticate && !loadError && !loading && <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6] p-4 sm:px-6"><div><h3 className="font-serif text-lg font-bold">HSK {selectedLevel} <span className="ml-2 font-sans text-xs font-normal text-[#7e8b71]">{isDeleted ? "Chưa tạo kho" : `${lessons.length} bài học`}</span></h3><p className="mt-1 text-[11px] text-[#7e8b71]">{saving ? "Đang lưu vào database…" : `Đã đồng bộ · Phiên bản ${revision}`}</p></div><div className="flex flex-wrap gap-2">{isDeleted ? <button disabled={saving} onClick={() => void persist([], false)} className="flex items-center gap-2 rounded-xl bg-[#204434] px-4 py-2.5 text-xs font-bold text-white"><Plus size={14} />Tạo kho HSK {selectedLevel}</button> : <><button disabled={saving} onClick={() => setImportSettings({ scope: "lessons" })} className="flex items-center gap-2 rounded-xl border border-[#D7C9AB] px-4 py-2.5 text-xs font-bold"><Upload size={14} />Nhập file & tải mẫu</button><button disabled={saving} onClick={() => void handleAddNewLesson()} className="flex items-center gap-2 rounded-xl bg-[#204434] px-4 py-2.5 text-xs font-bold text-white"><Plus size={14} />Tạo bài mới</button><button disabled={saving} onClick={() => void handleDeleteLevel()} className="flex items-center gap-2 rounded-xl border border-[#9D493E]/30 px-3 py-2.5 text-xs font-semibold text-[#9D493E]"><Trash2 size={14} />Xóa cấp HSK</button></>}</div></section>}
+      {!isDeleted && !reauthenticate && !loadError && !loading && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{([{scope:"lessons",title:"Nhiều bài học",hint:"Thông tin & bài hoàn chỉnh",icon:BookOpen},{scope:"vocab",title:"Từ vựng",hint:"Chữ · pinyin · nghĩa · ví dụ",icon:Layers},{scope:"grammar",title:"Ngữ pháp",hint:"Cấu trúc · giải thích · ví dụ",icon:FileText},{scope:"dialogue",title:"Hội thoại",hint:"Người nói · câu · bản dịch",icon:MessageSquare},{scope:"phonetics",title:"Phát âm",hint:"Quy tắc · ví dụ phát âm",icon:Volume2},{scope:"culture",title:"Văn hóa",hint:"Nội dung văn hóa theo bài",icon:Compass}] as const).map(({scope,title,hint,icon:Icon})=><button key={scope} disabled={saving} onClick={()=>setImportSettings({scope})} className="rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6] p-4 text-left transition hover:border-[#315E48]"><Icon size={19} className="mb-3 text-[#8F6D3B]"/><strong className="block text-xs">{title}</strong><span className="mt-1 block text-[10px] leading-5 text-[#7e8b71]">{hint}</span><span className="mt-3 flex items-center gap-1 text-[10px] font-bold text-[#315E48]">Mẫu & nhập file <ArrowRight size={11}/></span></button>)}</div>}
+      {reauthenticate || loadError || isDeleted ? null : loading ? (
         <div className="py-16 text-center text-xs text-[#315E48] bg-[#FFFCF6] rounded-3xl border border-[#BC9B6B]/20">
           Đang tải danh sách bài học HSK {selectedLevel}...
         </div>
@@ -481,7 +227,8 @@ export default function CurriculumBuilderWorkspace({
                   </button>
 
                   <button
-                    onClick={() => handleDeleteLesson(les.number)}
+                    disabled={saving}
+                    onClick={() => void handleDeleteLesson(les.number)}
                     className="p-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition cursor-pointer"
                     title="Xóa bài học này"
                   >
@@ -499,7 +246,7 @@ export default function CurriculumBuilderWorkspace({
       {/* =================================================================== */}
       {editingLesson && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
-          <div className="bg-[#FFFCF6] border border-[#BC9B6B]/40 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-fadeIn">
+          <div className="bg-[#FFFCF6] border border-[#BC9B6B]/40 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-fadeIn" role="dialog" aria-modal="true" aria-label="Biên soạn bài học">
             {/* Modal Header */}
             <div className="p-5 sm:p-6 bg-gradient-to-r from-[#FAF7F0] to-[#FFFCF6] border-b border-[#E5DEC9] flex items-center justify-between">
               <div>
@@ -522,6 +269,7 @@ export default function CurriculumBuilderWorkspace({
               </button>
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5DEC9] px-6 py-3"><span className="text-[11px] text-[#7e8b71]">Lưu thay đổi để xuất bản bài học. Nhập file có bước xem trước riêng.</span><button disabled={saving} onClick={() => setImportSettings({ scope: editorTab === "info" ? "lessons" : editorTab, target: editingLesson.number })} className="flex items-center gap-2 rounded-xl border border-[#D7C9AB] px-3 py-2 text-xs font-bold"><Upload size={13} />Nhập file phần này & tải mẫu</button></div>
             {/* Modal Tabs Bar */}
             <div className="px-6 py-2.5 bg-[#FAF7F0] border-b border-[#E5DEC9] flex items-center gap-2 overflow-x-auto">
               <button
@@ -574,6 +322,12 @@ export default function CurriculumBuilderWorkspace({
               >
                 5. Ngữ âm & Văn hóa
               </button>
+              <button
+                onClick={() => setEditorTab("richcontent")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ``}`}
+              >
+                6. Đọc hiểu & Văn hóa giao tiếp
+              </button>
             </div>
 
             {/* Modal Body */}
@@ -590,6 +344,7 @@ export default function CurriculumBuilderWorkspace({
                         type="number"
                         min={1}
                         value={editingLesson.number}
+                        readOnly
                         onChange={(e) =>
                           setEditingLesson({
                             ...editingLesson,
@@ -1114,6 +869,76 @@ export default function CurriculumBuilderWorkspace({
               )}
             </div>
 
+
+              {/* TAB 6: ĐỌC HIỂU & VĂN HÓA GIAO TIẾP */}
+              {editorTab === "richcontent" && (
+                <div className="space-y-8">
+                  {/* Phần A: Bài đọc hiểu */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-[#E5DEC9]">
+                      <BookMarked className="w-4 h-4 text-[#8F6D3B]" />
+                      <h4 className="font-serif font-bold text-sm text-[#204434]">
+                        Bài đọc hiểu (<code>reading_items</code>)
+                      </h4>
+                    </div>
+                    <p className="text-xs text-[#315E48] leading-5">
+                      Nhập nội bài đọc. Phần này sẽ hiển thị trong tab "Đọc hiểu" riêng biệt cho hoc sinh và giáo viên.)
+                    </p>
+                    <RichReadingEditor
+                      value={editingLesson.reading ?? {
+                        id: ${editingLesson.id}-reading,
+                        titleZh: "",
+                        titleVi: "",
+                        contentZh: "",
+                        contentPy: "",
+                        contentVi: "",
+                        wordCount: 0,
+                        extraVocabs: [],
+                      }}
+                      onChange={(val: ReadingItem) =>
+                        setEditingLesson({ ...editingLesson, reading: val })
+                      }
+                    />
+                    {editingLesson.reading?.contentZh && (
+                      <button
+                        onClick={() =>
+                          setEditingLesson({ ...editingLesson, reading: undefined })
+                        }
+                        className="text-xs text-red-500 underline"
+                      >
+                        Xóa bài đọc hiểu
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Phần B: Văn hóa giao tiếp */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-[#E5DEC9]">
+                      <Globe2 className="w-4 h-4 text-[#8F6D3B]" />
+                      <h4 className="font-serif font-bold text-sm text-[#204434]">
+                        Văn hóa giao tiếp & Cách dùng thực tế (<code>culture_items</code>)
+                      </h4>
+                    </div>
+                    <p className="text-xs text-[#315E48] leading-5">
+                      Nhập mẫu câu, cách nói lịch sự, lượ ý văn hóa.
+                    </p>
+                    <RichCultureEditor
+                      value={editingLesson.culturalNote ?? {
+                        context: "",
+                        targetAudience: "",
+                        naturalExpressions: [],
+                        politeExpressions: [],
+                        cautionNotes: [],
+                        comparisonNote: "",
+                        practiceScenario: "",
+                      }}
+                      onChange={(val: CulturalNoteItem) =>
+                        setEditingLesson({ ...editingLesson, culturalNote: val })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
             {/* Modal Footer */}
             <div className="p-4 sm:p-5 bg-[#FAF7F0] border-t border-[#E5DEC9] flex items-center justify-between">
               <button
@@ -1124,6 +949,7 @@ export default function CurriculumBuilderWorkspace({
               </button>
 
               <button
+                disabled={saving}
                 onClick={handleSaveEditingLesson}
                 className="px-6 py-2.5 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#17382F] transition shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
@@ -1134,6 +960,7 @@ export default function CurriculumBuilderWorkspace({
           </div>
         </div>
       )}
+      {importSettings && <CurriculumImportDialog level={selectedLevel} lessons={editingLesson ? lessons.map(lesson => lesson.number === editingLesson.number ? editingLesson : lesson) : lessons} initialScope={importSettings.scope} initialTarget={importSettings.target} onClose={() => setImportSettings(null)} onApply={async next => { const saved = await persist(next); if (saved && editingLesson) setEditingLesson(next.find(lesson => lesson.number === editingLesson.number) || null); return saved; }} />}
     </div>
   );
 }

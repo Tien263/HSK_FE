@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {createDictionarySession,dictionaryCookieOptions,DICTIONARY_SESSION_COOKIE} from "@/lib/dictionary-session";
 
 export async function POST(request: Request) {
   try {
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "Đăng ký tài khoản thành công! Tài khoản đã được kích hoạt trực tiếp.",
       user: {
@@ -88,6 +89,9 @@ export async function POST(request: Request) {
       },
       email: cleanEmail,
     });
+    const session = createDictionarySession(user.id);
+    if (session) response.cookies.set(DICTIONARY_SESSION_COOKIE,session,dictionaryCookieOptions(request));
+    return response;
   } catch (error) {
     console.error("POST /api/v1/auth/register error:", error);
     return NextResponse.json(

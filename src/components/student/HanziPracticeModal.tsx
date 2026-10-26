@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import HanziiLogo from "@/components/common/HanziiLogo";
 import {
   X,
   Volume2,

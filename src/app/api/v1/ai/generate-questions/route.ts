@@ -1,7 +1,9 @@
+import {portalUser,teacherOnly,PortalError} from "@/lib/portal-auth";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
+    teacherOnly(await portalUser(request));
     const body = await request.json();
     const {
       topic = "Gia đình và Đời sống hàng ngày",
@@ -17,64 +19,6 @@ export async function POST(request: Request) {
     const openRouterKey = process.env.OPENROUTER_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
-
-    // Bộ câu hỏi dự phòng chuyên sâu HSK
-    const fallbackBank: Record<number, any[]> = {
-      1: [
-        {
-          type: "multiple_choice",
-          content: "“妈妈” (māma) có nghĩa là gì trong tiếng Việt?",
-          pinyinPrompt: "māma",
-          options: [
-            { id: "A", text: "Bố" },
-            { id: "B", text: "Mẹ" },
-            { id: "C", text: "Anh trai" },
-            { id: "D", text: "Chị gái" },
-          ],
-          correctAnswer: "B",
-          points: 5,
-          explanation: "“妈妈” (māma) là mẹ, từ vựng HSK 1 cơ bản.",
-        },
-        {
-          type: "sentence_ordering",
-          content: "Sắp xếp các từ sau thành câu hoàn chỉnh:",
-          pinyinPrompt: "wǒ / qù / xuéxiào",
-          options: {
-            tokens: ["我", "去", "学校"],
-          },
-          correctAnswer: "我 去 学校",
-          points: 10,
-          explanation: "Cấu trúc Chủ ngữ (我) + Động từ (去) + Tân ngữ nơi chốn (学校).",
-        },
-        {
-          type: "fill_blank",
-          content: "你好，很高兴___到你。(Chào bạn, rất vui được gặp bạn)",
-          pinyinPrompt: "Nǐ hǎo, hěn gāoxìng ___ dào nǐ.",
-          options: [],
-          correctAnswer: "见",
-          points: 5,
-          explanation: "见 (jiàn) nghĩa là gặp, nhìn thấy. 见到: gặp gỡ.",
-        },
-      ],
-      2: [
-        {
-          type: "multiple_choice",
-          content: "Từ nào sau đây có nghĩa là “Thời tiết”?",
-          pinyinPrompt: "tiānqì",
-          options: [
-            { id: "A", text: "天气" },
-            { id: "B", text: "时间" },
-            { id: "C", text: "手表" },
-            { id: "D", text: "眼睛" },
-          ],
-          correctAnswer: "A",
-          points: 5,
-          explanation: "天气 (tiānqì) là thời tiết. 时间 là thời gian.",
-        },
-      ],
-    };
-
-    const defaultList = fallbackBank[Number(hskLevel)] || fallbackBank[1];
 
     const promptText = `Bạn là chuyên gia sư phạm tiếng Trung HSK hàng đầu. Hãy tạo ${count} câu hỏi HSK cấp độ ${hskLevel} về chủ đề "${topic}".
 Dạng câu hỏi: ${type}.
@@ -301,15 +245,9 @@ Yêu cầu bắt buộc: Trả về duy nhất định dạng JSON thuần túy 
       }
     }
 
-    // Default fallback
-    return NextResponse.json({
-      success: true,
-      isMock: true,
-      notice: "CHƯA_CÓ_KEY",
-      warning: "Hệ thống đang chạy bộ câu hỏi HSK chuẩn theo chủ đề. Hãy thêm QWEN_API_KEY hoặc GROQ_API_KEY để gọi trực tiếp mô hình Qwen!",
-      items: defaultList.slice(0, Number(count) || 3),
-    });
+    return NextResponse.json({success:false,message:"Chưa tạo được câu hỏi từ AI. Dịch vụ đang hết hạn mức hoặc chưa được cấu hình. Vui lòng thử lại sau."},{status:503});
   } catch (error) {
+    if(error instanceof PortalError)return NextResponse.json({success:false,message:error.message},{status:error.status});
     console.error("POST /api/v1/ai/generate-questions error:", error);
     return NextResponse.json({ success: false, message: "Lỗi xử lý tạo câu hỏi" }, { status: 500 });
   }

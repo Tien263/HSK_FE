@@ -2,42 +2,67 @@ name: Test & Build CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
   test:
     name: Build & Run E2E Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: hsk_ci
+          POSTGRES_PASSWORD: hsk_ci_password
+          POSTGRES_DB: hsk_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hsk_ci -d hsk_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://neondb_owner:npg_HxMtCdpEAl27@ep-dry-sunset-aoa4m5vl-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require' }}
-      DIRECT_URL: ${{ secrets.DIRECT_URL || 'postgresql://neondb_owner:npg_HxMtCdpEAl27@ep-dry-sunset-aoa4m5vl-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require' }}
-      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'sample-secret-key-12345' }}
-      NEXTAUTH_URL: 'http://127.0.0.1:3000'
-      BASE_URL: 'http://127.0.0.1:3000'
+      DATABASE_URL: postgresql://hsk_ci:hsk_ci_password@127.0.0.1:5432/hsk_ci?schema=public
+      DIRECT_URL: postgresql://hsk_ci:hsk_ci_password@127.0.0.1:5432/hsk_ci?schema=public
+      NEXTAUTH_SECRET: ci-only-disposable-session-secret
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      BASE_URL: http://127.0.0.1:3000
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
-
+          cache: npm
       - name: Install dependencies
         run: npm ci
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Build Next.js app
-        run: npx next build
-
-      - name: Start server & Run E2E automated test
+      - name: Initialize isolated CI database
+        run: npx prisma db push
+      - name: Run data and grading regression tests
         run: |
-          npm start &
-          npx wait-on http://127.0.0.1:3000/api/health --timeout 60000
+          npm run curriculum:test
+          npm run portal:test
+          node --test scripts/teacher-content.test.cjs
+          npm run dictionary:test
+      - name: Build Next.js app
+        run: npm run build
+      - name: Start server and run E2E
+        shell: bash
+        run: |
+          npm start > /tmp/hsk-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          if ! node scripts/wait-for-server.cjs; then
+            cat /tmp/hsk-server.log
+            exit 1
+          fi
           npm test
+      - name: Server log on failure
+        if: failure()
+        run: cat /tmp/hsk-server.log 2>/dev/null || true

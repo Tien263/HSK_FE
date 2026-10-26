@@ -1,5 +1,6 @@
 "use client";
 
+import {useCurriculumLessons} from "@/lib/use-curriculum";
 import React from "react";
 import {
   Users,
@@ -31,6 +32,7 @@ export default function OverviewTab({
   onNavigateSubTab,
   onOpenManualStudentModal,
 }: OverviewTabProps) {
+  const {lessons}=useCurriculumLessons(currentClass.level);
   return (
     <div className="space-y-6">
       {/* 4 Thẻ KPI Tổng quan */}
@@ -50,7 +52,7 @@ export default function OverviewTab({
             {studentsCount}
           </div>
           <p className="text-[11px] text-[#6B766D]">
-            Học viên đang học tích cực
+            Thành viên của lớp
           </p>
         </div>
 
@@ -66,7 +68,7 @@ export default function OverviewTab({
             </div>
           </div>
           <div className="text-3xl font-serif font-bold text-emerald-700">
-            {publishedLessonsCount} <span className="text-sm font-normal text-[#6B766D]">/ 15</span>
+            {publishedLessonsCount} <span className="text-sm font-normal text-[#6B766D]">/ {lessons.length}</span>
           </div>
           <p className="text-[11px] text-[#6B766D]">
             Đã công bố cho học sinh

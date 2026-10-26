@@ -15,7 +15,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { ClassDetailItem } from "../types";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import { useCurriculumLessons } from "@/lib/use-curriculum";
 
 interface CurriculumTabProps {
   currentClass: ClassDetailItem;
@@ -33,7 +33,8 @@ export default function CurriculumTab({
   onRevokeLesson,
 }: CurriculumTabProps) {
   const classLevel = currentClass.level || 1;
-  const baseLessons = getLessonsByHskLevel(classLevel);
+  const { lessons: sourceLessons } = useCurriculumLessons(classLevel);
+  const baseLessons=[...sourceLessons,...curriculumLessons.filter(item=>item.content&&!sourceLessons.some(lesson=>lesson.number===item.lessonNumber)).map(item=>item.content)].sort((a,b)=>a.number-b.number);
   const publishedCount = curriculumLessons.filter(
     (l) => l.status === "PUBLISHED" || l.isPublished
   ).length;
@@ -45,7 +46,7 @@ export default function CurriculumTab({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-serif font-bold text-[#17382F]">
-              Lộ trình 15 bài học lớp {currentClass.name}
+              Lộ trình bài học lớp {currentClass.name}
             </h3>
             <span className="px-2.5 py-0.5 rounded-full bg-[#1F513F]/10 text-[#1F513F] text-xs font-semibold">
               Khung HSK 3.0 (Cấp {classLevel})
@@ -57,7 +58,7 @@ export default function CurriculumTab({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-[#1F513F] bg-[#1F513F]/10 px-3 py-1.5 rounded-xl">
-            Đã công bố: {publishedCount} / 15 bài
+            Đã công bố: {publishedCount} / {baseLessons.length} bài
           </span>
         </div>
       </div>
@@ -138,6 +139,7 @@ export default function CurriculumTab({
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6B766D]"><span>{(cl?.content||ls).dialogue.length} lượt hội thoại</span><span>{((cl?.content||ls).phonetics.rule||(cl?.content||ls).culture)?"Có ngữ âm / văn hóa":"Chưa có ngữ âm / văn hóa"}</span></div>
                   {cl?.teacherNote && (
                     <p className="text-[10px] text-amber-900 bg-amber-50 p-1.5 rounded-lg border border-amber-200 line-clamp-2">
                       <strong>Ghi chú:</strong> {cl.teacherNote}

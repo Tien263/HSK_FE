@@ -56,8 +56,7 @@ export default function SubmissionsListTable({
           <tbody className="divide-y divide-[#E5DEC9]/60 text-[#204434]">
             {submissions.map((sub) => {
               const isWaiting =
-                sub.gradingStatus === "WAITING_MANUAL" ||
-                sub.submissionStatus === "SUBMITTED";
+                sub.gradingStatus === "WAITING_MANUAL" && sub.submissionStatus === "SUBMITTED";
 
               return (
                 <tr key={sub.id} className="hover:bg-[#FFFCF6] transition">
@@ -102,7 +101,7 @@ export default function SubmissionsListTable({
 
                   {/* Thời gian */}
                   <td className="py-3.5 px-4 text-[11px] text-[#315E48]/70">
-                    {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : "Vừa xong"}
+                    {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString("vi-VN") : "Chưa nộp"}
                   </td>
 
                   {/* Điểm số */}

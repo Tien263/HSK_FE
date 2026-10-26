@@ -1,3 +1,4 @@
+import { learningReport } from "@/lib/learning-reports";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
@@ -8,72 +9,26 @@ import { decodeClassDescription, encodeClassDescription, normalizeDMY } from "@/
 export async function GET(request: Request) {
   try {
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
     const { searchParams } = new URL(request.url);
     const filterTeacherId = searchParams.get("teacherId");
     const filterStudentId = searchParams.get("studentId");
 
-    let where: any = {};
-
-    if (filterStudentId) {
-      where.students = {
-        some: { studentId: filterStudentId },
-      };
-    } else if (authUser) {
-      if (authUser.role === "TEACHER") {
-        // Giáo viên chỉ xem được lớp của chính mình
-        where.teacherId = authUser.id;
-      } else if (authUser.role === "ADMIN") {
-        // Admin xem được tất cả hoặc lọc theo teacherId
-        if (filterTeacherId) {
-          where.teacherId = filterTeacherId;
-        }
-      } else if (authUser.role === "STUDENT") {
-        // Học sinh chỉ xem được lớp mình đang học
-        where.students = {
-          some: { studentId: authUser.id },
-        };
-      }
-    } else if (filterTeacherId) {
-      where.teacherId = filterTeacherId;
-    } else {
-      // Nếu không có thông tin xác thực, từ chối để tránh rò rỉ dữ liệu giữa các giáo viên
-      return NextResponse.json(
-        { success: false, message: "Yêu cầu đăng nhập để truy cập danh sách lớp." },
-        { status: 401 }
-      );
-    }
-
+    const where: any = authUser.role === "TEACHER" ? {teacherId:authUser.id} : authUser.role === "STUDENT" ? {students:{some:{studentId:authUser.id,status:{in:["APPROVED","PENDING"]}}}} : {};
+    if(authUser.role==="ADMIN"){if(filterTeacherId)where.teacherId=filterTeacherId;if(filterStudentId)where.students={some:{studentId:filterStudentId}};}
     const classes = await prisma.class.findMany({
       where,
       include: {
         teacher: {
           select: { id: true, name: true, username: true, email: true, avatar: true },
         },
-        _count: { select: { students: true, assignments: true } },
+        _count: { select: { students: {where:{status:"APPROVED"}}, assignments: true } },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    // Lấy tiến độ làm bài nếu là học viên (CLASS-002)
-    const studentIdForProgress = filterStudentId || (authUser?.role === "STUDENT" ? authUser.id : null);
-    const studentAttempts = studentIdForProgress
-      ? await prisma.attempt.findMany({
-          where: {
-            studentId: studentIdForProgress,
-            status: { in: ["SUBMITTED", "GRADED"] },
-          },
-          select: { assignment: { select: { classId: true } } },
-        })
-      : [];
-
-    const attemptsByClass: Record<string, number> = {};
-    for (const att of studentAttempts) {
-      const cid = att.assignment?.classId;
-      if (cid) {
-        attemptsByClass[cid] = (attemptsByClass[cid] || 0) + 1;
-      }
-    }
-
+    const studentIdForProgress = authUser.role === "STUDENT" ? authUser.id : authUser.role === "ADMIN" ? filterStudentId : null;
+    const report=await learningReport(authUser);
     // Lấy trạng thái phê duyệt của học sinh trong từng lớp
     const studentEnrollments = studentIdForProgress
       ? await prisma.classStudent.findMany({
@@ -92,15 +47,14 @@ export async function GET(request: Request) {
       teacher: authUser ? { id: authUser.id, name: authUser.name, email: authUser.email } : null,
       items: classes.map((c) => {
         const meta = decodeClassDescription(c.description, c.createdAt, c.isActive, c.level);
-        const submittedCount = attemptsByClass[c.id] || 0;
+        const classReport=report.classProgress.find(item=>item.id===c.id);
+        const submittedCount=classReport?.completed??0;
         const totalAssignments = c._count.assignments;
         const myEnrollmentStatus = enrollmentStatusByClass[c.id] || "APPROVED";
         const isPending = myEnrollmentStatus === "PENDING";
 
         // CLASS-002: Chỉ tính % khi totalAssignments > 0, ngược lại là null ("Chưa có dữ liệu tiến độ")
-        const progressPercent = totalAssignments > 0
-          ? Math.min(100, Math.round((submittedCount / totalAssignments) * 100))
-          : null;
+        const progressPercent = classReport?.progress??null;
 
         return {
           id: c.id,
@@ -139,6 +93,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
     const body = await request.json();
     const {
       name,
@@ -249,6 +204,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
     const body = await request.json().catch(() => ({}));
     const { classIds } = body;
 

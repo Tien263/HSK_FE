@@ -1,3 +1,4 @@
+import type {ReadingItem, CulturalNoteItem} from "./lesson-data";
 export interface LessonVocabItem {
   id?: string;
   hanzi: string;
@@ -46,6 +47,8 @@ export interface Hsk1FullLesson {
   dialogue: LessonDialogueLine[];
   phonetics: LessonPhoneticGuide;
   culture: string;
+  reading?: ReadingItem;
+  culturalNote?: CulturalNoteItem;
 }
 
 export const OFFICIAL_HSK1_15_LESSONS: Hsk1FullLesson[] = [

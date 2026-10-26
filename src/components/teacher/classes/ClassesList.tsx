@@ -1,5 +1,6 @@
 "use client";
 
+import ClassSummaryStrip from "./ClassSummaryStrip";
 import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import {
@@ -41,12 +42,13 @@ export default function ClassesList({
   isBulkDeleting,
 }: ClassesListProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterTab, setFilterTab] = useState<"MANAGING" | "ARCHIVED">("MANAGING");
+  const [filterTab, setFilterTab] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"GRID" | "LIST">("GRID");
 
   const filteredClasses = useMemo(() => {
     return classes.filter((cl) => {
-      if (filterTab === "MANAGING" && (cl.isArchived || cl.status === "ARCHIVED")) return false;
+      if (filterTab !== "ARCHIVED" && (cl.isArchived || cl.status === "ARCHIVED")) return false;
+      if (!["ALL","ARCHIVED"].includes(filterTab) && cl.status!==filterTab) return false;
       if (filterTab === "ARCHIVED" && !cl.isArchived && cl.status !== "ARCHIVED") return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
@@ -72,7 +74,7 @@ export default function ClassesList({
             </span>
           </div>
           <p className="text-xs text-[#6B766D] mt-1">
-            Tạo lớp, tùy chỉnh nội dung 15 bài học, giao bài tập và đồng bộ tiến độ học sinh thời gian thực.
+            Tạo lớp, tùy chỉnh lộ trình bài học, giao bài tập và đồng bộ tiến độ học sinh thời gian thực.
           </p>
         </div>
 
@@ -85,33 +87,11 @@ export default function ClassesList({
         </button>
       </div>
 
+      <ClassSummaryStrip/>
       {/* Toolbar: Search, Filters & View Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 bg-[#F7F5EE] p-1 rounded-2xl border border-[#E5DFD0] text-xs">
-          <button
-            type="button"
-            onClick={() => setFilterTab("MANAGING")}
-            className={`px-3.5 py-1.5 rounded-xl transition font-semibold cursor-pointer ${
-              filterTab === "MANAGING"
-                ? "bg-white text-[#1F513F] shadow-2xs font-bold"
-                : "text-[#6B766D] hover:text-[#17382F]"
-            }`}
-          >
-            Đang quản lý ({classes.filter((c) => !c.isArchived && c.status !== "ARCHIVED").length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterTab("ARCHIVED")}
-            className={`px-3.5 py-1.5 rounded-xl transition font-semibold cursor-pointer ${
-              filterTab === "ARCHIVED"
-                ? "bg-white text-[#1F513F] shadow-2xs font-bold"
-                : "text-[#6B766D] hover:text-[#17382F]"
-            }`}
-          >
-            Lưu trữ ({classes.filter((c) => c.isArchived || c.status === "ARCHIVED").length})
-          </button>
-        </div>
+        <nav className="flex flex-wrap gap-1 rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6] p-1 text-xs">{[["ALL","Tất cả lớp"],["ACTIVE","Đang dạy"],["UPCOMING","Sắp bắt đầu"],["PAUSED","Tạm dừng"],["ENDED","Đã kết thúc"],["ARCHIVED","Lưu trữ"]].map(([value,label])=><button key={value} onClick={()=>setFilterTab(value)} className={`rounded-xl px-3 py-2 ${filterTab===value?"bg-[#204434] font-bold text-white":"text-[#6B766D] hover:bg-[#F7F5EE]"}`}>{label} ({classes.filter(row=>value==="ARCHIVED"?row.isArchived||row.status==="ARCHIVED":!row.isArchived&&row.status!=="ARCHIVED"&&(value==="ALL"||row.status===value)).length})</button>)}</nav>
 
         {/* Search & View Switcher */}
         <div className="flex items-center gap-2">

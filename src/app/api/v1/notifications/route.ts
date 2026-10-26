@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const authUser = await getAuthUser(request);
     const { searchParams } = new URL(request.url);
     const queryUserId = searchParams.get("userId");
-    const targetUserId = queryUserId || authUser?.id;
+    const targetUserId = authUser?.id;
 
     if (!targetUserId) {
       return NextResponse.json(
@@ -56,7 +56,8 @@ export async function PATCH(request: Request) {
     const authUser = await getAuthUser(request);
     const body = await request.json().catch(() => ({}));
     const { id, markAllAsRead, userId } = body;
-    const targetUserId = userId || authUser?.id;
+    const targetUserId = authUser?.id;
+    if(!targetUserId)return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
 
     if (markAllAsRead && targetUserId) {
       await prisma.notification.updateMany({

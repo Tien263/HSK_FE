@@ -1,3 +1,4 @@
+import { classAccess, PortalError } from "@/lib/portal-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
@@ -16,6 +17,9 @@ export async function GET(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
 
     const classData = await prisma.class.findUnique({
       where: { id: classId },
@@ -144,6 +148,9 @@ export async function PATCH(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
     const body = await request.json();
 
     const targetClass = await prisma.class.findUnique({
@@ -279,6 +286,9 @@ export async function DELETE(
   try {
     const { id: classId } = await params;
     const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({success:false,message:"Vui lòng đăng nhập."},{status:401});
+    const denied = await classAccess(authUser,classId,request.method!=="GET").then(()=>null,error=>NextResponse.json({success:false,message:error instanceof Error?error.message:"Không truy cập được lớp."},{status:error instanceof PortalError?error.status:503}));
+    if (denied) return denied;
 
     const targetClass = await prisma.class.findUnique({
       where: { id: classId },

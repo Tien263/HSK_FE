@@ -388,11 +388,11 @@ export default function StudentsTab({
                         <div className="w-16 h-1.5 rounded-full bg-[#E5DFD0] overflow-hidden">
                           <div
                             className="h-full bg-[#1F513F] rounded-full"
-                            style={{ width: `${st.progressPercent}%` }}
+                            style={{ width: `${st.progressPercent??0}%` }}
                           />
                         </div>
                         <span className="text-[11px] font-semibold text-[#1F513F]">
-                          {st.progressPercent}%
+                          {st.progressPercent===null?"Chưa có bài tập":`${st.progressPercent}%`}
                         </span>
                       </div>
                     </td>

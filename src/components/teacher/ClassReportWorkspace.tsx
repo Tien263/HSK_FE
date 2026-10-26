@@ -1,5 +1,8 @@
 "use client";
 
+import {portalFetch} from "@/components/learning/use-portal-data";
+import {printClassicReport} from "@/lib/print-classic-report";
+import LiveExamQrModal from "./assignments/LiveExamQrModal";
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import {
@@ -78,7 +81,7 @@ export default function ClassReportWorkspace({
 
   // Sub-filter inside Tab 1 (Line chart view mode & Bar chart mode)
   const [trendViewMode, setTrendViewMode] = useState<"week" | "exam">("week");
-  const [scoreDistMode, setScoreDistMode] = useState<"all" | "exam1" | "exam2">("all");
+  const [scoreDistMode, setScoreDistMode] = useState<string>("all");
 
   // Modals & Drawers
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -99,36 +102,18 @@ export default function ClassReportWorkspace({
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [hasRealData, setHasRealData] = useState(true);
 
+  const [reportError,setReportError]=useState("");
   // Dynamic state loaded from /api/v1/reports/class/[id]
   const [dynamicReportData, setDynamicReportData] = useState<any | null>(null);
 
   // ============================================================================
   // 2. FETCH REAL REPORT DATA FROM DATABASE
   // ============================================================================
-  const fetchReportData = async (classId: string, time: string, type: string) => {
-    setIsLoadingData(true);
-    try {
-      const res = await fetch(
-        `/api/v1/reports/class/${classId}?timeRange=${time}&contentType=${type}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setHasRealData(data.hasData !== false);
-          setDynamicReportData(data);
-          return;
-        }
-      }
-    } catch (err) {
-      console.error("Error loading class report data:", err);
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
+  const fetchReportData = async(classId:string,time:string,type:string,signal:AbortSignal)=>{setIsLoadingData(true);setReportError("");try{const query=new URLSearchParams({classic:"1",timeRange:time,contentType:type,grain:trendViewMode,distAssignmentId:scoreDistMode});if(selectedAssignmentFilter!=="all")query.set("assignmentId",selectedAssignmentFilter);const result=await portalFetch<any>("/api/v1/reports/class/"+classId+"?"+query,{signal});if(signal.aborted)return;setHasRealData(result.hasData);setDynamicReportData(result);}catch(error){if(!signal.aborted){setDynamicReportData(null);setReportError((error as Error).message);}}finally{if(!signal.aborted)setIsLoadingData(false);}};
 
   useEffect(() => {
-    fetchReportData(selectedClassId, timeRange, contentType);
-  }, [selectedClassId, timeRange, contentType]);
+    const controller=new AbortController();fetchReportData(selectedClassId, timeRange, contentType,controller.signal);return()=>controller.abort();
+  }, [selectedClassId, timeRange, contentType, selectedAssignmentFilter,trendViewMode,scoreDistMode]);
 
   // Selected Class object
   const currentClass = useMemo(() => {
@@ -160,8 +145,8 @@ export default function ClassReportWorkspace({
       return dynamicReportData.kpi;
     }
     return {
-      completionRate: 0,
-      completionGrowth: "0%",
+      completionRate: null,
+      completionGrowth: null,
       averageScore: "—",
       examCount: 0,
       weakTopic: "Chưa có dữ liệu",
@@ -196,6 +181,7 @@ export default function ClassReportWorkspace({
     ];
   }, [dynamicReportData]);
 
+  const distMax=Math.max(5,Math.ceil(Math.max(0,...scoreDistBars.map(row=>row.count))/5)*5);
   // Tab 1: Top 5 Tiến bộ tốt nhất
   const topStudentsProgress = useMemo(() => {
     if (dynamicReportData?.topProgress && dynamicReportData.topProgress.length > 0) {
@@ -247,7 +233,7 @@ export default function ClassReportWorkspace({
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12" data-classic-report aria-busy={isLoadingData}>{reportError&&<p role="alert" className="rounded-xl border border-red-200 p-4 text-sm text-red-700">{reportError}</p>}
       {/* =================================================================== */}
       {/* KHU VỰC A: HEADER & NÚT XUẤT BÁO CÁO PDF */}
       {/* =================================================================== */}
@@ -262,7 +248,7 @@ export default function ClassReportWorkspace({
             )}
           </div>
           <p className="text-xs text-[#315E48] mt-0.5">
-            Tổng hợp tỷ lệ hoàn thành bài tập, điểm trung bình và phân tích lỗi sai phổ biến.
+            Tổng hợp tỷ lệ hoàn thành, điểm và lỗi sai của các bài được mở trong khoảng thời gian đã chọn.
           </p>
         </div>
 
@@ -270,9 +256,9 @@ export default function ClassReportWorkspace({
           {/* Nút Tạo mã QR Phòng Thi Nhanh */}
           <button
             onClick={() => {
-              setQrAssignment({
-                id: featuredAssignments[0]?.id || "exam-01",
-                title: featuredAssignments[0]?.title || "Phòng thi chuẩn HSK 3.0",
+              if(!featuredAssignments.length){showToast("Chưa có bài tập để tạo liên kết.");return;}setQrAssignment({
+                id: featuredAssignments[0]?.id,
+                title: featuredAssignments[0]?.title,
                 className: currentClass.name,
               });
               setIsQrModalOpen(true);
@@ -307,10 +293,10 @@ export default function ClassReportWorkspace({
           </div>
           <div className="mt-2">
             <div className="text-3xl font-bold font-serif text-[#204434]">
-              {kpiData.completionRate}%
+              {kpiData.completionRate===null?"—":`${kpiData.completionRate}%`}
             </div>
             <div className="text-[11px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
-              <span>↑ Tăng {kpiData.completionGrowth} so với tháng trước</span>
+              <span>{kpiData.completionGrowth===null?"Chưa đủ dữ liệu so sánh":`${kpiData.completionGrowth} so với kỳ trước`}</span>
             </div>
           </div>
         </div>
@@ -328,7 +314,7 @@ export default function ClassReportWorkspace({
               {kpiData.averageScore} <span className="text-lg font-normal text-[#315E48]">/ 10</span>
             </div>
             <div className="text-[11px] text-[#315E48] mt-1">
-              Dựa trên {kpiData.examCount} bài kiểm tra gần nhất
+              Dựa trên {kpiData.examCount} bài được giao trong phạm vi đang lọc
             </div>
           </div>
         </div>
@@ -349,7 +335,7 @@ export default function ClassReportWorkspace({
               {kpiData.weakTopic}
             </div>
             <div className="text-[11px] text-[#315E48] mt-1">
-              {kpiData.weakTopicPct} học viên nhầm lẫn cấu trúc
+              {kpiData.weakTopicPct} lượt trả lời chưa đúng
             </div>
           </div>
         </div>
@@ -396,12 +382,9 @@ export default function ClassReportWorkspace({
               <option value="all">Toàn bộ lớp học ({classes.length} lớp)</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} ({c.studentCount || 22} học viên)
+                  {c.name} ({c.studentCount ?? 0} học viên)
                 </option>
               ))}
-              {classes.length === 0 && (
-                <option value="c1">Lớp HSK1 - K01 (22 học viên)</option>
-              )}
             </select>
             <ChevronDown className="w-4 h-4 text-[#8ea394] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -525,7 +508,7 @@ export default function ClassReportWorkspace({
                   </div>
                 ) : (
                   <svg viewBox="0 0 400 180" className="w-full h-full overflow-visible">
-                    {[10, 8, 6, 4, 2, 0].map((val, idx) => {
+                    {[1,.8,.6,.4,.2,0].map(ratio=>Math.round(ratio*distMax)).map((val, idx) => {
                       const y = 20 + idx * 28;
                       return (
                         <g key={val}>
@@ -538,7 +521,7 @@ export default function ClassReportWorkspace({
                     })}
 
                     <path
-                      d="M 50 120 L 130 92 L 210 102 L 290 76 L 370 54"
+                      d={(dynamicReportData?.weeklyPoints||[]).map((point:any,index:number)=>`${index?"L":"M"} ${point.cx} ${point.cy}`).join(" ")}
                       fill="none"
                       stroke="#204434"
                       strokeWidth="2.5"
@@ -634,12 +617,7 @@ export default function ClassReportWorkspace({
                     )}
                   </svg>
 
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-xl font-bold font-serif text-[#204434] leading-none">
-                      {totalStudents}
-                    </span>
-                    <span className="text-[10px] text-[#315E48] mt-0.5">học viên</span>
-                  </div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center"><span className="font-serif text-xl font-bold">{dynamicReportData?.classInfo?.submissionPairs??0}</span><span className="mt-1 text-[10px] text-[#315E48]">lượt bài</span></div>
                 </div>
 
                 <div className="space-y-2 text-xs">
@@ -680,15 +658,7 @@ export default function ClassReportWorkspace({
               <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/50">
                 <h4 className="font-serif font-bold text-sm text-[#204434]">Phân bổ điểm học viên</h4>
                 <div className="relative">
-                  <select
-                    value={scoreDistMode}
-                    onChange={(e) => setScoreDistMode(e.target.value as any)}
-                    className="bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-2.5 py-1 text-[11px] font-semibold text-[#204434] appearance-none pr-6 cursor-pointer"
-                  >
-                    <option value="all">Tất cả bài</option>
-                    <option value="exam1">Bài 5 - 今天我休息</option>
-                    <option value="exam2">HSK1 Đề 01</option>
-                  </select>
+                  <select value={scoreDistMode} onChange={event=>setScoreDistMode(event.target.value)} className="rounded-lg border border-[#E5DEC9] bg-[#FAF7F0] px-2 py-1 text-[10px]"><option value="all">Tất cả bài</option>{featuredAssignments.map((assignment:any)=><option key={assignment.id} value={assignment.id}>{assignment.title}</option>)}</select>
                   <ChevronDown className="w-3 h-3 text-[#8ea394] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
@@ -709,7 +679,7 @@ export default function ClassReportWorkspace({
 
                   {scoreDistBars.map((bar, idx) => {
                     const x = 50 + idx * 60;
-                    const barHeight = (bar.count / 10) * 120;
+                    const barHeight = (bar.count / distMax) * 120;
                     const y = 140 - barHeight;
 
                     return (
@@ -1070,7 +1040,7 @@ export default function ClassReportWorkspace({
                       <td className="py-3 px-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <div className="w-16 bg-white h-2 rounded-full overflow-hidden border border-[#E5DEC9]">
-                            <div className="bg-[#204434] h-full" style={{ width: `${st.completionRate}%` }} />
+                            <div className="bg-[#204434] h-full" style={{ width: `${st.completionRate===null?"—":st.completionRate+"%"}` }} />
                           </div>
                           <span className="text-[11px] font-bold text-[#204434]">{st.completionRate}%</span>
                         </div>
@@ -1150,11 +1120,11 @@ export default function ClassReportWorkspace({
                 </div>
                 <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
                   <span className="text-[11px] text-[#315E48]">Cao nhất</span>
-                  <div className="text-xl font-bold font-serif text-emerald-800 mt-0.5">{dynamicReportData?.maxScore || "—"}</div>
+                  <div className="text-xl font-bold font-serif text-emerald-800 mt-0.5">{dynamicReportData?.maxScore ?? "—"}</div>
                 </div>
                 <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] text-center">
                   <span className="text-[11px] text-[#315E48]">Thấp nhất</span>
-                  <div className="text-xl font-bold font-serif text-red-600 mt-0.5">{dynamicReportData?.minScore || "—"}</div>
+                  <div className="text-xl font-bold font-serif text-red-600 mt-0.5">{dynamicReportData?.minScore ?? "—"}</div>
                 </div>
               </div>
 
@@ -1197,7 +1167,7 @@ export default function ClassReportWorkspace({
                             </td>
                             <td className="py-2.5 px-3 text-right">
                               <button
-                                onClick={() => showToast(`Đã mở chi tiết bài làm câu số ${q.qNum}`)}
+                                onClick={() => setSelectedKnowledgeForModal({title:q.topic,errorRate:q.rate,description:`${q.correct}/${q.count} lượt đúng; ${q.wrong} lượt sai.`,lessonSource:q.type})}
                                 className="px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] font-semibold text-[11px] hover:bg-[#FAF7F0] cursor-pointer"
                               >
                                 Xem chi tiết
@@ -1312,10 +1282,10 @@ export default function ClassReportWorkspace({
                     <div key={idx} className="p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold text-[#204434]">{item.title}</span>
-                        <span className="font-bold text-emerald-800">{item.completed}/{totalStudents} học sinh</span>
+                        <span className="font-bold text-emerald-800">{item.completed===null?"Chưa có dữ liệu hoàn thành":`${item.completed}/${totalStudents} học sinh`}</span>
                       </div>
                       <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-[#E5DEC9]">
-                        <div className="bg-[#204434] h-full" style={{ width: `${item.pct}%` }} />
+                        <div className="bg-[#204434] h-full" style={{ width: `${item.pct??0}%` }} />
                       </div>
                     </div>
                   ))
@@ -1358,133 +1328,7 @@ export default function ClassReportWorkspace({
       {/* =================================================================== */}
       {/* MODAL: MÃ QR PHÒNG THI & GIÁM SÁT TRỰC TUYẾN */}
       {/* =================================================================== */}
-      {isQrModalOpen && qrAssignment && (() => {
-        const pinCode = `HSK-${(qrAssignment.id || "6892").slice(-4).toUpperCase()}`;
-        const examUrl = typeof window !== "undefined"
-          ? `${window.location.origin}/s/attempts/preview?assignmentId=${qrAssignment.id}&mode=live`
-          : `https://hanyu.edu.vn/s/attempts/preview?assignmentId=${qrAssignment.id}`;
-        const qrImageSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(examUrl)}`;
-
-        return (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-            <div className={`bg-[#FFFCF6] border border-[#E5DEC9] w-full ${isQrFullscreen ? "max-w-4xl h-[90vh]" : "max-w-lg"} rounded-3xl p-6 shadow-2xl flex flex-col justify-between space-y-4 animate-scaleUp overflow-y-auto`}>
-              <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center">
-                    <QrCode className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif font-bold text-base text-[#204434]">
-                      Mã QR Phòng Thi Trực Tiếp
-                    </h3>
-                    <p className="text-[11px] text-[#315E48]">
-                      {qrAssignment.title} · {currentClass.name}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setIsQrFullscreen(!isQrFullscreen)}
-                    className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer"
-                    title={isQrFullscreen ? "Thu nhỏ" : "Chiếu máy chiếu (Toàn màn hình)"}
-                  >
-                    <Maximize2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setIsQrModalOpen(false)}
-                    className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* QR Display Card */}
-              <div className="flex flex-col items-center justify-center text-center p-5 bg-white rounded-3xl border border-[#E5DEC9] space-y-3">
-                <span className="text-[11px] font-semibold text-[#8F6D3B] bg-[#FFFBF0] px-3 py-1 rounded-full border border-[#BC9B6B]/40">
-                  📱 Học sinh mở Camera Zalo / Trình duyệt quét mã để vào thi ngay
-                </span>
-
-                {/* QR Image */}
-                <div className="p-3 bg-white rounded-2xl border-2 border-[#204434]/20 shadow-inner relative">
-                  <img
-                    src={qrImageSrc}
-                    alt="Mã QR Phòng Thi"
-                    className={`${isQrFullscreen ? "w-64 h-64" : "w-48 h-48"} object-contain`}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="w-10 h-10 rounded-xl bg-white border border-[#204434]/40 flex items-center justify-center shadow-xs">
-                      <GraduationCap className="w-5 h-5 text-[#204434]" />
-                    </span>
-                  </div>
-                </div>
-
-                {/* PIN Code Codebox */}
-                <div className="space-y-1">
-                  <span className="text-[10px] text-[#315E48] uppercase tracking-wider font-semibold">
-                    Mã PIN phòng thi (Nếu nhập thủ công):
-                  </span>
-                  <div className="text-2xl font-mono font-bold text-[#204434] tracking-widest bg-[#FAF7F0] px-4 py-1.5 rounded-xl border border-[#E5DEC9]">
-                    {pinCode}
-                  </div>
-                </div>
-
-                {/* Direct Link Input */}
-                <div className="w-full flex items-center gap-2 pt-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={examUrl}
-                    className="w-full text-xs bg-[#FAF7F0] border border-[#E5DEC9] rounded-xl px-3 py-2 text-[#204434] font-mono select-all truncate"
-                  />
-                  <button
-                    onClick={() => handleCopyQrLink(examUrl)}
-                    className="px-3.5 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#183629] shrink-0 cursor-pointer shadow-2xs"
-                  >
-                    {copiedQrLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedQrLink ? "Đã chép" : "Chép link"}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Đề xuất tính năng phòng thi cao cấp (Spec Đề Xuất) */}
-              <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2 text-xs">
-                <span className="font-bold text-[#204434] flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4 text-amber-600" />
-                  <span>Đề xuất tính năng phòng thi trực tuyến cao cấp:</span>
-                </span>
-                <ul className="text-[11px] text-[#315E48] space-y-1.5 list-disc list-inside">
-                  <li><strong>Giám sát chống gian lận (Tab Switch):</strong> Tự động cảnh báo đỏ nếu học sinh chuyển tab sang từ điển hoặc Google Dịch.</li>
-                  <li><strong>Khóa phòng thi & Thu bài đồng loạt:</strong> Giáo viên có thể bấm "Thu bài ngay" khi hết giờ để khóa quyền làm bài.</li>
-                  <li><strong>Xáo trộn câu hỏi & phương án:</strong> Đảo ngẫu nhiên trật tự đáp án A, B, C, D tránh nhìn bài nhau.</li>
-                  <li><strong>Chấm điểm AI tức thì:</strong> Tự động chấm điểm cả 12 dạng câu hỏi và gửi phản hồi ngay sau khi nộp.</li>
-                </ul>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-[#E5DEC9]">
-                <button
-                  onClick={() => {
-                    const win = window.open(examUrl, "_blank");
-                    win?.focus();
-                  }}
-                  className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Vào phòng thi với tư cách học sinh</span>
-                </button>
-
-                <button
-                  onClick={() => setIsQrModalOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-[#204434] text-white text-xs font-semibold shadow-xs hover:bg-[#183629] cursor-pointer"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {isQrModalOpen && qrAssignment && <LiveExamQrModal assignment={qrAssignment} onClose={()=>setIsQrModalOpen(false)}/>}
 
       {/* =================================================================== */}
       {/* MODAL: XUẤT BÁO CÁO PDF (Khu vực F) */}
@@ -1531,37 +1375,17 @@ export default function ClassReportWorkspace({
                 />
               </div>
 
-              <div>
-                <label className="block font-semibold text-[#204434] mb-1">Các phần đưa vào file PDF</label>
-                <div className="space-y-1.5 p-3 bg-[#FAF7F0] rounded-xl border border-[#E5DEC9]/70">
-                  <label className="flex items-center gap-2 text-[#204434] cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-[#204434]" />
-                    <span>4 Thẻ thống kê KPI tổng quan (Hoàn thành, Điểm TB, Chủ điểm, Quá hạn)</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-[#204434] cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-[#204434]" />
-                    <span>3 Biểu đồ trực quan (Xu hướng điểm, Nộp bài donut, Phân bổ điểm)</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-[#204434] cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-[#204434]" />
-                    <span>Bảng Top 5 tiến bộ & Top 5 chủ điểm cần củng cố</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-[#204434] cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded text-[#204434]" />
-                    <span>Danh sách chi tiết kết quả từng học viên</span>
-                  </label>
-                </div>
-              </div>
+              <p className="rounded-xl border border-[#E5DEC9] bg-[#FAF7F0] p-4 text-xs leading-6">Bản in giữ dữ liệu, bảng và biểu đồ của mục báo cáo đang hiển thị, theo các bộ lọc đã chọn. Chọn Lưu dưới dạng PDF trong hộp thoại in của trình duyệt.</p>
 
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px]">
-                ℹ️ File PDF được định dạng chuẩn in A4, giữ đúng màu sắc nhận diện Hanyu, font chữ Hán rõ nét và có đầy đủ chữ ký giáo viên phụ trách.
+                ℹ️ File PDF được định dạng chuẩn in A4, giữ đúng màu sắc nhận diện Hanyu, font chữ Hán rõ nét và hiển thị dữ liệu đang được lọc trên màn hình.
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E5DEC9]">
               <button
                 onClick={() => {
-                  if (typeof window !== "undefined") window.print();
+                  try{printClassicReport();}catch(error){showToast((error as Error).message);}
                 }}
                 className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] font-semibold text-xs hover:bg-[#FAF7F0] cursor-pointer flex items-center gap-1.5"
               >
@@ -1571,13 +1395,12 @@ export default function ClassReportWorkspace({
 
               <button
                 onClick={() => {
-                  setIsExportModalOpen(false);
-                  showToast("Đang xuất file PDF báo cáo lớp học HSK... Vui lòng kiểm tra thư mục Tải về!");
+                  try{printClassicReport();setIsExportModalOpen(false);}catch(error){showToast((error as Error).message);}
                 }}
                 className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white font-semibold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
               >
                 <Download className="w-4 h-4" />
-                <span>Tải xuống file PDF</span>
+                <span>Mở bản in / Lưu PDF</span>
               </button>
             </div>
           </div>
@@ -1626,7 +1449,7 @@ export default function ClassReportWorkspace({
                 <div className="p-3 bg-white rounded-xl border border-[#E5DEC9]">
                   <span className="text-[11px] text-[#315E48]">Tỷ lệ hoàn thành</span>
                   <div className="text-2xl font-bold font-serif text-emerald-700 mt-0.5">
-                    {selectedStudentForDrawer.completionRate}%
+                    {selectedStudentForDrawer.completionRate===null?"—":selectedStudentForDrawer.completionRate+"%"}
                   </div>
                 </div>
               </div>

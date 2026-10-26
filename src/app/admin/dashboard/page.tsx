@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import CurriculumBuilderWorkspace from "@/components/admin/CurriculumBuilderWorkspace";
 import {
   Users,
@@ -88,6 +89,13 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum"
   >("overview");
+
+  function selectAdminTab(tab: typeof activeTab) { setActiveTab(tab); const url = new URL(window.location.href); url.hash = tab; window.history.replaceState(null, "", url); }
+  useEffect(() => {
+    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum"].includes(tab)) setActiveTab(tab as typeof activeTab); };
+    const timer = setTimeout(sync, 0); window.addEventListener("hashchange", sync);
+    return () => { clearTimeout(timer); window.removeEventListener("hashchange", sync); };
+  }, []);
 
   // AI Engine State
   const [activeAiProvider, setActiveAiProvider] = useState<"QWEN" | "GROQ" | "GEMINI" | "OPENROUTER">("QWEN");
@@ -513,14 +521,21 @@ export default function AdminDashboardPage() {
   };
 
   // Đăng xuất
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch("/api/v1/auth/logout", { method: "POST" });
     localStorage.removeItem("currentUser");
     sessionStorage.removeItem("currentUser");
     router.push("/login");
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6]">
+    <div className="min-h-screen bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6] lg:pl-64">
+      <aside data-dictionary-exclusion="sidebar" aria-label="Điều hướng quản trị" className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[#E5DEC9] bg-[#F8F5ED] lg:flex">
+        <div className="pointer-events-none absolute inset-0 bg-cover bg-bottom opacity-70" style={{backgroundImage:"url('/theme/dashboard/sidebar-bg.webp')"}} />
+        <Link href="/" className="relative flex items-center gap-3 px-6 pb-8 pt-7"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#204434] font-serif text-xl text-[#FFFCF6]">宁</span><span><strong className="block font-serif text-xl">Hanyu</strong><small className="text-[9px] font-bold uppercase tracking-[.18em] text-[#64755d]">Không gian quản trị</small></span></Link>
+        <nav className="relative flex-1 space-y-2 px-4">{([{id:"overview",label:"Tổng quan",icon:BarChart3},{id:"curriculum",label:"Kho giáo trình HSK",icon:BookOpen},{id:"users",label:"Tài khoản & phân quyền",icon:Users},{id:"ai",label:"Trợ lý AI",icon:Sparkles},{id:"otp",label:"Xác thực OTP",icon:Mail},{id:"smtp",label:"Cấu hình email",icon:Server}] as const).map(({id,label,icon:Icon})=><button key={id} onClick={()=>selectAdminTab(id)} aria-current={activeTab===id?"page":undefined} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-xs font-semibold transition ${activeTab===id?"bg-[#204434] text-white shadow-sm":"text-[#526c50] hover:bg-[#204434]/5"}`}><Icon size={17}/>{label}</button>)}<div className="my-5 border-t border-[#D7C9AB]/60"/><Link href="/admin/dictionary" className="flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-semibold text-[#526c50]"><BookOpen size={17}/>Duyệt từ điển</Link><Link href="/admin/media" className="flex items-center gap-3 rounded-xl px-4 py-3 text-xs font-semibold text-[#526c50]"><Upload size={17}/>Thư viện media</Link></nav>
+        <div className="relative m-4 rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6]/90 p-4"><p className="flex items-center gap-2 text-xs font-bold"><ShieldCheck size={16}/>{currentUser?.name||"Quản trị viên"}</p><p className="mt-2 text-[10px] text-[#7e8b71]">Chăm chút học liệu · Nuôi dưỡng tri thức</p><button onClick={handleLogout} className="mt-4 flex items-center gap-2 text-xs text-[#9D493E]"><LogOut size={13}/>Đăng xuất</button></div>
+      </aside>
       {/* Toast Notification */}
       {toast && (
         <div
@@ -555,7 +570,7 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
                 <div className="text-[10px] text-[#315E48] font-medium tracking-wide">
-                  Trung tâm Quản trị Tài khoản & Dịch vụ API Hệ thống
+                  Quản lý học liệu, lớp học và nhà trường
                 </div>
               </div>
             </Link>
@@ -569,7 +584,7 @@ export default function AdminDashboardPage() {
                 {currentUser?.name || "Quản trị viên Hệ thống"}
               </span>
               <span className="px-1.5 py-0.5 rounded bg-[#204434] text-[#FFFCF6] text-[10px] font-bold">
-                ROOT ADMIN
+                QUẢN TRỊ VIÊN
               </span>
             </div>
 
@@ -605,10 +620,15 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Main Content Container */}
-      <main className="max-w-[1920px] mx-auto px-4 sm:px-8 py-6 space-y-6">
-        
+      <main className="max-w-[1520px] mx-auto px-4 sm:px-7 py-6 space-y-6">
+        <section className="relative isolate overflow-hidden rounded-3xl border border-[#E5DEC9] bg-[#F4EEDC] px-6 py-6 sm:px-8 sm:py-7">
+          <Image src="/theme/dashboard/banner-bg.webp" alt="" fill sizes="(max-width: 1024px) 100vw, 1180px" className="-z-20 object-cover object-center" priority />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#F8F5ED]/95 via-[#F8F5ED]/65 to-transparent" />
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[.2em] text-[#8F6D3B]">Hanyu · Đồng hành cùng lớp học</p><h1 className="max-w-xl font-serif text-2xl font-bold leading-snug text-[#1A3D2F] sm:text-3xl">{activeTab === "curriculum" ? "Chăm chút từng bài học." : activeTab === "users" ? "Kết nối người dạy, người học." : "Một không gian, vạn tri thức."}</h1><p className="mt-3 max-w-lg text-xs leading-6 text-[#526c50]">{activeTab === "curriculum" ? "Biên soạn, nhập học liệu và quản lý giáo trình theo từng cấp HSK. Tất cả thay đổi được lưu trong kho chung." : "Quản lý học liệu, tài khoản và hoạt động của nhà trường trong một không gian học tập an nhiên."}</p><div className="mt-5 flex flex-wrap gap-3">{activeTab !== "curriculum" && <button onClick={()=>selectAdminTab("curriculum")} className="flex items-center gap-2 rounded-xl bg-[#204434] px-4 py-2.5 text-xs font-bold text-white"><BookOpen size={15}/>Quản lý giáo trình</button>}{activeTab === "users" && <button onClick={()=>setShowCreateModal(true)} className="rounded-xl border border-[#BC9B6B] bg-[#FFFCF6] px-4 py-2.5 text-xs font-bold">Cấp tài khoản mới</button>}<Link href="/admin/dictionary" className="flex items-center gap-2 rounded-xl border border-[#BC9B6B]/50 bg-[#FFFCF6]/90 px-4 py-2.5 text-xs font-semibold"><BookOpen size={14}/>Duyệt từ điển</Link></div>
+        </section>
+
         {/* KPI Stats Grid */}
-        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <section className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 ${activeTab === "curriculum" ? "hidden" : ""}`}>
           <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-[#315E48] font-medium">
               <span>Tổng tài khoản</span>
@@ -676,10 +696,10 @@ export default function AdminDashboardPage() {
         </section>
 
         {/* Tab Navigation */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between border-b border-[#BC9B6B]/25 pb-2 gap-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between border-b border-[#BC9B6B]/25 pb-2 gap-3 lg:hidden">
           <div className="flex flex-wrap gap-2 sm:gap-2.5">
             <button
-              onClick={() => setActiveTab("overview")}
+              onClick={() => selectAdminTab("overview")}
               className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "overview"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
@@ -691,7 +711,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab("users")}
+              onClick={() => selectAdminTab("users")}
               className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "users"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
@@ -703,7 +723,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab("ai")}
+              onClick={() => selectAdminTab("ai")}
               className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "ai"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
@@ -715,7 +735,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab("otp")}
+              onClick={() => selectAdminTab("otp")}
               className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "otp"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
@@ -727,7 +747,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab("smtp")}
+              onClick={() => selectAdminTab("smtp")}
               className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "smtp"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
@@ -739,7 +759,7 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab("curriculum")}
+              onClick={() => selectAdminTab("curriculum")}
               className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "curriculum"
                   ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
@@ -750,6 +770,13 @@ export default function AdminDashboardPage() {
               <span>Kho bài học & Giáo trình HSK</span>
             </button>
 
+            <Link
+              href="/admin/dictionary"
+              className="px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 bg-[#FFFCF6] text-[#315E48] border border-[#BC9B6B]/20"
+            >
+              <BookOpen className="w-4 h-4 text-[#BC9B6B]" />
+              <span>Duyệt từ điển</span>
+            </Link>
             <Link
               href="/admin/media"
               className="px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
@@ -785,15 +812,15 @@ export default function AdminDashboardPage() {
                   </div>
                   <div>
                     <h3 className="font-serif font-bold text-base text-[#204434]">
-                      Trạng thái hệ thống giáo dục Hanyu HSK
+                      Dữ liệu & dịch vụ nhà trường
                     </h3>
-                    <p className="text-xs text-[#315E48]">Toàn bộ vi dịch vụ, cơ sở dữ liệu và AI Engine đang hoạt động ổn định.</p>
+                    <p className="text-xs text-[#315E48]">Truy cập các công cụ quản lý học liệu, AI, email và thư viện media.</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-800">100% Hoạt động bình thường</span>
+                  <span className="text-xs font-bold text-emerald-800">Quản lý tập trung</span>
                 </div>
               </div>
 
@@ -802,15 +829,15 @@ export default function AdminDashboardPage() {
                 <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-[#204434]">PostgreSQL Database</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Online</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Kho chung</span>
                   </div>
-                  <p className="text-[11px] text-[#315E48]">Prisma ORM · Kết nối độ trễ &lt; 25ms</p>
+                  <p className="text-[11px] text-[#315E48]">Tài khoản, giáo trình và lịch sử học tập</p>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-[#204434]">AI Engine (Qwen / Groq)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Sẵn sàng</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Cấu hình</span>
                   </div>
                   <p className="text-[11px] text-[#315E48]">Hỗ trợ sinh tự động 12 dạng câu hỏi HSK</p>
                 </div>
@@ -818,7 +845,7 @@ export default function AdminDashboardPage() {
                 <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-[#204434]">Email Gateway (SMTP)</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Đã kích hoạt</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Cấu hình</span>
                   </div>
                   <p className="text-[11px] text-[#315E48]">Gmail OAuth 2.0 / SSL Port 465</p>
                 </div>
@@ -826,7 +853,7 @@ export default function AdminDashboardPage() {
                 <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/20 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-[#204434]">Cloudinary Media</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Sẵn sàng</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Cấu hình</span>
                   </div>
                   <p className="text-[11px] text-[#315E48]">Lưu trữ file nghe MP3 & ảnh đề thi HSK</p>
                 </div>
@@ -836,7 +863,7 @@ export default function AdminDashboardPage() {
             {/* Quick Actions & Short Navigation */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div
-                onClick={() => setActiveTab("users")}
+                onClick={() => selectAdminTab("users")}
                 className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/25 hover:border-[#204434] shadow-2xs transition cursor-pointer group space-y-2"
               >
                 <div className="w-10 h-10 rounded-2xl bg-[#204434]/10 text-[#204434] flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -852,7 +879,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <div
-                onClick={() => setActiveTab("ai")}
+                onClick={() => selectAdminTab("ai")}
                 className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/25 hover:border-[#204434] shadow-2xs transition cursor-pointer group space-y-2"
               >
                 <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -868,7 +895,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <div
-                onClick={() => setActiveTab("smtp")}
+                onClick={() => selectAdminTab("smtp")}
                 className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/25 hover:border-[#204434] shadow-2xs transition cursor-pointer group space-y-2"
               >
                 <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center group-hover:scale-105 transition-transform">

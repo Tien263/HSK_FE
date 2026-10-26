@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import QRCode from "qrcode";
+import React, { useEffect,useState } from "react";
 import { X, QrCode, Copy, Check, ExternalLink } from "lucide-react";
 
 interface LiveExamQrModalProps {
@@ -12,11 +13,10 @@ export default function LiveExamQrModal({
 }: LiveExamQrModalProps) {
   const [copied, setCopied] = useState(false);
 
+  const [qr,setQr]=useState("");
+  const examUrl=typeof window!=="undefined"&&assignment?window.location.origin+"/s/assignments/"+assignment.id:"";
+  useEffect(()=>{let active=true;if(examUrl)QRCode.toDataURL(examUrl,{width:220,margin:1,color:{dark:"#204434",light:"#ffffff"}}).then(image=>{if(active)setQr(image);});return()=>{active=false;};},[examUrl]);
   if (!assignment) return null;
-
-  const examUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/s/exam?id=${assignment.id}`
-    : `/s/exam?id=${assignment.id}`;
 
   const handleCopy = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -52,12 +52,7 @@ export default function LiveExamQrModal({
 
         {/* QR Code Graphic Placeholder */}
         <div className="p-4 bg-white rounded-2xl border border-[#E5DEC9] inline-block shadow-inner">
-          <div className="w-44 h-44 bg-[#F3EFE6] rounded-xl flex flex-col items-center justify-center p-3 text-center text-[#315E48]">
-            <QrCode className="w-20 h-20 text-[#204434] opacity-80 mb-2" />
-            <span className="text-[10px] font-mono font-bold text-[#204434]">
-              MÃ: {assignment.id.slice(-6).toUpperCase()}
-            </span>
-          </div>
+          <div className="h-44 w-44">{qr?<img src={qr} width={176} height={176} alt="Mã QR mở bài tập được giao"/>:<span className="text-xs">Đang tạo mã QR…</span>}</div>
         </div>
 
         {/* Copy Link */}

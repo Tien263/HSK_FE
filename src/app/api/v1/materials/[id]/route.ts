@@ -1,52 +1,13 @@
-import { NextResponse } from "next/server";
-
-function getDb() {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { DatabaseSync } = require("node:sqlite");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require("node:path");
-    const dbPath = path.join(process.cwd(), "prisma", "dev.db");
-    return new DatabaseSync(dbPath);
-  } catch {
-    return null;
-  }
-}
-
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    if (!id) {
-      return NextResponse.json({ success: false, message: "Thiếu ID tài liệu" }, { status: 400 });
-    }
-
-    const db = getDb();
-    if (db) {
-      const existing = db.prepare("SELECT id FROM Material WHERE id = ?").get(id);
-
-      if (!existing) {
-        return NextResponse.json({ success: false, message: "Không tìm thấy tài liệu cần xóa" }, { status: 404 });
-      }
-
-      db.prepare("DELETE FROM Material WHERE id = ?").run(id);
-
-      return NextResponse.json({
-        success: true,
-        message: "Đã xóa tài liệu thành công!",
-        deletedId: id,
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Đã xóa tài liệu thành công!",
-      deletedId: id,
-    });
-  } catch (error: any) {
-    console.error("DELETE /api/v1/materials/[id] error:", error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
-  }
-}
+import { prisma } from "@/lib/prisma";
+import { materialAccess, shareMaterial } from "@/lib/teaching-materials";
+import { portalResponse, portalJson, teacherOnly, jsonBody, PortalError } from "@/lib/portal-auth";
+type Context = { params: Promise<{ id: string }> };
+export function DELETE(request: Request, context: Context) { return portalResponse(request, async user => {
+  teacherOnly(user); const { id } = await context.params; await materialAccess(user, id, true);
+  await prisma.teachingMaterial.delete({ where: { id } }); return portalJson({ success: true });
+}, true); }
+export function PATCH(request: Request, context: Context) { return portalResponse(request, async user => {
+  teacherOnly(user); const { id } = await context.params; await materialAccess(user, id, true); const body = await jsonBody(request);
+  if (!Array.isArray(body.classIds) || body.classIds.some(id => typeof id !== "string")) throw new PortalError(400, "Chọn danh sách lớp để chia sẻ.");
+  await shareMaterial(user, id, body.classIds as string[]); return portalJson({ success: true });
+}, true); }

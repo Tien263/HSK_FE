@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createDictionarySession, dictionaryCookieOptions, DICTIONARY_SESSION_COOKIE } from "@/lib/dictionary-session";
 
 export async function POST(request: Request) {
   try {
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
     }
 
     // Trả về thông tin user đã xác thực
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "Đăng nhập thành công!",
       accessToken: "mock-jwt-token-" + user.id,
@@ -139,6 +140,9 @@ export async function POST(request: Request) {
         })),
       },
     });
+    const dictionarySession = createDictionarySession(user.id);
+    if (dictionarySession) response.cookies.set(DICTIONARY_SESSION_COOKIE, dictionarySession, dictionaryCookieOptions(request));
+    return response;
   } catch (error: any) {
     console.error("Login API error:", error);
     const errText = error?.message || String(error);

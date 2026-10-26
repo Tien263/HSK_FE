@@ -49,3 +49,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Downloaded dictionary archives and resumable translation checkpoints
+/data/dictionary/
+/data/curriculum/
+/.dictionary-db-check.cjs
+/.dictionary-build.log

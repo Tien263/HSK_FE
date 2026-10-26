@@ -1,46 +1,14 @@
+import {unstable_rethrow} from "next/navigation";
+import { getAuthUser } from "@/lib/auth-server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userIdHeader = request.headers.get("x-user-id");
-    const studentIdParam = searchParams.get("studentId");
-    const username = searchParams.get("username");
-
-    let student = null;
-    if (studentIdParam || userIdHeader) {
-      student = await prisma.user.findUnique({
-        where: { id: studentIdParam || userIdHeader || "" },
-      });
-    }
-
-    if (!student && username) {
-      student = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { username },
-            { email: username },
-            ...(username === "ningning" ? [{ username: "ning" }] : []),
-          ],
-        },
-      });
-    }
-
-    if (!student) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          student: null,
-          counts: { pendingAssignments: 0, dueVocabs: 0, wrongQuestions: 0 },
-          assignments: [],
-        },
-      });
-    }
-
+    const auth=await getAuthUser(request);if(!auth||auth.role!=="STUDENT")return NextResponse.json({success:false,message:"Vui lòng đăng nhập học sinh."},{status:401}); const student=await prisma.user.findUniqueOrThrow({where:{id:auth.id}});
     // 1. Lấy danh sách lớp mà học sinh này thực sự tham gia
     const enrolledClasses = await prisma.classStudent.findMany({
-      where: { studentId: student.id },
+      where: { studentId: student.id, status:"APPROVED" },
       select: { classId: true },
     });
     const enrolledClassIds = enrolledClasses.map((c) => c.classId);
@@ -51,6 +19,7 @@ export async function GET(request: Request) {
         ? await prisma.assignment.findMany({
             where: {
               classId: { in: enrolledClassIds },
+              status:{notIn:["DRAFT","ARCHIVED"]},AND:[{OR:[{targets:{none:{}}},{targets:{some:{studentId:student.id}}}]}],
             },
             include: {
               quizSet: {
@@ -116,6 +85,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("GET /my/summary error:", error);
     return NextResponse.json({ success: false, message: "Lỗi nạp dữ liệu học sinh" }, { status: 500 });
   }

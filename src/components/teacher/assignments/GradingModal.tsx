@@ -1,3 +1,4 @@
+import {SubmittedAnswer} from "@/components/learning/QuestionAnswerField";
 import React, { useState } from "react";
 import { X, Award, CheckCircle2, MessageSquare, AlertCircle } from "lucide-react";
 import { StudentSubmissionItem } from "./types";
@@ -5,7 +6,7 @@ import { StudentSubmissionItem } from "./types";
 interface GradingModalProps {
   submission: StudentSubmissionItem | null;
   onClose: () => void;
-  onSaveGrading: (submissionId: string, score: number, feedback: string) => Promise<void> | void;
+  onSaveGrading: (submissionId: string, score: number, feedback: string, answers?:{questionId:string;score:number}[]) => Promise<void> | void;
 }
 
 export default function GradingModal({
@@ -17,6 +18,7 @@ export default function GradingModal({
     submission?.score !== null && submission?.score !== undefined ? submission.score : 0
   );
   const [feedback, setFeedback] = useState<string>(submission?.feedback || "");
+  const [marks,setMarks]=useState<Record<string,number>>(Object.fromEntries(submission?.answerDetails?.map(answer=>[answer.questionId,answer.scoreEarned])||[]));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!submission) return null;
@@ -25,7 +27,7 @@ export default function GradingModal({
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSaveGrading(submission.id, Number(score), feedback);
+      await onSaveGrading(submission.id, Number(score), feedback,submission.answerDetails?.map(answer=>({questionId:answer.questionId,score:marks[answer.questionId]??0})));
       onClose();
     } catch (err) {
       console.error(err);
@@ -36,7 +38,7 @@ export default function GradingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div className="bg-[#FFFCF6] border border-[#BC9B6B]/40 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+      <div role="dialog" aria-label="Chấm bài kiểm tra" className="max-h-[90vh] overflow-y-auto bg-[#FFFCF6] border border-[#BC9B6B]/40 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#E5DEC9]">
           <div className="flex items-center gap-2.5">
@@ -59,7 +61,7 @@ export default function GradingModal({
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="space-y-4 pt-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4 text-xs">{submission.answerDetails?.map(answer=><div key={answer.questionId} className="mb-4 rounded-xl border border-[#E5DEC9] bg-[#FAF7F0] p-4 text-xs"><strong>{answer.content}</strong><p className="mt-2">Trả lời: <SubmittedAnswer value={answer.userAnswer}/></p><p className="mt-1 text-[#6B766D]">Đáp án: {answer.correctAnswer}</p><label className="mt-3 block">Điểm / {answer.points}<input type="number" required min={0} max={answer.points} step="0.01" className="mt-2 w-full rounded-xl border border-[#E5DEC9] bg-white px-3 py-2" value={marks[answer.questionId]??0} onChange={event=>{const next={...marks,[answer.questionId]:Number(event.target.value)};setMarks(next);setScore(Object.values(next).reduce((sum,value)=>sum+value,0));}}/></label></div>)}
           <div className="p-3 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
             <div className="flex justify-between">
               <span className="text-[#315E48]/70">Bài kiểm tra:</span>
@@ -84,7 +86,7 @@ export default function GradingModal({
               type="number"
               min={0}
               max={submission.maxScore || 100}
-              value={score}
+              readOnly={!!submission.answerDetails?.length} value={score}
               onChange={(e) => setScore(Number(e.target.value))}
               required
               className="w-full px-3 py-2 text-base font-bold text-[#204434] bg-white border border-[#E5DEC9] rounded-xl focus:outline-none focus:border-[#204434]"

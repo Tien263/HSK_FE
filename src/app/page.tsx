@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import CourseCategories from "@/components/CourseCategories";
@@ -12,31 +13,22 @@ import Footer from "@/components/Footer";
 
 export default function HomePage() {
   const router = useRouter();
+  const [quickLoginError, setQuickLoginError] = useState("");
+  const [quickLoginBusy, setQuickLoginBusy] = useState(false);
 
   // Quick 1-click test simulation for student & teacher
-  const handleQuickLogin = (role: "STUDENT" | "TEACHER") => {
-    if (role === "STUDENT") {
-      const studentUser = {
-        id: "student",
-        username: "student",
-        name: "Thảo",
-        role: "STUDENT",
-        currentHskLevel: 3,
-        totalXp: 450,
-        streakDays: 7,
-      };
-      localStorage.setItem("currentUser", JSON.stringify(studentUser));
-      router.push("/s/home");
-    } else {
-      const teacherUser = {
-        id: "teacher",
-        username: "teacher",
-        name: "Cô Ning Ning",
-        role: "TEACHER",
-      };
-      localStorage.setItem("currentUser", JSON.stringify(teacherUser));
-      router.push("/t/dashboard");
-    }
+  const handleQuickLogin = async (role: "STUDENT" | "TEACHER") => {
+    setQuickLoginBusy(true); setQuickLoginError("");
+    const username = role === "STUDENT" ? "student" : "teacher";
+    try {
+      const response = await fetch("/api/v1/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password: `${username}123` }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Chưa đăng nhập được.");
+      localStorage.setItem("currentUser", JSON.stringify(data.user));
+      sessionStorage.removeItem("currentUser");
+      router.push(role === "STUDENT" ? "/s/home" : "/t/dashboard");
+    } catch (error) { setQuickLoginError(error instanceof Error ? error.message : "Chưa đăng nhập được."); }
+    finally { setQuickLoginBusy(false); }
   };
 
   return (
@@ -47,6 +39,7 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => handleQuickLogin("STUDENT")}
+          disabled={quickLoginBusy}
           className="px-3 py-1 rounded-full bg-white/15 hover:bg-white/30 text-white transition flex items-center gap-1 cursor-pointer"
           title="Đăng nhập thử vai Học sinh (Bạn Thảo)"
         >
@@ -55,12 +48,14 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => handleQuickLogin("TEACHER")}
+          disabled={quickLoginBusy}
           className="px-3 py-1 rounded-full bg-[#a8383b] hover:bg-[#b91c1c] text-white transition flex items-center gap-1 cursor-pointer shadow-xs"
           title="Đăng nhập thử vai Giáo viên (Cô Ning Ning)"
         >
           <span>Giáo viên (Cô Ning Ning)</span>
         </button>
       </aside>
+      {quickLoginError && <p role="alert" className="fixed bottom-20 right-5 z-50 max-w-sm rounded-xl bg-red-50 p-3 text-xs text-red-800">{quickLoginError}</p>}
 
       {/* ===================== TOP HERO MASTER WRAPPER (Exact Mockup Artwork Background) ===================== */}
       <div className="relative w-full overflow-hidden">

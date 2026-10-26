@@ -60,11 +60,12 @@ export default function LoginPage() {
       }
 
       // Lưu phiên đăng nhập
+      localStorage.removeItem("currentUser");
+      sessionStorage.removeItem("currentUser");
       if (rememberMe) {
         localStorage.setItem("currentUser", JSON.stringify(data.user));
       } else {
         sessionStorage.setItem("currentUser", JSON.stringify(data.user));
-        localStorage.setItem("currentUser", JSON.stringify(data.user));
       }
 
       // Điều hướng theo vai trò và trạng thái thiết lập

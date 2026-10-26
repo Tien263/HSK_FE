@@ -1,5 +1,7 @@
 "use client";
 
+import {portalFetch} from "@/components/learning/use-portal-data";
+import {addDays} from "@/lib/schedule-core";
 import { useState, useEffect } from "react";
 import {
   Calendar as CalendarIcon,
@@ -24,6 +26,7 @@ import {
 } from "lucide-react";
 
 export interface ScheduleEvent {
+  scheduleId?:string;originalDate?:string;revision?:number;exceptionRevision?:number;
   id: string;
   classId: string;
   className: string;
@@ -61,10 +64,10 @@ export default function AppleScheduleCalendar({
   // Form states for creating session
   const [formClassId, setFormClassId] = useState("");
   const [formDate, setFormDate] = useState("");
-  const [formStartTime, setFormStartTime] = useState("19:30");
-  const [formEndTime, setFormEndTime] = useState("21:00");
+  const [formStartTime, setFormStartTime] = useState("");
+  const [formEndTime, setFormEndTime] = useState("");
   const [formMode, setFormMode] = useState<"ONLINE" | "OFFLINE">("ONLINE");
-  const [formLocation, setFormLocation] = useState("Google Meet (meet.google.com/hsk-class)");
+  const [formLocation, setFormLocation] = useState("");
   const [formTopic, setFormTopic] = useState("");
   const [formRepeatWeekly, setFormRepeatWeekly] = useState(false);
   const [formColor, setFormColor] = useState<"emerald" | "amber" | "blue" | "purple">("emerald");
@@ -78,37 +81,10 @@ export default function AppleScheduleCalendar({
   };
 
   // Load saved events or default to empty schedule (teacher creates from scratch)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
 
-    const saved = localStorage.getItem("hanyu_teacher_schedules");
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setEvents(parsed);
-          onScheduleChange?.(parsed);
-          return;
-        }
-      } catch (e) {
-        console.error("Failed to parse saved schedules:", e);
-      }
-    }
 
-    // Start with empty schedule so teacher can manage from scratch
-    setEvents([]);
-    onScheduleChange?.([]);
-  }, []);
-
-  // Persist helper
-  const saveEvents = (newEvents: ScheduleEvent[]) => {
-    setEvents(newEvents);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("hanyu_teacher_schedules", JSON.stringify(newEvents));
-    }
-    onScheduleChange?.(newEvents);
-  };
-
+  const [refresh,setRefresh]=useState(0),[calendarError,setCalendarError]=useState(""),[saving,setSaving]=useState(false),[editingEvent,setEditingEvent]=useState<ScheduleEvent|null>(null),[repeatDays,setRepeatDays]=useState<number[]>([]),[changeNote,setChangeNote]=useState("");
+  useEffect(()=>{let active=true;const first=new Date(currentDate.getFullYear(),currentDate.getMonth(),1);first.setDate(first.getDate()-(first.getDay()+6)%7);const from=formatYYYYMMDD(first);portalFetch<{items:any[]}>("/api/v1/schedules?from="+from+"&to="+addDays(from,41)).then(result=>{if(!active)return;const rows:ScheduleEvent[]=result.items.filter(row=>!row.cancelled&&classes.some(item=>item.id===row.classId)).map(row=>({...row,mode:row.meetUrl?"ONLINE":"OFFLINE",location:row.room,lessonTopic:row.title,levelText:"HSK "+row.level,studentCount:classes.find(item=>item.id===row.classId)?.studentCount}));setEvents(rows);onScheduleChange?.(rows);setCalendarError("");}).catch(error=>{if(active)setCalendarError(error.message);});return()=>{active=false;};},[currentDate,refresh,classes]);
   // Navigations
   const handlePrev = () => {
     const d = new Date(currentDate);
@@ -139,60 +115,10 @@ export default function AppleScheduleCalendar({
   };
 
   // Add new session handler
-  const handleCreateSession = (e: React.FormEvent) => {
-    e.preventDefault();
-    const targetClass = classes.find((c) => c.id === formClassId) || classes[0];
-    const sessionDate = formDate || formatYYYYMMDD(new Date());
-
-    const newSessions: ScheduleEvent[] = [];
-
-    // Base event
-    const baseEvent: ScheduleEvent = {
-      id: `ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      classId: targetClass?.id || "custom",
-      className: targetClass?.name || "Lớp học HSK",
-      levelText: targetClass?.levelText || "Khóa giảng dạy HSK",
-      date: sessionDate,
-      startTime: formStartTime,
-      endTime: formEndTime,
-      mode: formMode,
-      location: formLocation,
-      meetUrl: formMode === "ONLINE" ? (formLocation.includes("http") ? formLocation : "https://meet.google.com/new") : undefined,
-      lessonTopic: formTopic || "Nội dung bài giảng trọng tâm",
-      studentCount: targetClass?.studentCount || 20,
-      color: formColor,
-    };
-    newSessions.push(baseEvent);
-
-    // If repeat weekly: generate 3 next occurrences
-    if (formRepeatWeekly) {
-      for (let i = 1; i <= 3; i++) {
-        const nextD = new Date(sessionDate);
-        nextD.setDate(nextD.getDate() + 7 * i);
-        newSessions.push({
-          ...baseEvent,
-          id: `ev-${Date.now()}-rep-${i}`,
-          date: formatYYYYMMDD(nextD),
-        });
-      }
-    }
-
-    const updated = [...events, ...newSessions];
-    saveEvents(updated);
-    setIsAddModalOpen(false);
-    setSelectedEvent(baseEvent);
-
-    // Reset inputs
-    setFormTopic("");
-    setFormRepeatWeekly(false);
-  };
+  const handleCreateSession = async(e:React.FormEvent)=>{e.preventDefault();if(!formClassId){setCalendarError("Chọn lớp học.");return;}setCalendarError("");setSaving(true);try{if(editingEvent){await portalFetch("/api/v1/schedules",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:editingEvent.scheduleId,originalDate:editingEvent.originalDate,date:formDate,startTime:formStartTime,endTime:formEndTime,cancelled:false,note:changeNote,revision:editingEvent.revision,exceptionRevision:editingEvent.exceptionRevision})});}else{const day=new Date(formDate+"T12:00:00Z").getUTCDay()||7;await portalFetch("/api/v1/schedules",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({classId:formClassId,title:formTopic,startDate:formDate,endDate:formRepeatWeekly?null:formDate,weekdays:formRepeatWeekly&&repeatDays.length?repeatDays:[day],startTime:formStartTime,endTime:formEndTime,room:formMode==="OFFLINE"?formLocation:"",meetUrl:formMode==="ONLINE"?formLocation:"",color:formColor})});}setIsAddModalOpen(false);setSelectedEvent(null);setEditingEvent(null);setRefresh(value=>value+1);}catch(error){setCalendarError((error as Error).message);}finally{setSaving(false);}};
 
   // Delete session handler
-  const handleDeleteEvent = (id: string) => {
-    const updated = events.filter((e) => e.id !== id);
-    saveEvents(updated);
-    setSelectedEvent(null);
-  };
+  const handleDeleteEvent = async(id:string)=>{const event=events.find(row=>row.id===id);if(!event)return;setCalendarError("");try{await portalFetch("/api/v1/schedules",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:event.scheduleId,originalDate:event.originalDate,date:event.date,startTime:event.startTime,endTime:event.endTime,cancelled:true,note:"Giáo viên hủy riêng buổi học",revision:event.revision,exceptionRevision:event.exceptionRevision})});setSelectedEvent(null);setRefresh(value=>value+1);}catch(error){setCalendarError((error as Error).message);}};
 
   // Copy link helper
   const handleCopyLink = (url?: string) => {
@@ -314,7 +240,7 @@ export default function AppleScheduleCalendar({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4">{calendarError&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{calendarError}</p>}
       {/* =================================================================== */}
       {/* 1. APPLE CALENDAR TOP TOOLBAR */}
       {/* =================================================================== */}
@@ -387,18 +313,7 @@ export default function AppleScheduleCalendar({
 
           {/* Clear all schedules button */}
           {events.length > 0 && (
-            <button
-              onClick={() => {
-                if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch dạy để làm lại từ đầu không?")) {
-                  saveEvents([]);
-                }
-              }}
-              className="px-3 py-2 rounded-2xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-              title="Xóa toàn bộ lịch dạy để làm lại từ đầu"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Xóa toàn bộ lịch</span>
-            </button>
+            <button onClick={async()=>{if(!confirm("Xóa toàn bộ chuỗi lịch của những lớp đang hiển thị?"))return;try{const data=await portalFetch<{rules:{id:string;classId:string}[]}>("/api/v1/schedules");for(const rule of data.rules.filter(row=>classes.some(item=>item.id===row.classId)))await portalFetch("/api/v1/schedules?id="+rule.id,{method:"DELETE"});setSelectedEvent(null);setRefresh(value=>value+1);}catch(error){setCalendarError((error as Error).message);}}} className="rounded-xl border border-red-200 px-3 py-2 text-xs text-red-700">Xóa chuỗi lịch</button>
           )}
 
           {/* Add Session Button */}
@@ -406,7 +321,7 @@ export default function AppleScheduleCalendar({
             onClick={() => {
               if (classes.length > 0) setFormClassId(classes[0].id);
               setFormDate(todayStr);
-              setIsAddModalOpen(true);
+              setEditingEvent(null);setFormClassId(classes[0]?.id||"");setIsAddModalOpen(true);
             }}
             className="px-3.5 py-2 rounded-2xl bg-[#204434] text-white hover:bg-[#183629] text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer transition shrink-0"
           >
@@ -653,7 +568,7 @@ export default function AppleScheduleCalendar({
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3" />
-                              {ev.studentCount || 20} học viên
+                              {ev.studentCount ?? 0} học viên
                             </span>
                           </div>
                         </div>
@@ -696,7 +611,7 @@ export default function AppleScheduleCalendar({
       {/* =================================================================== */}
       {selectedEvent && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-5 animate-scaleUp">
+          <div className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl p-6 shadow-2xl space-y-5 animate-scaleUp">
             {/* Header */}
             <div className="flex items-start justify-between">
               <div>
@@ -745,7 +660,7 @@ export default function AppleScheduleCalendar({
                   Sĩ số:
                 </span>
                 <span className="font-bold text-[#204434]">
-                  {selectedEvent.studentCount || 20} học sinh đã ghi danh
+                  {selectedEvent.studentCount ?? 0} học sinh đã ghi danh
                 </span>
               </div>
 
@@ -788,7 +703,7 @@ export default function AppleScheduleCalendar({
                 <span>Hủy ca dạy này</span>
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2"><button className="rounded-xl border border-[#E5DEC9] px-3 py-2 text-xs" onClick={()=>{setEditingEvent(selectedEvent);setFormClassId(selectedEvent.classId);setFormDate(selectedEvent.date);setFormStartTime(selectedEvent.startTime);setFormEndTime(selectedEvent.endTime);setFormLocation(selectedEvent.meetUrl||selectedEvent.location);setFormTopic(selectedEvent.lessonTopic);setFormMode(selectedEvent.mode);setIsAddModalOpen(true);setSelectedEvent(null);}}>Đổi buổi học</button>
                 {selectedEvent.mode === "ONLINE" ? (
                   <a
                     href={selectedEvent.meetUrl || "https://meet.google.com/new"}
@@ -819,6 +734,7 @@ export default function AppleScheduleCalendar({
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
           <form
+            role="dialog" aria-label={editingEvent?"Đổi buổi học":"Thêm ca dạy"}
             onSubmit={handleCreateSession}
             className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-4 animate-scaleUp"
           >
@@ -848,7 +764,7 @@ export default function AppleScheduleCalendar({
               <div>
                 <label className="block font-semibold text-[#204434] mb-1">Chọn lớp phụ trách *</label>
                 <select
-                  value={formClassId}
+                  disabled={!!editingEvent} value={formClassId}
                   onChange={(e) => setFormClassId(e.target.value)}
                   className="w-full bg-white border border-[#E5DEC9] rounded-xl px-3 py-2 text-[#204434] font-medium"
                   required
@@ -858,7 +774,7 @@ export default function AppleScheduleCalendar({
                       {c.name} ({c.levelText || "Khóa học"})
                     </option>
                   ))}
-                  {classes.length === 0 && <option value="custom">Lớp HSK Cơ bản (Mặc định)</option>}
+                  {classes.length === 0 && <option value="">Chưa có lớp học được phân công</option>}
                 </select>
               </div>
 
@@ -902,9 +818,9 @@ export default function AppleScheduleCalendar({
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => {
+                    disabled={!!editingEvent} onClick={() => {
                       setFormMode("ONLINE");
-                      setFormLocation("Google Meet (meet.google.com/new)");
+                      setFormLocation("");
                       setFormColor("emerald");
                     }}
                     className={`p-3 rounded-2xl border text-left flex items-center gap-2 cursor-pointer transition ${
@@ -924,7 +840,7 @@ export default function AppleScheduleCalendar({
                     type="button"
                     onClick={() => {
                       setFormMode("OFFLINE");
-                      setFormLocation("Phòng 302, Tòa nhà Hán Ngữ");
+                      setFormLocation("");
                       setFormColor("amber");
                     }}
                     className={`p-3 rounded-2xl border text-left flex items-center gap-2 cursor-pointer transition ${
@@ -949,7 +865,7 @@ export default function AppleScheduleCalendar({
                 </label>
                 <input
                   type="text"
-                  value={formLocation}
+                  readOnly={!!editingEvent} value={formLocation}
                   onChange={(e) => setFormLocation(e.target.value)}
                   placeholder={formMode === "ONLINE" ? "https://meet.google.com/..." : "Phòng 302, Cơ sở 1..."}
                   className="w-full bg-white border border-[#E5DEC9] rounded-xl px-3 py-2 text-[#204434]"
@@ -962,7 +878,7 @@ export default function AppleScheduleCalendar({
                 <label className="block font-semibold text-[#204434] mb-1">Chủ đề bài giảng / Giáo án *</label>
                 <input
                   type="text"
-                  value={formTopic}
+                  readOnly={!!editingEvent} value={formTopic}
                   onChange={(e) => setFormTopic(e.target.value)}
                   placeholder="Ví dụ: Bài 4 - Ôn tập thanh điệu và ngữ pháp câu chữ 把"
                   className="w-full bg-white border border-[#E5DEC9] rounded-xl px-3 py-2 text-[#204434]"
@@ -975,16 +891,17 @@ export default function AppleScheduleCalendar({
                 <input
                   type="checkbox"
                   id="repeatWeekly"
-                  checked={formRepeatWeekly}
+                  disabled={!!editingEvent} checked={formRepeatWeekly}
                   onChange={(e) => setFormRepeatWeekly(e.target.checked)}
                   className="w-4 h-4 text-[#204434] rounded cursor-pointer"
                 />
                 <label htmlFor="repeatWeekly" className="text-xs text-[#204434] font-medium cursor-pointer">
-                  Tự động lặp lại hàng tuần (Thêm sẵn lịch cho 3 tuần tiếp theo)
+                  Tự động lặp theo tuần cho đến khi thay đổi hoặc xóa chuỗi lịch
                 </label>
               </div>
             </div>
 
+            {formRepeatWeekly&&!editingEvent&&<fieldset className="flex flex-wrap gap-3 text-xs"><legend className="mb-2 font-semibold">Lặp vào các thứ</legend>{[1,2,3,4,5,6,7].map(day=><label key={day} className="flex items-center gap-1"><input type="checkbox" checked={repeatDays.includes(day)} onChange={event=>setRepeatDays(previous=>event.target.checked?[...previous,day]:previous.filter(value=>value!==day))}/>{day===7?"CN":"T"+(day+1)}</label>)}</fieldset>}{editingEvent&&<label className="block text-xs">Ghi chú đổi lịch<textarea className="mt-2 w-full rounded-xl border border-[#E5DEC9] p-3" value={changeNote} onChange={event=>setChangeNote(event.target.value)}/></label>}{calendarError&&<p role="alert" className="text-xs text-red-700">{calendarError}</p>}
             {/* Submit */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E5DEC9]">
               <button
@@ -994,12 +911,12 @@ export default function AppleScheduleCalendar({
               >
                 Hủy bỏ
               </button>
-              <button
+              <button disabled={saving}
                 type="submit"
                 className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer transition"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Lưu ca dạy</span>
+                <span>{saving?"Đang lưu…":editingEvent?"Lưu thay đổi buổi học":"Lưu ca dạy"}</span>
               </button>
             </div>
           </form>

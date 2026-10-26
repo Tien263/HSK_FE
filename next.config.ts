@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/api/dictionary/strokes/*": ["./node_modules/hanzi-writer-data/*.json"],
+  },
+  outputFileTracingExcludes: {
+    "/*": ["./data/dictionary/**/*", "./scripts/dictionary/**/*"],
+  },
   /* config options here */
   typescript: {
     ignoreBuildErrors: false,
@@ -22,6 +28,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     rules: {
       "*.css": {
+        // Preserve native CSS Module exports; `as: *.css` turns modules into global CSS.
+        condition: { not: { path: /\.module\.css$/ } },
         loaders: ["@tailwindcss/turbopack"],
         as: "*.css",
       },

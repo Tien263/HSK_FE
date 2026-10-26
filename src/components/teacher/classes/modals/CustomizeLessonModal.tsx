@@ -22,6 +22,8 @@ interface CustomizeLessonModalProps {
   setCustomVocabs: React.Dispatch<React.SetStateAction<string[]>>;
   customGrammars: string[];
   setCustomGrammars: React.Dispatch<React.SetStateAction<string[]>>;
+  customIncludeCulture: boolean;
+  setCustomIncludeCulture:(value:boolean)=>void;
   customHasDialogue: boolean;
   setCustomHasDialogue: (val: boolean) => void;
   customTeacherNote: string;
@@ -40,6 +42,7 @@ export default function CustomizeLessonModal({
   setCustomVocabs,
   customGrammars,
   setCustomGrammars,
+  customIncludeCulture,setCustomIncludeCulture,
   customHasDialogue,
   setCustomHasDialogue,
   customTeacherNote,
@@ -50,7 +53,7 @@ export default function CustomizeLessonModal({
   onSave,
   onClose,
 }: CustomizeLessonModalProps) {
-  const [activeTab, setActiveTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "SETTINGS">("VOCAB");
+  const [activeTab, setActiveTab] = useState<"VOCAB" | "GRAMMAR" | "DIALOGUE" | "CULTURE" | "SETTINGS">("VOCAB");
 
   if (!customizingLesson) return null;
 
@@ -94,11 +97,12 @@ export default function CustomizeLessonModal({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 p-2 bg-[#F7F5EE] border-b border-[#E5DFD0] text-xs">
+        <div className="flex items-center gap-1 p-2 overflow-x-auto shrink-0 bg-[#F7F5EE] border-b border-[#E5DFD0] text-xs">
           {[
             { id: "VOCAB", label: `Từ vựng (${customVocabs.length}/${customizingLesson.vocabList.length})`, icon: Sparkles },
             { id: "GRAMMAR", label: `Ngữ pháp (${customGrammars.length}/${customizingLesson.grammarList.length})`, icon: BookOpen },
             { id: "DIALOGUE", label: "Hội thoại & Đọc", icon: FileText },
+            { id: "CULTURE", label: "Ngữ âm & Văn hóa", icon: Volume2 },
             { id: "SETTINGS", label: "Hạn nộp & Ghi chú", icon: Calendar },
           ].map((tab) => (
             <button
@@ -305,6 +309,7 @@ export default function CustomizeLessonModal({
             </div>
           )}
 
+          {activeTab === "CULTURE" && <div className="space-y-5"><label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={customIncludeCulture} onChange={event=>setCustomIncludeCulture(event.target.checked)}/>Công bố ngữ âm và văn hóa cho lớp</label><section className="rounded-2xl border border-[#E5DFD0] bg-[#F7F5EE] p-5"><h4 className="font-serif font-bold">{customizingLesson.phonetics.title}</h4><p className="mt-3 whitespace-pre-line text-sm leading-8">{customizingLesson.phonetics.rule}</p>{customizingLesson.phonetics.examples.map((example,index)=><p key={index} className="mt-2 text-sm">{example}</p>)}</section><section className="rounded-2xl border border-[#E5DFD0] p-5"><h4 className="font-serif font-bold">Văn hóa</h4><p className="mt-3 whitespace-pre-line text-sm leading-8">{customizingLesson.culture||"Giáo trình chưa có nội dung văn hóa."}</p></section></div>}
           {/* TAB 4: HẠN NỘP & GHI CHÚ */}
           {activeTab === "SETTINGS" && (
             <div className="space-y-4">

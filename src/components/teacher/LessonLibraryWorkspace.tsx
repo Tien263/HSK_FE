@@ -1,5 +1,10 @@
 "use client";
+import LessonRichSections,{RichReadingEditor,RichCultureEditor,filterSelectedCulture} from "./LessonRichSections";
 
+import {usePortalData,portalFetch} from "@/components/learning/use-portal-data";
+import {teacherLibraryLesson,emptyTeacherLesson} from "@/lib/teacher-library-adapter";
+import type {Hsk1FullLesson} from "@/lib/hsk1-full-lessons";
+import TeacherPrivateLibrary from "./TeacherPrivateLibrary";
 import React, { useState, useEffect, useMemo } from "react";
 import {
   BookOpen,
@@ -63,17 +68,17 @@ import {
 import {
   LESSON_5_DETAIL,
   UNIVERSITY_LESSON_DETAIL,
-  HSK_LEVELS_META,
-  HSK1_LESSONS,
-  HSK2_LESSONS,
-  HSK3_LESSONS,
-  HSK_LESSONS_MAP,
+  HSK_LEVELS_META as LEGACY_HSK_LEVELS_META,
+  HSK1_LESSONS as LEGACY_HSK1_LESSONS,
+  HSK2_LESSONS as LEGACY_HSK2_LESSONS,
+  HSK3_LESSONS as LEGACY_HSK3_LESSONS,
+  HSK_LESSONS_MAP as LEGACY_HSK_LESSONS_MAP,
   OFFICIAL_9_TOPICS,
   SUBTOPIC_LESSONS_MAP,
   OFFICIAL_12_FACULTIES,
-  ALL_LESSONS_INDEX,
-  getLessonDetailById,
-  searchLessons,
+  ALL_LESSONS_INDEX as LEGACY_ALL_LESSONS_INDEX,
+  getLessonDetailById as LEGACY_getLessonDetailById,
+  searchLessons as LEGACY_searchLessons,
   FullLessonDetail,
   LessonSummary,
   VocabularyItem,
@@ -110,7 +115,8 @@ interface LessonLibraryWorkspaceProps {
   classesList?: ClassOption[];
   onNavigateToAssignments?: (payload: {
     lessonTitle: string;
-    classId: string;
+    classId?: string;
+    lessonId?:string;hskLevel?:number;reading?:unknown;sourceContent?:string;
     vocabList: VocabularyItem[];
     grammarList: GrammarItem[];
     culturalList?: CulturalSelectionItem[];
@@ -125,6 +131,14 @@ export function LessonLibraryWorkspace({
   onBackToDashboard,
 }: LessonLibraryWorkspaceProps) {
   // =========================================================================
+  const {data:catalog,error:catalogError}=usePortalData<{levels:{level:number;items:Hsk1FullLesson[];isDeleted:boolean}[]}>("/api/v1/curriculum");
+  const {data:privateFiles}=usePortalData<{items:unknown[]}>("/api/v1/materials");
+  const {data:collections,reload:reloadCollections}=usePortalData<{items:any[]}>("/api/v1/teacher/collections");
+  const HSK_LEVELS_META=(catalog?.levels||[]).filter(row=>!row.isDeleted).map(row=>({id:"hsk"+row.level,title:"HSK "+row.level,desc:row.items.length+" bài học từ giáo trình admin",totalLessons:row.items.length,isAvailable:true,tag:row.items.length+" bài"}));
+  const HSK_LESSONS_MAP:Record<string,FullLessonDetail[]>=Object.fromEntries((catalog?.levels||[]).map(row=>["hsk"+row.level,row.items.map(lesson=>teacherLibraryLesson(lesson,row.level))]));
+  const HSK1_LESSONS=HSK_LESSONS_MAP.hsk1||[],HSK2_LESSONS=HSK_LESSONS_MAP.hsk2||[],HSK3_LESSONS=HSK_LESSONS_MAP.hsk3||[],ALL_LESSONS_INDEX=Object.values(HSK_LESSONS_MAP).flat();
+  const getLessonDetailById=(id:string)=>ALL_LESSONS_INDEX.find(row=>row.id===id)||emptyTeacherLesson;
+  const searchLessons=(query:string,scope:string)=>scope!=="ALL"&&scope!=="hsk"?[]:ALL_LESSONS_INDEX.filter(row=>(row.titleZh+" "+row.titleVi+" "+row.titlePy).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   // TOP-LEVEL MAIN TABS: Tab 1 = Khám phá bài học | Tab 2 = Thư viện của tôi
   // =========================================================================
   const [mainTab, setMainTab] = useState<"EXPLORE" | "MY_LIBRARY">("EXPLORE");
@@ -137,25 +151,14 @@ export function LessonLibraryWorkspace({
   // HSK 3.0 Branch Screen Flow: LEVELS -> LESSONS_LIST -> LESSON_DETAIL
   const [hskScreen, setHskScreen] = useState<"LEVELS" | "LESSONS_LIST" | "LESSON_DETAIL">("LEVELS");
   const [hskSelectedLevel, setHskSelectedLevel] = useState<string>("hsk1");
-  const [hskSelectedLessonId, setHskSelectedLessonId] = useState<string>("hsk1-b01");
+  const [hskSelectedLessonId, setHskSelectedLessonId] = useState<string>("");
   const [hskSearchFilter, setHskSearchFilter] = useState<string>("");
   const [hskViewMode, setHskViewMode] = useState<"grid" | "list">("grid");
 
   // Dynamic Lesson Overrides from Teacher Edits
   const [lessonOverrides, setLessonOverrides] = useState<Record<string, Partial<FullLessonDetail>>>({});
 
-  useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("hanyu_teacher_lesson_overrides");
-        if (saved) {
-          setLessonOverrides(JSON.parse(saved));
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
+
 
   // Theo chủ đề Branch Screen Flow: MAJOR_TOPICS -> SUBTOPICS -> LESSONS_LIST -> LESSON_DETAIL
   const [topicScreen, setTopicScreen] = useState<"MAJOR_TOPICS" | "SUBTOPICS" | "LESSONS_LIST" | "LESSON_DETAIL">("MAJOR_TOPICS");
@@ -190,7 +193,7 @@ export function LessonLibraryWorkspace({
       return { ...base, ...override };
     }
     return base;
-  }, [currentActiveLessonId, lessonOverrides]);
+  }, [currentActiveLessonId, lessonOverrides,catalog]);
 
   // Active Major Topic & Subtopic metadata
   const currentMajorTopic = useMemo(() => {
@@ -227,58 +230,22 @@ export function LessonLibraryWorkspace({
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     return searchLessons(searchQuery, searchScope);
-  }, [searchQuery, searchScope]);
+  }, [searchQuery, searchScope,catalog]);
 
   // =========================================================================
   // TAB 2: THƯ VIỆN CỦA TÔI STATE & PERSISTENCE
   // =========================================================================
   const [librarySubTab, setLibrarySubTab] = useState<"ALL" | "SAVED_HANYU" | "CURATED" | "MATERIALS" | "ASSIGNED">("ALL");
-  const [savedHanyuLessons, setSavedHanyuLessons] = useState<SavedHanyuLesson[]>(INITIAL_SAVED_HANYU_LESSONS);
-  const [curatedLessons, setCuratedLessons] = useState<CustomCuratedLesson[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("hanyu_curated_lessons");
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return INITIAL_CURATED_LESSONS;
-  });
+  const [savedHanyuLessons, setSavedHanyuLessons] = useState<SavedHanyuLesson[]>([]);
+  const [curatedLessons, setCuratedLessons] = useState<CustomCuratedLesson[]>([]);
 
-  const [assignedLessons, setAssignedLessons] = useState<AssignedLessonToClass[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("hanyu_assigned_lessons");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const filtered = parsed.filter(
-            (a: any) =>
-              a.id !== "assign-sample-1" &&
-              !(a.id?.startsWith("assign-mock-") || (a.titleZh === "今天我休息" && a.id?.includes("sample")))
-          );
-          return filtered;
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
+  const [assignedLessons, setAssignedLessons] = useState<AssignedLessonToClass[]>([]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("hanyu_curated_lessons", JSON.stringify(curatedLessons));
-      } catch (e) {}
-    }
-  }, [curatedLessons]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(assignedLessons));
-      } catch (e) {}
-    }
-  }, [assignedLessons]);
 
-  const [lectureMaterials, setLectureMaterials] = useState<LectureMaterialItem[]>(INITIAL_LECTURE_MATERIALS);
+
+
+  const [lectureMaterials, setLectureMaterials] = useState<LectureMaterialItem[]>([]);
 
   // Modal: Upload Material
   const [isUploadMaterialModalOpen, setIsUploadMaterialModalOpen] = useState(false);
@@ -298,35 +265,10 @@ export function LessonLibraryWorkspace({
   // =========================================================================
   // SELECTIONS BASKET STATE
   // =========================================================================
-  const [selectedVocabIds, setSelectedVocabIds] = useState<string[]>([
-    "v-hsk1-1-1",
-    "v-hsk1-1-2",
-    "v-hsk1-1-3",
-    "v-hsk1-1-4",
-    "v-hsk1-1-5",
-    "v-hsk1-1-6",
-    "v-hsk1-1-7",
-    "v-hsk1-1-8",
-    "v-hsk1-1-9",
-    "v-hsk1-1-10",
-    "v-hsk1-1-11",
-    "v-hsk1-1-12",
-  ]);
-  const [selectedGrammarIds, setSelectedGrammarIds] = useState<string[]>([
-    "g-hsk1-1-1",
-    "g-hsk1-1-2",
-    "g-hsk1-1-3",
-  ]);
-  const [selectedCulturalIds, setSelectedCulturalIds] = useState<string[]>([
-    "cult-hsk1-b01-phrase-0",
-    "cult-hsk1-b01-phrase-1",
-    "cult-hsk1-b01-polite-0",
-    "cult-hsk1-b01-polite-1",
-    "cult-hsk1-b01-polite-2",
-    "cult-hsk1-b01-caution-0",
-    "cult-hsk1-b01-caution-1",
-    "cult-hsk1-b01-caution-2",
-  ]);
+  const [selectedVocabIds, setSelectedVocabIds] = useState<string[]>([]);
+  const [selectedGrammarIds, setSelectedGrammarIds] = useState<string[]>([]);
+  const [selectedReadingWordIds,setSelectedReadingWordIds]=useState<string[]>([]);
+  const [selectedCulturalIds, setSelectedCulturalIds] = useState<string[]>([]);
   const [isDialogueSelected, setIsDialogueSelected] = useState<boolean>(true);
   const [isReadingSelected, setIsReadingSelected] = useState<boolean>(true);
   const [isListeningSelected, setIsListeningSelected] = useState<boolean>(false);
@@ -342,12 +284,8 @@ export function LessonLibraryWorkspace({
   const [showViInDialogue, setShowViInDialogue] = useState<boolean>(true);
 
   // Target class for assignment
-  const [selectedClassId, setSelectedClassId] = useState<string>(
-    classesList.length > 0 ? classesList[0].id : "c1"
-  );
-  const [assignSelectedClassIds, setAssignSelectedClassIds] = useState<string[]>(
-    classesList.length > 0 ? [classesList[0].id] : ["c1"]
-  );
+  const [selectedClassId, setSelectedClassId] = useState<string>(classesList[0]?.id||"");
+  const [assignSelectedClassIds, setAssignSelectedClassIds] = useState<string[]>([]);
   const [assignOpenDate, setAssignOpenDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
@@ -411,8 +349,8 @@ export function LessonLibraryWorkspace({
       setSelectedVocabIds(vocabIds);
       setSelectedGrammarIds(grammarIds);
       setSelectedCulturalIds(cultIds);
-      setIsDialogueSelected(true);
-      setIsReadingSelected(true);
+      setIsDialogueSelected(!!currentLesson.dialogue?.lines.length);
+      setIsReadingSelected(!!currentLesson.reading?.contentZh);setSelectedReadingWordIds(currentLesson.reading?.extraVocabs?.map((word,index)=>word.id||`${currentLesson.reading!.id}-word-${index}`)||[]);
     }
   }, [currentLesson.id]);
 
@@ -421,31 +359,9 @@ export function LessonLibraryWorkspace({
     setIsEditLessonModalOpen(true);
   };
 
-  const handleSaveLessonDraft = () => {
-    if (!editingLessonDraft) return;
-    const updated = {
-      ...lessonOverrides,
-      [editingLessonDraft.id]: editingLessonDraft,
-    };
-    setLessonOverrides(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("hanyu_teacher_lesson_overrides", JSON.stringify(updated));
-    }
-    setIsEditLessonModalOpen(false);
-    showToast(`Đã lưu thay đổi học liệu "${editingLessonDraft.titleVi}" vào hệ thống!`);
-  };
+  const handleSaveLessonDraft = async()=>{if(!editingLessonDraft)return;try{await portalFetch("/api/v1/teacher/collections",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sourceLessonId:currentLesson.id,level:Number(currentLesson.levelId.replace("hsk","")),kind:"CURATED",title:editingLessonDraft.titleVi,selectedVocabs:editingLessonDraft.vocabularies.map(word=>({...word,meaning:word.meaningVi})),selectedGrammars:editingLessonDraft.grammars,selectedDialogue:editingLessonDraft.dialogue?.lines.map(line=>({...line,pinyin:line.py}))||[],reading:editingLessonDraft.reading,culturalNote:editingLessonDraft.culturalNote,culture:"",includeCulture:true})});setLessonOverrides(previous=>({...previous,[editingLessonDraft.id]:editingLessonDraft}));setIsEditLessonModalOpen(false);reloadCollections();showToast("Đã lưu bản chỉnh sửa riêng. Giáo trình admin được giữ nguyên.");}catch(error){showToast((error as Error).message);}};
 
-  const handleResetLessonDraft = () => {
-    if (!currentLesson) return;
-    const updated = { ...lessonOverrides };
-    delete updated[currentLesson.id];
-    setLessonOverrides(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("hanyu_teacher_lesson_overrides", JSON.stringify(updated));
-    }
-    setIsEditLessonModalOpen(false);
-    showToast(`Đã khôi phục học liệu gốc bài học!`);
-  };
+  const handleResetLessonDraft = ()=>{setLessonOverrides(previous=>{const next={...previous};delete next[currentLesson.id];return next;});setIsEditLessonModalOpen(false);};
 
   // Sequential speech synthesis for full dialogue playback
   useEffect(() => {
@@ -546,9 +462,9 @@ export function LessonLibraryWorkspace({
       (isDialogueSelected ? 1 : 0) +
       (isReadingSelected ? 1 : 0) +
       (isListeningSelected ? 1 : 0) +
-      selectedCulturalIds.length
+      selectedCulturalIds.length + selectedReadingWordIds.length
     );
-  }, [selectedVocabIds, selectedGrammarIds, isDialogueSelected, isReadingSelected, isListeningSelected, selectedCulturalIds]);
+  }, [selectedVocabIds, selectedGrammarIds, isDialogueSelected, isReadingSelected, isListeningSelected, selectedCulturalIds,selectedReadingWordIds]);
 
   // Selection handlers
   const toggleVocab = (id: string) => {
@@ -581,132 +497,14 @@ export function LessonLibraryWorkspace({
     }
   };
 
+  function selectionPayload(){const reading=currentLesson.reading;const selectedReading=reading?{...reading,...(!isReadingSelected?{contentZh:"",contentPy:"",contentVi:"",wordCount:0}:{}),extraVocabs:reading.extraVocabs?.filter((word,index)=>selectedReadingWordIds.includes(word.id||`${reading.id}-word-${index}`))}:undefined;return{selectedVocabs:currentLesson.vocabularies.filter(row=>selectedVocabIds.includes(row.id)).map(row=>({...row,meaning:row.meaningVi})),selectedGrammars:currentLesson.grammars.filter(row=>selectedGrammarIds.includes(row.id)),selectedDialogue:isDialogueSelected?currentLesson.dialogue?.lines.map(row=>({...row,pinyin:row.py}))||[]:[],hasDialogue:isDialogueSelected,hasReading:!!selectedReading&&(isReadingSelected||!!selectedReading.extraVocabs?.length),reading:selectedReading,culturalNote:filterSelectedCulture(currentLesson,selectedCulturalIds),culture:"",includeCulture:selectedCulturalIds.length>0};}
+  async function savePrivateLesson(kind="SAVED",title=currentLesson.titleVi){const result=await portalFetch<any>("/api/v1/teacher/collections",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sourceLessonId:currentLesson.id,level:Number(currentLesson.levelId.replace("hsk","")),kind,title,...selectionPayload()})});reloadCollections();return result.item;}
+  useEffect(()=>{if(collections)setSavedHanyuLessons(collections.items.filter(row=>row.kind==="SAVED").map(row=>({id:row.id,lessonId:row.sourceLessonId,titleZh:row.content.titleZh,titleVi:row.title,trackId:"hsk",levelLabel:"",savedAt:row.createdAt,readOnly:true})));},[collections]);
   // Handle Save Custom Lesson
-  const handleSaveCuratedLesson = () => {
-    if (!curatedTitle.trim()) {
-      showToast("Vui lòng nhập tên bài học tùy chỉnh");
-      return;
-    }
-    const chosenVocabs = currentLesson.vocabularies.filter((v) =>
-      selectedVocabIds.includes(v.id)
-    );
-    const chosenGrammars = currentLesson.grammars.filter((g) =>
-      selectedGrammarIds.includes(g.id)
-    );
-    const chosenCultural = availableCulturalItems.filter((c) =>
-      selectedCulturalIds.includes(c.id)
-    );
-
-    const newCurated: CustomCuratedLesson = {
-      id: "curated-" + Date.now(),
-      title: curatedTitle.trim(),
-      sourceLessonId: currentLesson.id,
-      sourceLessonTitle: currentLesson.titleVi,
-      selectedVocabCount: chosenVocabs.length,
-      selectedGrammarCount: chosenGrammars.length,
-      selectedCulturalCount: chosenCultural.length,
-      vocabs: chosenVocabs,
-      grammars: chosenGrammars,
-      culturalItems: chosenCultural,
-      notes: curatedNotes.trim(),
-      createdAt: new Date().toLocaleDateString("vi-VN"),
-    };
-
-    setCuratedLessons((prev) => [newCurated, ...prev]);
-    setIsCurateModalOpen(false);
-    setCuratedTitle("");
-    setCuratedNotes("");
-    showToast(`Đã lưu "${newCurated.title}" (kèm ${chosenCultural.length} mục văn hóa) vào Thư viện của tôi!`);
-  };
+  const handleSaveCuratedLesson = async()=>{if(!curatedTitle.trim()){showToast("Nhập tên bản tùy chỉnh.");return;}try{await savePrivateLesson("CURATED",curatedTitle);setIsCurateModalOpen(false);setCuratedTitle("");showToast("Đã lưu bản tùy chỉnh vào thư viện riêng.");}catch(error){showToast((error as Error).message);}};
 
   // Handle Assign Lesson to Class (Supports multi-class & preview)
-  const handleAssignToClass = () => {
-    if (assignSelectedClassIds.length === 0) {
-      showToast("Vui lòng chọn ít nhất 1 lớp học để giao bài");
-      return;
-    }
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsAssignModalOpen(false);
-      setAssignStep(1);
-
-      const targetClassNames = classesList
-        .filter((c) => assignSelectedClassIds.includes(c.id))
-        .map((c) => c.name);
-
-      const chosenVocabs = currentLesson.vocabularies.filter((v) =>
-        selectedVocabIds.includes(v.id)
-      );
-      const chosenGrammars = currentLesson.grammars.filter((g) =>
-        selectedGrammarIds.includes(g.id)
-      );
-      const chosenCultural = availableCulturalItems.filter((c) =>
-        selectedCulturalIds.includes(c.id)
-      );
-
-      const newAssignment: AssignedLessonToClass = {
-        id: "assign-" + Date.now(),
-        lessonId: currentLesson.id,
-        titleZh: currentLesson.titleZh,
-        titleVi: currentLesson.titleVi,
-        sourceTrackId: activeTrack,
-        classIds: assignSelectedClassIds,
-        classNames: targetClassNames.length > 0 ? targetClassNames : ["Lớp học đã chọn"],
-        vocabCount: chosenVocabs.length,
-        grammarCount: chosenGrammars.length,
-        hasDialogue: isDialogueSelected,
-        hasReading: isReadingSelected,
-        culturalCount: chosenCultural.length,
-        selectedVocabs: chosenVocabs,
-        selectedGrammars: chosenGrammars,
-        selectedDialogue: isDialogueSelected ? currentLesson.dialogue : undefined,
-        selectedCulturalItems: chosenCultural,
-        assignedAt: new Date().toLocaleDateString("vi-VN"),
-        dueDate: assignDueDate,
-        teacherNote: assignNote.trim() || undefined,
-      };
-
-      setAssignedLessons((prev) => {
-        const updated = [newAssignment, ...prev];
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem("hanyu_assigned_lessons", JSON.stringify(updated));
-            window.dispatchEvent(new Event("storage"));
-            window.dispatchEvent(new CustomEvent("hanyu_lesson_assigned", { detail: newAssignment }));
-          } catch (e) {}
-        }
-        return updated;
-      });
-
-      // Also call backend assign route if available
-      try {
-        fetch("/api/v1/teacher/lessons/assign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            classId: assignSelectedClassIds[0],
-            classIds: assignSelectedClassIds,
-            lessonId: currentLesson.id,
-            lessonTitle: currentLesson.titleVi,
-            selectedItems: {
-              vocabCount: chosenVocabs.length,
-              grammarCount: chosenGrammars.length,
-              vocabIds: selectedVocabIds,
-              grammarIds: selectedGrammarIds,
-              culturalIds: selectedCulturalIds,
-            },
-            dueDate: assignDueDate,
-            note: assignNote.trim() || undefined,
-          }),
-        }).catch(() => {});
-      } catch (e) {}
-
-      showToast(
-        `Đã giao bài "${currentLesson.titleVi}" cho ${targetClassNames.length} lớp học (${chosenVocabs.length} từ vựng, ${chosenGrammars.length} ngữ pháp, ${chosenCultural.length} mục văn hóa)!`
-      );
-    }, 500);
-  };
+  const handleAssignToClass = async()=>{if(!assignSelectedClassIds.length){showToast("Chọn lớp được giao bài.");return;}setIsSubmitting(true);try{await portalFetch("/api/v1/teacher/lessons/assign",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({classIds:assignSelectedClassIds,classId:assignSelectedClassIds[0],lessonId:currentLesson.id,selectedItems:selectionPayload(),dueDate:assignDueDate,note:assignNote})});setIsAssignModalOpen(false);setAssignStep(1);showToast("Đã công bố nội dung đã chọn cho các lớp và lưu database.");}catch(error){showToast((error as Error).message);}finally{setIsSubmitting(false);}};
 
   // Handle Transfer Selection to Assignment Module
   const handleTransferToAssignment = () => {
@@ -720,7 +518,7 @@ export function LessonLibraryWorkspace({
       selectedCulturalIds.includes(c.id)
     );
 
-    if (chosenVocabList.length === 0 && chosenGrammarList.length === 0 && chosenCulturalList.length === 0) {
+    if (chosenVocabList.length === 0 && chosenGrammarList.length === 0 && chosenCulturalList.length === 0 && !isReadingSelected && !selectedReadingWordIds.length) {
       showToast("Vui lòng chọn ít nhất 1 từ vựng, ngữ pháp hoặc mục văn hóa để tạo bài tập!");
       return;
     }
@@ -728,7 +526,8 @@ export function LessonLibraryWorkspace({
     if (onNavigateToAssignments) {
       onNavigateToAssignments({
         lessonTitle: currentLesson.titleVi,
-        classId: selectedClassId || (classesList[0]?.id ?? "c1"),
+        classId: selectedClassId || classesList[0]?.id,
+        lessonId:currentLesson.id,hskLevel:Number(currentLesson.levelId.replace("hsk","")),reading:selectionPayload().reading,sourceContent:JSON.stringify(selectionPayload(),null,2),
         vocabList: chosenVocabList,
         grammarList: chosenGrammarList,
         culturalList: chosenCulturalList,
@@ -760,7 +559,7 @@ export function LessonLibraryWorkspace({
   };
 
   return (
-    <div className="relative min-h-screen bg-[#FDFBF7] text-[#204434] pb-16 font-sans">
+    <div className="relative min-h-screen bg-[#FDFBF7] text-[#204434] pb-16 font-sans">{catalogError&&<p role="alert" className="p-4 text-sm text-red-700">{catalogError}</p>}{!catalog&&!catalogError&&<p className="p-4 text-sm text-[#6B766D]">Đang tải giáo trình admin…</p>}
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#204434] text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-medium border border-[#BC9B6B]/40 animate-fade-in">
@@ -794,7 +593,7 @@ export function LessonLibraryWorkspace({
               <h1 className="text-xl sm:text-2xl font-serif font-bold text-[#204434] flex items-center gap-2">
                 <span>Kho bài học</span>
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-sans font-semibold border border-[#204434]/20">
-                  Hanyu Teacher 2026
+                  Hanyu Teacher {new Date().getFullYear()}
                 </span>
               </h1>
               <p className="text-xs text-[#315E48]">
@@ -885,7 +684,7 @@ export function LessonLibraryWorkspace({
             }`}
           >
             <Bookmark className="w-4 h-4 text-[#BC9B6B]" />
-            <span>Thư viện của tôi ({savedHanyuLessons.length + curatedLessons.length + lectureMaterials.length})</span>
+            <span>Thư viện của tôi ({(collections?.items.length||0)+(privateFiles?.items.length||0)})</span>
           </button>
         </div>
 
@@ -912,7 +711,7 @@ export function LessonLibraryWorkspace({
                     activeTrack === "hsk" ? "bg-[#BC9B6B] text-white" : "bg-[#E5DEC9] text-[#204434]"
                   }`}
                 >
-                  7 cấp độ
+                  {HSK_LEVELS_META.length} cấp độ
                 </span>
               </button>
 
@@ -932,7 +731,7 @@ export function LessonLibraryWorkspace({
                     activeTrack === "topic" ? "bg-[#BC9B6B] text-white" : "bg-[#E5DEC9] text-[#204434]"
                   }`}
                 >
-                  9 chủ đề lớn (72 chủ đề con)
+                  Chưa có học liệu
                 </span>
               </button>
 
@@ -1008,126 +807,10 @@ export function LessonLibraryWorkspace({
                 )}
 
                 {/* Theo chủ đề Breadcrumbs */}
-                {activeTrack === "topic" && (
-                  <>
-                    <span
-                      onClick={() => setTopicScreen("MAJOR_TOPICS")}
-                      className={`hover:underline cursor-pointer ${
-                        topicScreen === "MAJOR_TOPICS" ? "font-bold text-[#204434]" : ""
-                      }`}
-                    >
-                      Theo chủ đề
-                    </span>
-                    {topicScreen !== "MAJOR_TOPICS" && (
-                      <>
-                        <span>&gt;</span>
-                        <span
-                          onClick={() => setTopicScreen("SUBTOPICS")}
-                          className={`hover:underline cursor-pointer ${
-                            topicScreen === "SUBTOPICS" ? "font-bold text-[#204434]" : ""
-                          }`}
-                        >
-                          {currentMajorTopic.title}
-                        </span>
-                      </>
-                    )}
-                    {(topicScreen === "LESSONS_LIST" || topicScreen === "LESSON_DETAIL") && (
-                      <>
-                        <span>&gt;</span>
-                        <span
-                          onClick={() => setTopicScreen("LESSONS_LIST")}
-                          className={`hover:underline cursor-pointer ${
-                            topicScreen === "LESSONS_LIST" ? "font-bold text-[#204434]" : ""
-                          }`}
-                        >
-                          {currentSubtopic?.title || "Chủ đề con"}
-                        </span>
-                      </>
-                    )}
-                    {topicScreen === "LESSON_DETAIL" && (
-                      <>
-                        <span>&gt;</span>
-                        <span className="font-bold text-[#204434]">
-                          Bài {currentLesson.orderNumber}: {currentLesson.titleZh}
-                        </span>
-                      </>
-                    )}
-                  </>
-                )}
+                {activeTrack!=="hsk"&&<p className="rounded-2xl border border-dashed border-[#E5DEC9] p-8 text-center text-xs text-[#6B766D]">Chưa có giáo trình trong nhánh này. Kho HSK hiển thị nội dung admin đã nạp vào hệ thống.</p>}
 
                 {/* Đại học & Ngành Breadcrumbs */}
-                {activeTrack === "major" && (
-                  <>
-                    <span
-                      onClick={() => setMajorScreen("FACULTIES")}
-                      className={`hover:underline cursor-pointer ${
-                        majorScreen === "FACULTIES" ? "font-bold text-[#204434]" : ""
-                      }`}
-                    >
-                      ĐH Trịnh Châu (郑州大学)
-                    </span>
-                    {majorScreen !== "FACULTIES" && (
-                      <>
-                        <span>&gt;</span>
-                        <span
-                          onClick={() => setMajorScreen("MAJORS")}
-                          className={`hover:underline cursor-pointer ${
-                            majorScreen === "MAJORS" ? "font-bold text-[#204434]" : ""
-                          }`}
-                        >
-                          {currentFaculty.nameZh} ({currentFaculty.nameVi})
-                        </span>
-                      </>
-                    )}
-                    {(majorScreen === "COURSES" || majorScreen === "CHAPTERS" || majorScreen === "LESSONS_LIST" || majorScreen === "LESSON_DETAIL") && (
-                      <>
-                        <span>&gt;</span>
-                        <span
-                          onClick={() => setMajorScreen("COURSES")}
-                          className={`hover:underline cursor-pointer ${
-                            majorScreen === "COURSES" ? "font-bold text-[#204434]" : ""
-                          }`}
-                        >
-                          {currentMajor?.nameZh}
-                        </span>
-                      </>
-                    )}
-                    {(majorScreen === "CHAPTERS" || majorScreen === "LESSONS_LIST" || majorScreen === "LESSON_DETAIL") && (
-                      <>
-                        <span>&gt;</span>
-                        <span
-                          onClick={() => setMajorScreen("CHAPTERS")}
-                          className={`hover:underline cursor-pointer ${
-                            majorScreen === "CHAPTERS" ? "font-bold text-[#204434]" : ""
-                          }`}
-                        >
-                          {currentCourse?.titleZh}
-                        </span>
-                      </>
-                    )}
-                    {(majorScreen === "LESSONS_LIST" || majorScreen === "LESSON_DETAIL") && (
-                      <>
-                        <span>&gt;</span>
-                        <span
-                          onClick={() => setMajorScreen("LESSONS_LIST")}
-                          className={`hover:underline cursor-pointer ${
-                            majorScreen === "LESSONS_LIST" ? "font-bold text-[#204434]" : ""
-                          }`}
-                        >
-                          {currentChapter?.titleZh}
-                        </span>
-                      </>
-                    )}
-                    {majorScreen === "LESSON_DETAIL" && (
-                      <>
-                        <span>&gt;</span>
-                        <span className="font-bold text-[#204434]">
-                          {currentLesson.titleZh}
-                        </span>
-                      </>
-                    )}
-                  </>
-                )}
+                {activeTrack!=="hsk"&&<p className="rounded-2xl border border-dashed border-[#E5DEC9] p-8 text-center text-xs text-[#6B766D]">Chưa có giáo trình trong nhánh này. Kho HSK hiển thị nội dung admin đã nạp vào hệ thống.</p>}
               </div>
 
               {/* Stepper info */}
@@ -1388,545 +1071,12 @@ export function LessonLibraryWorkspace({
             {/* =============================================================== */}
             {/* 2. THEO CHỦ ĐỀ BRANCH FLOW (9 CHỦ ĐỀ LỚN & 72 CHỦ ĐỀ CON) */}
             {/* =============================================================== */}
-            {activeTrack === "topic" && (
-              <>
-                {/* 2.1 9 MAJOR TOPICS GRID */}
-                {topicScreen === "MAJOR_TOPICS" && (
-                  <div className="space-y-4 animate-fade-in">
-                    <div>
-                      <h3 className="font-serif font-bold text-lg text-[#204434]">
-                        9 Chủ đề Giao tiếp Tiêu chuẩn HSK 3.0 & Ứng dụng thực tế
-                      </h3>
-                      <p className="text-xs text-[#315E48]">
-                        Hệ thống gồm 72 chủ đề con chuyên sâu. Chọn chủ đề lớn để khám phá các nhóm tình huống.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {OFFICIAL_9_TOPICS.map((top) => (
-                        <div
-                          key={top.id}
-                          onClick={() => {
-                            setTopicSelectedMajorId(top.id);
-                            setTopicSelectedSubtopicId(top.subtopics[0].id);
-                            setTopicScreen("SUBTOPICS");
-                          }}
-                          className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-3xl">{top.icon}</span>
-                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#BC9B6B]/20 text-[#8F6D3B]">
-                                Chủ đề {top.orderNumber}
-                              </span>
-                            </div>
-                            <h4 className="font-serif font-bold text-base text-[#204434]">
-                              {top.title}
-                            </h4>
-                            <p className="text-xs text-[#315E48] leading-relaxed">{top.desc}</p>
-                            <div className="p-2 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9]/80 text-[11px] text-[#8F6D3B]">
-                              <strong>Trọng tâm:</strong> {top.priorityFocus}
-                            </div>
-                          </div>
-
-                          <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#8F6D3B]">
-                              {top.subtopics.length} chủ đề con
-                            </span>
-                            <span className="text-xs font-bold text-[#204434] flex items-center gap-1">
-                              Khám phá →
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2.2 SUBTOPICS GRID FOR SELECTED MAJOR TOPIC */}
-                {topicScreen === "SUBTOPICS" && (
-                  <div className="space-y-5 animate-fade-in">
-                    <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setTopicScreen("MAJOR_TOPICS")}
-                            className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1 transition"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            <span>9 chủ đề lớn</span>
-                          </button>
-                          <span className="text-xl">{currentMajorTopic.icon}</span>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#204434] text-white">
-                            Chủ đề {currentMajorTopic.orderNumber}
-                          </span>
-                        </div>
-                        <h2 className="font-serif font-bold text-xl text-[#204434]">
-                          {currentMajorTopic.title}
-                        </h2>
-                        <p className="text-xs text-[#315E48]">
-                          {currentMajorTopic.priorityFocus}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                      {currentMajorTopic.subtopics.map((sub, idx) => (
-                        <div
-                          key={sub.id}
-                          onClick={() => {
-                            setTopicSelectedSubtopicId(sub.id);
-                            setTopicScreen("LESSONS_LIST");
-                          }}
-                          className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-[#8F6D3B]">
-                              Mục {currentMajorTopic.orderNumber}.{idx + 1}
-                            </span>
-                            <h4 className="font-serif font-bold text-sm text-[#204434]">
-                              {sub.title}
-                            </h4>
-                            <p className="text-[11px] text-[#315E48]">
-                              Gồm {sub.totalLessons} bài học phân theo cấp độ
-                            </p>
-                          </div>
-
-                          <div className="pt-2 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#204434]">Xem danh sách bài</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#204434]" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2.3 SUBTOPIC LESSONS LIST SCREEN */}
-                {topicScreen === "LESSONS_LIST" && (
-                  <div className="space-y-5 animate-fade-in">
-                    {/* Header Banner */}
-                    <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setTopicScreen("SUBTOPICS")}
-                            className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1 transition"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            <span>Đổi chủ đề con</span>
-                          </button>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#BC9B6B] text-white">
-                            {currentMajorTopic.title}
-                          </span>
-                        </div>
-                        <h2 className="font-serif font-bold text-xl text-[#204434]">
-                          {currentSubtopic?.title}
-                        </h2>
-                        <p className="text-xs text-[#315E48]">
-                          Danh sách bài học giao tiếp tình huống thực tế kèm mục Văn hóa giao tiếp
-                        </p>
-                      </div>
-
-                      {/* Filter by Difficulty & Search */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] p-1 rounded-xl text-xs font-bold">
-                          {[
-                            { id: "ALL", label: "Tất cả" },
-                            { id: "BEGINNER", label: "Sơ cấp" },
-                            { id: "INTERMEDIATE", label: "Trung cấp" },
-                            { id: "ADVANCED", label: "Nâng cao" },
-                          ].map((df) => (
-                            <button
-                              key={df.id}
-                              onClick={() => setTopicDifficultyFilter(df.id as any)}
-                              className={`px-2.5 py-1 rounded-lg transition ${
-                                topicDifficultyFilter === df.id
-                                  ? "bg-[#204434] text-white"
-                                  : "text-[#204434] hover:bg-[#FAF7F0]"
-                              }`}
-                            >
-                              {df.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Lessons Grid */}
-                    {(() => {
-                      const rawLessons = SUBTOPIC_LESSONS_MAP[topicSelectedSubtopicId] || [
-                        {
-                          id: "top-sub-demo-1",
-                          titleZh: "今天我休息",
-                          titlePy: "Jīntiān wǒ xiūxi",
-                          titleVi: "Hôm nay tôi nghỉ ngơi",
-                          levelId: "top-1-life",
-                          levelLabel: "Theo chủ đề",
-                          categoryLabel: currentSubtopic?.title,
-                          trackId: "topic" as const,
-                          orderNumber: 1,
-                          topicDifficulty: "BEGINNER" as TopicDifficultyLevel,
-                          thumbnailArt: "lesson5" as const,
-                          stats: {
-                            vocabCount: 12,
-                            grammarCount: 2,
-                            dialogueCount: 1,
-                            readingCount: 1,
-                            listeningCount: 1,
-                          },
-                        },
-                      ];
-
-                      const filteredLessons = rawLessons.filter((l) => {
-                        if (topicDifficultyFilter !== "ALL" && l.topicDifficulty !== topicDifficultyFilter) {
-                          return false;
-                        }
-                        if (topicSearchFilter.trim()) {
-                          const q = topicSearchFilter.toLowerCase();
-                          return (
-                            l.titleZh.toLowerCase().includes(q) ||
-                            l.titleVi.toLowerCase().includes(q) ||
-                            l.titlePy.toLowerCase().includes(q)
-                          );
-                        }
-                        return true;
-                      });
-
-                      if (filteredLessons.length === 0) {
-                        return (
-                          <div className="p-12 text-center rounded-3xl bg-[#FFFCF6] border border-dashed border-[#E5DEC9]">
-                            <p className="text-sm font-bold text-[#204434]">Không có bài học trong cấp độ lọc này</p>
-                            <p className="text-xs text-[#315E48] mt-1">Chọn lại "Tất cả" để xem danh sách bài học.</p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filteredLessons.map((les) => (
-                            <div
-                              key={les.id}
-                              onClick={() => {
-                                setTopicSelectedLessonId(les.id);
-                                setTopicScreen("LESSON_DETAIL");
-                              }}
-                              className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                            >
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[#204434]/10 text-[#204434]">
-                                    Bài {les.orderNumber}
-                                  </span>
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#BC9B6B]/20 text-[#8F6D3B]">
-                                    {les.topicDifficulty === "BEGINNER" ? "Sơ cấp" : les.topicDifficulty === "INTERMEDIATE" ? "Trung cấp" : "Nâng cao"}
-                                  </span>
-                                </div>
-                                <div>
-                                  <h4 className="font-serif font-bold text-lg text-[#204434]">
-                                    {les.titleZh}
-                                  </h4>
-                                  <p className="text-xs text-[#8F6D3B] italic">{les.titlePy}</p>
-                                  <p className="text-xs text-[#315E48] font-medium mt-1">{les.titleVi}</p>
-                                </div>
-                              </div>
-
-                              <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                                <span className="text-[11px] text-[#8F6D3B]">
-                                  🏮 Có mục Văn hóa giao tiếp
-                                </span>
-                                <span className="text-xs font-bold text-[#204434]">
-                                  Xem chi tiết →
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </>
-            )}
+            {activeTrack!=="hsk"&&<p className="rounded-2xl border border-dashed border-[#E5DEC9] p-8 text-center text-xs text-[#6B766D]">Chưa có giáo trình trong nhánh này. Kho HSK hiển thị nội dung admin đã nạp vào hệ thống.</p>}
 
             {/* =============================================================== */}
             {/* 3. ĐẠI HỌC & NGÀNH BRANCH FLOW (12 VIỆN/KHOA · ĐH TRỊNH CHÂU) */}
             {/* =============================================================== */}
-            {activeTrack === "major" && (
-              <>
-                {/* 3.1 12 FACULTIES SCREEN */}
-                {majorScreen === "FACULTIES" && (
-                  <div className="space-y-4 animate-fade-in">
-                    <div>
-                      <h3 className="font-serif font-bold text-lg text-[#204434]">
-                        Hệ thống Đào tạo Học thuật Đại học Trịnh Châu (郑州大学) - 12 Viện/Khoa
-                      </h3>
-                      <p className="text-xs text-[#315E48]">
-                        Khám phá bài giảng chuyên ngành đại học từ thuật ngữ chuyên ngành đến lý luận học thuật.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {OFFICIAL_12_FACULTIES.map((fac) => (
-                        <div
-                          key={fac.id}
-                          onClick={() => {
-                            setMajorSelectedFacultyId(fac.id);
-                            setMajorSelectedMajorId(fac.majors[0]?.id || "maj-ba");
-                            setMajorScreen("MAJORS");
-                          }}
-                          className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-2xl">{fac.icon}</span>
-                              <span className="text-[11px] font-bold text-[#8F6D3B]">
-                                {fac.majors.length} ngành
-                              </span>
-                            </div>
-                            <h4 className="font-serif font-bold text-base text-[#204434]">
-                              {fac.nameZh}
-                            </h4>
-                            <p className="text-xs font-semibold text-[#8F6D3B]">{fac.nameVi}</p>
-                            <p className="text-xs text-[#315E48] leading-relaxed line-clamp-2">{fac.desc}</p>
-                          </div>
-
-                          <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#204434]">Xem các ngành →</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#204434]" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3.2 MAJORS SCREEN */}
-                {majorScreen === "MAJORS" && (
-                  <div className="space-y-5 animate-fade-in">
-                    <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setMajorScreen("FACULTIES")}
-                            className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1 transition"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            <span>12 Viện/Khoa</span>
-                          </button>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#204434] text-white">
-                            {currentFaculty.nameZh}
-                          </span>
-                        </div>
-                        <h2 className="font-serif font-bold text-xl text-[#204434]">
-                          {currentFaculty.nameZh} ({currentFaculty.nameVi})
-                        </h2>
-                        <p className="text-xs text-[#315E48]">
-                          {currentFaculty.desc}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {currentFaculty.majors.map((maj) => (
-                        <div
-                          key={maj.id}
-                          onClick={() => {
-                            setMajorSelectedMajorId(maj.id);
-                            setMajorSelectedCourseId(maj.courses[0]?.id || "crs-poliecon");
-                            setMajorScreen("COURSES");
-                          }}
-                          className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <h4 className="font-serif font-bold text-base text-[#204434]">
-                              {maj.nameZh}
-                            </h4>
-                            <p className="text-xs font-semibold text-[#8F6D3B]">{maj.nameVi}</p>
-                          </div>
-
-                          <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                            <span className="text-[11px] text-[#8F6D3B]">
-                              📚 {maj.courses.length} môn học đào tạo
-                            </span>
-                            <span className="text-xs font-bold text-[#204434]">Xem môn học →</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3.3 COURSES SCREEN */}
-                {majorScreen === "COURSES" && (
-                  <div className="space-y-5 animate-fade-in">
-                    <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setMajorScreen("MAJORS")}
-                            className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1 transition"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            <span>Đổi ngành đào tạo</span>
-                          </button>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#204434] text-white">
-                            {currentMajor?.nameZh}
-                          </span>
-                        </div>
-                        <h2 className="font-serif font-bold text-xl text-[#204434]">
-                          {currentMajor?.nameZh} ({currentMajor?.nameVi})
-                        </h2>
-                        <p className="text-xs text-[#315E48]">Danh sách môn học chuyên sâu thuộc chương trình đại học</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {currentMajor?.courses.map((crs) => (
-                        <div
-                          key={crs.id}
-                          onClick={() => {
-                            setMajorSelectedCourseId(crs.id);
-                            setMajorSelectedChapterId(crs.chapters[1]?.id || crs.chapters[0]?.id);
-                            setMajorScreen("CHAPTERS");
-                          }}
-                          className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <h4 className="font-serif font-bold text-base text-[#204434]">
-                              {crs.titleZh}
-                            </h4>
-                            <p className="text-xs font-semibold text-[#8F6D3B]">{crs.titleVi}</p>
-                          </div>
-
-                          <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                            <span className="text-[11px] text-[#8F6D3B]">
-                              📖 {crs.chapters.length} chương bài giảng
-                            </span>
-                            <span className="text-xs font-bold text-[#204434]">Xem các chương →</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3.4 CHAPTERS SCREEN */}
-                {majorScreen === "CHAPTERS" && (
-                  <div className="space-y-5 animate-fade-in">
-                    <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setMajorScreen("COURSES")}
-                            className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1 transition"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            <span>Đổi môn học</span>
-                          </button>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#204434] text-white">
-                            {currentCourse?.titleZh}
-                          </span>
-                        </div>
-                        <h2 className="font-serif font-bold text-xl text-[#204434]">
-                          {currentCourse?.titleZh} ({currentCourse?.titleVi})
-                        </h2>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {currentCourse?.chapters.map((ch) => (
-                        <div
-                          key={ch.id}
-                          onClick={() => {
-                            setMajorSelectedChapterId(ch.id);
-                            setMajorScreen("LESSONS_LIST");
-                          }}
-                          className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <h4 className="font-serif font-bold text-base text-[#204434]">
-                              {ch.titleZh}
-                            </h4>
-                            <p className="text-xs font-semibold text-[#8F6D3B]">{ch.titleVi}</p>
-                          </div>
-
-                          <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                            <span className="text-[11px] text-[#8F6D3B]">
-                              📄 {ch.lessons.length} tiết / bài học
-                            </span>
-                            <span className="text-xs font-bold text-[#204434]">Xem các tiết →</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3.5 CHAPTER LESSONS LIST SCREEN */}
-                {majorScreen === "LESSONS_LIST" && (
-                  <div className="space-y-5 animate-fade-in">
-                    <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setMajorScreen("CHAPTERS")}
-                            className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-xs font-semibold hover:bg-[#FAF7F0] flex items-center gap-1 transition"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            <span>Đổi chương</span>
-                          </button>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#BC9B6B] text-white">
-                            {currentCourse?.titleZh}
-                          </span>
-                        </div>
-                        <h2 className="font-serif font-bold text-xl text-[#204434]">
-                          {currentChapter?.titleZh} ({currentChapter?.titleVi})
-                        </h2>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {currentChapter?.lessons.map((les) => (
-                        <div
-                          key={les.id}
-                          onClick={() => {
-                            setMajorSelectedLessonId(les.id);
-                            setMajorScreen("LESSON_DETAIL");
-                          }}
-                          className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434] cursor-pointer shadow-xs hover:shadow-md transition space-y-3 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[#204434]/10 text-[#204434]">
-                                Tiết {les.orderNumber}
-                              </span>
-                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#BC9B6B]/20 text-[#8F6D3B]">
-                                Học thuật chuyên ngành
-                              </span>
-                            </div>
-                            <h4 className="font-serif font-bold text-lg text-[#204434]">
-                              {les.titleZh}
-                            </h4>
-                            <p className="text-xs text-[#8F6D3B] italic">{les.titlePy}</p>
-                            <p className="text-xs text-[#315E48] font-medium">{les.titleVi}</p>
-                          </div>
-
-                          <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                            <span className="text-[11px] text-[#8F6D3B]">
-                              📊 Thuật ngữ · Lý thuyết · Bảng ma trận
-                            </span>
-                            <span className="text-xs font-bold text-[#204434]">
-                              Xem chi tiết học phần →
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+            {activeTrack!=="hsk"&&<p className="rounded-2xl border border-dashed border-[#E5DEC9] p-8 text-center text-xs text-[#6B766D]">Chưa có giáo trình trong nhánh này. Kho HSK hiển thị nội dung admin đã nạp vào hệ thống.</p>}
 
             {/* =============================================================== */}
             {/* 4. LESSON DETAIL VIEW (When in LESSON_DETAIL screen) */}
@@ -1961,39 +1111,10 @@ export function LessonLibraryWorkspace({
                       title="Chỉnh sửa nội dung học liệu bài học"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>Chỉnh sửa học liệu</span>
+                      <span>Chỉnh sửa bản riêng</span>
                     </button>
 
-                    <button
-                      onClick={() => {
-                        const isSaved = savedHanyuLessons.some((l) => l.lessonId === currentLesson.id);
-                        if (isSaved) {
-                          setSavedHanyuLessons((prev) => prev.filter((l) => l.lessonId !== currentLesson.id));
-                          showToast(`Đã bỏ lưu bài học "${currentLesson.titleVi}"`);
-                        } else {
-                          const newSaved: SavedHanyuLesson = {
-                            id: "saved-" + Date.now(),
-                            lessonId: currentLesson.id,
-                            titleZh: currentLesson.titleZh,
-                            titleVi: currentLesson.titleVi,
-                            trackId: currentLesson.trackId,
-                            levelLabel: currentLesson.levelLabel,
-                            savedAt: new Date().toISOString().split("T")[0],
-                            readOnly: true,
-                          };
-                          setSavedHanyuLessons((prev) => [newSaved, ...prev]);
-                          showToast(`Đã lưu bài học "${currentLesson.titleVi}" vào Thư viện của tôi!`);
-                        }
-                      }}
-                      className="px-3 py-1.5 rounded-xl border border-[#E5DEC9] bg-[#FFFCF6] hover:bg-[#F3EEDD] text-[#8F6D3B] text-xs font-bold transition flex items-center gap-1.5"
-                    >
-                      <Bookmark className="w-3.5 h-3.5" />
-                      <span>
-                        {savedHanyuLessons.some((l) => l.lessonId === currentLesson.id)
-                          ? "Đã lưu vào thư viện"
-                          : "Lưu vào thư viện"}
-                      </span>
-                    </button>
+                    <button onClick={async()=>{try{const saved=savedHanyuLessons.find(item=>item.lessonId===currentLesson.id);if(saved){await portalFetch("/api/v1/teacher/collections?id="+saved.id,{method:"DELETE"});reloadCollections();showToast("Đã gỡ khỏi thư viện riêng.");}else{await savePrivateLesson();showToast("Đã lưu học liệu và từ vựng đã chọn vào kho riêng.");}}catch(error){showToast((error as Error).message);}}} className="flex items-center gap-2 rounded-xl border border-[#E5DEC9] bg-[#FFFCF6] px-3 py-2 text-xs font-bold text-[#8F6D3B]"><Bookmark size={14}/>{savedHanyuLessons.some(item=>item.lessonId===currentLesson.id)?"Đã lưu vào thư viện":"Lưu vào thư viện"}</button>
                   </div>
                 </div>
 
@@ -2594,547 +1715,10 @@ export function LessonLibraryWorkspace({
                         )}
 
                         {/* SECTION 4: LUYỆN ĐỌC HIỂU */}
-                        {currentLesson.reading && (
-                          <div className="rounded-3xl border border-[#E5DEC9] bg-[#FFFCF6] shadow-2xs overflow-hidden">
-                            <div className="p-4 sm:p-5 flex items-center justify-between border-b border-[#E5DEC9]/80 bg-[#FAF7F0]">
-                              <div className="flex items-center gap-3">
-                                <span className="w-8 h-8 rounded-xl bg-[#204434] text-white flex items-center justify-center font-bold text-xs">
-                                  04
-                                </span>
-                                <div>
-                                  <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
-                                    <span>Luyện đọc hiểu & Ngữ cảnh</span>
-                                  </h3>
-                                  <p className="text-[11px] text-[#315E48]">
-                                    Đoạn văn ngắn củng cố từ vựng và cấu trúc đã học trong ngữ cảnh thực tế.
-                                  </p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => setIsReadingSelected(!isReadingSelected)}
-                                className={`px-3 py-1 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
-                                  isReadingSelected
-                                    ? "bg-[#204434] text-white border-[#204434]"
-                                    : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#F3EEDD]"
-                                }`}
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>{isReadingSelected ? "Đã chọn" : "Chọn bài đọc"}</span>
-                              </button>
-                            </div>
-
-                            <div className="p-5 space-y-4">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-serif font-bold text-base text-[#204434]">
-                                    {currentLesson.reading.titleZh} ({currentLesson.reading.titleVi})
-                                  </h4>
-                                  <button
-                                    type="button"
-                                    onClick={() => currentLesson.reading?.contentZh && speakChinese(currentLesson.reading.contentZh)}
-                                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition ${
-                                      activeSpeakingText === currentLesson.reading?.contentZh
-                                        ? "bg-[#204434] text-white border-[#204434]"
-                                        : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#F3EEDD]"
-                                    }`}
-                                    title="Phát toàn bộ bài đọc"
-                                  >
-                                    <Volume2 className="w-3.5 h-3.5" />
-                                    <span>Phát âm thanh toàn bài đọc</span>
-                                  </button>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowPinyinInReading(!showPinyinInReading)}
-                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#8F6D3B] hover:bg-[#F3EEDD] transition"
-                                  >
-                                    {showPinyinInReading ? "Ẩn Pinyin" : "Hiện Pinyin"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowViInReading(!showViInReading)}
-                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E5DEC9] bg-white font-semibold text-[#315E48] hover:bg-[#F3EEDD] transition"
-                                  >
-                                    {showViInReading ? "Ẩn bản dịch" : "Hiện bản dịch"}
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
-                                <p className="font-serif text-base text-[#204434] leading-relaxed">
-                                  {currentLesson.reading.contentZh}
-                                </p>
-                                {showPinyinInReading && (
-                                  <p className="text-xs text-[#8F6D3B] italic leading-relaxed pt-2 border-t border-[#E5DEC9]/40">
-                                    {currentLesson.reading.contentPy}
-                                  </p>
-                                )}
-                                {showViInReading && (
-                                  <p className="text-xs text-[#315E48] leading-relaxed pt-2 border-t border-[#E5DEC9]/40">
-                                    {currentLesson.reading.contentVi}
-                                  </p>
-                                )}
-                              </div>
-
-                              {/* TỪ VỰNG MỞ RỘNG TRONG BÀI ĐỌC */}
-                              {currentLesson.reading.extraVocabs && currentLesson.reading.extraVocabs.length > 0 && (
-                                <div className="space-y-2 pt-2 border-t border-[#E5DEC9]/60">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide">
-                                      Từ vựng mở rộng ({currentLesson.reading.extraVocabs.length} từ):
-                                    </span>
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-semibold">
-                                      Từ vựng mở rộng
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                                    {currentLesson.reading.extraVocabs.map((ev, evIdx) => (
-                                      <div
-                                        key={evIdx}
-                                        className="p-2.5 rounded-xl border border-[#E5DEC9] bg-[#FAF7F0] flex items-center justify-between gap-2 shadow-2xs"
-                                      >
-                                        <div className="space-y-0.5">
-                                          <div className="flex items-center gap-1.5">
-                                            <span className="font-serif font-bold text-sm text-[#204434]">{ev.hanzi}</span>
-                                            <span className="text-[11px] text-[#8F6D3B] italic">{ev.pinyin}</span>
-                                          </div>
-                                          <p className="text-[11px] text-[#315E48] font-medium">{ev.meaningVi}</p>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => speakChinese(ev.hanzi)}
-                                          className="p-1.5 rounded-lg border border-[#E5DEC9] bg-white hover:bg-[#F3EEDD] text-[#204434] transition shrink-0"
-                                          title="Nghe phát âm"
-                                        >
-                                          <Volume2 className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        <LessonRichSections lesson={currentLesson} readingSelected={isReadingSelected} onReadingChange={setIsReadingSelected} wordIds={selectedReadingWordIds} onWordsChange={setSelectedReadingWordIds} cultureIds={selectedCulturalIds} onCultureChange={toggleCulturalItem}/>
 
                         {/* SECTION 5: VĂN HÓA GIAO TIẾP & CÁCH SỬ DỤNG THỰC TẾ (ĐẶC TẢ HOÀN CHỈNH) */}
-                        {currentLesson.culturalNote && (
-                          <div className="rounded-3xl border border-[#BC9B6B]/60 bg-[#FFFCF6] shadow-2xs overflow-hidden">
-                            <div className="p-4 sm:p-5 flex items-center justify-between border-b border-[#BC9B6B]/40 bg-gradient-to-r from-[#FAF7F0] via-[#FDFBF7] to-[#F5EEDB]">
-                              <div className="flex items-center gap-3">
-                                <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#BC9B6B] to-[#8F6D3B] text-white flex items-center justify-center font-bold text-lg shadow-2xs">
-                                  🏮
-                                </span>
-                                <div>
-                                  <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
-                                    <span>Văn hóa giao tiếp & Cách sử dụng thực tế</span>
-                                    <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] border border-[#BC9B6B]/30">
-                                      {selectedCulturalItems.length}/{availableCulturalItems.length} đã chọn
-                                    </span>
-                                  </h3>
-                                  <p className="text-[11px] text-[#315E48]">
-                                    Các quy tắc văn hóa quan trọng, lưu ý giao tiếp và mẫu câu thường dùng trong đời sống.
-                                  </p>
-                                </div>
-                              </div>
 
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={toggleAllCultural}
-                                  className="px-3 py-1.5 rounded-xl border border-[#BC9B6B]/50 bg-white hover:bg-[#F3EEDD] text-[#8F6D3B] font-bold text-xs flex items-center gap-1.5 shadow-2xs transition"
-                                >
-                                  <div
-                                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
-                                      isAllCulturalSelected
-                                        ? "bg-[#204434] border-[#204434] text-white"
-                                        : isSomeCulturalSelected
-                                        ? "bg-[#BC9B6B]/30 border-[#BC9B6B] text-[#204434]"
-                                        : "border-[#BC9B6B] bg-white"
-                                    }`}
-                                  >
-                                    {isAllCulturalSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                    {!isAllCulturalSelected && isSomeCulturalSelected && (
-                                      <span className="w-2 h-0.5 bg-[#204434] rounded-full" />
-                                    )}
-                                  </div>
-                                  <span>{isAllCulturalSelected ? "Bỏ chọn tất cả Phần 5" : "Chọn toàn bộ Phần 5"}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => setIsCulturalExpanded(!isCulturalExpanded)}
-                                  className="p-1.5 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] hover:bg-[#F3EEDD]"
-                                >
-                                  {isCulturalExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                </button>
-                              </div>
-                            </div>
-
-                            {isCulturalExpanded && (
-                              <div className="p-5 space-y-4 text-xs">
-                                {/* 1. Bối cảnh & Đối tượng (2 Subsections with individual checkboxes) */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                                  {/* Subsection 1: Context */}
-                                  {currentLesson.culturalNote.context && (() => {
-                                    const contextId = `cult-${currentLesson.id}-context`;
-                                    const isContextSelected = selectedCulturalIds.includes(contextId);
-                                    return (
-                                      <div
-                                        onClick={() => toggleCulturalItem(contextId)}
-                                        className={`p-3.5 rounded-2xl border transition cursor-pointer select-none space-y-2 ${
-                                          isContextSelected
-                                            ? "bg-[#F3EEDD]/70 border-[#204434] shadow-xs"
-                                            : "bg-white border-[#E5DEC9] hover:border-[#BC9B6B]"
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide flex items-center gap-1.5">
-                                            <span>🏛️</span>
-                                            <span>Bối cảnh sử dụng</span>
-                                          </span>
-                                          <div
-                                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
-                                              isContextSelected
-                                                ? "bg-[#204434] border-[#204434] text-white"
-                                                : "border-[#BC9B6B] bg-white"
-                                            }`}
-                                          >
-                                            {isContextSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                          </div>
-                                        </div>
-                                        <p className="text-[#204434] leading-relaxed">
-                                          {currentLesson.culturalNote.context}
-                                        </p>
-                                      </div>
-                                    );
-                                  })()}
-
-                                  {/* Subsection 2: Target Audience */}
-                                  {currentLesson.culturalNote.targetAudience && (() => {
-                                    const audienceId = `cult-${currentLesson.id}-audience`;
-                                    const isAudienceSelected = selectedCulturalIds.includes(audienceId);
-                                    return (
-                                      <div
-                                        onClick={() => toggleCulturalItem(audienceId)}
-                                        className={`p-3.5 rounded-2xl border transition cursor-pointer select-none space-y-2 ${
-                                          isAudienceSelected
-                                            ? "bg-[#F3EEDD]/70 border-[#204434] shadow-xs"
-                                            : "bg-white border-[#E5DEC9] hover:border-[#BC9B6B]"
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide flex items-center gap-1.5">
-                                            <span>👥</span>
-                                            <span>Đối tượng phù hợp</span>
-                                          </span>
-                                          <div
-                                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
-                                              isAudienceSelected
-                                                ? "bg-[#204434] border-[#204434] text-white"
-                                                : "border-[#BC9B6B] bg-white"
-                                            }`}
-                                          >
-                                            {isAudienceSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                          </div>
-                                        </div>
-                                        <p className="text-[#204434] leading-relaxed">
-                                          {currentLesson.culturalNote.targetAudience}
-                                        </p>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-
-                                {/* 2. Subsection 3: Mẫu câu nên dùng (Group toggle + Individual phrase toggles) */}
-                                {currentLesson.culturalNote.naturalExpressions && currentLesson.culturalNote.naturalExpressions.length > 0 && (() => {
-                                  const phraseItems = availableCulturalItems.filter((c) => c.type === "PHRASE");
-                                  const selectedPhraseCount = phraseItems.filter((c) => selectedCulturalIds.includes(c.id)).length;
-                                  const isAllPhrasesSelected = phraseItems.length > 0 && selectedPhraseCount === phraseItems.length;
-
-                                  return (
-                                    <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
-                                      <div className="flex items-center justify-between border-b border-[#E5DEC9]/70 pb-2">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide flex items-center gap-1">
-                                            <span>✨</span>
-                                            <span>Nhóm 1: Mẫu câu vàng khuyên dùng</span>
-                                          </span>
-                                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#8F6D3B] font-semibold">
-                                            {selectedPhraseCount}/{phraseItems.length} đã chọn
-                                          </span>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleCulturalSubgroup("PHRASE")}
-                                          className="text-xs text-[#204434] hover:underline font-semibold flex items-center gap-1.5"
-                                        >
-                                          <div
-                                            className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition ${
-                                              isAllPhrasesSelected
-                                                ? "bg-[#204434] border-[#204434] text-white"
-                                                : "border-[#BC9B6B] bg-white"
-                                            }`}
-                                          >
-                                            {isAllPhrasesSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                                          </div>
-                                          <span>{isAllPhrasesSelected ? "Bỏ chọn tất cả mẫu câu" : "Chọn tất cả mẫu câu"}</span>
-                                        </button>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                        {currentLesson.culturalNote.naturalExpressions.map((phrase, i) => {
-                                          const phraseId = `cult-${currentLesson.id}-phrase-${i}`;
-                                          const isSelected = selectedCulturalIds.includes(phraseId);
-
-                                          return (
-                                            <div
-                                              key={phraseId}
-                                              onClick={() => toggleCulturalItem(phraseId)}
-                                              className={`p-3 rounded-xl border transition cursor-pointer select-none flex items-start justify-between gap-2 ${
-                                                isSelected
-                                                  ? "bg-[#F3EEDD]/80 border-[#204434] shadow-xs"
-                                                  : "bg-[#FAF7F0] border-[#E5DEC9]/80 hover:border-[#BC9B6B]"
-                                              }`}
-                                            >
-                                              <div className="flex items-start gap-2.5">
-                                                <div
-                                                  className={`w-4 h-4 mt-0.5 rounded-md border flex items-center justify-center shrink-0 transition ${
-                                                    isSelected
-                                                      ? "bg-[#204434] border-[#204434] text-white"
-                                                      : "border-[#BC9B6B] bg-white"
-                                                  }`}
-                                                >
-                                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                                </div>
-                                                <div>
-                                                  <span className="font-serif font-bold text-sm text-[#204434]">
-                                                    {phrase.zh}
-                                                  </span>
-                                                  <p className="text-[11px] text-[#8F6D3B]">{phrase.py}</p>
-                                                  <p className="text-[11px] text-[#315E48] font-medium">{phrase.vi}</p>
-                                                </div>
-                                              </div>
-
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  speakChinese(phrase.zh);
-                                                }}
-                                                className={`p-1.5 rounded-lg border transition shrink-0 ${
-                                                  activeSpeakingText === phrase.zh
-                                                    ? "bg-[#204434] text-white border-[#204434]"
-                                                    : "bg-white text-gray-500 border-[#E5DEC9] hover:text-[#204434] hover:bg-[#F3EEDD]"
-                                                }`}
-                                                title="Phát âm mẫu câu"
-                                              >
-                                                <Volume2 className="w-3.5 h-3.5" />
-                                              </button>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-
-                                {/* 3. Subsection 4 & 5: Cách nói lịch sự & Lưu ý cấm kỵ */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                                  {/* Polite Expressions */}
-                                  {currentLesson.culturalNote.politeExpressions && currentLesson.culturalNote.politeExpressions.length > 0 && (() => {
-                                    const politeItems = availableCulturalItems.filter((c) => c.type === "POLITE");
-                                    const selectedPoliteCount = politeItems.filter((c) => selectedCulturalIds.includes(c.id)).length;
-                                    const isAllPoliteSelected = politeItems.length > 0 && selectedPoliteCount === politeItems.length;
-
-                                    return (
-                                      <div className="p-3.5 rounded-2xl bg-[#204434]/5 border border-[#204434]/20 space-y-2.5">
-                                        <div className="flex items-center justify-between border-b border-[#204434]/15 pb-1.5">
-                                          <span className="text-[10px] font-bold text-[#204434] uppercase tracking-wide flex items-center gap-1">
-                                            <span>🤝</span>
-                                            <span>Nhóm 2: Cách nói lịch sự & Tôn trọng</span>
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleCulturalSubgroup("POLITE")}
-                                            className="text-[11px] text-[#204434] hover:underline font-semibold"
-                                          >
-                                            {isAllPoliteSelected ? "Bỏ chọn" : `Chọn tất cả (${politeItems.length})`}
-                                          </button>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                          {currentLesson.culturalNote.politeExpressions.map((pe, idx) => {
-                                            const politeId = `cult-${currentLesson.id}-polite-${idx}`;
-                                            const isSelected = selectedCulturalIds.includes(politeId);
-
-                                            return (
-                                              <div
-                                                key={politeId}
-                                                onClick={() => toggleCulturalItem(politeId)}
-                                                className={`p-2.5 rounded-xl border transition cursor-pointer select-none flex items-start justify-between gap-2 ${
-                                                  isSelected
-                                                    ? "bg-[#F3EEDD] border-[#204434] shadow-xs"
-                                                    : "bg-white/80 border-[#204434]/15 hover:border-[#204434]"
-                                                }`}
-                                              >
-                                                <div className="flex items-start gap-2">
-                                                  <div
-                                                    className={`w-4 h-4 mt-0.5 rounded-md border flex items-center justify-center shrink-0 transition ${
-                                                      isSelected
-                                                        ? "bg-[#204434] border-[#204434] text-white"
-                                                        : "border-[#BC9B6B] bg-white"
-                                                    }`}
-                                                  >
-                                                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                                  </div>
-                                                  <div className="text-[#204434] text-xs">
-                                                    <span className="font-serif font-bold text-sm">{pe.zh}</span>{" "}
-                                                    <span className="text-[11px] text-[#8F6D3B]">({pe.py})</span> - {pe.vi}
-                                                    {pe.note && (
-                                                      <span className="text-[10px] text-[#8F6D3B] block italic mt-0.5">
-                                                        • {pe.note}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </div>
-
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    speakChinese(pe.zh);
-                                                  }}
-                                                  className={`p-1 rounded-md border transition shrink-0 ${
-                                                    activeSpeakingText === pe.zh
-                                                      ? "bg-[#204434] text-white border-[#204434]"
-                                                      : "bg-white text-gray-500 border-[#E5DEC9] hover:text-[#204434]"
-                                                  }`}
-                                                  title="Phát âm"
-                                                >
-                                                  <Volume2 className="w-3 h-3" />
-                                                </button>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    );
-                                  })()}
-
-                                  {/* Caution Notes */}
-                                  {currentLesson.culturalNote.cautionNotes && currentLesson.culturalNote.cautionNotes.length > 0 && (() => {
-                                    const cautionItemList = availableCulturalItems.filter((c) => c.type === "CAUTION");
-                                    const selectedCautionCount = cautionItemList.filter((c) => selectedCulturalIds.includes(c.id)).length;
-                                    const isAllCautionSelected = cautionItemList.length > 0 && selectedCautionCount === cautionItemList.length;
-
-                                    return (
-                                      <div className="p-3.5 rounded-2xl bg-red-50/70 border border-red-200 space-y-2.5">
-                                        <div className="flex items-center justify-between border-b border-red-200/80 pb-1.5">
-                                          <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide flex items-center gap-1">
-                                            <span>⚠️</span>
-                                            <span>Nhóm 3: Lưu ý & Cấm kỵ văn hóa</span>
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleCulturalSubgroup("CAUTION")}
-                                            className="text-[11px] text-red-800 hover:underline font-semibold"
-                                          >
-                                            {isAllCautionSelected ? "Bỏ chọn" : `Chọn tất cả (${cautionItemList.length})`}
-                                          </button>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                          {currentLesson.culturalNote.cautionNotes.map((note, idx) => {
-                                            const cautionId = `cult-${currentLesson.id}-caution-${idx}`;
-                                            const isSelected = selectedCulturalIds.includes(cautionId);
-
-                                            return (
-                                              <div
-                                                key={cautionId}
-                                                onClick={() => toggleCulturalItem(cautionId)}
-                                                className={`p-2.5 rounded-xl border transition cursor-pointer select-none flex items-start gap-2 ${
-                                                  isSelected
-                                                    ? "bg-red-100/90 border-red-600 shadow-xs"
-                                                    : "bg-white/80 border-red-200 hover:border-red-400"
-                                                }`}
-                                              >
-                                                <div
-                                                  className={`w-4 h-4 mt-0.5 rounded-md border flex items-center justify-center shrink-0 transition ${
-                                                    isSelected
-                                                      ? "bg-red-700 border-red-700 text-white"
-                                                      : "border-red-300 bg-white"
-                                                  }`}
-                                                >
-                                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                                </div>
-                                                <p className="text-red-900 text-xs leading-relaxed flex-1">{note}</p>
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const match = note.match(/[\u4e00-\u9fa5]+/g);
-                                                    if (match && match.length > 0) {
-                                                      speakChinese(match.join("，"));
-                                                    } else {
-                                                      speakChinese(note);
-                                                    }
-                                                  }}
-                                                  className="p-1 rounded-md border border-red-200 bg-white hover:bg-red-100 text-red-700 transition shrink-0"
-                                                  title="Phát âm tiếng Trung trong lưu ý"
-                                                >
-                                                  <Volume2 className="w-3 h-3" />
-                                                </button>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-
-                                {/* 4. Subsection 6: Tình huống áp dụng thực tế */}
-                                {currentLesson.culturalNote.practiceScenario && (() => {
-                                  const scenarioId = `cult-${currentLesson.id}-scenario`;
-                                  const isScenarioSelected = selectedCulturalIds.includes(scenarioId);
-
-                                  return (
-                                    <div
-                                      onClick={() => toggleCulturalItem(scenarioId)}
-                                      className={`p-3.5 rounded-2xl border transition cursor-pointer select-none space-y-2 ${
-                                        isScenarioSelected
-                                          ? "bg-[#F3EEDD]/80 border-[#204434] shadow-xs"
-                                          : "bg-[#FAF7F0] border-[#BC9B6B]/40 hover:border-[#BC9B6B]"
-                                      }`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide flex items-center gap-1.5">
-                                          <span>📍</span>
-                                          <span>Tình huống áp dụng thực tế</span>
-                                        </span>
-                                        <div
-                                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition ${
-                                            isScenarioSelected
-                                              ? "bg-[#204434] border-[#204434] text-white"
-                                              : "border-[#BC9B6B] bg-white"
-                                          }`}
-                                        >
-                                          {isScenarioSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                        </div>
-                                      </div>
-                                      <p className="text-[#204434] leading-relaxed">
-                                        {currentLesson.culturalNote.practiceScenario}
-                                      </p>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -3177,13 +1761,13 @@ export function LessonLibraryWorkspace({
                         <div className="p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] flex items-center justify-between">
                           <span className="text-[#315E48]">Hội thoại:</span>
                           <span className="font-bold text-[#204434]">
-                            {isDialogueSelected ? "1 bài" : "0"}
+                            {isDialogueSelected&&currentLesson.dialogue?.lines.length ? "1 bài" : "0"}
                           </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] flex items-center justify-between">
                           <span className="text-[#315E48]">Đọc hiểu:</span>
                           <span className="font-bold text-[#204434]">
-                            {isReadingSelected ? "1 bài" : "0"}
+                            {isReadingSelected&&currentLesson.reading ? "1 bài" : "0"}
                           </span>
                         </div>
                         {/* Văn hóa giao tiếp row */}
@@ -3198,7 +1782,8 @@ export function LessonLibraryWorkspace({
                         </div>
                       </div>
 
-                      {/* Preview Detailed Basket Button */}
+                      <div className="space-y-3 rounded-xl border border-[#E5DEC9] p-3 text-xs">{isReadingSelected&&currentLesson.reading&&<div><strong>Bài đọc đã chọn</strong><p className="mt-1">{currentLesson.reading.titleZh} · {currentLesson.reading.titleVi}</p></div>}<p className="font-semibold">Từ mở rộng: {selectedReadingWordIds.length}</p>{currentLesson.reading?.extraVocabs?.filter((word,index)=>selectedReadingWordIds.includes(word.id||`${currentLesson.reading!.id}-word-${index}`)).map((word,index)=><p key={word.id||index}>{word.hanzi} · {word.pinyin} · {word.meaningVi}</p>)}</div>
+{/* Preview Detailed Basket Button */}
                       <button
                         type="button"
                         onClick={() => setIsPreviewBasketModalOpen(true)}
@@ -3277,363 +1862,7 @@ export function LessonLibraryWorkspace({
         {/* =================================================================== */}
         {/* TAB 2: THƯ VIỆN CỦA TÔI */}
         {/* =================================================================== */}
-        {mainTab === "MY_LIBRARY" && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Sub-tabs inside Thư viện của tôi */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5DEC9] pb-3">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {[
-                  { id: "ALL", label: `Tất cả (${savedHanyuLessons.length + curatedLessons.length + lectureMaterials.length + assignedLessons.length})` },
-                  { id: "SAVED_HANYU", label: `Đã lưu từ Hanyu (${savedHanyuLessons.length})` },
-                  { id: "CURATED", label: `Bài học tùy chỉnh (${curatedLessons.length})` },
-                  { id: "ASSIGNED", label: `Bài học đã giao (${assignedLessons.length})` },
-                  { id: "MATERIALS", label: `Tài liệu bài giảng (${lectureMaterials.length})` },
-                ].map((sub) => (
-                  <button
-                    key={sub.id}
-                    onClick={() => setLibrarySubTab(sub.id as any)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
-                      librarySubTab === sub.id
-                        ? "bg-[#204434] text-white shadow-xs"
-                        : "bg-[#FFFCF6] text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
-                    }`}
-                  >
-                    {sub.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Upload Material Button */}
-              <button
-                onClick={() => setIsUploadMaterialModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-2"
-              >
-                <UploadCloud className="w-4 h-4 text-[#BC9B6B]" />
-                <span>+ Tải lên tài liệu bài giảng</span>
-              </button>
-            </div>
-
-            {/* A. SECTION: ĐÃ LƯU TỪ HANYU */}
-            {(librarySubTab === "ALL" || librarySubTab === "SAVED_HANYU") && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
-                    <Bookmark className="w-4 h-4 text-[#BC9B6B]" />
-                    <span>Đã lưu từ Hanyu (Học liệu Admin)</span>
-                  </h3>
-                  <span className="text-xs text-[#315E48]">Chỉ đọc · Có thể giao cho lớp</span>
-                </div>
-
-                {savedHanyuLessons.length === 0 ? (
-                  <div className="p-8 rounded-3xl bg-[#FFFCF6] border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48]">
-                    Bạn chưa lưu bài học nào từ kho Admin. Hãy vào tab "Khám phá bài học" và bấm "Lưu vào thư viện".
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {savedHanyuLessons.map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-3 hover:border-[#204434] transition flex flex-col justify-between"
-                      >
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434]">
-                              {item.levelLabel}
-                            </span>
-                            <span className="text-[10px] text-[#315E48]">Lưu ngày: {item.savedAt}</span>
-                          </div>
-                          <h4 className="font-serif font-bold text-base text-[#204434]">
-                            {item.titleZh}
-                          </h4>
-                          <p className="text-xs text-[#8F6D3B] font-medium">{item.titleVi}</p>
-                          <div className="flex items-center gap-3 text-xs text-[#315E48] pt-1">
-                            <span className="text-[10px] bg-[#FAF7F0] px-2 py-0.5 rounded-md border border-[#E5DEC9]">
-                              {item.trackId === "hsk" ? "HSK 3.0" : item.trackId === "topic" ? "Theo chủ đề" : "Đại học"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                          <button
-                            onClick={() => {
-                              setActiveTrack(item.trackId);
-                              if (item.trackId === "hsk") {
-                                setHskSelectedLessonId(item.lessonId);
-                                setHskScreen("LESSON_DETAIL");
-                              } else if (item.trackId === "topic") {
-                                setTopicSelectedLessonId(item.lessonId);
-                                setTopicScreen("LESSON_DETAIL");
-                              } else {
-                                setMajorSelectedLessonId(item.lessonId);
-                                setMajorScreen("LESSON_DETAIL");
-                              }
-                              setMainTab("EXPLORE");
-                            }}
-                            className="text-xs text-[#204434] font-bold hover:underline"
-                          >
-                            Mở bài học này →
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSavedHanyuLessons((prev) => prev.filter((l) => l.id !== item.id));
-                              showToast(`Đã xóa "${item.titleVi}" khỏi danh sách đã lưu`);
-                            }}
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            Bỏ lưu
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* B. SECTION: BÀI HỌC TÙY CHỈNH */}
-            {(librarySubTab === "ALL" || librarySubTab === "CURATED") && (
-              <div className="space-y-3 pt-4 border-t border-[#E5DEC9]">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-                    <span>Bài học tùy chỉnh của tôi (Giáo viên tự chọn lọc)</span>
-                  </h3>
-                  <span className="text-xs text-[#315E48]">Có thể chỉnh sửa và tạo bài tập</span>
-                </div>
-
-                {curatedLessons.length === 0 ? (
-                  <div className="p-8 rounded-3xl bg-[#FFFCF6] border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48]">
-                    Bạn chưa tạo bài học tùy chỉnh nào. Khi xem bài học, hãy chọn các từ vựng/ngữ pháp và bấm "Lưu thành bài học tùy chỉnh".
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {curatedLessons.map((cur) => (
-                      <div
-                        key={cur.id}
-                        className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-3 hover:border-[#204434] transition flex flex-col justify-between"
-                      >
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B]">
-                            Tùy chỉnh · {cur.createdAt}
-                          </span>
-                          <h4 className="font-serif font-bold text-base text-[#204434]">
-                            {cur.title}
-                          </h4>
-                          <p className="text-xs text-[#315E48]">
-                            Nguồn: <strong>{cur.sourceLessonTitle}</strong>
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2.5 text-xs text-[#8F6D3B]">
-                            <span>📚 {cur.selectedVocabCount} từ vựng</span>
-                            <span>•</span>
-                            <span>📐 {cur.selectedGrammarCount} ngữ pháp</span>
-                            {(cur.selectedCulturalCount || cur.culturalItems?.length || 0) > 0 && (
-                              <>
-                                <span>•</span>
-                                <span className="font-bold text-[#8F6D3B]">
-                                  🏮 {cur.selectedCulturalCount || cur.culturalItems?.length} văn hóa
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          {cur.notes && (
-                            <p className="text-[11px] text-[#315E48] italic bg-[#FAF7F0] p-2 rounded-xl border border-[#E5DEC9]">
-                              Ghi chú: {cur.notes}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                          <button
-                            onClick={() => {
-                              if (onNavigateToAssignments) {
-                                onNavigateToAssignments({
-                                  lessonTitle: cur.title,
-                                  classId: selectedClassId,
-                                  vocabList: cur.vocabs,
-                                  grammarList: cur.grammars,
-                                  culturalList: cur.culturalItems,
-                                });
-                              }
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-[#204434] text-white text-xs font-bold shadow-2xs hover:bg-[#183629]"
-                          >
-                            Tạo bài tập từ bộ này
-                          </button>
-                          <button
-                            onClick={() => {
-                              setCuratedLessons((prev) => prev.filter((c) => c.id !== cur.id));
-                              showToast(`Đã xóa bộ tùy chỉnh "${cur.title}"`);
-                            }}
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            Xóa bộ này
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* C. SECTION: TÀI LIỆU BÀI GIẢNG */}
-            {(librarySubTab === "ALL" || librarySubTab === "MATERIALS") && (
-              <div className="space-y-3 pt-4 border-t border-[#E5DEC9]">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-[#BC9B6B]" />
-                    <span>Tài liệu bài giảng của tôi (PDF, Slide, Tập viết)</span>
-                  </h3>
-                  <span className="text-xs text-[#315E48]">
-                    Học viên xem trong mục "Tài liệu lớp học"
-                  </span>
-                </div>
-
-                <div className="rounded-3xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-[#E5DEC9] bg-[#FAF7F0] text-[#315E48] font-bold text-[11px]">
-                        <th className="py-3 px-4">Tên tài liệu bài giảng</th>
-                        <th className="py-3 px-4">Định dạng</th>
-                        <th className="py-3 px-4">Phân loại</th>
-                        <th className="py-3 px-4">Lớp được chia sẻ</th>
-                        <th className="py-3 px-4">Ngày tải lên</th>
-                        <th className="py-3 px-4 text-right">Tác vụ</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E5DEC9]/50">
-                      {lectureMaterials.map((mat) => (
-                        <tr key={mat.id} className="hover:bg-[#FAF7F0]/60 transition">
-                          <td className="py-3.5 px-4 font-bold text-[#204434]">
-                            {mat.title}
-                            <span className="text-[10px] text-[#8F6D3B] block font-normal">
-                              Dung lượng: {mat.fileSize}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#BC9B6B]/20 text-[#8F6D3B]">
-                              {mat.fileType}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-[#315E48]">{mat.classification}</td>
-                          <td className="py-3.5 px-4 text-[#315E48]">
-                            {mat.sharedClassNames.join(", ")}
-                          </td>
-                          <td className="py-3.5 px-4 text-[#315E48]">{mat.uploadedAt}</td>
-                          <td className="py-3.5 px-4 text-right space-x-2">
-                            <button
-                              onClick={() => showToast(`Đang mở xem trước: ${mat.title}`)}
-                              className="px-2.5 py-1 rounded-lg border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] text-[11px] font-semibold"
-                            >
-                              Xem trước
-                            </button>
-                            <button
-                              onClick={() => {
-                                setLectureMaterials((prev) => prev.filter((m) => m.id !== mat.id));
-                                showToast(`Đã xóa tài liệu: ${mat.title}`);
-                              }}
-                              className="px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-[11px] font-semibold"
-                            >
-                              Thu hồi
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* D. SECTION: BÀI HỌC ĐÃ GIAO CHO LỚP */}
-            {(librarySubTab === "ALL" || librarySubTab === "ASSIGNED") && (
-              <div className="space-y-3 pt-4 border-t border-[#E5DEC9]">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
-                    <Send className="w-4 h-4 text-[#BC9B6B]" />
-                    <span>Bài học đã giao cho lớp ({assignedLessons.length})</span>
-                  </h3>
-                  <span className="text-xs text-[#315E48]">Học viên mở trong mục "Lớp học của tôi"</span>
-                </div>
-
-                {assignedLessons.length === 0 ? (
-                  <div className="p-8 rounded-3xl bg-[#FFFCF6] border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48]">
-                    Chưa có bài học nào được giao. Hãy chọn bài học từ tab "Khám phá bài học" và bấm "Giao bài học cho lớp".
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {assignedLessons.map((asg) => (
-                      <div
-                        key={asg.id}
-                        className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-3 hover:border-[#204434] transition flex flex-col justify-between"
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434]">
-                              Đã giao: {asg.assignedAt}
-                            </span>
-                            <span className="text-[10px] text-red-700 font-semibold">
-                              Hạn: {asg.dueDate}
-                            </span>
-                          </div>
-
-                          <div>
-                            <h4 className="font-serif font-bold text-base text-[#204434]">
-                              {asg.titleZh}
-                            </h4>
-                            <p className="text-xs text-[#8F6D3B] font-medium">{asg.titleVi}</p>
-                          </div>
-
-                          <div className="flex flex-wrap gap-1">
-                            {asg.classNames.map((cName, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[10px] text-[#315E48] font-medium"
-                              >
-                                {cName}
-                              </span>
-                            ))}
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-[#315E48] pt-1">
-                            <span>📚 {asg.vocabCount} từ</span>
-                            <span>•</span>
-                            <span>📐 {asg.grammarCount} ngữ pháp</span>
-                            <span>•</span>
-                            <span className="font-bold text-[#8F6D3B]">
-                              🏮 {asg.culturalCount || asg.selectedCulturalItems?.length || 0} mục văn hóa
-                            </span>
-                          </div>
-
-                          {asg.teacherNote && (
-                            <p className="text-[11px] text-[#204434] italic bg-[#FAF7F0] p-2 rounded-xl border border-[#E5DEC9]">
-                              Lời dặn: {asg.teacherNote}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="pt-3 border-t border-[#E5DEC9]/60 flex items-center justify-between">
-                          <span className="text-[11px] text-[#315E48]">
-                            Học viên đang học
-                          </span>
-                          <button
-                            onClick={() => {
-                              setAssignedLessons((prev) => prev.filter((a) => a.id !== asg.id));
-                              showToast(`Đã hủy giao bài "${asg.titleVi}"`);
-                            }}
-                            className="text-xs text-red-600 hover:underline font-medium"
-                          >
-                            Hủy giao bài
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {mainTab === "MY_LIBRARY" && <TeacherPrivateLibrary onOpen={item=>{const level=Number(item.sourceLessonId.match(/hsk(\d+)/)?.[1]||1);const detail=teacherLibraryLesson(item.content,level);setLessonOverrides(previous=>({...previous,[detail.id]:detail}));setHskSelectedLevel("hsk"+level);setHskSelectedLessonId(detail.id);setHskScreen("LESSON_DETAIL");setActiveTrack("hsk");setMainTab("EXPLORE");}}/>}
       </div>
 
       {/* =================================================================== */}
@@ -4684,216 +2913,10 @@ export function LessonLibraryWorkspace({
             )}
 
             {/* TAB CONTENT: 04. BÀI ĐỌC & TỪ MỞ RỘNG */}
-            {editLessonActiveTab === "reading" && editingLessonDraft.reading && (
-              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-[#204434] block">Tiêu đề đoạn văn (Hán tự):</label>
-                    <input
-                      type="text"
-                      value={editingLessonDraft.reading.titleZh}
-                      onChange={(e) => {
-                        if (!editingLessonDraft.reading) return;
-                        setEditingLessonDraft({
-                          ...editingLessonDraft,
-                          reading: { ...editingLessonDraft.reading, titleZh: e.target.value },
-                        });
-                      }}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs font-bold font-serif"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-[#315E48] block">Tiêu đề tiếng Việt:</label>
-                    <input
-                      type="text"
-                      value={editingLessonDraft.reading.titleVi}
-                      onChange={(e) => {
-                        if (!editingLessonDraft.reading) return;
-                        setEditingLessonDraft({
-                          ...editingLessonDraft,
-                          reading: { ...editingLessonDraft.reading, titleVi: e.target.value },
-                        });
-                      }}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-[#204434] block">Nội dung chữ Hán:</label>
-                  <textarea
-                    rows={3}
-                    value={editingLessonDraft.reading.contentZh}
-                    onChange={(e) => {
-                      if (!editingLessonDraft.reading) return;
-                      setEditingLessonDraft({
-                        ...editingLessonDraft,
-                        reading: { ...editingLessonDraft.reading, contentZh: e.target.value },
-                      });
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs font-serif leading-relaxed"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-[#8F6D3B] block">Pinyin đoạn văn:</label>
-                  <textarea
-                    rows={2}
-                    value={editingLessonDraft.reading.contentPy}
-                    onChange={(e) => {
-                      if (!editingLessonDraft.reading) return;
-                      setEditingLessonDraft({
-                        ...editingLessonDraft,
-                        reading: { ...editingLessonDraft.reading, contentPy: e.target.value },
-                      });
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs italic leading-relaxed"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-[#315E48] block">Dịch tiếng Việt:</label>
-                  <textarea
-                    rows={2}
-                    value={editingLessonDraft.reading.contentVi}
-                    onChange={(e) => {
-                      if (!editingLessonDraft.reading) return;
-                      setEditingLessonDraft({
-                        ...editingLessonDraft,
-                        reading: { ...editingLessonDraft.reading, contentVi: e.target.value },
-                      });
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] text-xs leading-relaxed"
-                  />
-                </div>
-              </div>
-            )}
+            {editLessonActiveTab === "reading" && <RichReadingEditor value={editingLessonDraft.reading||{id:editingLessonDraft.id+"-reading",titleZh:"",titleVi:"",contentZh:"",contentPy:"",contentVi:"",wordCount:0,extraVocabs:[]}} onChange={reading=>setEditingLessonDraft({...editingLessonDraft,reading})}/>}
 
             {/* TAB CONTENT: 05. VĂN HÓA GIAO TIẾP */}
-            {editLessonActiveTab === "culture" && editingLessonDraft.culturalNote && (
-              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                <div className="p-3 rounded-xl bg-white border border-[#E5DEC9] space-y-2">
-                  <p className="text-xs font-bold text-[#204434]">Nhóm 1: Mẫu câu vàng khuyên dùng (2 mẫu)</p>
-                  {editingLessonDraft.culturalNote.naturalExpressions?.map((ne, idx) => (
-                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#FAF7F0] p-2 rounded-lg">
-                      <input
-                        type="text"
-                        value={ne.zh}
-                        onChange={(e) => {
-                          if (!editingLessonDraft.culturalNote?.naturalExpressions) return;
-                          const updated = [...editingLessonDraft.culturalNote.naturalExpressions];
-                          updated[idx].zh = e.target.value;
-                          setEditingLessonDraft({
-                            ...editingLessonDraft,
-                            culturalNote: { ...editingLessonDraft.culturalNote, naturalExpressions: updated },
-                          });
-                        }}
-                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs font-bold font-serif"
-                      />
-                      <input
-                        type="text"
-                        value={ne.py}
-                        onChange={(e) => {
-                          if (!editingLessonDraft.culturalNote?.naturalExpressions) return;
-                          const updated = [...editingLessonDraft.culturalNote.naturalExpressions];
-                          updated[idx].py = e.target.value;
-                          setEditingLessonDraft({
-                            ...editingLessonDraft,
-                            culturalNote: { ...editingLessonDraft.culturalNote, naturalExpressions: updated },
-                          });
-                        }}
-                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs italic"
-                      />
-                      <input
-                        type="text"
-                        value={ne.vi}
-                        onChange={(e) => {
-                          if (!editingLessonDraft.culturalNote?.naturalExpressions) return;
-                          const updated = [...editingLessonDraft.culturalNote.naturalExpressions];
-                          updated[idx].vi = e.target.value;
-                          setEditingLessonDraft({
-                            ...editingLessonDraft,
-                            culturalNote: { ...editingLessonDraft.culturalNote, naturalExpressions: updated },
-                          });
-                        }}
-                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs"
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="p-3 rounded-xl bg-white border border-[#E5DEC9] space-y-2">
-                  <p className="text-xs font-bold text-[#204434]">Nhóm 2: Cách nói lịch sự & Tôn trọng (3 mẫu)</p>
-                  {editingLessonDraft.culturalNote.politeExpressions?.map((pe, idx) => (
-                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#FAF7F0] p-2 rounded-lg">
-                      <input
-                        type="text"
-                        value={pe.zh}
-                        onChange={(e) => {
-                          if (!editingLessonDraft.culturalNote?.politeExpressions) return;
-                          const updated = [...editingLessonDraft.culturalNote.politeExpressions];
-                          updated[idx].zh = e.target.value;
-                          setEditingLessonDraft({
-                            ...editingLessonDraft,
-                            culturalNote: { ...editingLessonDraft.culturalNote, politeExpressions: updated },
-                          });
-                        }}
-                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs font-bold font-serif"
-                      />
-                      <input
-                        type="text"
-                        value={pe.py}
-                        onChange={(e) => {
-                          if (!editingLessonDraft.culturalNote?.politeExpressions) return;
-                          const updated = [...editingLessonDraft.culturalNote.politeExpressions];
-                          updated[idx].py = e.target.value;
-                          setEditingLessonDraft({
-                            ...editingLessonDraft,
-                            culturalNote: { ...editingLessonDraft.culturalNote, politeExpressions: updated },
-                          });
-                        }}
-                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs italic"
-                      />
-                      <input
-                        type="text"
-                        value={pe.vi}
-                        onChange={(e) => {
-                          if (!editingLessonDraft.culturalNote?.politeExpressions) return;
-                          const updated = [...editingLessonDraft.culturalNote.politeExpressions];
-                          updated[idx].vi = e.target.value;
-                          setEditingLessonDraft({
-                            ...editingLessonDraft,
-                            culturalNote: { ...editingLessonDraft.culturalNote, politeExpressions: updated },
-                          });
-                        }}
-                        className="px-2 py-1 rounded border border-[#E5DEC9] text-xs"
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="p-3 rounded-xl bg-white border border-red-200 space-y-2">
-                  <p className="text-xs font-bold text-red-700">Nhóm 3: Lưu ý & Cấm kỵ văn hóa (3 lưu ý)</p>
-                  {editingLessonDraft.culturalNote.cautionNotes?.map((note, idx) => (
-                    <input
-                      key={idx}
-                      type="text"
-                      value={note}
-                      onChange={(e) => {
-                        if (!editingLessonDraft.culturalNote?.cautionNotes) return;
-                        const updated = [...editingLessonDraft.culturalNote.cautionNotes];
-                        updated[idx] = e.target.value;
-                        setEditingLessonDraft({
-                          ...editingLessonDraft,
-                          culturalNote: { ...editingLessonDraft.culturalNote, cautionNotes: updated },
-                        });
-                      }}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-red-200 text-xs text-red-900 bg-red-50/50"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {editLessonActiveTab === "culture" && <RichCultureEditor value={editingLessonDraft.culturalNote||{}} onChange={culturalNote=>setEditingLessonDraft({...editingLessonDraft,culturalNote})}/>}
 
             {/* Modal Footer Actions */}
             <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between">

@@ -34,7 +34,7 @@ export default function ClassHeader({
 }: ClassHeaderProps) {
   const tabs = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
-    { id: "curriculum", label: "Lộ trình 15 bài", icon: BookOpen },
+    { id: "curriculum", label: "Lộ trình bài học", icon: BookOpen },
     { id: "students", label: `Học sinh (${studentsCount})`, icon: Users },
     { id: "assignments", label: "Bài tập & Đề thi", icon: FileCheck2 },
     { id: "materials", label: "Tài liệu", icon: FileSpreadsheet },
@@ -72,7 +72,7 @@ export default function ClassHeader({
                 {currentClass.name}
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#1F513F]/10 text-[#1F513F] border border-[#1F513F]/20">
-                HSK {currentClass.level || 1}.0
+                HSK {currentClass.level}
               </span>
             </div>
             <p className="text-xs text-[#6B766D] mt-0.5">

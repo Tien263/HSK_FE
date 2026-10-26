@@ -1,9 +1,13 @@
 "use client";
 
+import TeachingMaterialsWorkspace from "@/components/learning/TeachingMaterialsWorkspace";
+import AppleScheduleCalendar from "./AppleScheduleCalendar";
+import ClassReportWorkspace from "./ClassReportWorkspace";
+import ClassSettingsForm from "./classes/ClassSettingsForm";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { getClassArtwork, normalizeDMY } from "@/lib/class-helper";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 
 import { ClassDetailItem, StudentRowItem } from "./classes/types";
@@ -22,6 +26,8 @@ export { type ClassDetailItem, type StudentRowItem } from "./classes/types";
 
 interface ClassesWorkspaceProps {
   currentUser?: any;
+  initialClassId?:string;
+  initialCreate?:boolean;
   onClassCountChange?: (count: number) => void;
   onAssignNew?: (classId: string) => void;
   onNavigateToAssignments?: (payload?: any) => void;
@@ -29,7 +35,7 @@ interface ClassesWorkspaceProps {
 }
 
 export default function ClassesWorkspace({
-  currentUser,
+  currentUser,initialClassId,initialCreate,
   onClassCountChange,
   onAssignNew,
   onNavigateToAssignments,
@@ -38,7 +44,7 @@ export default function ClassesWorkspace({
   // 1. Classes state
   const [classes, setClasses] = useState<ClassDetailItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(initialClassId||null);
   const [selectedBulkClassIds, setSelectedBulkClassIds] = useState<string[]>([]);
   const [isBulkDeletingClasses, setIsBulkDeletingClasses] = useState(false);
 
@@ -54,6 +60,7 @@ export default function ClassesWorkspace({
   const [customVocabs, setCustomVocabs] = useState<string[]>([]);
   const [customGrammars, setCustomGrammars] = useState<string[]>([]);
   const [customHasDialogue, setCustomHasDialogue] = useState(true);
+  const [customIncludeCulture,setCustomIncludeCulture]=useState(true);
   const [customTeacherNote, setCustomTeacherNote] = useState("");
   const [customDueDate, setCustomDueDate] = useState("");
   const [savingCurriculumLesson, setSavingCurriculumLesson] = useState(false);
@@ -68,7 +75,7 @@ export default function ClassesWorkspace({
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
   // 6. Modals
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(initialCreate||false);
   const [creatingClass, setCreatingClass] = useState(false);
   const [isManualStudentModalOpen, setIsManualStudentModalOpen] = useState(false);
   const [addingStudent, setAddingStudent] = useState(false);
@@ -123,7 +130,7 @@ export default function ClassesWorkspace({
             name: c.name,
             level: Number(c.level) || 1,
             track: trackType,
-            badgeText: trackType === "HSK" ? `HSK ${c.level}.0` : trackType === "TOPIC" ? "Chủ đề" : "Chuyên ngành",
+            badgeText: trackType === "HSK" ? `HSK ${c.level}` : trackType === "TOPIC" ? "Chủ đề" : "Chuyên ngành",
             status: c.status || (c.isActive ? "ACTIVE" : "ENDED"),
             statusText: c.statusText || (c.isActive ? "Đang dạy" : "Đã kết thúc"),
             isArchived: Boolean(c.isArchived || c.status === "ARCHIVED"),
@@ -132,7 +139,7 @@ export default function ClassesWorkspace({
             maxStudents: 30,
             startDate: c.startDate || normalizeDMY(c.createdAt),
             endDate: c.endDate || normalizeDMY(new Date(new Date(c.createdAt || Date.now()).getTime() + 180 * 86400000)),
-            progressPercent: hasAssignments ? (c.progressPercent || 0) : null,
+            progressPercent: c.progressPercent ?? null,
             code: formattedCode,
             artwork: art,
             teacherName: c.teacherName || currentUser.name,
@@ -155,8 +162,10 @@ export default function ClassesWorkspace({
     }
   }, [currentUser?.id, currentUser?.name, showToast]);
 
+  const { lessons: sharedLessons } = useCurriculumLessons(currentClass?.level || 1);
+
   // 2. Fetch Curriculum Lessons for current class
-  const fetchCurriculumLessons = useCallback(async (classId: string, classLevel: number = 1) => {
+  const fetchCurriculumLessons = useCallback(async (classId: string) => {
     try {
       setLoadingCurriculum(true);
       const res = await fetch(`/api/v1/classes/${classId}/lessons`);
@@ -171,23 +180,8 @@ export default function ClassesWorkspace({
       setLoadingCurriculum(false);
     }
 
-    // Fallback: 15 default lessons
-    const baseLessons = getLessonsByHskLevel(classLevel);
-    const defaults = baseLessons.map((ls) => ({
-      lessonNumber: ls.number,
-      titleZh: ls.titleZh,
-      titleVi: ls.titleVi,
-      pinyin: ls.pinyin,
-      status: "LOCKED",
-      isPublished: false,
-      vocabCount: ls.vocabCount,
-      grammarCount: ls.grammarCount,
-      selectedVocabs: ls.vocabList,
-      selectedGrammars: ls.grammarList,
-      selectedDialogue: ls.dialogue,
-      teacherNote: "",
-    }));
-    setCurriculumLessons(defaults);
+    // Keep an empty result on server failure; bundled data must not resurrect deleted lessons.
+    setCurriculumLessons([]);
     setLoadingCurriculum(false);
   }, []);
 
@@ -211,9 +205,9 @@ export default function ClassesWorkspace({
             status: isPending ? "PENDING" : st.status === "INACTIVE" ? "INACTIVE" : st.status === "COMPLETED" ? "COMPLETED" : "LEARNING",
             enrollmentStatus: isPending ? "PENDING" : "APPROVED",
             statusText: isPending ? "Chờ duyệt" : st.status === "COMPLETED" ? "Hoàn thành" : "Đang học",
-            progressPercent: st.progressPercent || 0,
+            progressPercent: st.progressPercent ?? null,
             totalAssignments: st.totalAssignments || 0,
-            submittedAssignments: st.attemptsCount || 0,
+            submittedAssignments: st.submittedAssignments || 0,
             joinedDate: st.joinedAt ? new Date(st.joinedAt).toLocaleDateString("vi-VN") : "Hôm nay",
             avatar: st.avatar || "/theme/avatar-student.jpg",
             scoreAvg: st.scoreAvg,
@@ -269,7 +263,7 @@ export default function ClassesWorkspace({
   // Load sub-data when selectedClassId changes
   useEffect(() => {
     if (selectedClassId && currentClass) {
-      fetchCurriculumLessons(selectedClassId, currentClass.level);
+      fetchCurriculumLessons(selectedClassId);
       fetchClassStudents(selectedClassId);
       fetchClassAssignments(selectedClassId);
       setSelectedStudentIds([]);
@@ -310,6 +304,7 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(`Tạo lớp "${formData.name}" thành công!`);
         setIsCreateModalOpen(false);
         await fetchClasses();
@@ -327,29 +322,31 @@ export default function ClassesWorkspace({
     }
   };
 
+  useEffect(()=>{if(currentClass?.id)requestAnimationFrame(()=>document.getElementById("teacher-class-detail")?.scrollIntoView({behavior:"smooth",block:"start"}));},[currentClass?.id]);
   // 2. Open Customize Lesson Modal
   const handleOpenCustomizeLesson = (lsNumber: number) => {
     if (!currentClass) return;
-    const baseLessons = getLessonsByHskLevel(currentClass.level);
-    const fullLesson = baseLessons.find((l) => l.number === lsNumber) || baseLessons[0];
+    const baseLessons = sharedLessons;
+    const fullLesson: Hsk1FullLesson | undefined = baseLessons.find((l) => l.number === lsNumber) || curriculumLessons.find(cl=>cl.lessonNumber===lsNumber)?.content;
     if (!fullLesson) return;
 
     const existing = curriculumLessons.find((cl) => cl.lessonNumber === lsNumber);
     setCustomizingLesson(fullLesson);
 
-    if (existing && Array.isArray(existing.selectedVocabs) && existing.selectedVocabs.length > 0) {
+    if (existing && Array.isArray(existing.selectedVocabs)) {
       setCustomVocabs(existing.selectedVocabs.map((v: any) => v.hanzi));
     } else {
       setCustomVocabs(fullLesson.vocabList.map((v) => v.hanzi));
     }
 
-    if (existing && Array.isArray(existing.selectedGrammars) && existing.selectedGrammars.length > 0) {
+    if (existing && Array.isArray(existing.selectedGrammars)) {
       setCustomGrammars(existing.selectedGrammars.map((g: any) => g.title || g.name));
     } else {
       setCustomGrammars(fullLesson.grammarList.map((g) => g.title));
     }
 
     setCustomHasDialogue(existing ? existing.hasDialogue !== false : true);
+    setCustomIncludeCulture(existing?.content ? Boolean(existing.content.phonetics?.rule || existing.content.culture) : true);
     setCustomTeacherNote(existing?.teacherNote || "");
     setCustomDueDate(existing?.dueDate || "");
   };
@@ -375,6 +372,7 @@ export default function ClassesWorkspace({
           selectedVocabs: chosenVocabs,
           selectedGrammars: chosenGrammars,
           hasDialogue: customHasDialogue,
+          includeCulture: customIncludeCulture,
           hasReading: true,
           teacherNote: customTeacherNote,
           dueDate: customDueDate,
@@ -383,13 +381,14 @@ export default function ClassesWorkspace({
 
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(
           targetStatus === "PUBLISHED"
             ? `Đã công bố Bài ${customizingLesson.number} cho lớp ${currentClass.name}!`
             : `Đã lưu bản nháp Bài ${customizingLesson.number}!`
         );
         setCustomizingLesson(null);
-        await fetchCurriculumLessons(currentClass.id, currentClass.level);
+        await fetchCurriculumLessons(currentClass.id);
       } else {
         showToast(data.message || "Lỗi lưu bài học.");
       }
@@ -417,8 +416,9 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(`Đã thu hồi (khóa lại) Bài ${lessonNumber}.`);
-        await fetchCurriculumLessons(currentClass.id, currentClass.level);
+        await fetchCurriculumLessons(currentClass.id);
       } else {
         showToast(data.message || "Lỗi thu hồi bài học.");
       }
@@ -440,6 +440,7 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(`Đã gỡ học sinh ${student.name} khỏi lớp.`);
         await fetchClassStudents(currentClass.id);
         await fetchClasses();
@@ -468,6 +469,7 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(`Đã xóa ${selectedStudentIds.length} học sinh khỏi lớp thành công.`);
         setSelectedStudentIds([]);
         await fetchClassStudents(currentClass.id);
@@ -528,6 +530,7 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(data.message || "Đã duyệt học sinh vào lớp thành công!");
         await fetchClassStudents(currentClass.id);
         await fetchClasses();
@@ -553,6 +556,7 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(data.message || "Đã từ chối yêu cầu vào lớp.");
         await fetchClassStudents(currentClass.id);
         await fetchClasses();
@@ -575,6 +579,7 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(`Đã xóa lớp "${deletingClass.name}" thành công.`);
         setIsDeleteModalOpen(false);
         setDeletingClass(null);
@@ -610,6 +615,7 @@ export default function ClassesWorkspace({
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        window.dispatchEvent(new Event("hanyu_portal_changed"));
         showToast(`Đã xóa ${selectedBulkClassIds.length} lớp học thành công.`);
         setSelectedBulkClassIds([]);
         if (selectedClassId && selectedBulkClassIds.includes(selectedClassId)) {
@@ -639,7 +645,7 @@ export default function ClassesWorkspace({
       {/* ===================================================================== */}
       {/* VIEW A: DANH SÁCH TẤT CẢ LỚP HỌC                                     */}
       {/* ===================================================================== */}
-      {!selectedClassId && (
+      {(
         <ClassesList
           classes={classes}
           loading={loading}
@@ -659,12 +665,12 @@ export default function ClassesWorkspace({
       {/* VIEW B: CHI TIẾT LỚP HỌC ĐANG CHỌN (TRUNG TÂM VẬN HÀNH GIÁO VIÊN)   */}
       {/* ===================================================================== */}
       {selectedClassId && currentClass && (
-        <div className="space-y-6">
+        <div id="teacher-class-detail" style={{scrollMarginTop:100}} data-class-detail-wrapper className="space-y-6">
           <ClassHeader
             currentClass={currentClass}
             activeSubTab={detailSubTab}
             setActiveSubTab={setDetailSubTab}
-            onBackToList={() => setSelectedClassId(null)}
+            onBackToList={() => {setSelectedClassId(null);window.scrollTo({top:0,behavior:"smooth"});}}
             studentsCount={studentsList.length}
           />
 
@@ -731,37 +737,16 @@ export default function ClassesWorkspace({
           )}
 
           {/* TAB 5: TÀI LIỆU */}
-          {detailSubTab === "materials" && (
-            <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-8 shadow-2xs text-center space-y-3">
-              <p className="text-sm font-bold text-[#17382F]">Tài liệu & Học liệu lớp {currentClass.name}</p>
-              <p className="text-xs text-[#6B766D] max-w-md mx-auto">
-                Tính năng lưu trữ slide bài giảng, file âm thanh MP3 và tài liệu PDF dành riêng cho học sinh của lớp.
-              </p>
-            </div>
-          )}
+          {detailSubTab === "materials" && <TeachingMaterialsWorkspace classId={currentClass.id} />}
 
           {/* TAB 6: LỊCH HỌC */}
-          {detailSubTab === "schedule" && (
-            <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-8 shadow-2xs text-center space-y-3">
-              <p className="text-sm font-bold text-[#17382F]">Lịch học & Phòng học trực tuyến</p>
-              <p className="text-xs text-[#6B766D] max-w-md mx-auto">
-                Lên lịch học hàng tuần, gắn link Google Meet và ghi nhận điểm danh học viên tự động.
-              </p>
-            </div>
-          )}
+          {detailSubTab === "schedule" && <AppleScheduleCalendar classes={[currentClass]}/>}
 
           {/* TAB 7: BÁO CÁO */}
-          {detailSubTab === "reports" && (
-            <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-8 shadow-2xs text-center space-y-3">
-              <p className="text-sm font-bold text-[#17382F]">Báo cáo học tập lớp {currentClass.name}</p>
-              <p className="text-xs text-[#6B766D] max-w-md mx-auto">
-                Phân tích điểm trung bình, danh sách học sinh cần hỗ trợ sư phạm và thống kê câu hỏi hay sai.
-              </p>
-            </div>
-          )}
+          {detailSubTab === "reports" && <ClassReportWorkspace classes={[currentClass]} currentUser={currentUser} showToast={showToast} onNavigateToTab={tab=>setDetailSubTab(tab==="classes"?"students":tab as any)}/>}
 
           {/* TAB 8: CÀI ĐẶT LỚP */}
-          {detailSubTab === "settings" && (
+          {detailSubTab === "settings" && (<div className="space-y-5"><ClassSettingsForm key={currentClass.id} classroom={currentClass} onSaved={()=>{void fetchClasses();}}/>
             <div className="rounded-3xl bg-[#FFFCF7] border border-[#E5DFD0] p-6 shadow-2xs space-y-4">
               <h3 className="font-serif font-bold text-base text-[#17382F]">
                 Cài đặt & Vùng nguy hiểm
@@ -784,6 +769,7 @@ export default function ClassesWorkspace({
                   Xóa lớp này
                 </button>
               </div>
+            </div>
             </div>
           )}
         </div>
@@ -810,6 +796,8 @@ export default function ClassesWorkspace({
         setCustomVocabs={setCustomVocabs}
         customGrammars={customGrammars}
         setCustomGrammars={setCustomGrammars}
+        customIncludeCulture={customIncludeCulture}
+        setCustomIncludeCulture={setCustomIncludeCulture}
         customHasDialogue={customHasDialogue}
         setCustomHasDialogue={setCustomHasDialogue}
         customTeacherNote={customTeacherNote}
