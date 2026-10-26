@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Sparkles,
   CheckCircle2,
@@ -13,7 +13,9 @@ import {
   Award,
   HelpCircle,
   Layers,
+  Clock,
 } from "lucide-react";
+import { recordStudyTime, getTodayStudySeconds, formatTimerMMSS } from "@/lib/memory-review-service";
 
 interface ComprehensivePracticeSuiteProps {
   vocabList: any[];
@@ -21,6 +23,7 @@ interface ComprehensivePracticeSuiteProps {
   lessonTitleZh?: string;
   lessonNumber?: number;
   handleSpeak: (text: string) => void;
+  studentId?: string;
 }
 
 interface ComprehensiveQuestion {
@@ -40,7 +43,19 @@ export default function ComprehensivePracticeSuite({
   lessonTitleZh = "Bài học HSK",
   lessonNumber = 1,
   handleSpeak,
+  studentId,
 }: ComprehensivePracticeSuiteProps) {
+  // Ghi nhận thời gian luyện tập thực tế
+  const [studySeconds, setStudySeconds] = useState(0);
+
+  useEffect(() => {
+    setStudySeconds(getTodayStudySeconds(studentId));
+    const timer = setInterval(() => {
+      recordStudyTime(3, studentId);
+      setStudySeconds((prev) => prev + 3);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [studentId]);
   // Tạo bộ câu hỏi tổng hợp từ từ vựng và ngữ pháp
   const questions: ComprehensiveQuestion[] = useMemo(() => {
     const list: ComprehensiveQuestion[] = [];

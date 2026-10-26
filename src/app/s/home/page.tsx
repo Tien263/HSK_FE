@@ -48,6 +48,11 @@ import StudentLessonsWorkspace from "@/components/student/StudentLessonsWorkspac
 import StudentPracticeWorkspace from "@/components/student/StudentPracticeWorkspace";
 import StudentReportsWorkspace from "@/components/student/StudentReportsWorkspace";
 import { getClassArtwork } from "@/lib/class-helper";
+import {
+  getWeeklyStudySeconds,
+  getWeeklyStudyBarStats,
+  formatStudyTimeVi,
+} from "@/lib/memory-review-service";
 
 interface SummaryData {
   student: {
@@ -95,6 +100,11 @@ export default function StudentHomePage() {
   const router = useRouter();
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [activeNav, setActiveNav] = useState("home");
   const [practiceSubMode, setPracticeSubMode] = useState<"vocab" | "grammar" | "game" | "wrong">("vocab");
   const [username, setUsername] = useState("student");
@@ -1725,24 +1735,25 @@ export default function StudentHomePage() {
                 {(() => {
                   const attemptedList = (data?.assignments || []).filter((a: any) => a.hasAttempted);
                   const completedCount = attemptedList.length;
-                  const totalMinutes = completedCount * 25;
-                  const timeText = totalMinutes > 0
-                    ? (totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}p` : `${totalMinutes} phút`)
-                    : "0 phút";
+                  
+                  // Tính thời gian thực tế đã học trong tuần (động 100%)
+                  const actualWeeklySec = getWeeklyStudySeconds(currentUser?.id);
+                  const timeText = isMounted ? formatStudyTimeVi(actualWeeklySec) : "0 phút";
+
                   const scoredList = attemptedList.filter((a: any) => a.latestScore !== null).map((a: any) => a.latestScore as number);
                   const avgAccuracyText = scoredList.length > 0
                     ? `${Math.round((scoredList.reduce((acc: number, s: number) => acc + s, 0) / scoredList.length) * 10)}%`
                     : "—";
 
-                  // Dynamic 7-day heights: if 0 completed, show flat subtle line (4px)
-                  const dayBars = [
-                    { day: "T2", h: completedCount > 0 ? `${Math.min(90, Math.round(completedCount * 15))}%` : "4px" },
-                    { day: "T3", h: completedCount > 1 ? `${Math.min(90, Math.round(completedCount * 20))}%` : "4px" },
-                    { day: "T4", h: completedCount > 2 ? `${Math.min(90, Math.round(completedCount * 18))}%` : "4px" },
-                    { day: "T5", h: completedCount > 0 ? `${Math.min(95, Math.round(completedCount * 25))}%` : "4px" },
-                    { day: "T6", h: completedCount > 1 ? `${Math.min(85, Math.round(completedCount * 16))}%` : "4px" },
-                    { day: "T7", h: completedCount > 0 ? `${Math.min(90, Math.round(completedCount * 22))}%` : "4px" },
-                    { day: "CN", h: completedCount > 0 ? `${Math.min(80, Math.round(completedCount * 14))}%` : "4px" },
+                  // Thống kê 7 ngày thực tế trong tuần (T2 -> CN)
+                  const dayBars = isMounted ? getWeeklyStudyBarStats(currentUser?.id) : [
+                    { day: "T2", seconds: 0, height: "4px" },
+                    { day: "T3", seconds: 0, height: "4px" },
+                    { day: "T4", seconds: 0, height: "4px" },
+                    { day: "T5", seconds: 0, height: "4px" },
+                    { day: "T6", seconds: 0, height: "4px" },
+                    { day: "T7", seconds: 0, height: "4px" },
+                    { day: "CN", seconds: 0, height: "4px" },
                   ];
 
                   return (
@@ -1755,8 +1766,9 @@ export default function StudentHomePage() {
                             className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end"
                           >
                             <div
-                              className={`w-full rounded-t-md transition-all ${completedCount > 0 ? "bg-[#204434] hover:bg-[#183629]" : "bg-[#E5DEC9]"}`}
-                              style={{ height: col.h }}
+                              className={`w-full rounded-t-md transition-all ${col.seconds > 0 || completedCount > 0 ? "bg-[#204434] hover:bg-[#183629]" : "bg-[#E5DEC9]"}`}
+                              style={{ height: col.height }}
+                              title={`${col.day}: ${formatStudyTimeVi(col.seconds)}`}
                             />
                             <span className="text-[9.5px] text-[#315E48] font-medium">
                               {col.day}

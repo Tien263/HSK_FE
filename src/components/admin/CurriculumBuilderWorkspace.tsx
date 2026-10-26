@@ -36,41 +36,41 @@ interface CurriculumBuilderWorkspaceProps {
 export default function CurriculumBuilderWorkspace({
   showToast,
 }: CurriculumBuilderWorkspaceProps) {
-  // Cß║Ñp ─æß╗Ö HSK ─æang chß╗ìn (1 - 6)
+  // Cấp độ HSK đang chọn (1 - 6)
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
 
-  // Danh s├ích b├ái hß╗ìc cß╗ºa cß║Ñp ─æß╗Ö ─æang chß╗ìn
+  // Danh sách bài học của cấp độ đang chọn
   const [lessons, setLessons] = useState<Hsk1FullLesson[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Modal chß╗ënh sß╗¡a chi tiß║┐t b├ái hß╗ìc
+  // Modal chỉnh sửa chi tiết bài học
   const [editingLesson, setEditingLesson] = useState<Hsk1FullLesson | null>(null);
   const [editorTab, setEditorTab] = useState<
     "info" | "vocab" | "grammar" | "dialogue" | "phonetics" | "richcontent"
   >("info");
 
-  // State th├¬m tß╗½ vß╗▒ng mß╗¢i trong editor
+  // State thêm từ vựng mới trong editor
   const [newVocabHanzi, setNewVocabHanzi] = useState("");
   const [newVocabPinyin, setNewVocabPinyin] = useState("");
   const [newVocabMeaning, setNewVocabMeaning] = useState("");
-  const [newVocabType, setNewVocabType] = useState("Danh tß╗½");
+  const [newVocabType, setNewVocabType] = useState("Danh từ");
   const [newVocabExZh, setNewVocabExZh] = useState("");
   const [newVocabExVi, setNewVocabExVi] = useState("");
 
-  // State th├¬m ngß╗» ph├íp mß╗¢i trong editor
+  // State thêm ngữ pháp mới trong editor
   const [newGrammarTitle, setNewGrammarTitle] = useState("");
   const [newGrammarStructure, setNewGrammarStructure] = useState("");
   const [newGrammarExplanation, setNewGrammarExplanation] = useState("");
   const [newGrammarExample, setNewGrammarExample] = useState("");
 
-  // State th├¬m hß╗Öi thoß║íi mß╗¢i trong editor
+  // State thêm hội thoại mới trong editor
   const [newDialSpeaker, setNewDialSpeaker] = useState("A");
   const [newDialZh, setNewDialZh] = useState("");
   const [newDialPinyin, setNewDialPinyin] = useState("");
   const [newDialVi, setNewDialVi] = useState("");
 
-  // Tß║úi gi├ío tr├¼nh khi ─æß╗òi level
+  // Tải giáo trình khi đổi level
   useEffect(() => {
     async function loadCurriculum() {
       setLoading(true);
@@ -94,7 +94,7 @@ export default function CurriculumBuilderWorkspace({
     loadCurriculum();
   }, [selectedLevel]);
 
-  // Ph├ít ├óm TTS
+  // Phát âm TTS
   const handleSpeak = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window && text) {
       window.speechSynthesis.cancel();
@@ -105,27 +105,27 @@ export default function CurriculumBuilderWorkspace({
     }
   };
 
-  // 1. Tß║óI Vß╗Ç FILE TEMPLATE Mß║¬U (.JSON)
+  // 1. TẢI VỀ FILE TEMPLATE MẪU (.JSON)
   const handleDownloadTemplate = () => {
     const templateSample = {
       level: selectedLevel,
-      description: `Template mß║½u cß║Ñu tr├║c gi├ío tr├¼nh HSK ${selectedLevel} chuß║⌐n`,
+      description: `Template mẫu cấu trúc giáo trình HSK ${selectedLevel} chuẩn`,
       lessons: lessons.slice(0, 2).map((l) => ({
         id: l.id,
         number: l.number,
         titleZh: l.titleZh,
         pinyin: l.pinyin,
-        titleVi: l.titleVi || "Ti├¬u ─æß╗ü tiß║┐ng Viß╗çt",
-        desc: l.desc || "M├┤ tß║ú b├ái hß╗ìc",
+        titleVi: l.titleVi || "Tiêu đề tiếng Việt",
+        desc: l.desc || "Mô tả bài học",
         vocabList: l.vocabList || [],
         grammarList: l.grammarList || [],
         dialogue: l.dialogue || [],
         phonetics: l.phonetics || {
-          title: "Luyß╗çn ph├ít ├óm",
-          rule: "Quy tß║»c ph├ít ├óm thanh mß║½u/vß║¡n mß║½u",
+          title: "Luyện phát âm",
+          rule: "Quy tắc phát âm thanh mẫu/vận mẫu",
           examples: ["a", "o", "e"],
         },
-        culture: l.culture || "N├⌐t ─æß║╣p v─ân h├│a Trung Hoa gß║»n vß╗¢i b├ái hß╗ìc",
+        culture: l.culture || "Nét đẹp văn hóa Trung Hoa gắn với bài học",
       })),
     };
 
@@ -137,10 +137,10 @@ export default function CurriculumBuilderWorkspace({
     downloadAnchor.click();
     downloadAnchor.remove();
 
-    showToast(`─É├ú xuß║Ñt template mß║½u HSK ${selectedLevel} th├ánh c├┤ng!`);
+    showToast(`Đã xuất template mẫu HSK ${selectedLevel} thành công!`);
   };
 
-  // 2. NHß║¼P FILE GI├üO TR├îNH (.JSON)
+  // 2. NHẬP FILE GIÁO TRÌNH (.JSON)
   const handleImportJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -159,91 +159,91 @@ export default function CurriculumBuilderWorkspace({
         }
 
         if (incomingLessons.length === 0) {
-          showToast("File kh├┤ng chß╗⌐a danh s├ích b├ái hß╗ìc hß╗úp lß╗ç!", "error");
+          showToast("File không chứa danh sách bài học hợp lệ!", "error");
           return;
         }
 
         setLessons(incomingLessons);
-        showToast(`─É├ú nß║íp th├ánh c├┤ng ${incomingLessons.length} b├ái hß╗ìc tß╗½ file JSON! Bß║Ñm "L╞░u & Xuß║Ñt bß║ún" ─æß╗â ├íp dß╗Ñng.`);
+        showToast(`Đã nạp thành công ${incomingLessons.length} bài học từ file JSON! Bấm "Lưu & Xuất bản" để áp dụng.`);
       } catch (err) {
-        showToast("Lß╗ùi ─æß╗ïnh dß║íng file JSON!", "error");
+        showToast("Lỗi định dạng file JSON!", "error");
       }
     };
     reader.readAsText(file, "UTF-8");
   };
 
-  // 3. TH├èM B├ÇI Hß╗îC Mß╗ÜI V├ÇO Cß║ñP ─Éß╗ÿ N├ÇY
+  // 3. THÊM BÀI HỌC MỚI VÀO CẤP ĐỘ NÀY
   const handleAddNewLesson = () => {
     const nextNumber = lessons.length > 0 ? Math.max(...lessons.map((l) => l.number)) + 1 : 1;
     const newLesson: Hsk1FullLesson = {
       id: `hsk${selectedLevel}-${String(nextNumber).padStart(2, "0")}`,
       number: nextNumber,
-      titleZh: `µû░Φ»╛ ${nextNumber}`,
-      pinyin: `X─½n k├¿ ${nextNumber}`,
-      titleVi: `B├ái mß╗¢i sß╗æ ${nextNumber}`,
-      desc: `Nß╗Öi dung v├á mß╗Ñc ti├¬u kiß║┐n thß╗⌐c b├ái sß╗æ ${nextNumber} - HSK ${selectedLevel}`,
+      titleZh: `µ��课 ${nextNumber}`,
+      pinyin: `Xīn kè ${nextNumber}`,
+      titleVi: `Bài mới số ${nextNumber}`,
+      desc: `Nội dung và mục tiêu kiến thức bài số ${nextNumber} - HSK ${selectedLevel}`,
       durationMin: 45,
       vocabCount: 1,
       grammarCount: 1,
       isUnlockedDefault: true,
-      unlockedScheduleText: "─É├ú mß╗ƒ kh├│a",
+      unlockedScheduleText: "Đã mở khóa",
       vocabList: [
         {
           id: `v-new-1`,
-          hanzi: "σ¡ªΣ╣á",
-          pinyin: "xu├⌐x├¡",
-          meaning: "hß╗ìc tß║¡p",
-          type: "─Éß╗Öng tß╗½",
-          exampleZh: "µêæΣ╗¼σ¡ªΣ╣áµ▒ëΦ»¡πÇé",
-          exampleVi: "Ch├║ng t├┤i hß╗ìc tiß║┐ng Trung.",
+          hanzi: "学习",
+          pinyin: "xuéxí",
+          meaning: "học tập",
+          type: "Động từ",
+          exampleZh: "µ��们学习µ��语。",
+          exampleVi: "Chúng tôi học tiếng Trung.",
         },
       ],
       grammarList: [
         {
-          title: "Cß║Ñu tr├║c c├óu khß║│ng ─æß╗ïnh c╞í bß║ún",
-          structure: "Chß╗º ngß╗» + ─Éß╗Öng tß╗½ + T├ón ngß╗»",
-          example: "µêæσ¡ªΣ╣áµ▒ëΦ»¡πÇé",
-          explanation: "Trß║¡t tß╗▒ c├óu c╞í bß║ún trong tiß║┐ng Trung t╞░╞íng tß╗▒ tiß║┐ng Viß╗çt (SVO).",
+          title: "Cấu trúc câu khẳng định cơ bản",
+          structure: "Chủ ngữ + Động từ + Tân ngữ",
+          example: "µ��学习µ��语。",
+          explanation: "Trật tự câu cơ bản trong tiếng Trung tương tự tiếng Việt (SVO).",
         },
       ],
       dialogue: [
         {
-          speaker: "µ¥ÄµÿÄ",
-          zh: "Σ╜áσÑ╜∩╝üΣ╜áσ£¿σüÜΣ╗ÇΣ╣ê∩╝ƒ",
-          pinyin: "N╟É h╟Äo! N╟É z├ái zu├▓ sh├⌐nme?",
-          vi: "Ch├áo bß║ín! Bß║ín ─æang l├ám g├¼ ─æß║Ñy?",
+          speaker: "µ��µ��",
+          zh: "你好！你在做什么？",
+          pinyin: "Nǐ hǎo! Nǐ zài zuò shénme?",
+          vi: "Chào bạn! Bạn đang làm gì đấy?",
         },
         {
-          speaker: "τÄïτ╛Ä",
-          zh: "Σ╜áσÑ╜∩╝üµêæσ£¿σ¡ªΣ╣áµ▒ëΦ»¡πÇé",
-          pinyin: "N╟É h╟Äo! W╟Æ z├ái xu├⌐x├¡ H├ány╟ö.",
-          vi: "Ch├áo bß║ín! T├┤i ─æang hß╗ìc tiß║┐ng Trung.",
+          speaker: "王美",
+          zh: "你好！µ��在学习µ��语。",
+          pinyin: "Nǐ hǎo! Wǒ zài xuéxí Hànyǔ.",
+          vi: "Chào bạn! Tôi đang học tiếng Trung.",
         },
       ],
       phonetics: {
-        title: `Ngß╗» ├óm trß╗ìng t├óm b├ái ${nextNumber}`,
-        rule: "Ph├ón biß╗çt c├íc thanh mß║½u v├á biß║┐n ─æiß╗çu chuß║⌐n",
-        examples: ["m─ü", "m├í", "m╟Ä", "m├á"],
+        title: `Ngữ âm trọng tâm bài ${nextNumber}`,
+        rule: "Phân biệt các thanh mẫu và biến điệu chuẩn",
+        examples: ["mā", "má", "mǎ", "mà"],
       },
-      culture: `G├│c v─ân h├│a ß╗⌐ng dß╗Ñng b├ái hß╗ìc sß╗æ ${nextNumber}`,
+      culture: `Góc văn hóa ứng dụng bài học số ${nextNumber}`,
     };
 
     setLessons([...lessons, newLesson]);
     setEditingLesson(newLesson);
     setEditorTab("info");
-    showToast(`─É├ú th├¬m B├ái ${nextNumber}. Bß║ín c├│ thß╗â chß╗ënh sß╗¡a chi tiß║┐t ngay!`);
+    showToast(`Đã thêm Bài ${nextNumber}. Bạn có thể chỉnh sửa chi tiết ngay!`);
   };
 
-  // 4. L╞»U & XUß║ñT Bß║óN TO├ÇN Bß╗ÿ GI├üO TR├îNH
+  // 4. LƯU & XUẤT BẢN TOÀN BỘ GIÁO TRÌNH
   const handleSaveAndPublishAll = async () => {
     if (lessons.length === 0) {
-      showToast("Ch╞░a c├│ b├ái hß╗ìc n├áo ─æß╗â xuß║Ñt bß║ún!", "error");
+      showToast("Chưa có bài học nào để xuất bản!", "error");
       return;
     }
 
     setSaving(true);
     try {
-      // 1. L╞░u v├áo Server API
+      // 1. Lưu vào Server API
       const res = await fetch("/api/v1/admin/curriculum", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,7 +255,7 @@ export default function CurriculumBuilderWorkspace({
 
       const data = await res.json();
 
-      // 2. ─Éß╗ông bß╗Ö v├áo localStorage ─æß╗â resolver client d├╣ng ngay lß║¡p tß╗⌐c
+      // 2. Đồng bộ vào localStorage để resolver client dùng ngay lập tức
       if (typeof window !== "undefined") {
         localStorage.setItem(
           `hsk_admin_custom_curriculum_level_${selectedLevel}`,
@@ -265,10 +265,10 @@ export default function CurriculumBuilderWorkspace({
 
       if (res.ok && data.success) {
         showToast(
-          `─É├ú xuß║Ñt bß║ún th├ánh c├┤ng ${lessons.length} b├ái hß╗ìc HSK ${selectedLevel}! To├án bß╗Ö Gi├ío vi├¬n v├á Hß╗ìc sinh sß║╜ thß║Ñy b├ái hß╗ìc mß╗¢i ngay lß║¡p tß╗⌐c.`
+          `Đã xuất bản thành công ${lessons.length} bài học HSK ${selectedLevel}! Toàn bộ Giáo viên và Học sinh sẽ thấy bài học mới ngay lập tức.`
         );
       } else {
-        showToast(data.message || "─É├ú l╞░u v├áo bß╗Ö nhß╗¢ cß╗Ñc bß╗Ö hß╗ç thß╗æng.");
+        showToast(data.message || "Đã lưu vào bộ nhớ cục bộ hệ thống.");
       }
     } catch (e) {
       if (typeof window !== "undefined") {
@@ -277,35 +277,35 @@ export default function CurriculumBuilderWorkspace({
           JSON.stringify(lessons)
         );
       }
-      showToast("─É├ú l╞░u v├á xuß║Ñt bß║ún v├áo bß╗Ö nhß╗¢ hß╗ç thß╗æng th├ánh c├┤ng!");
+      showToast("Đã lưu và xuất bản vào bộ nhớ hệ thống thành công!");
     } finally {
       setSaving(false);
     }
   };
 
-  // 5. L╞»U B├ÇI Hß╗îC ─ÉANG CHß╗êNH Sß╗¼A
+  // 5. LƯU BÀI HỌC ĐANG CHỈNH SỬA
   const handleSaveEditingLesson = () => {
     if (!editingLesson) return;
     setLessons((prev) =>
       prev.map((l) => (l.number === editingLesson.number ? editingLesson : l))
     );
     setEditingLesson(null);
-    showToast(`─É├ú cß║¡p nhß║¡t xong B├ái ${editingLesson.number}! Nhß╗¢ bß║Ñm "L╞░u & Xuß║Ñt bß║ún" ─æß╗â ├íp dß╗Ñng cho to├án hß╗ç thß╗æng.`);
+    showToast(`Đã cập nhật xong Bài ${editingLesson.number}! Nhớ bấm "Lưu & Xuất bản" để áp dụng cho toàn hệ thống.`);
   };
 
-  // X├│a b├ái hß╗ìc
+  // Xóa bài học
   const handleDeleteLesson = (num: number) => {
-    if (!confirm(`Bß║ín c├│ chß║»c muß╗æn x├│a B├ái ${num} khß╗Åi gi├ío tr├¼nh HSK ${selectedLevel}?`)) {
+    if (!confirm(`Bạn có chắc muốn xóa Bài ${num} khỏi giáo trình HSK ${selectedLevel}?`)) {
       return;
     }
     setLessons((prev) => prev.filter((l) => l.number !== num));
-    showToast(`─É├ú x├│a B├ái ${num}.`);
+    showToast(`Đã xóa Bài ${num}.`);
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* =================================================================== */}
-      {/* 1. HEADER & CHß╗îN Cß║ñP ─Éß╗ÿ HSK 3.0 (Cß║ñP 1 - 9)                         */}
+      {/* 1. HEADER & CHỌN CẤP ĐỘ HSK 3.0 (CẤP 1 - 9)                         */}
       {/* =================================================================== */}
       <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-6 shadow-2xs space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#BC9B6B]/20">
@@ -315,33 +315,33 @@ export default function CurriculumBuilderWorkspace({
             </div>
             <div>
               <h2 className="text-xl font-serif font-bold text-[#204434] flex items-center gap-2">
-                <span>Quß║ún trß╗ï Kho b├ái hß╗ìc HSK 3.0</span>
+                <span>Quản trị Kho bài học HSK 3.0</span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                  Ti├¬u chuß║⌐n 9 Cß║Ñp (1 - 9)
+                  Tiêu chuẩn 9 Cấp (1 - 9)
                 </span>
               </h2>
               <p className="text-xs text-[#315E48] mt-0.5">
-                Bi├¬n soß║ín gi├ío tr├¼nh chuß║⌐n HSK 3.0 tß╗½ Cß║Ñp 1 ─æß║┐n Cß║Ñp 9, ph├ón bß╗ò tß╗½ vß╗▒ng, ngß╗» ph├íp, ─æoß║ín hß╗Öi thoß║íi v├á xuß║Ñt bß║ún cho to├án tr╞░ß╗¥ng.
+                Biên soạn giáo trình chuẩn HSK 3.0 từ Cấp 1 đến Cấp 9, phân bổ từ vựng, ngữ pháp, đoạn hội thoại và xuất bản cho toàn trường.
               </p>
             </div>
           </div>
 
-          {/* C├íc n├║t h├ánh ─æß╗Öng ch├¡nh */}
+          {/* Các nút hành động chính */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Tß║úi template mß║½u */}
+            {/* Tải template mẫu */}
             <button
               onClick={handleDownloadTemplate}
               className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Tß║úi vß╗ü file JSON mß║½u ─æß╗â chß╗ënh sß╗¡a"
+              title="Tải về file JSON mẫu để chỉnh sửa"
             >
               <Download className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Tß║úi Template (.JSON)</span>
+              <span>Tải Template (.JSON)</span>
             </button>
 
-            {/* Nhß║¡p file JSON */}
+            {/* Nhập file JSON */}
             <label className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
               <Upload className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Nhß║¡p file (.JSON)</span>
+              <span>Nhập file (.JSON)</span>
               <input
                 type="file"
                 accept=".json"
@@ -350,32 +350,32 @@ export default function CurriculumBuilderWorkspace({
               />
             </label>
 
-            {/* Th├¬m b├ái mß╗¢i */}
+            {/* Thêm bài mới */}
             <button
               onClick={handleAddNewLesson}
               className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4 text-[#BC9B6B]" />
-              <span>Th├¬m b├ái hß╗ìc mß╗¢i</span>
+              <span>Thêm bài học mới</span>
             </button>
 
-            {/* L╞░u & Xuß║Ñt bß║ún to├án bß╗Ö */}
+            {/* Lưu & Xuất bản toàn bộ */}
             <button
               disabled={saving || lessons.length === 0}
               onClick={handleSaveAndPublishAll}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] hover:from-[#17382F] hover:to-[#204434] text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-md shadow-[#204434]/20 disabled:opacity-50"
             >
               <Save className="w-4 h-4 text-[#BC9B6B]" />
-              <span>{saving ? "─Éang xuß║Ñt bß║ún..." : "L╞░u & Xuß║Ñt bß║ún kho chung"}</span>
+              <span>{saving ? "Đang xuất bản..." : "Lưu & Xuất bản kho chung"}</span>
             </button>
           </div>
         </div>
 
-        {/* Thanh chß╗ìn Level HSK 3.0: 9 Cß║Ñp (S╞í cß║Ñp 1-3, Trung cß║Ñp 4-6, Cao cß║Ñp 7-9) */}
+        {/* Thanh chọn Level HSK 3.0: 9 Cấp (Sơ cấp 1-3, Trung cấp 4-6, Cao cấp 7-9) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cß║Ñp ─æß╗Ö HSK 3.0:</span>
+          <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cấp độ HSK 3.0:</span>
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => {
-            const tierLabel = lvl <= 3 ? "S╞í cß║Ñp" : lvl <= 6 ? "Trung cß║Ñp" : "Cao cß║Ñp";
+            const tierLabel = lvl <= 3 ? "Sơ cấp" : lvl <= 6 ? "Trung cấp" : "Cao cấp";
             return (
               <button
                 key={lvl}
@@ -398,7 +398,7 @@ export default function CurriculumBuilderWorkspace({
                 </span>
                 {selectedLevel === lvl && (
                   <span className="text-[10px] text-emerald-300 ml-0.5">
-                    ({lessons.length} b├ái)
+                    ({lessons.length} bài)
                   </span>
                 )}
               </button>
@@ -408,18 +408,18 @@ export default function CurriculumBuilderWorkspace({
       </div>
 
       {/* =================================================================== */}
-      {/* 2. DANH S├üCH B├ÇI Hß╗îC TRONG Cß║ñP ─Éß╗ÿ                                   */}
+      {/* 2. DANH SÁCH BÀI HỌC TRONG CẤP ĐỘ                                   */}
       {/* =================================================================== */}
       {loading ? (
         <div className="py-16 text-center text-xs text-[#315E48] bg-[#FFFCF6] rounded-3xl border border-[#BC9B6B]/20">
-          ─Éang tß║úi danh s├ích b├ái hß╗ìc HSK {selectedLevel}...
+          Đang tải danh sách bài học HSK {selectedLevel}...
         </div>
       ) : lessons.length === 0 ? (
         <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/30 space-y-3">
           <BookOpen className="w-10 h-10 text-[#8F6D3B]/40 mx-auto" />
-          <p className="text-sm font-bold text-[#204434]">Ch╞░a c├│ b├ái hß╗ìc n├áo cho HSK {selectedLevel}</p>
+          <p className="text-sm font-bold text-[#204434]">Chưa có bài học nào cho HSK {selectedLevel}</p>
           <p className="text-xs text-[#315E48]">
-            Bß║ín c├│ thß╗â bß║Ñm &quot;Th├¬m b├ái hß╗ìc mß╗¢i&quot; hoß║╖c &quot;Nhß║¡p file (.JSON)&quot; ─æß╗â bß║»t ─æß║ºu x├óy dß╗▒ng gi├ío tr├¼nh.
+            Bạn có thể bấm &quot;Thêm bài học mới&quot; hoặc &quot;Nhập file (.JSON)&quot; để bắt đầu xây dựng giáo trình.
           </p>
         </div>
       ) : (
@@ -437,7 +437,7 @@ export default function CurriculumBuilderWorkspace({
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="px-3 py-1 rounded-full bg-[#204434] text-white text-xs font-bold">
-                      B├ái {String(les.number).padStart(2, "0")}
+                      Bài {String(les.number).padStart(2, "0")}
                     </span>
                     <span className="text-[11px] font-mono font-semibold text-[#8F6D3B]">
                       HSK {selectedLevel}
@@ -452,25 +452,25 @@ export default function CurriculumBuilderWorkspace({
                       <p className="font-mono text-xs text-[#8F6D3B]">{les.pinyin}</p>
                     )}
                     <p className="text-xs font-medium text-[#315E48] mt-0.5 line-clamp-1">
-                      {les.titleVi || les.desc || "B├ái hß╗ìc chuß║⌐n HSK"}
+                      {les.titleVi || les.desc || "Bài học chuẩn HSK"}
                     </p>
                   </div>
 
-                  {/* Badges th├ánh phß║ºn */}
+                  {/* Badges thành phần */}
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
-                      ≡ƒôÜ {vCount} tß╗½ vß╗▒ng
+                      📚 {vCount} từ vựng
                     </span>
                     <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
-                      ≡ƒôÉ {gCount} ngß╗» ph├íp
+                      📐 {gCount} ngữ pháp
                     </span>
                     <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
-                      ≡ƒÆ¼ {dCount} thoß║íi
+                      💬 {dCount} thoại
                     </span>
                   </div>
                 </div>
 
-                {/* N├║t h├ánh ─æß╗Öng */}
+                {/* Nút hành động */}
                 <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between gap-2">
                   <button
                     onClick={() => {
@@ -480,13 +480,13 @@ export default function CurriculumBuilderWorkspace({
                     className="flex-1 py-2 px-3 rounded-xl bg-white border border-[#BC9B6B]/40 hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <Edit3 className="w-3.5 h-3.5 text-[#8F6D3B]" />
-                    <span>Sß╗¡a chi tiß║┐t</span>
+                    <span>Sửa chi tiết</span>
                   </button>
 
                   <button
                     onClick={() => handleDeleteLesson(les.number)}
                     className="p-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition cursor-pointer"
-                    title="X├│a b├ái hß╗ìc n├áy"
+                    title="Xóa bài học này"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -498,7 +498,7 @@ export default function CurriculumBuilderWorkspace({
       )}
 
       {/* =================================================================== */}
-      {/* 3. MODAL CHß╗êNH Sß╗¼A CHI TIß║╛T B├ÇI Hß╗îC (VISUAL BUILDER)                */}
+      {/* 3. MODAL CHỈNH SỬA CHI TIẾT BÀI HỌC (VISUAL BUILDER)                */}
       {/* =================================================================== */}
       {editingLesson && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
@@ -507,13 +507,13 @@ export default function CurriculumBuilderWorkspace({
             <div className="p-5 sm:p-6 bg-gradient-to-r from-[#FAF7F0] to-[#FFFCF6] border-b border-[#E5DEC9] flex items-center justify-between">
               <div>
                 <h3 className="font-serif font-bold text-lg text-[#204434] flex items-center gap-2">
-                  <span>Chß╗ënh sß╗¡a nß╗Öi dung: B├ái {editingLesson.number}</span>
+                  <span>Chỉnh sửa nội dung: Bài {editingLesson.number}</span>
                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#204434] text-white">
                     HSK {selectedLevel}
                   </span>
                 </h3>
                 <p className="text-xs text-[#315E48] mt-0.5">
-                  Th├¬m hoß║╖c cß║¡p nhß║¡t tß╗½ vß╗▒ng, ngß╗» ph├íp, ─æoß║ín hß╗Öi thoß║íi, ph├ít ├óm v├á v─ân h├│a.
+                  Thêm hoặc cập nhật từ vựng, ngữ pháp, đoạn hội thoại, phát âm và văn hóa.
                 </p>
               </div>
 
@@ -535,7 +535,7 @@ export default function CurriculumBuilderWorkspace({
                     : "text-[#315E48] hover:bg-white"
                 }`}
               >
-                1. Th├┤ng tin chung
+                1. Thông tin chung
               </button>
               <button
                 onClick={() => setEditorTab("vocab")}
@@ -545,7 +545,7 @@ export default function CurriculumBuilderWorkspace({
                     : "text-[#315E48] hover:bg-white"
                 }`}
               >
-                2. Tß╗½ vß╗▒ng ({editingLesson.vocabList?.length || 0})
+                2. Từ vựng ({editingLesson.vocabList?.length || 0})
               </button>
               <button
                 onClick={() => setEditorTab("grammar")}
@@ -555,7 +555,7 @@ export default function CurriculumBuilderWorkspace({
                     : "text-[#315E48] hover:bg-white"
                 }`}
               >
-                3. Ngß╗» ph├íp ({editingLesson.grammarList?.length || 0})
+                3. Ngữ pháp ({editingLesson.grammarList?.length || 0})
               </button>
               <button
                 onClick={() => setEditorTab("dialogue")}
@@ -565,7 +565,7 @@ export default function CurriculumBuilderWorkspace({
                     : "text-[#315E48] hover:bg-white"
                 }`}
               >
-                4. ─Éoß║ín hß╗Öi thoß║íi ({editingLesson.dialogue?.length || 0})
+                4. Đoạn hội thoại ({editingLesson.dialogue?.length || 0})
               </button>
               <button
                 onClick={() => setEditorTab("phonetics")}
@@ -575,19 +575,19 @@ export default function CurriculumBuilderWorkspace({
                     : "text-[#315E48] hover:bg-white"
                 }`}
               >
-                5. Ngß╗» ├óm & V─ân h├│a
+                5. Ngữ âm & Văn hóa
               </button>
             </div>
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
-              {/* TAB 1: TH├öNG TIN CHUNG */}
+              {/* TAB 1: THÔNG TIN CHUNG */}
               {editorTab === "info" && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-[#204434] block mb-1">
-                        Sß╗æ thß╗⌐ tß╗▒ b├ái hß╗ìc:
+                        Số thứ tự bài học:
                       </label>
                       <input
                         type="number"
@@ -605,11 +605,11 @@ export default function CurriculumBuilderWorkspace({
 
                     <div>
                       <label className="text-xs font-bold text-[#204434] block mb-1">
-                        Ti├¬u ─æß╗ü tiß║┐ng Trung (Hanzi):
+                        Tiêu đề tiếng Trung (Hanzi):
                       </label>
                       <input
                         type="text"
-                        placeholder="VD: Σ╜áσÑ╜∩╝ü"
+                        placeholder="VD: 你好！"
                         value={editingLesson.titleZh}
                         onChange={(e) =>
                           setEditingLesson({
@@ -623,11 +623,11 @@ export default function CurriculumBuilderWorkspace({
 
                     <div>
                       <label className="text-xs font-bold text-[#204434] block mb-1">
-                        Phi├¬n ├óm Pinyin:
+                        Phiên âm Pinyin:
                       </label>
                       <input
                         type="text"
-                        placeholder="VD: N╟É h╟Äo!"
+                        placeholder="VD: Nǐ hǎo!"
                         value={editingLesson.pinyin || ""}
                         onChange={(e) =>
                           setEditingLesson({
@@ -641,11 +641,11 @@ export default function CurriculumBuilderWorkspace({
 
                     <div>
                       <label className="text-xs font-bold text-[#204434] block mb-1">
-                        Ti├¬u ─æß╗ü tiß║┐ng Viß╗çt:
+                        Tiêu đề tiếng Việt:
                       </label>
                       <input
                         type="text"
-                        placeholder="VD: Xin ch├áo!"
+                        placeholder="VD: Xin chào!"
                         value={editingLesson.titleVi || ""}
                         onChange={(e) =>
                           setEditingLesson({
@@ -660,11 +660,11 @@ export default function CurriculumBuilderWorkspace({
 
                   <div>
                     <label className="text-xs font-bold text-[#204434] block mb-1">
-                      M├┤ tß║ú & Mß╗Ñc ti├¬u b├ái hß╗ìc:
+                      Mô tả & Mục tiêu bài học:
                     </label>
                     <textarea
                       rows={3}
-                      placeholder="Mß╗Ñc ti├¬u kiß║┐n thß╗⌐c, tß╗½ vß╗▒ng v├á ngß╗» ph├íp cß║ºn ─æß║ít sau b├ái hß╗ìc..."
+                      placeholder="Mục tiêu kiến thức, từ vựng và ngữ pháp cần đạt sau bài học..."
                       value={editingLesson.desc || ""}
                       onChange={(e) =>
                         setEditingLesson({
@@ -678,32 +678,32 @@ export default function CurriculumBuilderWorkspace({
                 </div>
               )}
 
-              {/* TAB 2: Tß╗¬ Vß╗░NG */}
+              {/* TAB 2: TỪ VỰNG */}
               {editorTab === "vocab" && (
                 <div className="space-y-6">
-                  {/* Form th├¬m tß╗½ mß╗¢i */}
+                  {/* Form thêm từ mới */}
                   <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      + Th├¬m tß╗½ vß╗▒ng mß╗¢i v├áo b├ái:
+                      + Thêm từ vựng mới vào bài:
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <input
                         type="text"
-                        placeholder="Chß╗» H├ín (VD: ΦÇüσ╕ê)"
+                        placeholder="Chữ Hán (VD: 老师)"
                         value={newVocabHanzi}
                         onChange={(e) => setNewVocabHanzi(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm font-bold"
                       />
                       <input
                         type="text"
-                        placeholder="Pinyin (VD: l╟Äosh─½)"
+                        placeholder="Pinyin (VD: lǎoshī)"
                         value={newVocabPinyin}
                         onChange={(e) => setNewVocabPinyin(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm font-mono"
                       />
                       <input
                         type="text"
-                        placeholder="Ngh─⌐a TV (VD: thß║ºy gi├ío)"
+                        placeholder="Nghĩa TV (VD: thầy giáo)"
                         value={newVocabMeaning}
                         onChange={(e) => setNewVocabMeaning(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm"
@@ -713,28 +713,28 @@ export default function CurriculumBuilderWorkspace({
                         onChange={(e) => setNewVocabType(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm"
                       >
-                        <option value="Danh tß╗½">Danh tß╗½</option>
-                        <option value="─Éß╗Öng tß╗½">─Éß╗Öng tß╗½</option>
-                        <option value="T├¡nh tß╗½">T├¡nh tß╗½</option>
-                        <option value="─Éß║íi tß╗½">─Éß║íi tß╗½</option>
-                        <option value="Ph├│ tß╗½">Ph├│ tß╗½</option>
-                        <option value="Trß╗ú tß╗½">Trß╗ú tß╗½</option>
-                        <option value="L╞░ß╗úng tß╗½">L╞░ß╗úng tß╗½</option>
-                        <option value="Sß╗æ tß╗½">Sß╗æ tß╗½</option>
+                        <option value="Danh từ">Danh từ</option>
+                        <option value="Động từ">Động từ</option>
+                        <option value="Tính từ">Tính từ</option>
+                        <option value="Đại từ">Đại từ</option>
+                        <option value="Phó từ">Phó từ</option>
+                        <option value="Trợ từ">Trợ từ</option>
+                        <option value="Lượng từ">Lượng từ</option>
+                        <option value="Số từ">Số từ</option>
                       </select>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
-                        placeholder="C├óu v├¡ dß╗Ñ tiß║┐ng H├ín (VD: Σ╗ûµÿ»µêæΣ╗¼τÜäΣ╕¡µûçΦÇüσ╕êπÇé)"
+                        placeholder="Câu ví dụ tiếng Hán (VD: 他µ��µ��们的中µ��老师。)"
                         value={newVocabExZh}
                         onChange={(e) => setNewVocabExZh(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
                       />
                       <input
                         type="text"
-                        placeholder="Dß╗ïch ngh─⌐a c├óu v├¡ dß╗Ñ (VD: Thß║ºy ß║Ñy l├á gi├ío vi├¬n tiß║┐ng Trung cß╗ºa ch├║ng t├┤i.)"
+                        placeholder="Dịch nghĩa câu ví dụ (VD: Thầy ấy là giáo viên tiếng Trung của chúng tôi.)"
                         value={newVocabExVi}
                         onChange={(e) => setNewVocabExVi(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
@@ -744,7 +744,7 @@ export default function CurriculumBuilderWorkspace({
                     <button
                       onClick={() => {
                         if (!newVocabHanzi.trim()) {
-                          showToast("Vui l├▓ng nhß║¡p chß╗» H├ín!", "error");
+                          showToast("Vui lòng nhập chữ Hán!", "error");
                           return;
                         }
                         const newItem = {
@@ -765,19 +765,19 @@ export default function CurriculumBuilderWorkspace({
                         setNewVocabMeaning("");
                         setNewVocabExZh("");
                         setNewVocabExVi("");
-                        showToast(`─É├ú th├¬m tß╗½ "${newItem.hanzi}"!`);
+                        showToast(`Đã thêm từ "${newItem.hanzi}"!`);
                       }}
                       className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Th├¬m v├áo danh s├ích tß╗½ vß╗▒ng</span>
+                      <span>Thêm vào danh sách từ vựng</span>
                     </button>
                   </div>
 
-                  {/* Bß║úng danh s├ích tß╗½ vß╗▒ng */}
+                  {/* Bảng danh sách từ vựng */}
                   <div className="space-y-2">
                     <span className="text-xs font-bold text-[#8F6D3B]">
-                      Danh s├ích tß╗½ vß╗▒ng hiß╗çn tß║íi ({editingLesson.vocabList?.length || 0} tß╗½):
+                      Danh sách từ vựng hiện tại ({editingLesson.vocabList?.length || 0} từ):
                     </span>
                     <div className="border border-[#E5DEC9] rounded-2xl overflow-hidden bg-white">
                       {editingLesson.vocabList?.map((v, vIdx) => (
@@ -792,7 +792,7 @@ export default function CurriculumBuilderWorkspace({
                             </span>
                             <span className="font-mono text-[#8F6D3B]">{v.pinyin}</span>
                             <span className="px-2 py-0.5 rounded bg-[#FAF7F0] text-[11px] font-medium text-slate-600">
-                              {v.type || "Tß╗½ vß╗▒ng"}
+                              {v.type || "Từ vựng"}
                             </span>
                             <span className="text-[#315E48] font-medium">{v.meaning}</span>
                           </div>
@@ -801,7 +801,7 @@ export default function CurriculumBuilderWorkspace({
                             <button
                               onClick={() => handleSpeak(v.hanzi)}
                               className="p-1 rounded-lg hover:bg-slate-100 text-slate-600"
-                              title="Nghe ph├ít ├óm"
+                              title="Nghe phát âm"
                             >
                               <Volume2 className="w-3.5 h-3.5" />
                             </button>
@@ -813,7 +813,7 @@ export default function CurriculumBuilderWorkspace({
                                 });
                               }}
                               className="p-1 rounded-lg hover:bg-red-50 text-red-500"
-                              title="X├│a tß╗½ n├áy"
+                              title="Xóa từ này"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -825,25 +825,25 @@ export default function CurriculumBuilderWorkspace({
                 </div>
               )}
 
-              {/* TAB 3: NGß╗« PH├üP */}
+              {/* TAB 3: NGỮ PHÁP */}
               {editorTab === "grammar" && (
                 <div className="space-y-6">
-                  {/* Form th├¬m ngß╗» ph├íp */}
+                  {/* Form thêm ngữ pháp */}
                   <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      + Th├¬m ─æiß╗âm ngß╗» ph├íp mß╗¢i:
+                      + Thêm điểm ngữ pháp mới:
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
-                        placeholder="T├¬n ─æiß╗âm ngß╗» ph├íp (VD: C├óu hß╗Åi nghi vß║Ñn vß╗¢i σÉù)"
+                        placeholder="Tên điểm ngữ pháp (VD: Câu hỏi nghi vấn với 吗)"
                         value={newGrammarTitle}
                         onChange={(e) => setNewGrammarTitle(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-bold"
                       />
                       <input
                         type="text"
-                        placeholder="Cß║Ñu tr├║c c├óu (VD: C├óu trß║ºn thuß║¡t + σÉù?)"
+                        placeholder="Cấu trúc câu (VD: Câu trần thuật + 吗?)"
                         value={newGrammarStructure}
                         onChange={(e) => setNewGrammarStructure(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-mono"
@@ -851,14 +851,14 @@ export default function CurriculumBuilderWorkspace({
                     </div>
                     <textarea
                       rows={2}
-                      placeholder="Giß║úi th├¡ch chi tiß║┐t quy tß║»c ngß╗» ph├íp..."
+                      placeholder="Giải thích chi tiết quy tắc ngữ pháp..."
                       value={newGrammarExplanation}
                       onChange={(e) => setNewGrammarExplanation(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
                     />
                     <input
                       type="text"
-                      placeholder="C├óu v├¡ dß╗Ñ minh hß╗ìa (VD: Σ╜áµÿ»ΦÇüσ╕êσÉù∩╝ƒ)"
+                      placeholder="Câu ví dụ minh họa (VD: 你µ��老师吗？)"
                       value={newGrammarExample}
                       onChange={(e) => setNewGrammarExample(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
@@ -867,7 +867,7 @@ export default function CurriculumBuilderWorkspace({
                     <button
                       onClick={() => {
                         if (!newGrammarTitle.trim()) {
-                          showToast("Vui l├▓ng nhß║¡p t├¬n ─æiß╗âm ngß╗» ph├íp!", "error");
+                          showToast("Vui lòng nhập tên điểm ngữ pháp!", "error");
                           return;
                         }
                         const newG = {
@@ -884,16 +884,16 @@ export default function CurriculumBuilderWorkspace({
                         setNewGrammarStructure("");
                         setNewGrammarExplanation("");
                         setNewGrammarExample("");
-                        showToast(`─É├ú th├¬m ─æiß╗âm ngß╗» ph├íp mß╗¢i!`);
+                        showToast(`Đã thêm điểm ngữ pháp mới!`);
                       }}
                       className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Th├¬m v├áo danh s├ích ngß╗» ph├íp</span>
+                      <span>Thêm vào danh sách ngữ pháp</span>
                     </button>
                   </div>
 
-                  {/* Danh s├ích ngß╗» ph├íp */}
+                  {/* Danh sách ngữ pháp */}
                   <div className="space-y-3">
                     {editingLesson.grammarList?.map((g, gIdx) => (
                       <div
@@ -908,21 +908,21 @@ export default function CurriculumBuilderWorkspace({
                             });
                           }}
                           className="absolute right-3 top-3 p-1 rounded-lg hover:bg-red-50 text-red-500"
-                          title="X├│a ngß╗» ph├íp n├áy"
+                          title="Xóa ngữ pháp này"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
 
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded bg-[#204434]/10 text-[#204434] text-[11px] font-bold">
-                            Ngß╗» ph├íp #{gIdx + 1}
+                            Ngữ pháp #{gIdx + 1}
                           </span>
                           <h4 className="font-serif font-bold text-sm text-[#204434]">{g.title}</h4>
                         </div>
 
                         {g.structure && (
                           <div className="p-2 rounded-lg bg-[#FAF7F0] text-xs font-mono font-semibold text-[#8F6D3B]">
-                            Cß║Ñu tr├║c: {g.structure}
+                            Cấu trúc: {g.structure}
                           </div>
                         )}
 
@@ -930,7 +930,7 @@ export default function CurriculumBuilderWorkspace({
 
                         {g.example && (
                           <p className="text-xs font-medium text-[#204434] italic">
-                            V├¡ dß╗Ñ: {g.example}
+                            Ví dụ: {g.example}
                           </p>
                         )}
                       </div>
@@ -939,32 +939,32 @@ export default function CurriculumBuilderWorkspace({
                 </div>
               )}
 
-              {/* TAB 4: Hß╗ÿI THOß║áI */}
+              {/* TAB 4: HỘI THOẠI */}
               {editorTab === "dialogue" && (
                 <div className="space-y-6">
-                  {/* Form th├¬m c├óu thoß║íi */}
+                  {/* Form thêm câu thoại */}
                   <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      + Th├¬m c├óu thoß║íi mß╗¢i v├áo b├ái:
+                      + Thêm câu thoại mới vào bài:
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <input
                         type="text"
-                        placeholder="Ng╞░ß╗¥i n├│i (VD: µ¥ÄµÿÄ / A)"
+                        placeholder="Người nói (VD: µ��µ�� / A)"
                         value={newDialSpeaker}
                         onChange={(e) => setNewDialSpeaker(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-bold"
                       />
                       <input
                         type="text"
-                        placeholder="Chß╗» H├ín (VD: Σ╜áσÑ╜∩╝ü)"
+                        placeholder="Chữ Hán (VD: 你好！)"
                         value={newDialZh}
                         onChange={(e) => setNewDialZh(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-serif font-bold col-span-2"
                       />
                       <input
                         type="text"
-                        placeholder="Pinyin (VD: N╟É h╟Äo!)"
+                        placeholder="Pinyin (VD: Nǐ hǎo!)"
                         value={newDialPinyin}
                         onChange={(e) => setNewDialPinyin(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-mono"
@@ -972,7 +972,7 @@ export default function CurriculumBuilderWorkspace({
                     </div>
                     <input
                       type="text"
-                      placeholder="Dß╗ïch ngh─⌐a tiß║┐ng Viß╗çt (VD: Ch├áo bß║ín!)"
+                      placeholder="Dịch nghĩa tiếng Việt (VD: Chào bạn!)"
                       value={newDialVi}
                       onChange={(e) => setNewDialVi(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
@@ -981,7 +981,7 @@ export default function CurriculumBuilderWorkspace({
                     <button
                       onClick={() => {
                         if (!newDialZh.trim()) {
-                          showToast("Vui l├▓ng nhß║¡p c├óu thoß║íi chß╗» H├ín!", "error");
+                          showToast("Vui lòng nhập câu thoại chữ Hán!", "error");
                           return;
                         }
                         const newD = {
@@ -997,16 +997,16 @@ export default function CurriculumBuilderWorkspace({
                         setNewDialZh("");
                         setNewDialPinyin("");
                         setNewDialVi("");
-                        showToast("─É├ú th├¬m c├óu thoß║íi!");
+                        showToast("Đã thêm câu thoại!");
                       }}
                       className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Th├¬m c├óu thoß║íi</span>
+                      <span>Thêm câu thoại</span>
                     </button>
                   </div>
 
-                  {/* Danh s├ích thoß║íi */}
+                  {/* Danh sách thoại */}
                   <div className="space-y-2 bg-white p-4 rounded-2xl border border-[#E5DEC9]">
                     {editingLesson.dialogue?.map((d, dIdx) => (
                       <div
@@ -1024,7 +1024,7 @@ export default function CurriculumBuilderWorkspace({
                             <button
                               onClick={() => handleSpeak(d.zh)}
                               className="text-[#8F6D3B] hover:text-[#204434]"
-                              title="Nghe c├óu n├áy"
+                              title="Nghe câu này"
                             >
                               <Volume2 className="w-3.5 h-3.5" />
                             </button>
@@ -1041,7 +1041,7 @@ export default function CurriculumBuilderWorkspace({
                             });
                           }}
                           className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"
-                          title="X├│a c├óu n├áy"
+                          title="Xóa câu này"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1051,16 +1051,16 @@ export default function CurriculumBuilderWorkspace({
                 </div>
               )}
 
-              {/* TAB 5: NGß╗« ├éM & V─éN H├ôA */}
+              {/* TAB 5: NGỮ ÂM & VĂN HÓA */}
               {editorTab === "phonetics" && (
                 <div className="space-y-5">
                   <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      Ngß╗» ├óm trß╗ìng t├óm cß╗ºa b├ái:
+                      Ngữ âm trọng tâm của bài:
                     </span>
                     <input
                       type="text"
-                      placeholder="Ti├¬u ─æß╗ü ngß╗» ├óm (VD: Thanh mß║½u d, t, n, l)"
+                      placeholder="Tiêu đề ngữ âm (VD: Thanh mẫu d, t, n, l)"
                       value={editingLesson.phonetics?.title || ""}
                       onChange={(e) =>
                         setEditingLesson({
@@ -1078,7 +1078,7 @@ export default function CurriculumBuilderWorkspace({
                     />
                     <textarea
                       rows={2}
-                      placeholder="Quy tß║»c ph├ít ├óm chi tiß║┐t..."
+                      placeholder="Quy tắc phát âm chi tiết..."
                       value={editingLesson.phonetics?.rule || ""}
                       onChange={(e) =>
                         setEditingLesson({
@@ -1098,11 +1098,11 @@ export default function CurriculumBuilderWorkspace({
 
                   <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      G├│c v─ân h├│a Trung Hoa thß╗▒c tß║┐:
+                      Góc văn hóa Trung Hoa thực tế:
                     </span>
                     <textarea
                       rows={3}
-                      placeholder="Kiß║┐n thß╗⌐c v─ân h├│a, phong tß╗Ñc, lß╗à nghi ch├áo hß╗Åi hoß║╖c c├óu chuyß╗çn th├║ vß╗ï..."
+                      placeholder="Kiến thức văn hóa, phong tục, lễ nghi chào hỏi hoặc câu chuyện thú vị..."
                       value={editingLesson.culture || ""}
                       onChange={(e) =>
                         setEditingLesson({
@@ -1120,16 +1120,16 @@ export default function CurriculumBuilderWorkspace({
               {/* TAB 6: ĐỌC HIỂU & VĂN HÓA GIAO TIẾP */}
               {editorTab === "richcontent" && (
                 <div className="space-y-8">
-                  {/* Phần A: Bài đọc hiểu (reading_items) */}
+                  {/* Phần A: B�i đọc hiểu (reading_items) */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-[#E5DEC9]">
                       <BookMarked className="w-4 h-4 text-[#8F6D3B]" />
                       <h4 className="font-serif font-bold text-sm text-[#204434]">
-                        Bài đọc hiểu (reading_items)
+                        B�i đọc hiểu (reading_items)
                       </h4>
                     </div>
                     <p className="text-xs text-[#315E48] leading-5">
-                      Nhập nội dung bài đọc và từ vựng mở rộng. Dữ liệu sẽ tự động đồng bộ sang giáo viên và hiển thị ở phần &quot;Luyện đọc hiểu&quot; độc lập.
+                      Nhập nội dung b�i đọc v� từ vựng mở rộng. Dữ liệu sẽ tự động đồng bộ sang gi�o vi�n v� hiển thị ở phần &quot;Luyện đọc hiểu&quot; độc lập.
                     </p>
                     <RichReadingEditor
                       value={editingLesson.reading ?? {
@@ -1154,21 +1154,21 @@ export default function CurriculumBuilderWorkspace({
                         }
                         className="text-xs text-red-500 underline hover:text-red-700 cursor-pointer"
                       >
-                        Xóa bài đọc hiểu này
+                        X�a b�i đọc hiểu n�y
                       </button>
                     )}
                   </div>
 
-                  {/* Phần B: Văn hóa giao tiếp & Thực tế (culture_items) */}
+                  {/* Phần B: Văn h�a giao tiếp & Thực tế (culture_items) */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-[#E5DEC9]">
                       <Globe2 className="w-4 h-4 text-[#8F6D3B]" />
                       <h4 className="font-serif font-bold text-sm text-[#204434]">
-                        Văn hóa giao tiếp & Cách sử dụng thực tế (culture_items)
+                        Văn h�a giao tiếp & C�ch sử dụng thực tế (culture_items)
                       </h4>
                     </div>
                     <p className="text-xs text-[#315E48] leading-5">
-                      Nhập mẫu câu vàng, cách nói lịch sự, bối cảnh và cấm kỵ văn hóa. Bên giáo viên sẽ hiển thị độc lập tại &quot;Văn hóa giao tiếp & Cách sử dụng thực tế&quot;.
+                      Nhập mẫu c�u v�ng, c�ch n�i lịch sự, bối cảnh v� cấm kỵ văn h�a. B�n gi�o vi�n sẽ hiển thị độc lập tại &quot;Văn h�a giao tiếp & C�ch sử dụng thực tế&quot;.
                     </p>
                     <RichCultureEditor
                       value={editingLesson.culturalNote ?? {
@@ -1194,7 +1194,7 @@ export default function CurriculumBuilderWorkspace({
                 onClick={() => setEditingLesson(null)}
                 className="px-4 py-2 rounded-xl border border-[#E5DEC9] bg-white text-slate-600 text-xs font-bold hover:bg-[#FAF7F0] transition cursor-pointer"
               >
-                Hß╗ºy bß╗Å
+                Hủy bỏ
               </button>
 
               <button
@@ -1202,7 +1202,7 @@ export default function CurriculumBuilderWorkspace({
                 className="px-6 py-2.5 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#17382F] transition shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4 text-[#BC9B6B]" />
-                <span>Ho├án tß║Ñt & Cß║¡p nhß║¡t b├ái hß╗ìc</span>
+                <span>Hoàn tất & Cập nhật bài học</span>
               </button>
             </div>
           </div>

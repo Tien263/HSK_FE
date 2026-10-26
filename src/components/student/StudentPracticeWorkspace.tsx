@@ -37,6 +37,10 @@ import {
   getMemoryStats,
   getWeeklyStudyMinutes,
   recordWeeklyStudyTime,
+  recordStudyTime,
+  getTodayStudySeconds,
+  getWeeklyStudySeconds,
+  formatStudyTimeVi,
 } from "@/lib/memory-review-service";
 import {
   Calendar,
@@ -93,17 +97,30 @@ export default function StudentPracticeWorkspace({
   const [memoryStats, setMemoryStats] = useState(() => getMemoryStats(currentUser?.id));
   const [weeklyMinutes, setWeeklyMinutes] = useState(() => getWeeklyStudyMinutes(currentUser?.id));
 
+  // Thời gian học thực tế hôm nay & tuần này (tính theo giây, hiển thị phút/giờ động)
+  const [isMounted, setIsMounted] = useState<boolean>(false);
+  const [todayStudySec, setTodayStudySec] = useState<number>(0);
+  const [weeklyStudySec, setWeeklyStudySec] = useState<number>(0);
+
   const refreshMemoryStats = useCallback(() => {
     setMemoryStats(getMemoryStats(currentUser?.id));
     setWeeklyMinutes(getWeeklyStudyMinutes(currentUser?.id));
+    setTodayStudySec(getTodayStudySeconds(currentUser?.id));
+    setWeeklyStudySec(getWeeklyStudySeconds(currentUser?.id));
   }, [currentUser?.id]);
 
-  // Ghi nhận thời gian luyện tập thực tế mỗi 15 giây
+  // Ghi nhận thời gian luyện tập thực tế mỗi 3 giây và cập nhật realtime
   useEffect(() => {
+    setIsMounted(true);
+    setTodayStudySec(getTodayStudySeconds(currentUser?.id));
+    setWeeklyStudySec(getWeeklyStudySeconds(currentUser?.id));
+
     const timer = setInterval(() => {
-      recordWeeklyStudyTime(15, currentUser?.id);
+      recordStudyTime(3, currentUser?.id);
+      setTodayStudySec(getTodayStudySeconds(currentUser?.id));
+      setWeeklyStudySec(getWeeklyStudySeconds(currentUser?.id));
       setWeeklyMinutes(getWeeklyStudyMinutes(currentUser?.id));
-    }, 15000);
+    }, 3000);
     return () => clearInterval(timer);
   }, [currentUser?.id]);
 
@@ -460,7 +477,7 @@ export default function StudentPracticeWorkspace({
           </div>
         </div>
 
-        {/* Chỉ số 5: Thời gian học */}
+        {/* Chỉ số 5: Thời gian học (Hôm nay & Tuần này động 100%) */}
         <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-1.5 flex flex-col justify-between col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between text-[#8F6D3B]">
             <span className="text-[11px] font-bold uppercase tracking-wider">Thời gian học</span>
@@ -468,9 +485,11 @@ export default function StudentPracticeWorkspace({
           </div>
           <div>
             <div className="text-2xl font-serif font-bold text-[#204434]">
-              {weeklyMinutes} <span className="text-xs font-sans font-normal text-[#315E48]">phút</span>
+              {isMounted ? formatStudyTimeVi(todayStudySec) : "0 phút"}
             </div>
-            <p className="text-[10px] text-[#315E48]">Luyện tập trong tuần này</p>
+            <p className="text-[10px] text-[#315E48]">
+              Hôm nay • Tuần này: <span className="font-semibold">{isMounted ? formatStudyTimeVi(weeklyStudySec) : "0 phút"}</span>
+            </p>
           </div>
         </div>
       </div>
@@ -609,6 +628,7 @@ export default function StudentPracticeWorkspace({
           lessonTitleZh={currentOfficialLesson?.titleZh}
           lessonNumber={selectedPracticeLesson}
           handleSpeak={handleSpeak}
+          studentId={currentUser?.id}
         />
       )}
 

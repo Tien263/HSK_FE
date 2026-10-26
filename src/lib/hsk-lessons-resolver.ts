@@ -12,7 +12,7 @@ export function getLessonsByHskLevel(level: number = 1): Hsk1FullLesson[] {
     baseLessons = [];
   }
 
-  // Nß║┐u Admin ─æ├ú t├╣y biß║┐n hoß║╖c bß╗ò sung b├ái hß╗ìc trong kho chung
+  // Nếu Admin đã tùy biến hoặc bổ sung bài học trong kho chung
   if (typeof window !== "undefined") {
     try {
       const savedRaw = localStorage.getItem(`hsk_admin_custom_curriculum_level_${lvl}`);
@@ -20,9 +20,9 @@ export function getLessonsByHskLevel(level: number = 1): Hsk1FullLesson[] {
         const customLessons: Hsk1FullLesson[] = JSON.parse(savedRaw);
         if (Array.isArray(customLessons) && customLessons.length > 0) {
           const lessonMap = new Map<number, Hsk1FullLesson>();
-          // ─É╞░a base v├áo tr╞░ß╗¢c
+          // Đưa base vào trước
           baseLessons.forEach((l) => lessonMap.set(l.number, l));
-          // ─É├¿ hoß║╖c bß╗ò sung custom cß╗ºa Admin v├áo
+          // Đè hoặc bổ sung custom của Admin vào
           customLessons.forEach((l) => lessonMap.set(l.number, l));
           return Array.from(lessonMap.values()).sort((a, b) => a.number - b.number);
         }

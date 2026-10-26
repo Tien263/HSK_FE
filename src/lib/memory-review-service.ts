@@ -200,12 +200,8 @@ export function getWeeklyStudySeconds(studentId?: string): number {
   if (typeof window === "undefined") return 0;
   try {
     const sid = studentId || "default";
-    const weeklyKey = `${TIME_SPENT_KEY}_${sid}`;
-    const val = Number(localStorage.getItem(weeklyKey) || "0");
-    if (val > 0) return val;
-
-    // Fallback tính tổng 7 ngày gần nhất
-    let sum = 0;
+    // Tính tổng 7 ngày gần nhất
+    let sum7Days = 0;
     const now = new Date();
     for (let i = 0; i < 7; i++) {
       const d = new Date(now);
@@ -214,9 +210,12 @@ export function getWeeklyStudySeconds(studentId?: string): number {
       const m = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
       const key = `${DAILY_TIME_PREFIX}_${sid}_${y}-${m}-${day}`;
-      sum += Number(localStorage.getItem(key) || "0");
+      sum7Days += Number(localStorage.getItem(key) || "0");
     }
-    return sum;
+
+    const weeklyKey = `${TIME_SPENT_KEY}_${sid}`;
+    const storedWeekly = Number(localStorage.getItem(weeklyKey) || "0");
+    return Math.max(sum7Days, storedWeekly);
   } catch {
     return 0;
   }
@@ -239,21 +238,93 @@ export function getTodayStudyMinutes(studentId?: string): number {
 }
 
 /**
- * Format thời gian thân thiện tiếng Việt: ví dụ "28 phút", "1 giờ 15 phút", "< 1 phút"
+ * Lấy thống kê thời gian học của 7 ngày trong tuần hiện tại (T2 -> CN) để vẽ biểu đồ động 100%
+ */
+export function getWeeklyStudyBarStats(studentId?: string): { day: string; date?: string; seconds: number; height: string }[] {
+  if (typeof window === "undefined") {
+    return [
+      { day: "T2", seconds: 0, height: "4px" },
+      { day: "T3", seconds: 0, height: "4px" },
+      { day: "T4", seconds: 0, height: "4px" },
+      { day: "T5", seconds: 0, height: "4px" },
+      { day: "T6", seconds: 0, height: "4px" },
+      { day: "T7", seconds: 0, height: "4px" },
+      { day: "CN", seconds: 0, height: "4px" },
+    ];
+  }
+
+  try {
+    const sid = studentId || "default";
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0: CN, 1: T2, ..., 6: T7
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+
+    const labels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+    const results: { day: string; date: string; seconds: number }[] = [];
+    let maxSeconds = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const key = `${DAILY_TIME_PREFIX}_${sid}_${y}-${m}-${day}`;
+      const sec = Number(localStorage.getItem(key) || "0");
+      if (sec > maxSeconds) maxSeconds = sec;
+      results.push({
+        day: labels[i],
+        date: `${y}-${m}-${day}`,
+        seconds: sec,
+      });
+    }
+
+    return results.map((item) => {
+      if (item.seconds <= 0) return { day: item.day, seconds: 0, height: "4px" };
+      const pct = maxSeconds > 0 ? Math.max(16, Math.min(95, Math.round((item.seconds / maxSeconds) * 90))) : 4;
+      return {
+        day: item.day,
+        date: item.date,
+        seconds: item.seconds,
+        height: `${pct}%`,
+      };
+    });
+  } catch {
+    return [
+      { day: "T2", seconds: 0, height: "4px" },
+      { day: "T3", seconds: 0, height: "4px" },
+      { day: "T4", seconds: 0, height: "4px" },
+      { day: "T5", seconds: 0, height: "4px" },
+      { day: "T6", seconds: 0, height: "4px" },
+      { day: "T7", seconds: 0, height: "4px" },
+      { day: "CN", seconds: 0, height: "4px" },
+    ];
+  }
+}
+
+/**
+ * Format thời gian thân thiện tiếng Việt: ví dụ "28 giây", "3 phút 15s", "45 phút", "1 giờ 15 phút"
  */
 export function formatStudyTimeVi(seconds: number): string {
-  if (seconds <= 0) return "0 phút";
-  if (seconds < 60) return "< 1 phút";
-  const m = Math.round(seconds / 60);
-  if (m < 60) {
-    return `${m} phút`;
-  }
+  if (!seconds || seconds <= 0) return "0 phút";
+  if (seconds < 60) return `${seconds} giây`;
+  const m = Math.floor(seconds / 60);
+  const remainingSec = seconds % 60;
   const hours = Math.floor(m / 60);
   const remainingMins = m % 60;
-  if (remainingMins === 0) {
-    return `${hours} giờ`;
+
+  if (hours > 0) {
+    if (remainingMins === 0) {
+      return `${hours} giờ`;
+    }
+    return `${hours} giờ ${remainingMins} phút`;
   }
-  return `${hours} giờ ${remainingMins} phút`;
+  if (m < 5 && remainingSec > 0) {
+    return `${m} phút ${remainingSec}s`;
+  }
+  return `${m} phút`;
 }
 
 /**

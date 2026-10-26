@@ -265,15 +265,20 @@ export default function GrammarPracticeSuite({
   handleSpeak,
 }: GrammarPracticeSuiteProps) {
   // Thời gian học thực tế hôm nay & trong tuần (ĐỘNG 100%)
-  const [todayStudySec, setTodayStudySec] = useState(() => getTodayStudySeconds(studentId));
-  const [weeklyStudySec, setWeeklyStudySec] = useState(() => getWeeklyStudySeconds(studentId));
+  const [isMounted, setIsMounted] = useState(false);
+  const [todayStudySec, setTodayStudySec] = useState(0);
+  const [weeklyStudySec, setWeeklyStudySec] = useState(0);
 
   useEffect(() => {
+    setIsMounted(true);
+    setTodayStudySec(getTodayStudySeconds(studentId));
+    setWeeklyStudySec(getWeeklyStudySeconds(studentId));
+
     const timer = setInterval(() => {
-      recordStudyTime(5, studentId);
+      recordStudyTime(3, studentId);
       setTodayStudySec(getTodayStudySeconds(studentId));
       setWeeklyStudySec(getWeeklyStudySeconds(studentId));
-    }, 5000);
+    }, 3000);
     return () => clearInterval(timer);
   }, [studentId]);
   // Chuẩn hóa danh sách cấu trúc ngữ pháp động
@@ -524,13 +529,13 @@ export default function GrammarPracticeSuite({
           </div>
           <div>
             <div className="text-lg font-serif font-bold text-[#204434]">
-              {formatStudyTimeVi(todayStudySec)}
+              {isMounted ? formatStudyTimeVi(todayStudySec) : "0 phút"}
             </div>
             <p className="text-[10px] text-[#6B766D] font-medium">
               Thời gian luyện Hôm nay
             </p>
-            <p className="text-[9px] text-[#8F6D3B] truncate" title={`Tuần này: ${formatStudyTimeVi(weeklyStudySec)}`}>
-              Tuần này: {formatStudyTimeVi(weeklyStudySec)}
+            <p className="text-[9px] text-[#8F6D3B] truncate" title={`Tuần này: ${isMounted ? formatStudyTimeVi(weeklyStudySec) : "0 phút"}`}>
+              Tuần này: {isMounted ? formatStudyTimeVi(weeklyStudySec) : "0 phút"}
             </p>
           </div>
         </div>
@@ -961,7 +966,7 @@ export default function GrammarPracticeSuite({
                     <Clock className="w-3.5 h-3.5 text-[#8F6D3B]" />
                     Thời gian:
                   </span>
-                  <strong className="text-[#17382F] font-mono">{formatTimerMMSS(todayStudySec)}</strong>
+                  <strong className="text-[#17382F] font-mono">{isMounted ? formatTimerMMSS(todayStudySec) : "00:00"}</strong>
                 </div>
               </div>
             </div>
