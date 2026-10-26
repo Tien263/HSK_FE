@@ -1,0 +1,104 @@
+"use client";
+
+import {useEffect, useRef, useState, type KeyboardEvent, type PointerEvent} from "react";
+
+type Position = {x: number; y: number};
+const POSITION_KEY = "hsk-dictionary-launcher-position";
+
+export function useDraggableDictionaryLauncher() {
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const [position, setPosition] = useState<Position | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const positionRef = useRef<Position | null>(null);
+  const gesture = useRef<{id: number; start: Position; origin: Position; moved: boolean} | null>(null);
+  const suppressClick = useRef(false);
+
+  function clamp(point: Position): Position {
+    const rect = launcherRef.current?.getBoundingClientRect();
+    let minX = 8;
+    let maxX = window.innerWidth - (rect?.width || 64) - 8;
+    document.querySelectorAll<HTMLElement>('[data-dictionary-exclusion="sidebar"]').forEach(sidebar => {
+      const bounds = sidebar.getBoundingClientRect(), style = getComputedStyle(sidebar);
+      if (style.display === "none" || style.visibility === "hidden" || bounds.height < window.innerHeight / 2 || bounds.width === 0) return;
+      if (bounds.left <= 8 && bounds.right > 8) minX = Math.max(minX, bounds.right + 8);
+      if (bounds.right >= window.innerWidth - 8 && bounds.left < window.innerWidth - 8) maxX = Math.min(maxX, bounds.left - (rect?.width || 64) - 8);
+    });
+    return {
+      x: Math.max(Math.min(minX, maxX), Math.min(point.x, maxX)),
+      y: Math.max(8, Math.min(point.y, window.innerHeight - (rect?.height || 64) - 8)),
+    };
+  }
+  function move(point: Position, save = false) {
+    const next = clamp(point);
+    if (!positionRef.current || positionRef.current.x !== next.x || positionRef.current.y !== next.y) {
+      positionRef.current = next;
+      setPosition(next);
+    }
+    if (save) {
+      try { localStorage.setItem(POSITION_KEY, JSON.stringify(next)); }
+      catch { /* Moving still works when browser storage is unavailable. */ }
+    }
+  }
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(POSITION_KEY) || "null");
+      if (stored && Number.isFinite(stored.x) && Number.isFinite(stored.y)) move(stored, true);
+    } catch { /* Ignore an invalid or unavailable saved position. */ }
+    const fit = () => { if (positionRef.current) move(positionRef.current, true); };
+    // Sidebars may mount after authentication or slide in after opening a menu.
+    let frame = 0;
+    const scheduleFit = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(fit); };
+    const layoutObserver = new MutationObserver(records => {
+      if (records.some(record => record.type === "childList" || (record.target instanceof Element && record.target.matches('[data-dictionary-exclusion="sidebar"]')))) scheduleFit();
+    });
+    layoutObserver.observe(document.body, {subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "hidden"]});
+    const onTransitionEnd = (event: TransitionEvent) => {
+      if (event.target instanceof Element && event.target.matches('[data-dictionary-exclusion="sidebar"]')) fit();
+    };
+    document.addEventListener("transitionend", onTransitionEnd);
+    window.addEventListener("resize", fit);
+    const observer = new ResizeObserver(fit);
+    if (launcherRef.current) observer.observe(launcherRef.current);
+    return () => { window.removeEventListener("resize", fit); document.removeEventListener("transitionend", onTransitionEnd); cancelAnimationFrame(frame); layoutObserver.disconnect(); observer.disconnect(); };
+  }, []);
+
+  function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
+    if (!event.isPrimary || event.button !== 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    suppressClick.current = false;
+    gesture.current = {id: event.pointerId, start: {x: event.clientX, y: event.clientY}, origin: {x: rect.left, y: rect.top}, moved: false};
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const current = gesture.current;
+    if (!current || current.id !== event.pointerId) return;
+    const dx = event.clientX - current.start.x, dy = event.clientY - current.start.y;
+    if (!current.moved && Math.hypot(dx, dy) < 6) return;
+    current.moved = true;
+    suppressClick.current = true;
+    setDragging(true);
+    event.preventDefault();
+    move({x: current.origin.x + dx, y: current.origin.y + dy});
+  }
+  function finish(event: PointerEvent<HTMLButtonElement>) {
+    const current = gesture.current;
+    if (!current || current.id !== event.pointerId) return;
+    gesture.current = null;
+    setDragging(false);
+    if (current.moved && positionRef.current) move(positionRef.current, true);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    // The click generated by releasing a drag must not open the dictionary.
+    window.setTimeout(() => { suppressClick.current = false; }, 0);
+  }
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const directions: Record<string, Position> = {ArrowLeft: {x: -20, y: 0}, ArrowRight: {x: 20, y: 0}, ArrowUp: {x: 0, y: -20}, ArrowDown: {x: 0, y: 20}};
+    if (!event.altKey || !directions[event.key]) return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect(), delta = directions[event.key];
+    move({x: rect.left + delta.x, y: rect.top + delta.y}, true);
+  }
+  function shouldOpen() { return !suppressClick.current; }
+
+  return {launcherRef, position, dragging, shouldOpen, handlers: {onPointerDown, onPointerMove, onPointerUp: finish, onPointerCancel: finish, onLostPointerCapture: finish, onKeyDown}};
+}

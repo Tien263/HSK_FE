@@ -39,6 +39,7 @@ yarn-error.log*
 !.env.example
 
 .git_local/
+.git_fresh/
 
 # vercel
 .vercel

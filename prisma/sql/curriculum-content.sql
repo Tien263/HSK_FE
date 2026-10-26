@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS "CurriculumContent" (
+  "hskLevel" INTEGER PRIMARY KEY,
+  "lessons" JSONB NOT NULL,
+  "revision" INTEGER NOT NULL DEFAULT 1,
+  "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

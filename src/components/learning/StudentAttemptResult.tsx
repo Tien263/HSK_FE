@@ -1,0 +1,10 @@
+"use client";
+import {SubmittedAnswer} from "@/components/learning/QuestionAnswerField";
+
+import Link from "next/link";
+import {useParams} from "next/navigation";
+import InkHero from "./InkHero";
+import {usePortalData} from "./use-portal-data";
+import styles from "./Ink.module.css";
+type Result={assignmentTitle:string;score:number|null;maxScore:number;teacherNote:string|null;submittedAt:string;answers:{questionId:string;content:string;userAnswer:string;correctAnswer:string;scoreEarned:number;explanation?:string}[]};
+export default function StudentAttemptResult(){const {id}=useParams<{id:string}>();const {data,error,loading}=usePortalData<{data:Result}>("/api/v1/attempts/"+id+"/result");const result=data?.data;return <main className="min-h-screen bg-[#F7F5EE] p-4 sm:p-8"><div className={`${styles.workspace} ${styles.stack} mx-auto max-w-4xl`}><Link href="/s/home?tab=assignments" className={styles.muted}>← Bài tập của tôi</Link><InkHero eyebrow="Kết quả đã lưu" title={result?.assignmentTitle||"Kết quả bài làm"}/>{loading&&<p className={styles.empty}>Đang tải kết quả…</p>}{error&&<p className={styles.error}>{error}</p>}{result&&<><section className={styles.panel}><h3 className={styles.panelTitle}>{result.score===null?"Đang chờ giáo viên chấm":`Điểm: ${Math.round(result.score*100)/100} / ${result.maxScore}`}</h3><p className={styles.muted}>Nộp lúc {new Date(result.submittedAt).toLocaleString("vi-VN")}</p>{result.teacherNote&&<p className={`${styles.notice} mt-4`}>Nhận xét giáo viên: {result.teacherNote}</p>}</section>{result.answers.map((answer,index)=><section key={answer.questionId} className={styles.panel}><span className={styles.tag}>Câu {index+1} · {Math.round(answer.scoreEarned*100)/100} điểm</span><h3 className="mt-4 text-lg font-semibold">{answer.content}</h3><p className={styles.meaning}>Trả lời: <SubmittedAnswer value={answer.userAnswer}/></p><p className={styles.pinyin}>Đáp án: {answer.correctAnswer}</p>{answer.explanation&&<p className={styles.muted}>{answer.explanation}</p>}</section>)}</>}</div></main>;}
