@@ -99,12 +99,12 @@ export async function GET(
     // 3. Chuẩn hóa đủ 15 bài học theo đúng cấp độ của lớp (HSK 1 / HSK 2...)
     const hskLevel = targetClass.level || 1;
     const baseLessonsList = await getServerLessonsByHskLevel(hskLevel);
-    for (const record of dbLessons) if (!baseLessonsList.some(lesson => lesson.number === record.lessonNumber)) {
+    for (const record of dbLessons) if (!baseLessonsList.some((lesson: any) => lesson.number === record.lessonNumber)) {
       baseLessonsList.push({ ...blankLesson(hskLevel, record.lessonNumber), id: record.lessonId, titleZh: record.titleZh, titleVi: record.titleVi, pinyin: record.pinyin || "" });
     }
-    baseLessonsList.sort((a, b) => a.number - b.number);
+    baseLessonsList.sort((a: any, b: any) => a.number - b.number);
 
-    const lessons = baseLessonsList.map((base) => {
+    const lessons = baseLessonsList.map((base: any) => {
       const dbRecord = dbLessonsMap.get(base.number);
 
       if (dbRecord && (authUser.role !== "STUDENT" || dbRecord.status === "PUBLISHED")) {
