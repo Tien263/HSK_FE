@@ -22,7 +22,14 @@ import {
   HelpCircle,
   RefreshCw,
   Edit3,
+  BookmarkCheck,
+  Filter,
 } from "lucide-react";
+import {
+  saveMemoryRecord,
+  getMemoryRecords,
+  MemoryStatus,
+} from "@/lib/memory-review-service";
 
 export type VocabPracticeSubtype =
   | "flashcard"
@@ -37,7 +44,10 @@ interface VocabPracticeSuiteProps {
   vocabList: any[];
   lessonTitleZh?: string;
   lessonNumber?: number;
+  hskLevel?: number;
+  studentId?: string;
   handleSpeak: (text: string) => void;
+  onMemoryUpdated?: () => void;
 }
 
 // Hàm chuẩn hóa chuỗi tiếng Việt để so sánh nghĩa linh hoạt
@@ -78,8 +88,50 @@ export default function VocabPracticeSuite({
   vocabList,
   lessonTitleZh = "Bài học HSK",
   lessonNumber = 1,
+  hskLevel = 1,
+  studentId,
   handleSpeak,
+  onMemoryUpdated,
 }: VocabPracticeSuiteProps) {
+  // Bộ lọc ghi nhớ: "ALL" | "NOT_REMEMBERED" | "REVIEW_NEEDED" | "MASTERED"
+  const [memoryFilter, setMemoryFilter] = useState<"ALL" | MemoryStatus>("ALL");
+  const [memoryRecords, setMemoryRecords] = useState<any[]>([]);
+  const [ratingFeedback, setRatingFeedback] = useState<string | null>(null);
+
+  const refreshMemory = useCallback(() => {
+    const records = getMemoryRecords(studentId);
+    setMemoryRecords(records);
+  }, [studentId]);
+
+  useEffect(() => {
+    refreshMemory();
+  }, [refreshMemory]);
+
+  const memoryMap = useMemo(() => {
+    const map = new Map<string, MemoryStatus>();
+    memoryRecords.forEach((r) => {
+      map.set(r.hanzi, r.status);
+    });
+    return map;
+  }, [memoryRecords]);
+
+  const countsInLesson = useMemo(() => {
+    let mastered = 0;
+    let review = 0;
+    let notRemembered = 0;
+    vocabList.forEach((v: any) => {
+      const st = memoryMap.get(v.hanzi);
+      if (st === "MASTERED") mastered++;
+      else if (st === "REVIEW_NEEDED") review++;
+      else if (st === "NOT_REMEMBERED") notRemembered++;
+    });
+    return { mastered, review, notRemembered };
+  }, [vocabList, memoryMap]);
+
+  const activeVocabList = useMemo(() => {
+    if (memoryFilter === "ALL") return vocabList;
+    return vocabList.filter((v: any) => memoryMap.get(v.hanzi) === memoryFilter);
+  }, [vocabList, memoryFilter, memoryMap]);
   // Chế độ luyện tập từ vựng hiện tại
   const [subType, setSubType] = useState<VocabPracticeSubtype>("flashcard");
 
@@ -106,7 +158,8 @@ export default function VocabPracticeSuite({
   const [availableTokens, setAvailableTokens] = useState<{ id: string; text: string }[]>([]);
   const [orderResult, setOrderResult] = useState<"CORRECT" | "INCORRECT" | null>(null);
 
-  const currentVocab = vocabList[currentIndex] || vocabList[0];
+  const currentVocab = activeVocabList[currentIndex] || activeVocabList[0];
+  const currentMemoryStatus = currentVocab ? memoryMap.get(currentVocab.hanzi) : undefined;
   const targetMeaning = currentVocab ? currentVocab.meaningVi || currentVocab.meaning : "";
 
   // Reset trạng thái khi chuyển từ hoặc chuyển dạng bài
@@ -282,12 +335,45 @@ export default function VocabPracticeSuite({
     }
   };
 
+  const handleRateMemory = (status: MemoryStatus) => {
+    if (!currentVocab) return;
+    saveMemoryRecord(
+      {
+        id: currentVocab.id || currentVocab.hanzi,
+        hanzi: currentVocab.hanzi,
+        pinyin: currentVocab.pinyin || "",
+        meaningVi: currentVocab.meaningVi || currentVocab.meaning || "",
+        hskLevel,
+        lessonNumber,
+      },
+      status,
+      studentId
+    );
+    refreshMemory();
+    onMemoryUpdated?.();
+
+    const msg =
+      status === "MASTERED"
+        ? "✓ Đã đánh dấu: Đã nhớ! (Ôn ngắt quãng sau 3-7 ngày)"
+        : status === "REVIEW_NEEDED"
+        ? "⏳ Đã đánh dấu: Cần ôn! (Sẽ nhắc ôn lại vào ngày mai)"
+        : "⚠️ Đã đánh dấu: Chưa nhớ! (Lưu vào danh sách luyện kiến thức yếu)";
+    setRatingFeedback(msg);
+    setTimeout(() => setRatingFeedback(null), 2500);
+
+    if (activeVocabList.length > 1) {
+      setTimeout(() => {
+        handleNextWord();
+      }, 500);
+    }
+  };
+
   const handleNextWord = () => {
-    setCurrentIndex((prev) => (prev < vocabList.length - 1 ? prev + 1 : 0));
+    setCurrentIndex((prev) => (prev < activeVocabList.length - 1 ? prev + 1 : 0));
   };
 
   const handlePrevWord = () => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : vocabList.length - 1));
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : activeVocabList.length - 1));
   };
 
   if (!vocabList || vocabList.length === 0) {
@@ -318,6 +404,77 @@ export default function VocabPracticeSuite({
                 <span>x{streak} Streak!</span>
               </span>
             )}
+          </div>
+        </div>
+
+        {/* Thanh Bộ Lọc Trạng Thái Ghi Nhớ */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#E5DEC9]/60 flex-wrap text-xs">
+          <span className="text-[#315E48] font-bold flex items-center gap-1">
+            <Filter className="w-3.5 h-3.5 text-[#8F6D3B]" />
+            Lọc từ để ôn:
+          </span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <button
+              onClick={() => {
+                setMemoryFilter("ALL");
+                setCurrentIndex(0);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition ${
+                memoryFilter === "ALL"
+                  ? "bg-[#204434] text-white"
+                  : "bg-white text-[#315E48] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
+              }`}
+            >
+              Tất cả ({vocabList.length})
+            </button>
+            <button
+              onClick={() => {
+                setMemoryFilter("NOT_REMEMBERED");
+                setCurrentIndex(0);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition flex items-center gap-1 ${
+                memoryFilter === "NOT_REMEMBERED"
+                  ? "bg-rose-600 text-white"
+                  : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+              }`}
+            >
+              <span>⚠️ Chưa nhớ</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-white/30 text-[10px]">
+                {countsInLesson.notRemembered}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setMemoryFilter("REVIEW_NEEDED");
+                setCurrentIndex(0);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition flex items-center gap-1 ${
+                memoryFilter === "REVIEW_NEEDED"
+                  ? "bg-amber-600 text-white"
+                  : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+              }`}
+            >
+              <span>⏳ Cần ôn</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-white/30 text-[10px]">
+                {countsInLesson.review}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setMemoryFilter("MASTERED");
+                setCurrentIndex(0);
+              }}
+              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition flex items-center gap-1 ${
+                memoryFilter === "MASTERED"
+                  ? "bg-emerald-700 text-white"
+                  : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+              }`}
+            >
+              <span>✓ Đã nhớ</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-white/30 text-[10px]">
+                {countsInLesson.mastered}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -417,7 +574,7 @@ export default function VocabPracticeSuite({
             Bài {String(lessonNumber).padStart(2, "0")} · {lessonTitleZh}
           </span>
           <span>
-            Từ vựng <strong>{currentIndex + 1}</strong> / {vocabList.length}
+            Từ vựng <strong>{activeVocabList.length > 0 ? currentIndex + 1 : 0}</strong> / {activeVocabList.length}
           </span>
         </div>
 
@@ -487,6 +644,79 @@ export default function VocabPracticeSuite({
               >
                 Từ kế tiếp
               </button>
+            </div>
+
+            {/* 3 Nút Đánh giá Mức độ Ghi nhớ: Chưa nhớ / Cần ôn / Đã nhớ */}
+            <div className="w-full pt-4 mt-2 border-t border-[#E5DEC9]/80 space-y-2.5 animate-fadeIn">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#204434] flex items-center gap-1.5">
+                  <BookmarkCheck className="w-4 h-4 text-[#8F6D3B]" />
+                  <span>Đánh giá mức độ ghi nhớ từ này:</span>
+                </span>
+                {currentMemoryStatus ? (
+                  <span
+                    className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                      currentMemoryStatus === "MASTERED"
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : currentMemoryStatus === "REVIEW_NEEDED"
+                        ? "bg-amber-100 text-amber-800 border-amber-300"
+                        : "bg-rose-100 text-rose-800 border-rose-300"
+                    }`}
+                  >
+                    {currentMemoryStatus === "MASTERED"
+                      ? "✓ Đã nhớ"
+                      : currentMemoryStatus === "REVIEW_NEEDED"
+                      ? "⏳ Cần ôn"
+                      : "⚠️ Chưa nhớ"}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[#6B766D] italic">Chưa đánh giá</span>
+                )}
+              </div>
+
+              {ratingFeedback && (
+                <div className="text-xs py-1.5 px-3 rounded-xl bg-[#FAF7F0] border border-[#BC9B6B]/40 text-[#204434] font-semibold animate-bounce text-center">
+                  {ratingFeedback}
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleRateMemory("NOT_REMEMBERED")}
+                  className={`py-2.5 px-3 rounded-2xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs ${
+                    currentMemoryStatus === "NOT_REMEMBERED"
+                      ? "bg-rose-600 text-white border-rose-600 ring-2 ring-rose-300 shadow-sm"
+                      : "bg-rose-50/80 text-rose-700 border-rose-200 hover:bg-rose-100"
+                  }`}
+                >
+                  <span>⚠️ Chưa nhớ</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRateMemory("REVIEW_NEEDED")}
+                  className={`py-2.5 px-3 rounded-2xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs ${
+                    currentMemoryStatus === "REVIEW_NEEDED"
+                      ? "bg-amber-600 text-white border-amber-600 ring-2 ring-amber-300 shadow-sm"
+                      : "bg-amber-50/80 text-amber-800 border-amber-200 hover:bg-amber-100"
+                  }`}
+                >
+                  <span>⏳ Cần ôn</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRateMemory("MASTERED")}
+                  className={`py-2.5 px-3 rounded-2xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs ${
+                    currentMemoryStatus === "MASTERED"
+                      ? "bg-emerald-700 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-sm"
+                      : "bg-emerald-50/80 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                  }`}
+                >
+                  <span>✓ Đã nhớ</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

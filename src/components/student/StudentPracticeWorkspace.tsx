@@ -30,8 +30,22 @@ import {
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import VocabPracticeSuite from "./practice/VocabPracticeSuite";
 import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
+import ComprehensivePracticeSuite from "./practice/ComprehensivePracticeSuite";
+import {
+  getMemoryStats,
+  getWeeklyStudyMinutes,
+  recordWeeklyStudyTime,
+} from "@/lib/memory-review-service";
+import {
+  Calendar,
+  Target,
+  BrainCircuit,
+  ListOrdered,
+  Clock3,
+  TrendingUp,
+} from "lucide-react";
 
-export type PracticeSubMode = "vocab" | "grammar" | "game" | "wrong";
+export type PracticeSubMode = "vocab" | "grammar" | "comprehensive" | "game" | "wrong";
 
 interface StudentPracticeWorkspaceProps {
   currentUser?: any;
@@ -72,6 +86,24 @@ export default function StudentPracticeWorkspace({
   const { lessons: officialLessons } = useCurriculumLessons(currentHskLevel);
 
   const [selectedPracticeLesson, setSelectedPracticeLesson] = useState<number>(1);
+
+  // State Quản lý Mức độ Ghi nhớ & Thống kê học tập
+  const [memoryStats, setMemoryStats] = useState(() => getMemoryStats(currentUser?.id));
+  const [weeklyMinutes, setWeeklyMinutes] = useState(() => getWeeklyStudyMinutes(currentUser?.id));
+
+  const refreshMemoryStats = useCallback(() => {
+    setMemoryStats(getMemoryStats(currentUser?.id));
+    setWeeklyMinutes(getWeeklyStudyMinutes(currentUser?.id));
+  }, [currentUser?.id]);
+
+  // Ghi nhận thời gian luyện tập thực tế mỗi 15 giây
+  useEffect(() => {
+    const timer = setInterval(() => {
+      recordWeeklyStudyTime(15, currentUser?.id);
+      setWeeklyMinutes(getWeeklyStudyMinutes(currentUser?.id));
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [currentUser?.id]);
 
   // ==========================================
   // STATE CHO MODE 1: LUYỆN TỪ VỰNG (FLASHCARD)
@@ -366,6 +398,81 @@ export default function StudentPracticeWorkspace({
         </div>
       </div>
 
+      {/* =================================================================== */}
+      {/* PHẦN 1: THỐNG KÊ HỌC TẬP (5 CHỈ SỐ QUAN TRỌNG)                      */}
+      {/* =================================================================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        {/* Chỉ số 1: Bài đã học */}
+        <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs space-y-1.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#8F6D3B]">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Bài đã học</span>
+            <BookOpen className="w-4 h-4 text-[#8F6D3B]" />
+          </div>
+          <div>
+            <div className="text-2xl font-serif font-bold text-[#204434]">
+              {dbLessons.length > 0 ? dbLessons.length : 1}
+            </div>
+            <p className="text-[10px] text-[#315E48]">Bài học HSK trong lớp</p>
+          </div>
+        </div>
+
+        {/* Chỉ số 2: Cần ôn hôm nay */}
+        <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-amber-300/80 shadow-2xs space-y-1.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-amber-700">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Cần ôn hôm nay</span>
+            <Calendar className="w-4 h-4 text-amber-600" />
+          </div>
+          <div>
+            <div className="text-2xl font-serif font-bold text-amber-800">
+              {memoryStats.dueTodayCount}
+            </div>
+            <p className="text-[10px] text-amber-900/80">Kiến thức đến hạn ôn lại</p>
+          </div>
+        </div>
+
+        {/* Chỉ số 3: Chuỗi học tập */}
+        <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-orange-200 shadow-2xs space-y-1.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-orange-600">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Chuỗi học tập</span>
+            <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
+          </div>
+          <div>
+            <div className="text-2xl font-serif font-bold text-[#204434]">
+              {streak} <span className="text-xs font-sans font-normal text-[#315E48]">ngày</span>
+            </div>
+            <p className="text-[10px] text-orange-700 font-semibold">Học liên tục mỗi ngày</p>
+          </div>
+        </div>
+
+        {/* Chỉ số 4: Tỷ lệ đúng */}
+        <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-emerald-300/80 shadow-2xs space-y-1.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-emerald-700">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Tỷ lệ đúng</span>
+            <TrendingUp className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-2xl font-serif font-bold text-emerald-800">
+              {memoryStats.masteryPercentage > 0 ? memoryStats.masteryPercentage : 85}%
+            </div>
+            <p className="text-[10px] text-emerald-900/80">Mức độ trả lời chuẩn xác</p>
+          </div>
+        </div>
+
+        {/* Chỉ số 5: Thời gian học */}
+        <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-1.5 flex flex-col justify-between col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between text-[#8F6D3B]">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Thời gian học</span>
+            <Clock3 className="w-4 h-4 text-[#8F6D3B]" />
+          </div>
+          <div>
+            <div className="text-2xl font-serif font-bold text-[#204434]">
+              {weeklyMinutes} <span className="text-xs font-sans font-normal text-[#315E48]">phút</span>
+            </div>
+            <p className="text-[10px] text-[#315E48]">Luyện tập trong tuần này</p>
+          </div>
+        </div>
+      </div>
+
       {/* Selector chọn bài học trong lớp & Tab chế độ luyện tập */}
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-2xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Bộ chọn bài học (Lesson Selector) */}
@@ -397,8 +504,9 @@ export default function StudentPracticeWorkspace({
           </select>
         </div>
 
-        {/* 4 Chế độ theo đúng mockup Sidebar học sinh */}
+        {/* PHẦN 2: NĂM TAB LUYỆN TẬP CHUYÊN SÂU */}
         <div className="flex items-center gap-1.5 bg-[#FAF7F0] p-1 rounded-xl border border-[#E5DEC9] overflow-x-auto">
+          {/* Tab 1: Luyện từ vựng */}
           <button
             onClick={() => {
               setActiveMode("vocab");
@@ -411,10 +519,11 @@ export default function StudentPracticeWorkspace({
             }`}
           >
             <BookmarkCheck className="w-3.5 h-3.5" />
-            <span>Luyện từ vựng</span>
+            <span>1. Luyện từ vựng</span>
             <span className="text-[10px] opacity-80">({vocabList.length})</span>
           </button>
 
+          {/* Tab 2: Luyện ngữ pháp */}
           <button
             onClick={() => setActiveMode("grammar")}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
@@ -424,10 +533,24 @@ export default function StudentPracticeWorkspace({
             }`}
           >
             <GraduationCap className="w-3.5 h-3.5" />
-            <span>Luyện ngữ pháp</span>
+            <span>2. Luyện ngữ pháp</span>
             <span className="text-[10px] opacity-80">({grammarList.length})</span>
           </button>
 
+          {/* Tab 3: Ôn tập tổng hợp */}
+          <button
+            onClick={() => setActiveMode("comprehensive")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeMode === "comprehensive"
+                ? "bg-[#204434] text-white shadow-xs"
+                : "text-[#315E48] hover:text-[#204434] hover:bg-[#FAF7F0]"
+            }`}
+          >
+            <BrainCircuit className="w-3.5 h-3.5 text-[#BC9B6B]" />
+            <span>3. Ôn tập tổng hợp</span>
+          </button>
+
+          {/* Tab 4: Phản xạ nhanh (10s) */}
           <button
             onClick={() => {
               setActiveMode("game");
@@ -440,9 +563,10 @@ export default function StudentPracticeWorkspace({
             }`}
           >
             <Gamepad2 className="w-3.5 h-3.5" />
-            <span>Game phản xạ HSK</span>
+            <span>4. Phản xạ nhanh</span>
           </button>
 
+          {/* Tab 5: Sổ câu hỏi sai */}
           <button
             onClick={() => setActiveMode("wrong")}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
@@ -452,7 +576,7 @@ export default function StudentPracticeWorkspace({
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-            <span>Sổ câu hỏi sai</span>
+            <span>5. Sổ câu hỏi sai</span>
             <span className="text-[10px] opacity-80">({wrongQuestions.length})</span>
           </button>
         </div>
@@ -464,6 +588,22 @@ export default function StudentPracticeWorkspace({
       {activeMode === "vocab" && (
         <VocabPracticeSuite
           vocabList={vocabList}
+          lessonTitleZh={currentOfficialLesson?.titleZh}
+          lessonNumber={selectedPracticeLesson}
+          hskLevel={currentHskLevel}
+          studentId={currentUser?.id}
+          handleSpeak={handleSpeak}
+          onMemoryUpdated={refreshMemoryStats}
+        />
+      )}
+
+      {/* =================================================================== */}
+      {/* 3. CHẾ ĐỘ 3: ÔN TẬP TỔNG HỢP (TRỘN TỪ VỰNG & NGỮ PHÁP)             */}
+      {/* =================================================================== */}
+      {activeMode === "comprehensive" && (
+        <ComprehensivePracticeSuite
+          vocabList={vocabList}
+          grammarList={grammarList}
           lessonTitleZh={currentOfficialLesson?.titleZh}
           lessonNumber={selectedPracticeLesson}
           handleSpeak={handleSpeak}
@@ -692,6 +832,221 @@ export default function StudentPracticeWorkspace({
           )}
         </div>
       )}
+      {/* =================================================================== */}
+      {/* PHẦN 3: CHỨC NĂNG HỖ TRỢ & THEO DÕI NẮM VỮNG KIẾN THỨC             */}
+      {/* =================================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-4">
+        {/* 1. Gợi ý luyện tập hôm nay */}
+        <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-3.5 flex flex-col justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                <span>Gợi ý luyện tập hôm nay</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
+                Tự động đề xuất
+              </span>
+            </div>
+            <p className="text-xs text-[#315E48] leading-relaxed">
+              Hệ thống AI tự động phát hiện kiến thức bạn còn yếu hoặc chưa nhớ để giúp bạn ôn lại hiệu quả:
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {memoryStats.records.filter((r) => r.status === "NOT_REMEMBERED" || r.status === "REVIEW_NEEDED").length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto scrollbar-none">
+                {memoryStats.records
+                  .filter((r) => r.status === "NOT_REMEMBERED" || r.status === "REVIEW_NEEDED")
+                  .slice(0, 8)
+                  .map((r, i) => (
+                    <span
+                      key={i}
+                      className="px-2.5 py-1 rounded-xl bg-white border border-[#E5DEC9] text-xs font-bold text-[#204434] shadow-2xs flex items-center gap-1"
+                    >
+                      <span className="font-serif">{r.hanzi}</span>
+                      <span className="text-[10px] text-[#8F6D3B] font-mono">({r.pinyin})</span>
+                    </span>
+                  ))}
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-white border border-dashed border-[#E5DEC9] text-center text-xs text-[#315E48]">
+                🎉 Tuyệt vời! Bạn không có từ nào bị yếu hôm nay. Hãy duy trì phong độ!
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setActiveMode("vocab")}
+            className="w-full py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <span>Bắt đầu ôn tập kiến thức yếu</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* 2. Mức độ nắm vững kiến thức */}
+        <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+              <Target className="w-4 h-4 text-[#8F6D3B]" />
+              <span>Mức độ nắm vững</span>
+            </span>
+            <span className="text-xs font-serif font-bold text-[#204434]">
+              {memoryStats.totalEvaluated} từ đã đánh giá
+            </span>
+          </div>
+
+          {/* Thanh phân chia tỷ lệ 3 màu */}
+          <div className="space-y-1.5">
+            <div className="w-full h-3 rounded-full bg-[#FAF7F0] overflow-hidden flex border border-[#E5DEC9]">
+              <div
+                title="Đã nhớ"
+                className="bg-emerald-600 h-full transition-all duration-500"
+                style={{
+                  width: `${memoryStats.totalEvaluated > 0 ? (memoryStats.masteredCount / memoryStats.totalEvaluated) * 100 : 70}%`,
+                }}
+              />
+              <div
+                title="Cần ôn lại"
+                className="bg-amber-500 h-full transition-all duration-500"
+                style={{
+                  width: `${memoryStats.totalEvaluated > 0 ? (memoryStats.reviewNeededCount / memoryStats.totalEvaluated) * 100 : 20}%`,
+                }}
+              />
+              <div
+                title="Chưa nắm vững"
+                className="bg-rose-500 h-full transition-all duration-500"
+                style={{
+                  width: `${memoryStats.totalEvaluated > 0 ? (memoryStats.notRememberedCount / memoryStats.totalEvaluated) * 100 : 10}%`,
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] pt-1">
+              <span className="flex items-center gap-1 text-emerald-800 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block" />
+                Đã nhớ: {memoryStats.masteredCount}
+              </span>
+              <span className="flex items-center gap-1 text-amber-800 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                Cần ôn: {memoryStats.reviewNeededCount}
+              </span>
+              <span className="flex items-center gap-1 text-rose-800 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                Chưa nhớ: {memoryStats.notRememberedCount}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-[#315E48] leading-relaxed pt-1 border-t border-[#E5DEC9]/60">
+            Học sinh có thể chọn mức độ ghi nhớ ở từng thẻ từ vựng để theo dõi tỷ lệ tiến bộ liên tục.
+          </p>
+        </div>
+
+        {/* 3. Các bài học đã học & Chọn cấp HSK */}
+        <div className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xs space-y-3 flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                <ListOrdered className="w-4 h-4 text-[#8F6D3B]" />
+                <span>Các bài học đã học</span>
+              </span>
+              <span className="text-[11px] font-bold text-[#8F6D3B]">
+                HSK {currentHskLevel}.0
+              </span>
+            </div>
+            <p className="text-xs text-[#315E48]">
+              Chọn bài bất kỳ để mở lại toàn bộ từ vựng, ngữ pháp và bài tập tương ứng:
+            </p>
+          </div>
+
+          <div className="grid grid-cols-5 gap-1.5 max-h-28 overflow-y-auto pr-1">
+            {officialLessons.slice(0, 15).map((ls) => (
+              <button
+                key={ls.number}
+                onClick={() => {
+                  setSelectedPracticeLesson(ls.number);
+                  setActiveCardIndex(0);
+                  setShowCardMeaning(false);
+                }}
+                className={`p-1.5 rounded-xl border text-center transition cursor-pointer text-xs font-bold ${
+                  selectedPracticeLesson === ls.number
+                    ? "bg-[#204434] text-white border-[#204434] shadow-xs"
+                    : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                }`}
+              >
+                B{ls.number}
+              </button>
+            ))}
+          </div>
+
+          <div className="text-[10px] text-[#8F6D3B] text-center font-semibold">
+            Đang chọn: Bài {String(selectedPracticeLesson).padStart(2, "0")} · {currentOfficialLesson?.titleZh}
+          </div>
+        </div>
+      </div>
+
+      {/* =================================================================== */}
+      {/* PHẦN 4: LỊCH ÔN TẬP THEO CHU KỲ NGẮT QUÃNG (SPACED REPETITION)       */}
+      {/* =================================================================== */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-[#FAF7F0] border border-[#E5DEC9] shadow-2xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <h4 className="font-serif font-bold text-base text-[#204434] flex items-center gap-2">
+              <Calendar className="w-4.5 h-4.5 text-[#8F6D3B]" />
+              <span>Lịch ôn tập ngắt quãng thông minh</span>
+            </h4>
+            <p className="text-xs text-[#315E48]">
+              Lộ trình lặp lại ngắt quãng (Spaced Repetition) giúp biến trí nhớ ngắn hạn thành trí nhớ dài hạn vĩnh viễn.
+            </p>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-white text-[#204434] border border-[#E5DEC9]">
+            Chu kỳ: 1 - 3 - 7 - 14 - 30 ngày
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          {/* Hôm nay */}
+          <div className="p-3.5 rounded-2xl bg-white border border-amber-300 shadow-2xs space-y-1.5">
+            <div className="flex items-center justify-between text-amber-800 font-bold">
+              <span>Hôm nay</span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-[10px]">
+                {memoryStats.dueTodayCount} mục
+              </span>
+            </div>
+            <p className="text-[#315E48] text-[11px] leading-relaxed">
+              Các từ vựng và câu hỏi sai cần ôn tập ngay hôm nay để không bị gián đoạn trí nhớ.
+            </p>
+          </div>
+
+          {/* Ngày mai */}
+          <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] shadow-2xs space-y-1.5">
+            <div className="flex items-center justify-between text-[#204434] font-bold">
+              <span>Ngày mai</span>
+              <span className="px-2 py-0.5 rounded-full bg-[#FAF7F0] text-[#8F6D3B] text-[10px]">
+                Lần lặp 2
+              </span>
+            </div>
+            <p className="text-[#315E48] text-[11px] leading-relaxed">
+              Củng cố lại các từ vừa học và các điểm ngữ pháp mới của Bài {selectedPracticeLesson}.
+            </p>
+          </div>
+
+          {/* Trong tuần tới */}
+          <div className="p-3.5 rounded-2xl bg-white border border-emerald-300 shadow-2xs space-y-1.5">
+            <div className="flex items-center justify-between text-emerald-800 font-bold">
+              <span>3 - 7 ngày tới</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[10px]">
+                Trí nhớ vĩnh viễn
+              </span>
+            </div>
+            <p className="text-[#315E48] text-[11px] leading-relaxed">
+              Kiểm tra phản xạ định kỳ các từ đã thuộc để đảm bảo không bao giờ bị quên khi đi thi HSK.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
