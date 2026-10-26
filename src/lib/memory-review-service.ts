@@ -128,11 +128,28 @@ export function getMemoryStats(studentId?: string) {
   const records = getMemoryRecords(studentId);
   const now = new Date();
 
+  // Xác định các mốc thời gian Spaced Repetition
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const endOfTomorrow = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const endOfUpcomingWeek = new Date(endOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+
   const mastered = records.filter((r) => r.status === "MASTERED");
   const reviewNeeded = records.filter(
-    (r) => r.status === "REVIEW_NEEDED" || (r.status === "MASTERED" && new Date(r.nextReviewAt) <= now)
+    (r) => r.status === "REVIEW_NEEDED" || (r.status === "MASTERED" && new Date(r.nextReviewAt) <= endOfToday)
   );
   const notRemembered = records.filter((r) => r.status === "NOT_REMEMBERED");
+
+  // Số từ đến hạn ngày mai
+  const dueTomorrow = records.filter((r) => {
+    const rev = new Date(r.nextReviewAt);
+    return rev > endOfToday && rev <= endOfTomorrow;
+  });
+
+  // Số từ đến hạn trong 3-7 ngày tới
+  const dueUpcomingWeek = records.filter((r) => {
+    const rev = new Date(r.nextReviewAt);
+    return rev > endOfTomorrow && rev <= endOfUpcomingWeek;
+  });
 
   return {
     totalEvaluated: records.length,
@@ -140,6 +157,8 @@ export function getMemoryStats(studentId?: string) {
     reviewNeededCount: reviewNeeded.length,
     notRememberedCount: notRemembered.length,
     dueTodayCount: reviewNeeded.length + notRemembered.length,
+    dueTomorrowCount: dueTomorrow.length,
+    dueUpcomingWeekCount: dueUpcomingWeek.length,
     masteryPercentage: records.length > 0 ? Math.round((mastered.length / records.length) * 100) : 0,
     records,
   };

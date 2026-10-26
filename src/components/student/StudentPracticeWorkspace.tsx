@@ -41,6 +41,8 @@ import {
   getTodayStudySeconds,
   getWeeklyStudySeconds,
   formatStudyTimeVi,
+  saveMemoryRecord,
+  MemoryStatus,
 } from "@/lib/memory-review-service";
 import {
   Calendar,
@@ -132,6 +134,7 @@ export default function StudentPracticeWorkspace({
   const [vocabQuizMode, setVocabQuizMode] = useState<boolean>(false);
   const [quizSelectedOption, setQuizSelectedOption] = useState<string | null>(null);
   const [quizIsAnswered, setQuizIsAnswered] = useState<boolean>(false);
+  const [vocabFilterState, setVocabFilterState] = useState<"ALL" | MemoryStatus>("ALL");
 
   // ==========================================
   // STATE CHO MODE 3: GAME PHẢN XẠ HSK (10s)
@@ -142,13 +145,19 @@ export default function StudentPracticeWorkspace({
   const [gameCombo, setGameCombo] = useState<number>(0);
   const [gameTimer, setGameTimer] = useState<number>(10);
   const [gameSelectedAnswer, setGameSelectedAnswer] = useState<string | null>(null);
+  const [gameEarnedXp, setGameEarnedXp] = useState<number | null>(null);
+  const [savingGameResult, setSavingGameResult] = useState<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ==========================================
-  // STATE CHO MODE 4: SỔ CÂU HỎI SAI
+  // STATE CHO MODE 4: SỔ CÂU HỎI SAI & LUYỆN LẠI
   // ==========================================
   const [wrongQuestions, setWrongQuestions] = useState<any[]>([]);
   const [loadingWrongQuestions, setLoadingWrongQuestions] = useState<boolean>(false);
+  const [retrySelectedAnswer, setRetrySelectedAnswer] = useState<Record<string, string>>({});
+  const [retryResult, setRetryResult] = useState<Record<string, "CORRECT" | "INCORRECT">>({});
+  const [submittingRetry, setSubmittingRetry] = useState<Record<string, boolean>>({});
+  const [retrySuccessMsg, setRetrySuccessMsg] = useState<Record<string, string>>({});
 
   // Fetch Class Lessons
   const fetchLessons = useCallback(async () => {
@@ -298,31 +307,157 @@ export default function StudentPracticeWorkspace({
     setGameCombo(0);
     setGameTimer(10);
     setGameSelectedAnswer(null);
+    setGameEarnedXp(null);
+  };
+
+  const finishGame = async (finalScore: number, maxComboVal: number) => {
+    setGameState("ENDED");
+    if (!currentUser?.username) return;
+    try {
+      setSavingGameResult(true);
+      const res = await fetch("/api/v1/my/games/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentUser.username,
+          score: finalScore,
+          maxCombo: Math.max(1, maxComboVal),
+          gameType: "SPEED_REFLEX",
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.earnedXp) {
+          setGameEarnedXp(data.earnedXp);
+        }
+      }
+    } catch (e) {
+      console.warn("finishGame error:", e);
+    } finally {
+      setSavingGameResult(false);
+    }
   };
 
   const handleGameAnswer = (answer: string, correctAnswer: string) => {
     if (gameSelectedAnswer) return; // Đã trả lời
     setGameSelectedAnswer(answer);
     const isCorrect = answer === correctAnswer;
+    let newScore = gameScore;
+    let newCombo = gameCombo;
+
     if (isCorrect) {
-      setGameScore((prev) => prev + 10 + gameCombo * 2);
-      setGameCombo((prev) => prev + 1);
+      newScore = gameScore + 10 + gameCombo * 2;
+      newCombo = gameCombo + 1;
+      setGameScore(newScore);
+      setGameCombo(newCombo);
     } else {
       setGameCombo(0);
+      newCombo = 0;
+      // Tự động lưu từ bị sai vào danh sách yếu để học sinh ôn lại
+      const curQ = vocabList[gameQuestionIdx];
+      if (curQ) {
+        saveMemoryRecord(
+          {
+            hanzi: curQ.hanzi,
+            pinyin: curQ.pinyin,
+            meaningVi: curQ.meaningVi || curQ.meaning || "",
+            lessonNumber: selectedPracticeLesson,
+            hskLevel: currentHskLevel,
+          },
+          "NOT_REMEMBERED",
+          currentUser?.id
+        );
+        refreshMemoryStats();
+      }
     }
 
     setTimeout(() => {
-      handleGameNextQuestion(isCorrect);
+      handleGameNextQuestion(isCorrect, newScore, newCombo);
     }, 1200);
   };
 
-  const handleGameNextQuestion = (prevCorrect: boolean) => {
-    if (gameQuestionIdx + 1 >= Math.min(vocabList.length, 10)) {
-      setGameState("ENDED");
+  const handleGameNextQuestion = (
+    prevCorrect: boolean,
+    currentTotalScore = gameScore,
+    currentMaxCombo = gameCombo
+  ) => {
+    // Nếu hết giờ mà chưa chọn thì cũng lưu từ yếu
+    if (!prevCorrect && !gameSelectedAnswer) {
+      const curQ = vocabList[gameQuestionIdx];
+      if (curQ) {
+        saveMemoryRecord(
+          {
+            hanzi: curQ.hanzi,
+            pinyin: curQ.pinyin,
+            meaningVi: curQ.meaningVi || curQ.meaning || "",
+            lessonNumber: selectedPracticeLesson,
+            hskLevel: currentHskLevel,
+          },
+          "NOT_REMEMBERED",
+          currentUser?.id
+        );
+        refreshMemoryStats();
+      }
+    }
+
+    const totalQuestions = Math.min(vocabList.length, 10);
+    if (gameQuestionIdx + 1 >= totalQuestions) {
+      finishGame(currentTotalScore, currentMaxCombo);
     } else {
       setGameQuestionIdx((prev) => prev + 1);
       setGameTimer(10);
       setGameSelectedAnswer(null);
+    }
+  };
+
+  // Xử lý Luyện lại câu hỏi sai (Interactive Retry)
+  const handleRetryAnswer = async (item: any, selectedOption: string) => {
+    if (retrySelectedAnswer[item.id] || submittingRetry[item.id]) return;
+    const isCorrect = selectedOption.trim() === String(item.correctAnswer || "").trim();
+
+    setRetrySelectedAnswer((prev) => ({ ...prev, [item.id]: selectedOption }));
+    setRetryResult((prev) => ({ ...prev, [item.id]: isCorrect ? "CORRECT" : "INCORRECT" }));
+    setSubmittingRetry((prev) => ({ ...prev, [item.id]: true }));
+
+    try {
+      const res = await fetch("/api/v1/my/wrong-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wrongQuestionId: item.id,
+          isCorrect,
+          username: currentUser?.username || "student",
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.isMastered) {
+          setRetrySuccessMsg((prev) => ({
+            ...prev,
+            [item.id]: "🎉 Xuất sắc! Bạn đã đúng liên tiếp 3/3 lần và hoàn thành câu này (+20 XP).",
+          }));
+          setTimeout(() => {
+            setWrongQuestions((prev) => prev.filter((w) => w.id !== item.id));
+          }, 2000);
+        } else if (data.item) {
+          setWrongQuestions((prev) =>
+            prev.map((w) =>
+              w.id === item.id
+                ? {
+                    ...w,
+                    consecutiveRight: data.item.consecutiveRight,
+                    wrongCount: data.item.wrongCount,
+                  }
+                : w
+            )
+          );
+        }
+      }
+    } catch (e) {
+      console.warn("handleRetryAnswer error:", e);
+    } finally {
+      setSubmittingRetry((prev) => ({ ...prev, [item.id]: false }));
     }
   };
 
@@ -615,6 +750,7 @@ export default function StudentPracticeWorkspace({
           studentId={currentUser?.id}
           handleSpeak={handleSpeak}
           onMemoryUpdated={refreshMemoryStats}
+          initialFilter={vocabFilterState}
         />
       )}
 
@@ -763,6 +899,12 @@ export default function StudentPracticeWorkspace({
                 <p className="text-sm font-semibold text-[#8F6D3B]">
                   Tổng điểm phản xạ đạt được: <strong>{gameScore} điểm</strong>
                 </p>
+                {gameEarnedXp && (
+                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Đã nhận +{gameEarnedXp} XP vào hồ sơ học tập!</span>
+                  </div>
+                )}
                 <p className="text-xs text-[#315E48]">
                   Chúc mừng bạn! Phản xạ từ vựng của bạn cho Bài {selectedPracticeLesson} đang tiến bộ rất nhanh.
                 </p>
@@ -796,10 +938,10 @@ export default function StudentPracticeWorkspace({
             <div>
               <h3 className="font-serif font-bold text-lg text-[#204434] flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
-                <span>Sổ câu hỏi sai & Cần ôn tập</span>
+                <span>Sổ câu hỏi sai & Luyện lại trực tiếp</span>
               </h3>
               <p className="text-xs text-[#315E48] mt-0.5">
-                Tổng hợp các câu hỏi bạn từng làm sai để luyện lại cho đến khi trả lời đúng 3 lần liên tiếp.
+                Luyện lại ngay các câu hỏi bạn từng làm sai. Trả lời đúng 3 lần liên tiếp để hoàn thành và nhận thưởng +20 XP.
               </p>
             </div>
             <button
@@ -814,31 +956,109 @@ export default function StudentPracticeWorkspace({
           {loadingWrongQuestions ? (
             <div className="py-12 text-center text-xs text-[#315E48]">Đang tải danh sách câu hỏi sai...</div>
           ) : wrongQuestions.length > 0 ? (
-            <div className="space-y-3">
-              {wrongQuestions.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-5 rounded-2xl bg-[#FFFCF6] border border-amber-200/80 shadow-2xs space-y-3"
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold">
-                      Câu #{idx + 1} · Sai {item.wrongCount || 1} lần
-                    </span>
-                    <span className="text-[#6B766D] font-mono text-[11px]">
-                      Chuỗi đúng hiện tại: {item.consecutiveRight || 0}/3
-                    </span>
-                  </div>
+            <div className="space-y-4">
+              {wrongQuestions.map((item, idx) => {
+                const selectedOpt = retrySelectedAnswer[item.id];
+                const resStatus = retryResult[item.id];
+                const isSubmitting = submittingRetry[item.id];
+                const successMsg = retrySuccessMsg[item.id];
 
-                  <p className="font-medium text-sm text-[#204434]">{item.content}</p>
-
-                  {item.explanation && (
-                    <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/60 text-xs text-amber-950 space-y-1">
-                      <span className="font-bold text-amber-900 block">Lời giải chi tiết:</span>
-                      <p>{item.explanation}</p>
+                return (
+                  <div
+                    key={item.id || idx}
+                    className="p-5 rounded-2xl bg-[#FFFCF6] border border-amber-200/80 shadow-2xs space-y-3.5 transition-all"
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold">
+                          Câu #{idx + 1} · Đã sai {item.wrongCount || 1} lần
+                        </span>
+                        {item.pinyinPrompt && (
+                          <span className="text-[#8F6D3B] font-mono text-[11px]">
+                            {item.pinyinPrompt}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[#204434] font-semibold text-[11px] bg-white px-2.5 py-0.5 rounded-lg border border-[#E5DEC9]">
+                        Chuỗi đúng: <strong className="text-emerald-700">{item.consecutiveRight || 0}/3</strong>
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    <p className="font-bold text-sm text-[#204434] leading-relaxed">
+                      {item.content}
+                    </p>
+
+                    {/* VÙNG LUYỆN LẠI: Chọn đáp án tương tác */}
+                    {Array.isArray(item.options) && item.options.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <span className="text-[11px] font-bold text-[#315E48] block">
+                          Chọn đáp án để luyện lại ngay:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          {item.options.map((opt: string, optIdx: number) => {
+                            const isSelected = selectedOpt === opt;
+                            const isCorrectOpt = opt.trim() === String(item.correctAnswer || "").trim();
+
+                            let btnStyle = "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]";
+                            if (selectedOpt) {
+                              if (isCorrectOpt) {
+                                btnStyle = "bg-emerald-600 text-white border-emerald-600 font-bold";
+                              } else if (isSelected) {
+                                btnStyle = "bg-rose-500 text-white border-rose-500 font-bold";
+                              } else {
+                                btnStyle = "bg-[#FAF7F0] opacity-50 border-[#E5DEC9] text-[#315E48]";
+                              }
+                            }
+
+                            return (
+                              <button
+                                key={optIdx}
+                                disabled={!!selectedOpt || isSubmitting}
+                                onClick={() => handleRetryAnswer(item, opt)}
+                                className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${btnStyle}`}
+                              >
+                                <span>{opt}</span>
+                                {selectedOpt && isCorrectOpt && (
+                                  <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
+                                )}
+                                {selectedOpt && isSelected && !isCorrectOpt && (
+                                  <X className="w-4 h-4 shrink-0 text-white" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Phản hồi sau khi làm lại */}
+                    {successMsg && (
+                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-bold animate-fadeIn">
+                        {successMsg}
+                      </div>
+                    )}
+
+                    {selectedOpt && !successMsg && (
+                      <div className={`p-2.5 rounded-xl text-xs font-semibold ${resStatus === "CORRECT" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
+                        {resStatus === "CORRECT"
+                          ? `✓ Trả lời chính xác! Chuỗi đúng hiện tại: ${item.consecutiveRight}/3`
+                          : "✕ Chưa chính xác, hãy đọc kỹ lời giải bên dưới để ghi nhớ nhé!"}
+                      </div>
+                    )}
+
+                    {/* Lời giải chi tiết */}
+                    {item.explanation && (
+                      <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/60 text-xs text-amber-950 space-y-1">
+                        <span className="font-bold text-amber-900 block flex items-center gap-1">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          <span>Lời giải chi tiết:</span>
+                        </span>
+                        <p className="leading-relaxed">{item.explanation}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="py-14 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#E5DEC9] space-y-2 max-w-lg mx-auto">
@@ -900,7 +1120,10 @@ export default function StudentPracticeWorkspace({
           </div>
 
           <button
-            onClick={() => setActiveMode("vocab")}
+            onClick={() => {
+              setVocabFilterState("NOT_REMEMBERED");
+              setActiveMode("vocab");
+            }}
             className="w-full py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
           >
             <span>Bắt đầu ôn tập kiến thức yếu</span>
@@ -922,29 +1145,36 @@ export default function StudentPracticeWorkspace({
 
           {/* Thanh phân chia tỷ lệ 3 màu */}
           <div className="space-y-1.5">
-            <div className="w-full h-3 rounded-full bg-[#FAF7F0] overflow-hidden flex border border-[#E5DEC9]">
+            {memoryStats.totalEvaluated > 0 ? (
+              <div className="w-full h-3 rounded-full bg-[#FAF7F0] overflow-hidden flex border border-[#E5DEC9]">
+                <div
+                  title="Đã nhớ"
+                  className="bg-emerald-600 h-full transition-all duration-500"
+                  style={{
+                    width: `${(memoryStats.masteredCount / memoryStats.totalEvaluated) * 100}%`,
+                  }}
+                />
+                <div
+                  title="Cần ôn lại"
+                  className="bg-amber-500 h-full transition-all duration-500"
+                  style={{
+                    width: `${(memoryStats.reviewNeededCount / memoryStats.totalEvaluated) * 100}%`,
+                  }}
+                />
+                <div
+                  title="Chưa nắm vững"
+                  className="bg-rose-500 h-full transition-all duration-500"
+                  style={{
+                    width: `${(memoryStats.notRememberedCount / memoryStats.totalEvaluated) * 100}%`,
+                  }}
+                />
+              </div>
+            ) : (
               <div
-                title="Đã nhớ"
-                className="bg-emerald-600 h-full transition-all duration-500"
-                style={{
-                  width: `${memoryStats.totalEvaluated > 0 ? (memoryStats.masteredCount / memoryStats.totalEvaluated) * 100 : 70}%`,
-                }}
+                className="w-full h-3 rounded-full bg-stone-200/80 border border-stone-300"
+                title="Chưa có dữ liệu đánh giá"
               />
-              <div
-                title="Cần ôn lại"
-                className="bg-amber-500 h-full transition-all duration-500"
-                style={{
-                  width: `${memoryStats.totalEvaluated > 0 ? (memoryStats.reviewNeededCount / memoryStats.totalEvaluated) * 100 : 20}%`,
-                }}
-              />
-              <div
-                title="Chưa nắm vững"
-                className="bg-rose-500 h-full transition-all duration-500"
-                style={{
-                  width: `${memoryStats.totalEvaluated > 0 ? (memoryStats.notRememberedCount / memoryStats.totalEvaluated) * 100 : 10}%`,
-                }}
-              />
-            </div>
+            )}
 
             <div className="flex items-center justify-between text-[11px] pt-1">
               <span className="flex items-center gap-1 text-emerald-800 font-bold">
@@ -963,7 +1193,9 @@ export default function StudentPracticeWorkspace({
           </div>
 
           <p className="text-[11px] text-[#315E48] leading-relaxed pt-1 border-t border-[#E5DEC9]/60">
-            Học sinh có thể chọn mức độ ghi nhớ ở từng thẻ từ vựng để theo dõi tỷ lệ tiến bộ liên tục.
+            {memoryStats.totalEvaluated > 0
+              ? "Tỷ lệ nắm vững cập nhật tự động dựa trên mức độ đánh giá nhớ / chưa nhớ của bạn."
+              : "Hãy lật thẻ và đánh giá 'Đã thuộc' hoặc 'Chưa nhớ' để hệ thống theo dõi mức độ tiến bộ của bạn."}
           </p>
         </div>
 
@@ -1047,8 +1279,8 @@ export default function StudentPracticeWorkspace({
           <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] shadow-2xs space-y-1.5">
             <div className="flex items-center justify-between text-[#204434] font-bold">
               <span>Ngày mai</span>
-              <span className="px-2 py-0.5 rounded-full bg-[#FAF7F0] text-[#8F6D3B] text-[10px]">
-                Lần lặp 2
+              <span className="px-2 py-0.5 rounded-full bg-[#FAF7F0] text-[#8F6D3B] text-[10px] font-bold">
+                {memoryStats.dueTomorrowCount || 0} mục đến hạn
               </span>
             </div>
             <p className="text-[#315E48] text-[11px] leading-relaxed">
@@ -1060,8 +1292,8 @@ export default function StudentPracticeWorkspace({
           <div className="p-3.5 rounded-2xl bg-white border border-emerald-300 shadow-2xs space-y-1.5">
             <div className="flex items-center justify-between text-emerald-800 font-bold">
               <span>3 - 7 ngày tới</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[10px]">
-                Trí nhớ vĩnh viễn
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                {memoryStats.dueUpcomingWeekCount || 0} mục ôn dài hạn
               </span>
             </div>
             <p className="text-[#315E48] text-[11px] leading-relaxed">

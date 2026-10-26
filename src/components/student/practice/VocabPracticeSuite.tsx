@@ -68,6 +68,7 @@ interface VocabPracticeSuiteProps {
   studentId?: string;
   handleSpeak: (text: string) => void;
   onMemoryUpdated?: () => void;
+  initialFilter?: "ALL" | MemoryStatus;
 }
 
 // Chuẩn hóa so sánh nghĩa tiếng Việt
@@ -112,6 +113,7 @@ export default function VocabPracticeSuite({
   studentId = "guest",
   handleSpeak,
   onMemoryUpdated,
+  initialFilter = "ALL",
 }: VocabPracticeSuiteProps) {
   // Chế độ luyện tập từ vựng hiện tại (6-7 chế độ)
   const [subType, setSubType] = useState<VocabPracticeSubtype>("flashcard");
@@ -164,7 +166,13 @@ export default function VocabPracticeSuite({
   // Tìm kiếm & Sắp xếp danh sách từ vựng bên trái
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"DEFAULT" | "NOT_REMEMBERED" | "REVIEW_NEEDED" | "PINYIN">("DEFAULT");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | MemoryStatus>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | MemoryStatus>(initialFilter);
+
+  useEffect(() => {
+    if (initialFilter) {
+      setStatusFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   // Từ yêu thích (Star Favorite)
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
