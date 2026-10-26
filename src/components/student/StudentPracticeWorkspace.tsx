@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
+  Bell,
+  User,
   Dumbbell,
   BookOpen,
   RotateCcw,
