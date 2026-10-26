@@ -89,6 +89,66 @@ const RADICAL_ETYMOLOGY: Record<string, { radicals: string; memo: string }> = {
     radicals: "宀 (miên: mái nhà) + 子 (tử: đứa con)",
     memo: "Chữ viết được sinh sôi nảy nở dưới mái ấm gia đình và trường học, tựa như con cháu tiếp nối.",
   },
+  休: {
+    radicals: "亻 (nhân đứng: người) + 木 (mộc: gốc cây)",
+    memo: "Người tựa lưng vào bóng mát gốc cây để nghỉ ngơi, thư thái tĩnh dưỡng.",
+  },
+  息: {
+    radicals: "自 (tự: cái mũi/bản thân) + 心 (tâm: trái tim)",
+    memo: "Hơi thở bình an đi sâu vào tận đáy lòng, đó là sự ngơi nghỉ, bình tâm tĩnh trí.",
+  },
+  中: {
+    radicals: "丨 (sổ thẳng) + 口 (khẩu: khuôn bờ)",
+    memo: "Đường thẳng cắm chính giữa vùng đất, tượng trưng cho trung tâm, trung chính, đứng đắn.",
+  },
+  国: {
+    radicals: "囗 (vi: bao quanh bờ cõi) + 玉 (ngọc: ngọc quý)",
+    memo: "Đất nước có biên cương bao bọc bốn phía để gìn giữ báu vật ngọc ngà của nhân dân.",
+  },
+  人: {
+    radicals: "人 (nhân: hình dáng con người)",
+    memo: "Con người hai chân đứng thẳng vững chãi giữa trời và đất, hướng về phía trước.",
+  },
+  汉: {
+    radicals: "氵 (ba chấm thủy) + 又 (hựu: bàn tay)",
+    memo: "Bắt nguồn từ dòng sông Hán Thủy, biểu trưng cho tiếng Hán và nền văn hóa ngàn năm.",
+  },
+  语: {
+    radicals: "讠 (ngôn: lời nói) + 五 (ngũ: số 5) + 口 (khẩu: miệng)",
+    memo: "Dùng ngôn ngữ và lời nói từ miệng để giao tiếp, truyền đạt tri thức và tình cảm.",
+  },
+  电: {
+    radicals: "日 (nhật: mặt trời) + 乚 (nét cong móc giống tia sét)",
+    memo: "Tia sét xé toạc mây trời, tượng trưng cho ánh sáng và điện năng.",
+  },
+  影: {
+    radicals: "景 (cảnh: ánh nắng kinh kỳ) + 彡 (sam: tia sáng)",
+    memo: "Ánh sáng chiếu rọi tạo nên bóng dáng và hình ảnh lung linh, phim ảnh.",
+  },
+  机: {
+    radicals: "木 (mộc: gỗ) + 几 (kỷ: bàn nhỏ)",
+    memo: "Cơ cấu máy móc tinh xảo trợ giúp con người, cơ khí, máy móc.",
+  },
+  场: {
+    radicals: "土 (thổ: đất đai) + 𠃓 (dương: ánh nắng)",
+    memo: "Bãi đất phẳng đón ánh sáng mặt trời, sân bãi, quảng trường công cộng.",
+  },
+  苹: {
+    radicals: "艹 (thảo: cây cỏ hoa trái) + 平 (bình: bình an)",
+    memo: "Trái cây ngọt ngào tượng trưng cho bình an và điều lành, quả táo.",
+  },
+  果: {
+    radicals: "田 (khoảnh vườn/quả) + 木 (mộc: cành cây)",
+    memo: "Hoa trái trĩu cành trên ngọn cây, kết tinh ngọt ngào của mùa màng hoa thơm cỏ ngọt.",
+  },
+  大: {
+    radicals: "大 (hình ảnh con người dang rộng hai tay)",
+    memo: "Hình dáng con người dang rộng hai tay hai chân vươn tới trời cao, thể hiện sự to lớn, vĩ đại.",
+  },
+  兴: {
+    radicals: "𦥑 (hai tay cùng nâng) + 一 (nền tảng)",
+    memo: "Chung tay góp sức nâng đỡ mọi việc cùng phát triển hưng thịnh, hưng phấn.",
+  },
 };
 
 export interface EtymologyInfo {

@@ -1536,6 +1536,19 @@ export default function VocabPracticeSuite({
       <HanziPracticeModal
         isOpen={isHanziModalOpen}
         onClose={() => setIsHanziModalOpen(false)}
+        words={
+          vocabList && vocabList.length > 0
+            ? vocabList.map((v) => ({
+                hanzi: v.hanzi,
+                pinyin: v.pinyin || "",
+                meaning: v.meaningVi || v.meaning || "",
+                meaningVi: v.meaningVi || v.meaning || "",
+                exampleZh: v.exampleZh || "",
+                examplePinyin: v.examplePinyin || "",
+                exampleVi: v.exampleVi || "",
+              }))
+            : undefined
+        }
         initialHanzi={hanziModalTarget?.hanzi || currentVocab?.hanzi || "你"}
         initialPinyin={hanziModalTarget?.pinyin || currentVocab?.pinyin || "nǐ"}
         initialMeaning={
