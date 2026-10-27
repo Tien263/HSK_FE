@@ -98,25 +98,25 @@ export async function POST(request: Request) {
           .map((m: any) => `${m.sender === "STUDENT" ? "Học sinh" : "AI Tiểu Ngữ"}: ${m.zh}`)
           .join("\n");
 
-        const promptText = `Bạn là Tiểu Ngữ (小语) - trợ giảng khẩu ngữ tiếng Trung AI thân thiện, thông minh, kiên nhẫn dành cho học viên HSK cấp độ ${hskLevel}.
-Lịch sử hội thoại vừa qua:
+        const promptText = `Bạn là Tiểu Ngữ (小语) - một người bạn bản xứ Trung Quốc thân thiện, tự nhiên và tâm sự trò chuyện như trên WeChat với học viên HSK cấp độ ${hskLevel}.
+Lịch sử hội thoại:
 ${conversationContext || "(Bắt đầu cuộc trò chuyện mới)"}
 
-Học sinh vừa nói: "${spokenText}"
+Bạn của bạn vừa nói: "${spokenText}"
 
-Yêu cầu bắt buộc:
-1. Trả lời câu của học sinh bằng tiếng Trung thật tự nhiên, phong phú, từ vựng phù hợp HSK ${hskLevel}.
-2. Đặt thêm 1 câu hỏi gợi mở tiếp theo để duy trì cuộc hội thoại liên tục, nhiều chủ đề đa dạng (thời tiết, sở thích, ẩm thực, cuộc sống, ước mơ, học tập...).
-3. Đưa ra 2-3 câu trả lời mẫu gợi ý (suggestedReplies) để học sinh có thể chọn bấm vào để trả lời tiếp nếu chưa nghĩ ra.
+Quy tắc trò chuyện QUAN TRỌNG:
+1. ĐỐI THOẠI TỰ NHIÊN NHƯ NGƯỜI VỚI NGƯỜI: Tuyệt đối KHÔNG mở đầu bằng các lời khen hoặc nhận xét sáo rỗng (như "你说得很自然", "太棒了", "你说得很好", "你的中文越来越棒").
+2. Hãy phản hồi trực tiếp vào nội dung người bạn vừa nói bằng cảm xúc chân thật (ví dụ: "哈哈真的吗？", "哇，原来是这样！", "我也这么觉得...", "听起来很有意思！"), sau đó chia sẻ một chút suy nghĩ của bạn hoặc hỏi tiếp một câu gợi mở tự nhiên để tiếp tục câu chuyện.
+3. Từ vựng và ngữ pháp phù hợp HSK ${hskLevel}.
 4. Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
 {
-  "aiReplyZh": "Câu phản hồi tiếng Trung",
+  "aiReplyZh": "Câu phản hồi tự nhiên bằng tiếng Trung",
   "aiReplyPinyin": "Phiên âm pinyin có thanh điệu",
   "aiReplyVi": "Bản dịch nghĩa tiếng Việt tự nhiên",
-  "feedback": "Lời nhận xét sư phạm ngắn gọn (khen ngợi hoặc sửa nhẹ)",
+  "feedback": "Lời góp ý ngắn nếu có từ nào phát âm/dùng sai, nếu đúng thì để rỗng hoặc động viên ngắn gọn",
   "suggestedReplies": [
-    { "zh": "Câu gợi ý 1", "pinyin": "pinyin 1", "vi": "nghĩa 1" },
-    { "zh": "Câu gợi ý 2", "pinyin": "pinyin 2", "vi": "nghĩa 2" }
+    { "zh": "Câu gợi ý 1 cho bạn học viên", "pinyin": "pinyin 1", "vi": "nghĩa 1" },
+    { "zh": "Câu gợi ý 2 cho bạn học viên", "pinyin": "pinyin 2", "vi": "nghĩa 2" }
   ]
 }`;
 
@@ -222,79 +222,157 @@ Yêu cầu bắt buộc:
           }
         }
 
-        // BỘ DỰ PHÒNG PHONG PHÚ ĐA DẠNG NẾU CHƯA CÓ API KEY HOẶC OFFLINE
+        // BỘ ĐỐI ĐÁP PHONG PHÚ TỰ NHIÊN NHƯ BẠN BÈ WECHAT (KHÔNG ĐÁNH GIÁ SÁO RỖNG)
         if (!llmSuccess) {
           const smartTopics = [
             {
-              matcher: /好|您好|你好|嗨/u,
+              matcher: /好|您好|你好|嗨|哈喽|早上好|晚上好/u,
               replies: [
                 {
-                  zh: "你好呀！很高兴认识你。今天过得开心吗？",
-                  pinyin: "Nǐ hǎo ya! Hěn gāoxìng rènshi nǐ. Jīntiān guò de kāixīn ma?",
-                  vi: "Chào bạn nhé! Rất vui được quen bạn. Hôm nay bạn thấy vui không?",
+                  zh: "哈喽！今天过得怎么样？忙不忙呀？",
+                  pinyin: "Hālóu! Jīntiān guò de zěnmeyàng? Máng bu máng ya?",
+                  vi: "Chào bạn nhé! Hôm nay bạn thế nào? Có bận rộn lắm không?",
                   suggestions: [
-                    { zh: "我今天很开心！", pinyin: "Wǒ jīntiān hěn kāixīn!", vi: "Hôm nay mình rất vui!" },
-                    { zh: "我今天有点忙。", pinyin: "Wǒ jīntiān yǒudiǎn máng.", vi: "Hôm nay mình hơi bận một chút." },
+                    { zh: "我今天挺好的，不太忙。", pinyin: "Wǒ jīntiān tǐng hǎo de, bú tài máng.", vi: "Hôm nay mình khá ổn, không bận lắm." },
+                    { zh: "今天工作有点多，有点累。", pinyin: "Jīntiān gōngzuò yǒudiǎn duō, yǒudiǎn lèi.", vi: "Hôm nay công việc hơi nhiều, có chút mệt." },
                   ],
                 },
                 {
-                  zh: "你好！你的中文听起来很亲切。你平时喜欢学中文吗？",
-                  pinyin: "Nǐ hǎo! Nǐ de zhōngwén tīng qǐlái hěn qīnqiè. Nǐ píngshí xǐhuan xué zhōngwén ma?",
-                  vi: "Xin chào! Tiếng Trung của bạn nghe rất gần gũi. Thường ngày bạn có thích học tiếng Trung không?",
+                  zh: "嗨！今天天气不错，你现在在家里还是在外面呢？",
+                  pinyin: "Hāi! Jīntiān tiānqì búcuò, nǐ xiànzài zài jiālǐ háishì zài wàimiàn ne?",
+                  vi: "Chào bạn! Thời tiết hôm nay đẹp ghê, giờ bạn đang ở nhà hay ở ngoài?",
                   suggestions: [
-                    { zh: "我很喜欢学中文，很有意思。", pinyin: "Wǒ hěn xǐhuan xué zhōngwén, hěn yǒu yìsi.", vi: "Mình rất thích học tiếng Trung, rất thú vị." },
-                    { zh: "中文有点难，但我一直在努力！", pinyin: "Zhōngwén yǒudiǎn nán, dàn wǒ yìzhí zài nǔlì!", vi: "Tiếng Trung hơi khó, nhưng mình luôn nỗ lực!" },
+                    { zh: "我现在刚回到家休息。", pinyin: "Wǒ xiànzài gāng huí dào jiā xiūxi.", vi: "Mình vừa về tới nhà nghỉ ngơi." },
+                    { zh: "我还在外面和朋友喝咖啡呢。", pinyin: "Wǒ hái zài wàimiàn hé péngyou hē kāfēi ne.", vi: "Mình vẫn đang ở ngoài uống cà phê với bạn bè." },
                   ],
                 },
               ],
             },
             {
-              matcher: /吃|喝|菜|茶|饭|水|米饭|面/u,
+              matcher: /吃|喝|菜|茶|饭|水|米饭|面|肉|火锅|咖啡|奶茶/u,
               replies: [
                 {
-                  zh: "中国的美食非常多！你最喜欢吃饺子、火锅还是炒饭？",
-                  pinyin: "Zhōngguó de měishí fēicháng duō! Nǐ zuì xǐhuan chī jiǎozi, huǒguō háishì chǎofàn?",
-                  vi: "Ẩm thực Trung Hoa phong phú lắm! Bạn thích ăn sủi cảo, lẩu hay cơm rang nhất?",
+                  zh: "哇，听起来好香！你平时喜欢自己做饭，还是点外卖或者去外面吃？",
+                  pinyin: "Wa, tīng qǐlái hǎo xiāng! Nǐ píngshí xǐhuan zìjǐ zuòfàn, háishì diǎn wàimài huòzhě qù wàimiàn chī?",
+                  vi: "Oa nghe hấp dẫn thế! Bình thường bạn thích tự nấu ăn, hay gọi đồ về hoặc ra ngoài ăn?",
                   suggestions: [
-                    { zh: "我特别喜欢吃中国火锅！", pinyin: "Wǒ tèbié xǐhuan chī Zhōngguó huǒguō!", vi: "Mình đặc biệt thích ăn lẩu Trung Quốc!" },
-                    { zh: "我喜欢喝中国绿茶，很健康。", pinyin: "Wǒ xǐhuan hē Zhōngguó lǜchá, hěn jiànkāng.", vi: "Mình thích uống trà xanh Trung Quốc, rất tốt cho sức khỏe." },
+                    { zh: "我周末喜欢自己做饭，平时点外卖。", pinyin: "Wǒ zhōumò xǐhuan zìjǐ zuòfàn, píngshí diǎn wàimài.", vi: "Cuối tuần mình thích tự nấu ăn, ngày thường thì gọi đồ về." },
+                    { zh: "我很喜欢做饭，特别是中国菜。", pinyin: "Wǒ hěn xǐhuan zuòfàn, tèbié shì Zhōngguó cài.", vi: "Mình rất thích nấu ăn, đặc biệt là món Trung Hoa." },
                   ],
                 },
                 {
-                  zh: "听起来很香呢！你平时喜欢自己做饭还是去餐厅吃？",
-                  pinyin: "Tīng qǐlái hěn xiāng ne! Nǐ píngshí xǐhuan zìjǐ zuòfàn háishì qù cāntīng chī?",
-                  vi: "Nghe hấp dẫn quá! Bạn thường thích tự nấu ăn hay đi ăn ở nhà hàng?",
+                  zh: "说到好吃的，我也馋了！你最喜欢的中国菜是什么？火锅、饺子还是炒饭？",
+                  pinyin: "Shuōdào hǎochī de, wǒ yě chán le! Nǐ zuì xǐhuan de Zhōngguó cài shì shénme? Huǒguō, jiǎozi háishì chǎofàn?",
+                  vi: "Nhắc đến đồ ngon mình cũng thèm rồi! Món Trung bạn thích nhất là gì? Lẩu, sủi cảo hay cơm rang?",
                   suggestions: [
-                    { zh: "我周末喜欢自己做饭。", pinyin: "Wǒ zhōumò xǐhuan zìjǐ zuòfàn.", vi: "Cuối tuần mình thích tự nấu ăn." },
-                    { zh: "我平时工作忙，经常在外面吃。", pinyin: "Wǒ píngshí gōngzuò máng, jīngcháng zài wàimiàn chī.", vi: "Bình thường mình bận đi làm nên hay ăn ở ngoài." },
+                    { zh: "我最喜欢吃火锅，又辣又过瘾！", pinyin: "Wǒ zuì xǐhuan chī huǒguō, yòu là yòu guòyǐn!", vi: "Mình thích ăn lẩu nhất, vừa cay vừa đã!" },
+                    { zh: "我喜欢吃饺子，蘸醋特别香。", pinyin: "Wǒ xǐhuan chī jiǎozi, zhàn cù tèbié xiāng.", vi: "Mình thích ăn sủi cảo, chấm giấm cực kỳ thơm ngon." },
                   ],
                 },
-              ],
-            },
-            {
-              matcher: /电影|音乐|歌|看|听|玩|运动|足球|篮球/u,
-              replies: [
                 {
-                  zh: "你的业余爱好真丰富！休息的时候你最喜欢听歌还是看电影？",
-                  pinyin: "Nǐ de yèyú àihào zhēn fēngfù! Xiūxi de shíhou nǐ zuì xǐhuan tīng gē háishì kàn diànyǐng?",
-                  vi: "Sở thích lúc rảnh rỗi của bạn phong phú thật! Khi nghỉ ngơi bạn thích nghe nhạc hay xem phim hơn?",
+                  zh: "你平时喜欢喝咖啡还是喝茶？我每天早上都要喝一杯提提神。",
+                  pinyin: "Nǐ píngshí xǐhuan hē kāfēi háishì hē chá? Wǒ měitiān zǎoshang dōu yào hē yì bēi tí tí shén.",
+                  vi: "Bình thường bạn thích uống cà phê hay uống trà? Sáng nào mình cũng phải làm một ly cho tỉnh táo.",
                   suggestions: [
-                    { zh: "我喜欢看中国电影，还能练听力。", pinyin: "Wǒ xǐhuan kàn Zhōngguó diànyǐng, hái néng liàn tīnglì.", vi: "Mình thích xem phim Trung Quốc, vừa hay vừa luyện được nghe." },
-                    { zh: "我喜欢听中文流行歌。", pinyin: "Wǒ xǐhuan tīng Zhōngwén liúxíng gē.", vi: "Mình thích nghe các bài hát nhạc hoa thịnh hành." },
+                    { zh: "我也是！不喝咖啡一整天都没精神。", pinyin: "Wǒ yě shì! Bù hē kāfēi yì zhěng tiān dōu méi jīngshen.", vi: "Mình cũng vậy! Không uống cà phê là cả ngày uể oải liền." },
+                    { zh: "我更喜欢喝清香的绿茶，对身体好。", pinyin: "Wǒ gèng xǐhuan hē qīngxiāng de lǜchá, duì shēntǐ hǎo.", vi: "Mình thích uống trà xanh thanh mát hơn, tốt cho sức khỏe." },
                   ],
                 },
               ],
             },
             {
-              matcher: /去|旅游|北京|上海|飞机|路|中国/u,
+              matcher: /天|冷|热|雨|晴|风|太阳|阴/u,
               replies: [
                 {
-                  zh: "旅行让人开阔眼界！你想去北京看故宫，还是想去上海看东方明珠？",
-                  pinyin: "Lǚxíng ràng rén kāikuò yǎnjiè! Nǐ xiǎng qù Běijīng kàn Gùgōng, háishì xiǎng qù Shànghǎi kàn Dōngfāng Míngzhū?",
-                  vi: "Đi du lịch mở mang tầm mắt lắm! Bạn muốn đi Bắc Kinh ngắm Cố Cung hay muốn đi Thượng Hải ngắm Tháp Đông Phương?",
+                  zh: "今天这天气挺舒服的，你那边现在冷不冷？",
+                  pinyin: "Jīntiān zhè tiānqì tǐng shūfu de, nǐ nàbiān xiànzài lěng bu lěng?",
+                  vi: "Thời tiết hôm nay khá dễ chịu, chỗ bạn giờ có lạnh không?",
                   suggestions: [
-                    { zh: "我想去北京爬长城！", pinyin: "Wǒ xiǎng qù Běijīng pá Chángchéng!", vi: "Mình muốn đi Bắc Kinh leo Vạn Lý Trường Thành!" },
-                    { zh: "我想去成都看可爱的大熊猫。", pinyin: "Wǒ xiǎng qù Chéngdū kàn kě'ài de dàxióngmāo.", vi: "Mình muốn đi Thành Đô ngắm gấu trúc đáng yêu." },
+                    { zh: "今天挺凉快的，温度刚刚好。", pinyin: "Jīntiān tǐng liángkuai de, wēndù gānggāng hǎo.", vi: "Hôm nay khá mát mẻ, nhiệt độ vừa vặn." },
+                    { zh: "我这边有点冷，出门都要穿厚衣服。", pinyin: "Wǒ nàbiān yǒudiǎn lěng, chūmén dōu yào chuān hòu yīfu.", vi: "Chỗ mình hơi lạnh, ra đường đều phải mặc áo dày." },
+                  ],
+                },
+                {
+                  zh: "要是天气好的话，真想去公园走走。你今天有出门吗？",
+                  pinyin: "Yàoshi tiānqì hǎo de huà, zhēn xiǎng qù gōngyuán zǒuzou. Nǐ jīntiān yǒu chūmén ma?",
+                  vi: "Nếu thời tiết đẹp thật muốn ra công viên dạo bộ. Hôm nay bạn có ra ngoài không?",
+                  suggestions: [
+                    { zh: "我今天一整天都在家里休息。", pinyin: "Wǒ jīntiān yì zhěng tiān dōu zài jiālǐ xiūxi.", vi: "Hôm nay cả ngày mình ở nhà nghỉ ngơi." },
+                    { zh: "我刚去超市买了点东西回来。", pinyin: "Wǒ gāng qù chāoshì mǎi le diǎn dōngxi huílái.", vi: "Mình vừa đi siêu thị mua ít đồ về." },
+                  ],
+                },
+              ],
+            },
+            {
+              matcher: /学|中文|字|考|课|书|汉语|老师/u,
+              replies: [
+                {
+                  zh: "学语言确实需要一点一滴慢慢积累。你平时习惯在早上学还是晚上学？",
+                  pinyin: "Xué yǔyán quèshí xūyào yìdiǎnyìdī mànman jīlěi. Nǐ píngshí xíguàn zài zǎoshang xué háishì wǎnshang xué?",
+                  vi: "Học ngoại ngữ đúng là cần từng chút tích lũy dần. Thường ngày bạn có thói quen học buổi sáng hay buổi tối?",
+                  suggestions: [
+                    { zh: "我习惯晚上比较安静的时候学。", pinyin: "Wǒ xíguàn wǎnshang bǐjiào ānjìng de shíhou xué.", vi: "Mình quen học vào buổi tối lúc yên tĩnh hơn." },
+                    { zh: "我喜欢早上记忆力好的时候背生词。", pinyin: "Wǒ xǐhuan zǎoshang jìyìlì hǎo de shíhou bèi shēngcí.", vi: "Mình thích học từ mới vào buổi sáng lúc trí nhớ tốt." },
+                  ],
+                },
+                {
+                  zh: "你觉得学中文最有趣的是什么？我平时超喜欢看汉字背后的演变故事！",
+                  pinyin: "Nǐ juéde xué zhōngwén zuì yǒu yìsi de shì shénme? Wǒ píngshí chāo xǐhuan kàn hànzì bèihòu de yǎnbiàn gùshi!",
+                  vi: "Bạn thấy học tiếng Trung điều gì thú vị nhất? Mình thì cực mê tìm hiểu câu chuyện đằng sau các chữ Hán!",
+                  suggestions: [
+                    { zh: "我觉得汉字结构很像画画，很有趣！", pinyin: "Wǒ juéde hànzì jiégòu hěn xiàng huàhuà, hěn yǒu yìsi!", vi: "Mình thấy cấu tạo chữ Hán rất giống vẽ tranh, cực kỳ thú vị!" },
+                    { zh: "我喜欢学口语，能跟世界各地的人交流。", pinyin: "Wǒ xǐhuan xué kǒuyǔ, néng gēn shìjiè gèdì de rén jiāoliú.", vi: "Mình thích học khẩu ngữ, để có thể giao lưu với mọi người khắp nơi." },
+                  ],
+                },
+              ],
+            },
+            {
+              matcher: /工作|上班|忙|累|加班|老板|同事|开会/u,
+              replies: [
+                {
+                  zh: "工作忙碌了一整天，今晚有打算怎么好好犒劳一下自己吗？",
+                  pinyin: "Gōngzuò mánglù le yì zhěng tiān, jīnwǎn yǒu dǎsuàn zěnme hǎohāo kàolao yíxià zìjǐ ma?",
+                  vi: "Đi làm bận rộn cả ngày rồi, tối nay bạn tính tự thưởng gì cho bản thân chưa?",
+                  suggestions: [
+                    { zh: "今晚吃顿大餐，然后早点睡！", pinyin: "Jīnwǎn chī dùn dàcān, ránhòu zǎodiǎn shuì!", vi: "Tối nay ăn một bữa ngon lành rồi đi ngủ sớm!" },
+                    { zh: "打算追追剧，听听歌放松一下。", pinyin: "Dǎsuàn zhuī zhuī jù, tīng tīng gē fàngsōng yíxià.", vi: "Định cày một tập phim, nghe nhạc chút cho thư thả." },
+                  ],
+                },
+              ],
+            },
+            {
+              matcher: /电影|音乐|歌|看|听|玩|运动|足球|篮球|游/u,
+              replies: [
+                {
+                  zh: "我也超喜欢！你最近有没有看什么好看的电影或者电视剧推荐？",
+                  pinyin: "Wǒ yě chāo xǐhuan! Nǐ zuìjìn yǒu méiyǒu kàn shénme hǎokàn de diànyǐng huòzhě diànshìjù tuījiàn?",
+                  vi: "Mình cũng mê lắm luôn! Gần đây bạn có bộ phim hay kịch truyền hình nào gợi ý không?",
+                  suggestions: [
+                    { zh: "最近有一部新出的喜剧挺搞笑的。", pinyin: "Zuìjìn yǒu yí bù xīn chū de xǐjù tǐng gǎoxiào de.", vi: "Dạo này có phim hài mới ra cười đau cả ruột." },
+                    { zh: "我最近在看一部悬疑剧，特别精彩！", pinyin: "Wǒ zuìjìn zài kàn yí bù xuányí jù, tèbié jīngcǎi!", vi: "Mình đang xem phim trinh thám hồi hộp, gay cấn lắm!" },
+                  ],
+                },
+                {
+                  zh: "听音乐真的超解压！你平时一般听舒缓的慢歌，还是节奏快一点的？",
+                  pinyin: "Tīng yīnyuè zhēn de chāo jiěyā! Nǐ píngshí yìbān tīng shūhuǎn de màngē, háishì jiézòu kuài yìdiǎn de?",
+                  vi: "Nghe nhạc giải tỏa stress cực tốt! Bạn hay nghe nhạc nhẹ du dương hay nhạc tiết tấu sôi động?",
+                  suggestions: [
+                    { zh: "我喜欢听安静温柔的抒情歌。", pinyin: "Wǒ xǐhuan tīng ānjìng wēnróu de shūqíng gē.", vi: "Mình thích nghe những bản tình ca êm dịu, nhẹ nhàng." },
+                    { zh: "我喜欢节奏欢快的，让人充满活力！", pinyin: "Wǒ xǐhuan jiézòu huānkuài de, ràng rén chōngmǎn huólì!", vi: "Mình thích bài tiết tấu vui tươi, làm người tràn đầy năng lượng!" },
+                  ],
+                },
+              ],
+            },
+            {
+              matcher: /去|旅游|北京|上海|飞机|路|中国|走|玩儿/u,
+              replies: [
+                {
+                  zh: "去旅行真的很让人放松！如果有长假，你最想去哪个城市走走？",
+                  pinyin: "Qù lǚxíng zhēn de hěn ràng rén fàngsōng! Rúguǒ yǒu chángjià, nǐ zuì xiǎng qù nǎge chéngshì zǒuzou?",
+                  vi: "Đi du lịch thực sự giúp xả hơi tuyệt vời! Nếu có kỳ nghỉ dài, bạn muốn đi thành phố nào nhất?",
+                  suggestions: [
+                    { zh: "我想去成都看可爱的大熊猫，吃火锅！", pinyin: "Wǒ xiǎng qù Chéngdū kàn kě'ài de dàxióngmāo, chī huǒguō!", vi: "Mình muốn đi Thành Đô ngắm gấu trúc và ăn lẩu!" },
+                    { zh: "我想去海边吹吹海风，散散心。", pinyin: "Wǒ xiǎng qù hǎibiān chuī chuī hǎifēng, sànsàn xīn.", vi: "Mình muốn ra biển đón gió biển, thư giãn đầu óc." },
                   ],
                 },
               ],
@@ -307,21 +385,39 @@ Yêu cầu bắt buộc:
               matcher: /.*/,
               replies: [
                 {
-                  zh: "你说得很自然！中文表达能力越来越棒了。你明天有什么计划吗？",
-                  pinyin: "Nǐ shuō de hěn zìrán! Zhōngwén biǎodá nénglì yuèláiyuè bàng le. Nǐ míngtiān yǒu shénme jìhuà ma?",
-                  vi: "Bạn nói rất tự nhiên! Khả năng diễn đạt tiếng Trung ngày càng đỉnh rồi. Ngày mai bạn có kế hoạch gì chưa?",
+                  zh: "哈哈，原来是这样！那你平时周末一般喜欢怎么度过呢？",
+                  pinyin: "Hāhā, yuánlái shì zhèyàng! Nà nǐ píngshí zhōumò yìbān xǐhuan zěnme dùguò ne?",
+                  vi: "Haha, hóa ra là như vậy! Thế thường ngày cuối tuần bạn thích trải qua thế nào?",
                   suggestions: [
-                    { zh: "我明天要上班/上学。", pinyin: "Wǒ míngtiān yào shàngbān / shàngxué.", vi: "Ngày mai mình phải đi làm / đi học." },
-                    { zh: "我打算在家里看书休息。", pinyin: "Wǒ dǎsuàn zài jiālǐ kànshū xiūxi.", vi: "Mình dự định ở nhà đọc sách nghỉ ngơi." },
+                    { zh: "周末我一般睡个懒觉，在家里看电影。", pinyin: "Zhōumò wǒ yìbān shuì ge lǎnjiào, zài jiālǐ kàn diànyǐng.", vi: "Cuối tuần mình hay ngủ nướng rồi ở nhà xem phim." },
+                    { zh: "我喜欢约朋友出去逛街或者喝下午茶。", pinyin: "Wǒ xǐhuan yuē péngyou chūqù guàngjiē huòzhě hē xiàwǔchá.", vi: "Mình thích hẹn bạn bè ra ngoài dạo phố hoặc uống trà chiều." },
                   ],
                 },
                 {
-                  zh: "太棒了！我们多聊聊吧。你觉得学中文最难的是声调还是汉字？",
-                  pinyin: "Tài bàng le! Wǒmen duō liáoliao ba. Nǐ juéde xué zhōngwén zuì nán de shì shēngdiào háishì hànzì?",
-                  vi: "Tuyệt quá! Chúng mình cùng trò chuyện thêm nhé. Bạn thấy học tiếng Trung khó nhất là thanh điệu hay chữ Hán?",
+                  zh: "听你这么一说，我也觉得挺有意思的！你接下来有什么打算吗？",
+                  pinyin: "Tīng nǐ zhème yì shuō, wǒ yě juéde tǐng yǒu yìsi de! Nǐ jiēxiàlái yǒu shénme dǎsuàn ma?",
+                  vi: "Nghe bạn kể mình cũng thấy thú vị phết! Lát nữa/sắp tới bạn có dự định gì chưa?",
                   suggestions: [
-                    { zh: "我觉得汉字笔画有点难写。", pinyin: "Wǒ juéde hànzì bǐhuà yǒudiǎn nán xiě.", vi: "Mình thấy nét chữ Hán hơi khó viết." },
-                    { zh: "我觉得声调需要多加练习。", pinyin: "Wǒ juéde shēngdiào xūyào duōjiā liànxí.", vi: "Mình thấy thanh điệu cần phải luyện tập nhiều hơn." },
+                    { zh: "我打算待会儿去准备晚饭。", pinyin: "Wǒ dǎsuàn dāihuǐr qù zhǔnbèi wǎnfàn.", vi: "Lát nữa mình định đi chuẩn bị bữa tối." },
+                    { zh: "我打算再多练几句中文对话。", pinyin: "Wǒ dǎsuàn zài duō liàn jǐ jù Zhōngwén duìhuà.", vi: "Mình định luyện thêm vài câu hội thoại tiếng Trung nữa." },
+                  ],
+                },
+                {
+                  zh: "今天身边有什么开心的事发生吗？跟我分享分享呗！",
+                  pinyin: "Jīntiān shēnbiān yǒu shénme kāixīn de shì fāshēng ma? Gēn wǒ fēnxiǎng fēnxiǎng bei!",
+                  vi: "Hôm nay quanh bạn có chuyện gì vui xảy ra không? Kể mình nghe chung với nào!",
+                  suggestions: [
+                    { zh: "今天工作挺顺利的，心情不错！", pinyin: "Jīntiān gōngzuò tǐng shùnlì de, xīnqíng búcuò!", vi: "Hôm nay công việc suôn sẻ lắm, tâm trạng rất tốt!" },
+                    { zh: "今天吃到了一家特别好吃的餐厅！", pinyin: "Jīntiān chī dào le yì jiā tèbié hǎochī de cāntīng!", vi: "Hôm nay mình ăn được ở một quán cực kỳ ngon!" },
+                  ],
+                },
+                {
+                  zh: "聊了这么多真开心！你平时是个习惯早睡早起的人，还是个夜猫子？",
+                  pinyin: "Liáo le zhème duō zhēn kāixīn! Nǐ píngshí shì ge xíguàn zǎoshuì zǎoqǐ de rén, háishì ge yèmāozi?",
+                  vi: "Trò chuyện vui ghê! Bạn là kiểu người ngủ sớm dậy sớm hay là cú đêm chính hiệu vậy?",
+                  suggestions: [
+                    { zh: "我经常熬夜，是个典型的夜猫子。", pinyin: "Wǒ jīngcháng áoyè, shì ge diǎnxíng de yèmāozi.", vi: "Mình hay thức khuya lắm, đúng chuẩn cú đêm luôn." },
+                    { zh: "我生活挺规律的，一般晚上十一点前睡。", pinyin: "Wǒ shēnghuó tǐng guīlǜ de, yìbān wǎnshang shíyī diǎn qián shuì.", vi: "Mình sinh hoạt khá điều độ, thường ngủ trước 11 giờ đêm." },
                   ],
                 },
               ],
