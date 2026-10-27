@@ -73,6 +73,7 @@ export interface GrammarExerciseItem {
 }
 
 interface GrammarPracticeSuiteProps {
+  customExercises?: GrammarExerciseItem[];
   grammarList: any[];
   vocabList?: any[];
   dialogueList?: any[];
@@ -615,6 +616,7 @@ function generateLessonGrammarExercises(
 }
 
 export default function GrammarPracticeSuite({
+  customExercises,
   grammarList,
   vocabList = [],
   dialogueList = [],
@@ -724,16 +726,26 @@ export default function GrammarPracticeSuite({
   // Điểm ngữ pháp hiện tại
   const currentGrammar = normalizedGrammars[selectedGrammarIdx] || normalizedGrammars[0];
 
-  // Sinh 10 câu hỏi cho mỗi dạng bài
+  // Ưu tiên câu hỏi bài tập ngữ pháp do Admin thiết lập cho bài học này
   const allExercises = useMemo(() => {
-    return generateLessonGrammarExercises(
+    const generated = generateLessonGrammarExercises(
       normalizedGrammars,
       vocabList,
       dialogueList,
       hskLevel,
       lessonNumber
     );
-  }, [normalizedGrammars, vocabList, dialogueList, hskLevel, lessonNumber]);
+
+    if (Array.isArray(customExercises) && customExercises.length > 0) {
+      // Kết hợp câu hỏi của Admin theo từng dạng bài
+      const customModes = new Set(customExercises.map((e) => e.mode));
+      // Giữ câu hỏi admin, các dạng còn lại lấy từ bộ sinh chuẩn
+      const otherModeItems = generated.filter((g) => !customModes.has(g.mode));
+      return [...customExercises, ...otherModeItems];
+    }
+
+    return generated;
+  }, [customExercises, normalizedGrammars, vocabList, dialogueList, hskLevel, lessonNumber]);
 
   // Danh sách câu hỏi của dạng bài đang chọn
   const currentModeExercises = useMemo(() => {

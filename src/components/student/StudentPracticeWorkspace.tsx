@@ -891,6 +891,7 @@ export default function StudentPracticeWorkspace({
           hskLevel={currentHskLevel}
           studentId={currentUser?.id}
           handleSpeak={handleSpeak}
+          customExercises={currentOfficialLesson?.grammarExercises}
         />
       )}
 

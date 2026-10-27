@@ -22,22 +22,62 @@ import {
   RotateCcw,
   AlertCircle,
   Copy,
+  Target,
+  Search,
+  Filter,
+  Check,
+  BookMarked,
+  Globe2,
 } from "lucide-react";
-import { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import {
+  Hsk1FullLesson,
+  GrammarExerciseItem,
+  GrammarExerciseMode,
+} from "@/lib/hsk1-full-lessons";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { RichReadingEditor, RichCultureEditor } from "@/components/teacher/LessonRichSections";
 import type { ReadingItem, CulturalNoteItem } from "@/lib/lesson-data";
-import { BookMarked, Globe2 } from "lucide-react";
 
 interface CurriculumBuilderWorkspaceProps {
   showToast: (msg: string, type?: "success" | "error") => void;
 }
 
+const EXERCISE_MODE_LABELS: Record<GrammarExerciseMode, { label: string; color: string; desc: string }> = {
+  choose_correct: {
+    label: "Chọn câu đúng",
+    color: "bg-blue-50 text-blue-700 border-blue-200",
+    desc: "Trắc nghiệm 4 đáp án chọn câu đúng ngữ pháp",
+  },
+  fill_blank: {
+    label: "Điền từ vào chỗ trống",
+    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    desc: "Chọn từ/cụm từ thích hợp điền vào chỗ trống",
+  },
+  reorder: {
+    label: "Sắp xếp từ thành câu",
+    color: "bg-amber-50 text-amber-700 border-amber-200",
+    desc: "Sắp xếp các từ xáo trộn thành câu hoàn chỉnh",
+  },
+  correct_mistake: {
+    label: "Sửa câu sai",
+    color: "bg-rose-50 text-rose-700 border-rose-200",
+    desc: "Tìm và sửa lỗi sai ngữ pháp trong câu",
+  },
+  listen_dialogue: {
+    label: "Nghe hiểu hội thoại",
+    color: "bg-purple-50 text-purple-700 border-purple-200",
+    desc: "Nghe đoạn hội thoại và chọn đáp án chính xác",
+  },
+};
+
 export default function CurriculumBuilderWorkspace({
   showToast,
 }: CurriculumBuilderWorkspaceProps) {
-  // Cấp độ HSK đang chọn (1 - 6)
+  // Cấp độ HSK đang chọn (1 - 9)
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
+
+  // Chế độ xem chính: Danh sách bài học vs Ngân hàng bài tập ngữ pháp
+  const [mainView, setMainView] = useState<"lessons" | "grammar_hub">("lessons");
 
   // Danh sách bài học của cấp độ đang chọn
   const [lessons, setLessons] = useState<Hsk1FullLesson[]>([]);
@@ -47,7 +87,7 @@ export default function CurriculumBuilderWorkspace({
   // Modal chỉnh sửa chi tiết bài học
   const [editingLesson, setEditingLesson] = useState<Hsk1FullLesson | null>(null);
   const [editorTab, setEditorTab] = useState<
-    "info" | "vocab" | "grammar" | "dialogue" | "phonetics" | "richcontent"
+    "info" | "vocab" | "grammar" | "dialogue" | "phonetics" | "richcontent" | "grammar_exercises"
   >("info");
 
   // State thêm từ vựng mới trong editor
@@ -70,6 +110,24 @@ export default function CurriculumBuilderWorkspace({
   const [newDialPinyin, setNewDialPinyin] = useState("");
   const [newDialVi, setNewDialVi] = useState("");
 
+  // State thêm câu hỏi bài tập ngữ pháp mới trong editor
+  const [newExMode, setNewExMode] = useState<GrammarExerciseMode>("choose_correct");
+  const [newExRule, setNewExRule] = useState("");
+  const [newExPrompt, setNewExPrompt] = useState("");
+  const [newExOptionA, setNewExOptionA] = useState("");
+  const [newExOptionB, setNewExOptionB] = useState("");
+  const [newExOptionC, setNewExOptionC] = useState("");
+  const [newExOptionD, setNewExOptionD] = useState("");
+  const [newExCorrect, setNewExCorrect] = useState("A");
+  const [newExExplanation, setNewExExplanation] = useState("");
+  const [newExScrambled, setNewExScrambled] = useState(""); // cho reorder, ngăn cách bằng dấu phẩy
+  const [newExWrongSentence, setNewExWrongSentence] = useState(""); // cho correct_mistake
+
+  // State bộ lọc cho Ngân hàng bài tập ngữ pháp (grammar_hub)
+  const [filterLessonNumber, setFilterLessonNumber] = useState<number | "ALL">("ALL");
+  const [filterExerciseMode, setFilterExerciseMode] = useState<string>("ALL");
+  const [exerciseSearch, setExerciseSearch] = useState<string>("");
+
   // Tải giáo trình khi đổi level
   useEffect(() => {
     async function loadCurriculum() {
@@ -80,11 +138,10 @@ export default function CurriculumBuilderWorkspace({
         if (data.success && Array.isArray(data.items) && data.items.length > 0) {
           setLessons(data.items);
         } else {
-          // Fallback sang resolver
           const localLessons = getLessonsByHskLevel(selectedLevel);
           setLessons(localLessons);
         }
-      } catch (e) {
+      } catch {
         const localLessons = getLessonsByHskLevel(selectedLevel);
         setLessons(localLessons);
       } finally {
@@ -122,10 +179,11 @@ export default function CurriculumBuilderWorkspace({
         dialogue: l.dialogue || [],
         phonetics: l.phonetics || {
           title: "Luyện phát âm",
-          rule: "Quy tắc phát âm thanh mẫu/vận mẫu",
+          rule: "Quy tắc phát âm",
           examples: ["a", "o", "e"],
         },
-        culture: l.culture || "Nét đẹp văn hóa Trung Hoa gắn với bài học",
+        culture: l.culture || "Nét đẹp văn hóa",
+        grammarExercises: l.grammarExercises || [],
       })),
     };
 
@@ -165,7 +223,7 @@ export default function CurriculumBuilderWorkspace({
 
         setLessons(incomingLessons);
         showToast(`Đã nạp thành công ${incomingLessons.length} bài học từ file JSON! Bấm "Lưu & Xuất bản" để áp dụng.`);
-      } catch (err) {
+      } catch {
         showToast("Lỗi định dạng file JSON!", "error");
       }
     };
@@ -178,167 +236,361 @@ export default function CurriculumBuilderWorkspace({
     const newLesson: Hsk1FullLesson = {
       id: `hsk${selectedLevel}-${String(nextNumber).padStart(2, "0")}`,
       number: nextNumber,
-      titleZh: `µ��课 ${nextNumber}`,
-      pinyin: `Xīn kè ${nextNumber}`,
-      titleVi: `Bài mới số ${nextNumber}`,
-      desc: `Nội dung và mục tiêu kiến thức bài số ${nextNumber} - HSK ${selectedLevel}`,
+      titleZh: `第${nextNumber}课 新课`,
+      pinyin: `Dì ${nextNumber} kè: Xīnkè`,
+      titleVi: `Bài ${nextNumber}: Bài học mới`,
+      desc: `Nội dung kiến thức HSK ${selectedLevel} - Bài ${nextNumber}`,
       durationMin: 45,
-      vocabCount: 1,
-      grammarCount: 1,
+      vocabCount: 0,
+      grammarCount: 0,
       isUnlockedDefault: true,
-      unlockedScheduleText: "Đã mở khóa",
-      vocabList: [
-        {
-          id: `v-new-1`,
-          hanzi: "学习",
-          pinyin: "xuéxí",
-          meaning: "học tập",
-          type: "Động từ",
-          exampleZh: "µ��们学习µ��语。",
-          exampleVi: "Chúng tôi học tiếng Trung.",
-        },
-      ],
-      grammarList: [
-        {
-          title: "Cấu trúc câu khẳng định cơ bản",
-          structure: "Chủ ngữ + Động từ + Tân ngữ",
-          example: "µ��学习µ��语。",
-          explanation: "Trật tự câu cơ bản trong tiếng Trung tương tự tiếng Việt (SVO).",
-        },
-      ],
-      dialogue: [
-        {
-          speaker: "µ��µ��",
-          zh: "你好！你在做什么？",
-          pinyin: "Nǐ hǎo! Nǐ zài zuò shénme?",
-          vi: "Chào bạn! Bạn đang làm gì đấy?",
-        },
-        {
-          speaker: "王美",
-          zh: "你好！µ��在学习µ��语。",
-          pinyin: "Nǐ hǎo! Wǒ zài xuéxí Hànyǔ.",
-          vi: "Chào bạn! Tôi đang học tiếng Trung.",
-        },
-      ],
+      unlockedScheduleText: "Đã mở theo lịch",
+      vocabList: [],
+      grammarList: [],
+      dialogue: [],
       phonetics: {
-        title: `Ngữ âm trọng tâm bài ${nextNumber}`,
-        rule: "Phân biệt các thanh mẫu và biến điệu chuẩn",
-        examples: ["mā", "má", "mǎ", "mà"],
+        title: "Luyện phát âm trọng tâm",
+        rule: "Thanh mẫu và vận mẫu tiêu chuẩn",
+        examples: ["zh", "ch", "sh", "r"],
       },
-      culture: `Góc văn hóa ứng dụng bài học số ${nextNumber}`,
+      culture: "Góc văn hóa Trung Hoa thực tế gắn với bài học",
+      grammarExercises: [],
     };
 
     setLessons([...lessons, newLesson]);
     setEditingLesson(newLesson);
     setEditorTab("info");
-    showToast(`Đã thêm Bài ${nextNumber}. Bạn có thể chỉnh sửa chi tiết ngay!`);
+    showToast(`Đã thêm Bài ${nextNumber}. Mời bạn nhập nội dung chi tiết.`);
   };
 
-  // 4. LƯU & XUẤT BẢN TOÀN BỘ GIÁO TRÌNH
-  const handleSaveAndPublishAll = async () => {
-    if (lessons.length === 0) {
-      showToast("Chưa có bài học nào để xuất bản!", "error");
-      return;
-    }
+  // 4. XÓA BÀI HỌC
+  const handleDeleteLesson = (lessonNumber: number) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa Bài ${lessonNumber} khỏi giáo trình HSK ${selectedLevel} không?`)) return;
+    const filtered = lessons.filter((l) => l.number !== lessonNumber);
+    setLessons(filtered);
+    showToast(`Đã xóa Bài ${lessonNumber}. Hãy bấm "Lưu & Xuất bản" để đồng bộ.`);
+  };
 
+  // 5. LƯU & XUẤT BẢN TOÀN BỘ GIÁO TRÌNH LÊN DATABASE & KHO CHUNG
+  const handleSaveAndPublishAll = async () => {
     setSaving(true);
     try {
-      // 1. Lưu vào Server API
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+          JSON.stringify(lessons)
+        );
+      }
+
+      let revision = 1;
+      try {
+        const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`);
+        const curData = await curRes.json();
+        if (curData && typeof curData.revision === "number") {
+          revision = curData.revision;
+        }
+      } catch {}
+
       const res = await fetch("/api/v1/admin/curriculum", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           level: selectedLevel,
-          lessons,
+          revision: revision,
+          isDeleted: false,
+          lessons: lessons,
         }),
       });
 
-      const data = await res.json();
-
-      // 2. Đồng bộ vào localStorage để resolver client dùng ngay lập tức
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-          JSON.stringify(lessons)
-        );
-      }
-
-      if (res.ok && data.success) {
-        showToast(
-          `Đã xuất bản thành công ${lessons.length} bài học HSK ${selectedLevel}! Toàn bộ Giáo viên và Học sinh sẽ thấy bài học mới ngay lập tức.`
-        );
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        showToast(`Đã lưu & xuất bản thành công toàn bộ ${lessons.length} bài học HSK ${selectedLevel} vào cơ sở dữ liệu!`);
       } else {
-        showToast(data.message || "Đã lưu vào bộ nhớ cục bộ hệ thống.");
+        showToast(`Đã lưu cục bộ ${lessons.length} bài học HSK ${selectedLevel}. Hãy kiểm tra kết nối máy chủ.`);
       }
-    } catch (e) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-          JSON.stringify(lessons)
-        );
-      }
-      showToast("Đã lưu và xuất bản vào bộ nhớ hệ thống thành công!");
+    } catch {
+      showToast(`Đã lưu cục bộ ${lessons.length} bài học HSK ${selectedLevel}.`);
     } finally {
       setSaving(false);
     }
   };
 
-  // 5. LƯU BÀI HỌC ĐANG CHỈNH SỬA
+  // 6. LƯU THAY ĐỔI CỦA MỘT BÀI HỌC TRONG MODAL
   const handleSaveEditingLesson = () => {
     if (!editingLesson) return;
-    setLessons((prev) =>
-      prev.map((l) => (l.number === editingLesson.number ? editingLesson : l))
+
+    const updatedLessons = lessons.map((l) =>
+      l.number === editingLesson.number ? editingLesson : l
     );
+
+    if (!lessons.some((l) => l.number === editingLesson.number)) {
+      updatedLessons.push(editingLesson);
+      updatedLessons.sort((a, b) => a.number - b.number);
+    }
+
+    setLessons(updatedLessons);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+        JSON.stringify(updatedLessons)
+      );
+    }
+
     setEditingLesson(null);
-    showToast(`Đã cập nhật xong Bài ${editingLesson.number}! Nhớ bấm "Lưu & Xuất bản" để áp dụng cho toàn hệ thống.`);
+    showToast(`Đã cập nhật xong nội dung Bài ${editingLesson.number}!`);
   };
 
-  // Xóa bài học
-  const handleDeleteLesson = (num: number) => {
-    if (!confirm(`Bạn có chắc muốn xóa Bài ${num} khỏi giáo trình HSK ${selectedLevel}?`)) {
+  // =========================================================================
+  // CÁC THAO TÁC QUẢN LÝ BÀI TẬP NGỮ PHÁP (GRAMMAR EXERCISES)
+  // =========================================================================
+
+  // Thêm câu hỏi bài tập mới vào editingLesson
+  const handleAddGrammarExerciseToEditingLesson = () => {
+    if (!editingLesson) return;
+    if (!newExPrompt.trim()) {
+      showToast("Vui lòng nhập đề bài câu hỏi!", "error");
       return;
     }
-    setLessons((prev) => prev.filter((l) => l.number !== num));
-    showToast(`Đã xóa Bài ${num}.`);
+
+    let finalOptions: string[] | undefined = undefined;
+    let finalScrambled: string[] | undefined = undefined;
+
+    if (newExMode === "choose_correct" || newExMode === "fill_blank" || newExMode === "listen_dialogue") {
+      if (!newExOptionA.trim() || !newExOptionB.trim()) {
+        showToast("Vui lòng nhập ít nhất lựa chọn A và B!", "error");
+        return;
+      }
+      finalOptions = [
+        `A. ${newExOptionA.replace(/^[A-D].s*/, "").trim()}`,
+        `B. ${newExOptionB.replace(/^[A-D].s*/, "").trim()}`,
+      ];
+      if (newExOptionC.trim()) {
+        finalOptions.push(`C. ${newExOptionC.replace(/^[A-D].s*/, "").trim()}`);
+      }
+      if (newExOptionD.trim()) {
+        finalOptions.push(`D. ${newExOptionD.replace(/^[A-D].s*/, "").trim()}`);
+      }
+    } else if (newExMode === "reorder") {
+      finalScrambled = newExScrambled
+        .split(/[,，/|]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (finalScrambled.length < 2) {
+        showToast("Vui lòng nhập các từ xáo trộn (cách nhau bởi dấu phẩy)!", "error");
+        return;
+      }
+    } else if (newExMode === "correct_mistake") {
+      if (newExOptionA.trim()) {
+        finalOptions = [
+          `A. ${newExOptionA.replace(/^[A-D].s*/, "").trim()}`,
+          `B. ${newExOptionB.replace(/^[A-D].s*/, "").trim()}`,
+        ];
+        if (newExOptionC.trim()) finalOptions.push(`C. ${newExOptionC.replace(/^[A-D].s*/, "").trim()}`);
+        if (newExOptionD.trim()) finalOptions.push(`D. ${newExOptionD.replace(/^[A-D].s*/, "").trim()}`);
+      }
+    }
+
+    const newExItem: GrammarExerciseItem = {
+      id: `hsk${selectedLevel}-${String(editingLesson.number).padStart(2, "0")}-ex-${Date.now()}`,
+      mode: newExMode,
+      grammarRule: newExRule.trim() || (editingLesson.grammarList?.[0]?.title ?? "Ngữ pháp trọng tâm"),
+      prompt: newExPrompt.trim(),
+      options: finalOptions,
+      scrambledWords: finalScrambled,
+      wrongSentence: newExWrongSentence.trim() || undefined,
+      correctAnswer: newExCorrect.trim(),
+      explanation: newExExplanation.trim() || "Căn cứ theo cấu trúc ngữ pháp chuẩn của bài học.",
+    };
+
+    const currentExercises = Array.isArray(editingLesson.grammarExercises)
+      ? [...editingLesson.grammarExercises]
+      : [];
+
+    setEditingLesson({
+      ...editingLesson,
+      grammarExercises: [...currentExercises, newExItem],
+    });
+
+    // Reset form
+    setNewExPrompt("");
+    setNewExOptionA("");
+    setNewExOptionB("");
+    setNewExOptionC("");
+    setNewExOptionD("");
+    setNewExCorrect("A");
+    setNewExExplanation("");
+    setNewExScrambled("");
+    setNewExWrongSentence("");
+
+    showToast("Đã thêm câu hỏi bài tập ngữ pháp mới thành công!");
+  };
+
+  // Xóa câu hỏi trong editingLesson
+  const handleDeleteGrammarExercise = (exerciseId: string) => {
+    if (!editingLesson || !editingLesson.grammarExercises) return;
+    setEditingLesson({
+      ...editingLesson,
+      grammarExercises: editingLesson.grammarExercises.filter((ex) => ex.id !== exerciseId),
+    });
+    showToast("Đã xóa câu hỏi khỏi bài học!");
+  };
+
+  // Tự động sinh câu hỏi mẫu bám sát điểm ngữ pháp của bài học này
+  const handleGenerateSampleExercisesForLesson = () => {
+    if (!editingLesson) return;
+    const gList = editingLesson.grammarList || [];
+    if (gList.length === 0) {
+      showToast("Bài học này chưa có điểm ngữ pháp nào để tự động sinh câu hỏi!", "error");
+      return;
+    }
+
+    const generated: GrammarExerciseItem[] = [];
+
+    gList.forEach((g, idx) => {
+      // 1. Dạng chọn câu đúng
+      generated.push({
+        id: `gen-${editingLesson.id}-choose-${idx + 1}`,
+        mode: "choose_correct",
+        grammarRule: g.title,
+        prompt: `Chọn câu áp dụng đúng cấu trúc "${g.title}":`,
+        options: [
+          `A. ${g.example.split("·")[0]?.split("(")[0]?.trim() || g.example}`,
+          `B. 不${g.example.split("·")[0]?.split("(")[0]?.trim() || g.example}吗`,
+          `C. 吗${g.example.split("·")[0]?.split("(")[0]?.trim() || g.example}`,
+          `D. 是${g.example.split("·")[0]?.split("(")[0]?.trim() || g.example}`,
+        ],
+        correctAnswer: "A",
+        explanation: g.explanation || `Cấu trúc ngữ pháp chuẩn: ${g.structure}`,
+      });
+
+      // 2. Dạng điền từ
+      generated.push({
+        id: `gen-${editingLesson.id}-fill-${idx + 1}`,
+        mode: "fill_blank",
+        grammarRule: g.title,
+        prompt: `Điền từ/trợ từ thích hợp theo cấu trúc "${g.structure}":`,
+        options: ["A. 的", "B. 吗", "C. 很", "D. 呢"],
+        correctAnswer: "A",
+        explanation: `Quy tắc ngữ pháp cần nắm: ${g.structure}. ${g.explanation || ""}`,
+      });
+    });
+
+    const currentExercises = Array.isArray(editingLesson.grammarExercises)
+      ? editingLesson.grammarExercises
+      : [];
+
+    setEditingLesson({
+      ...editingLesson,
+      grammarExercises: [...currentExercises, ...generated],
+    });
+
+    showToast(`Đã tự động tạo ${generated.length} câu hỏi mẫu bám sát ngữ pháp bài này!`);
+  };
+
+  // =========================================================================
+  // THỐNG KÊ & DANH SÁCH TỔNG HỢP CHO NGÂN HÀNG BÀI TẬP NGỮ PHÁP (HUB)
+  // =========================================================================
+
+  // Gom toàn bộ câu hỏi của tất cả bài học trong HSK đang chọn
+  const allGrammarExercises = useMemo(() => {
+    const list: Array<{
+      exercise: GrammarExerciseItem;
+      lessonNumber: number;
+      lessonTitleZh: string;
+      lessonTitleVi: string;
+    }> = [];
+
+    lessons.forEach((les) => {
+      if (Array.isArray(les.grammarExercises)) {
+        les.grammarExercises.forEach((ex) => {
+          list.push({
+            exercise: ex,
+            lessonNumber: les.number,
+            lessonTitleZh: les.titleZh,
+            lessonTitleVi: les.titleVi || "",
+          });
+        });
+      }
+    });
+
+    return list;
+  }, [lessons]);
+
+  // Lọc câu hỏi trong Hub
+  const filteredExercises = useMemo(() => {
+    return allGrammarExercises.filter((item) => {
+      // Lọc theo bài
+      if (filterLessonNumber !== "ALL" && item.lessonNumber !== filterLessonNumber) {
+        return false;
+      }
+      // Lọc theo dạng bài
+      if (filterExerciseMode !== "ALL" && item.exercise.mode !== filterExerciseMode) {
+        return false;
+      }
+      // Tìm kiếm từ khóa
+      if (exerciseSearch.trim()) {
+        const q = exerciseSearch.toLowerCase();
+        const inPrompt = item.exercise.prompt.toLowerCase().includes(q);
+        const inRule = item.exercise.grammarRule.toLowerCase().includes(q);
+        const inExplain = item.exercise.explanation.toLowerCase().includes(q);
+        const inLesson = item.lessonTitleZh.toLowerCase().includes(q);
+        if (!inPrompt && !inRule && !inExplain && !inLesson) return false;
+      }
+      return true;
+    });
+  }, [allGrammarExercises, filterLessonNumber, filterExerciseMode, exerciseSearch]);
+
+  // Xóa câu hỏi trực tiếp từ Hub
+  const handleDeleteExerciseFromHub = (lessonNum: number, exerciseId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa câu hỏi bài tập này không?")) return;
+    const updated = lessons.map((l) => {
+      if (l.number === lessonNum && Array.isArray(l.grammarExercises)) {
+        return {
+          ...l,
+          grammarExercises: l.grammarExercises.filter((ex) => ex.id !== exerciseId),
+        };
+      }
+      return l;
+    });
+    setLessons(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+        JSON.stringify(updated)
+      );
+    }
+    showToast("Đã xóa câu hỏi bài tập thành công! Hãy bấm 'Lưu & Xuất bản' để đồng bộ máy chủ.");
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6">
       {/* =================================================================== */}
-      {/* 1. HEADER & CHỌN CẤP ĐỘ HSK 3.0 (CẤP 1 - 9)                         */}
+      {/* 1. THANH ĐIỀU HƯỚNG CẤP ĐỘ HSK 3.0 VÀ GÓC NHÌN CHÍNH                */}
       {/* =================================================================== */}
-      <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-6 shadow-2xs space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#BC9B6B]/20">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#204434] text-white flex items-center justify-center font-bold shadow-sm">
-              <BookOpen className="w-6 h-6 text-[#BC9B6B]" />
-            </div>
-            <div>
-              <h2 className="text-xl font-serif font-bold text-[#204434] flex items-center gap-2">
-                <span>Quản trị Kho bài học HSK 3.0</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                  Tiêu chuẩn 9 Cấp (1 - 9)
-                </span>
-              </h2>
-              <p className="text-xs text-[#315E48] mt-0.5">
-                Biên soạn giáo trình chuẩn HSK 3.0 từ Cấp 1 đến Cấp 9, phân bổ từ vựng, ngữ pháp, đoạn hội thoại và xuất bản cho toàn trường.
-              </p>
-            </div>
+      <div className="p-5 sm:p-6 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-serif font-bold text-xl text-[#204434] flex items-center gap-2">
+              <Layers className="w-5 h-5 text-[#8F6D3B]" />
+              <span>Quản trị Chương Trình Giảng Dạy & Bài Tập HSK</span>
+            </h2>
+            <p className="text-xs text-[#315E48] mt-1">
+              Admin tạo bài học chuẩn, quản lý ngân hàng bài tập ngữ pháp theo bài và xuất bản cho học sinh làm.
+            </p>
           </div>
 
-          {/* Các nút hành động chính */}
+          {/* Cụm công cụ nhập / xuất / lưu */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Tải template mẫu */}
             <button
               onClick={handleDownloadTemplate}
               className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Tải về file JSON mẫu để chỉnh sửa"
+              title="Tải về file JSON mẫu"
             >
               <Download className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Tải Template (.JSON)</span>
+              <span>Tải Template</span>
             </button>
 
-            {/* Nhập file JSON */}
             <label className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
               <Upload className="w-4 h-4 text-[#8F6D3B]" />
               <span>Nhập file (.JSON)</span>
@@ -350,16 +602,14 @@ export default function CurriculumBuilderWorkspace({
               />
             </label>
 
-            {/* Thêm bài mới */}
             <button
               onClick={handleAddNewLesson}
               className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4 text-[#BC9B6B]" />
-              <span>Thêm bài học mới</span>
+              <span>Thêm bài mới</span>
             </button>
 
-            {/* Lưu & Xuất bản toàn bộ */}
             <button
               disabled={saving || lessons.length === 0}
               onClick={handleSaveAndPublishAll}
@@ -371,9 +621,9 @@ export default function CurriculumBuilderWorkspace({
           </div>
         </div>
 
-        {/* Thanh chọn Level HSK 3.0: 9 Cấp (Sơ cấp 1-3, Trung cấp 4-6, Cao cấp 7-9) */}
+        {/* Thanh chọn Level HSK 3.0 */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cấp độ HSK 3.0:</span>
+          <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cấp độ:</span>
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => {
             const tierLabel = lvl <= 3 ? "Sơ cấp" : lvl <= 6 ? "Trung cấp" : "Cao cấp";
             return (
@@ -389,9 +639,7 @@ export default function CurriculumBuilderWorkspace({
                 <span>HSK {lvl}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded ${
-                    selectedLevel === lvl
-                      ? "bg-white/20 text-white"
-                      : "bg-[#F3EFE6] text-[#8F6D3B]"
+                    selectedLevel === lvl ? "bg-white/20 text-white" : "bg-[#F3EFE6] text-[#8F6D3B]"
                   }`}
                 >
                   {tierLabel}
@@ -405,95 +653,347 @@ export default function CurriculumBuilderWorkspace({
             );
           })}
         </div>
+
+        {/* Chuyển đổi góc nhìn chính: Bài học vs Ngân hàng bài tập ngữ pháp */}
+        <div className="flex items-center gap-2 pt-3 border-t border-[#E5DEC9]">
+          <button
+            onClick={() => setMainView("lessons")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 ${
+              mainView === "lessons"
+                ? "bg-[#204434] text-white shadow-xs"
+                : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>📚 Danh sách bài học ({lessons.length})</span>
+          </button>
+
+          <button
+            onClick={() => setMainView("grammar_hub")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 ${
+              mainView === "grammar_hub"
+                ? "bg-[#204434] text-white shadow-xs"
+                : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+            }`}
+          >
+            <Target className="w-3.5 h-3.5" />
+            <span>🎯 Ngân hàng bài tập ngữ pháp ({allGrammarExercises.length} câu)</span>
+          </button>
+        </div>
       </div>
 
       {/* =================================================================== */}
-      {/* 2. DANH SÁCH BÀI HỌC TRONG CẤP ĐỘ                                   */}
+      {/* 2A. GÓC NHÌN 1: DANH SÁCH BÀI HỌC TRONG CẤP ĐỘ                      */}
       {/* =================================================================== */}
-      {loading ? (
-        <div className="py-16 text-center text-xs text-[#315E48] bg-[#FFFCF6] rounded-3xl border border-[#BC9B6B]/20">
-          Đang tải danh sách bài học HSK {selectedLevel}...
-        </div>
-      ) : lessons.length === 0 ? (
-        <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/30 space-y-3">
-          <BookOpen className="w-10 h-10 text-[#8F6D3B]/40 mx-auto" />
-          <p className="text-sm font-bold text-[#204434]">Chưa có bài học nào cho HSK {selectedLevel}</p>
-          <p className="text-xs text-[#315E48]">
-            Bạn có thể bấm &quot;Thêm bài học mới&quot; hoặc &quot;Nhập file (.JSON)&quot; để bắt đầu xây dựng giáo trình.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {lessons.map((les) => {
-            const vCount = les.vocabList?.length || 0;
-            const gCount = les.grammarList?.length || 0;
-            const dCount = les.dialogue?.length || 0;
+      {mainView === "lessons" && (
+        <>
+          {loading ? (
+            <div className="py-16 text-center text-xs text-[#315E48] bg-[#FFFCF6] rounded-3xl border border-[#BC9B6B]/20">
+              Đang tải danh sách bài học HSK {selectedLevel}...
+            </div>
+          ) : lessons.length === 0 ? (
+            <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/30 space-y-3">
+              <BookOpen className="w-10 h-10 text-[#8F6D3B]/40 mx-auto" />
+              <p className="text-sm font-bold text-[#204434]">Chưa có bài học nào cho HSK {selectedLevel}</p>
+              <p className="text-xs text-[#315E48]">
+                Bấm &quot;Thêm bài mới&quot; hoặc &quot;Nhập file (.JSON)&quot; để bắt đầu xây dựng giáo trình.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {lessons.map((les) => {
+                const vCount = les.vocabList?.length || 0;
+                const gCount = les.grammarList?.length || 0;
+                const dCount = les.dialogue?.length || 0;
+                const exCount = les.grammarExercises?.length || 0;
 
-            return (
-              <div
-                key={les.number}
-                className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/30 hover:border-[#204434] transition shadow-2xs hover:shadow-md space-y-4 flex flex-col justify-between"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full bg-[#204434] text-white text-xs font-bold">
-                      Bài {String(les.number).padStart(2, "0")}
-                    </span>
-                    <span className="text-[11px] font-mono font-semibold text-[#8F6D3B]">
-                      HSK {selectedLevel}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="font-serif font-bold text-lg text-[#204434] leading-snug">
-                      {les.titleZh}
-                    </h3>
-                    {les.pinyin && (
-                      <p className="font-mono text-xs text-[#8F6D3B]">{les.pinyin}</p>
-                    )}
-                    <p className="text-xs font-medium text-[#315E48] mt-0.5 line-clamp-1">
-                      {les.titleVi || les.desc || "Bài học chuẩn HSK"}
-                    </p>
-                  </div>
-
-                  {/* Badges thành phần */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
-                      📚 {vCount} từ vựng
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
-                      📐 {gCount} ngữ pháp
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
-                      💬 {dCount} thoại
-                    </span>
-                  </div>
-                </div>
-
-                {/* Nút hành động */}
-                <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingLesson(JSON.parse(JSON.stringify(les)));
-                      setEditorTab("info");
-                    }}
-                    className="flex-1 py-2 px-3 rounded-xl bg-white border border-[#BC9B6B]/40 hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                return (
+                  <div
+                    key={les.number}
+                    className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/30 hover:border-[#204434] transition shadow-2xs hover:shadow-md space-y-4 flex flex-col justify-between"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-[#8F6D3B]" />
-                    <span>Sửa chi tiết</span>
-                  </button>
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="px-3 py-1 rounded-full bg-[#204434] text-white text-xs font-bold">
+                          Bài {String(les.number).padStart(2, "0")}
+                        </span>
+                        <span className="text-[11px] font-mono font-semibold text-[#8F6D3B]">
+                          HSK {selectedLevel}
+                        </span>
+                      </div>
 
-                  <button
-                    onClick={() => handleDeleteLesson(les.number)}
-                    className="p-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition cursor-pointer"
-                    title="Xóa bài học này"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                      <div>
+                        <h3 className="font-serif font-bold text-lg text-[#204434] leading-snug">
+                          {les.titleZh}
+                        </h3>
+                        {les.pinyin && (
+                          <p className="font-mono text-xs text-[#8F6D3B]">{les.pinyin}</p>
+                        )}
+                        <p className="text-xs font-medium text-[#315E48] mt-0.5 line-clamp-1">
+                          {les.titleVi || les.desc || "Bài học chuẩn HSK"}
+                        </p>
+                      </div>
+
+                      {/* Badges thành phần */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
+                          📚 {vCount} từ vựng
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
+                          📐 {gCount} ngữ pháp
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[11px] font-medium text-[#204434]">
+                          💬 {dCount} thoại
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md border text-[11px] font-bold ${
+                          exCount > 0
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-slate-50 text-slate-500 border-slate-200"
+                        }`}>
+                          🎯 {exCount} bài tập ngữ pháp
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Nút hành động */}
+                    <div className="pt-3 border-t border-[#E5DEC9] flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingLesson(JSON.parse(JSON.stringify(les)));
+                          setEditorTab("info");
+                        }}
+                        className="flex-1 py-2 px-3 rounded-xl bg-white border border-[#BC9B6B]/40 hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                        <span>Sửa chi tiết bài</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setEditingLesson(JSON.parse(JSON.stringify(les)));
+                          setEditorTab("grammar_exercises");
+                        }}
+                        className="py-2 px-3 rounded-xl bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                        title="Vào sửa bài tập ngữ pháp"
+                      >
+                        <Target className="w-3.5 h-3.5" />
+                        <span>Bài tập</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteLesson(les.number)}
+                        className="p-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition cursor-pointer"
+                        title="Xóa bài học này"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* =================================================================== */}
+      {/* 2B. GÓC NHÌN 2: NGÂN HÀNG BÀI TẬP NGỮ PHÁP (GRAMMAR HUB)            */}
+      {/* =================================================================== */}
+      {mainView === "grammar_hub" && (
+        <div className="space-y-4">
+          {/* Thanh lọc & tìm kiếm câu hỏi */}
+          <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/40 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Lọc theo bài học */}
+              <div className="flex items-center gap-1.5 text-xs text-[#204434] font-bold">
+                <Filter className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                <span>Bài học:</span>
+                <select
+                  value={filterLessonNumber}
+                  onChange={(e) =>
+                    setFilterLessonNumber(
+                      e.target.value === "ALL" ? "ALL" : Number(e.target.value)
+                    )
+                  }
+                  className="px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] bg-white text-xs font-semibold text-[#204434]"
+                >
+                  <option value="ALL">Tất cả bài học ({lessons.length} bài)</option>
+                  {lessons.map((l) => (
+                    <option key={l.number} value={l.number}>
+                      Bài {String(l.number).padStart(2, "0")}: {l.titleZh}
+                    </option>
+                  ))}
+                </select>
               </div>
-            );
-          })}
+
+              {/* Lọc theo dạng bài */}
+              <div className="flex items-center gap-1.5 text-xs text-[#204434] font-bold">
+                <span>Dạng bài:</span>
+                <select
+                  value={filterExerciseMode}
+                  onChange={(e) => setFilterExerciseMode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-[#E5DEC9] bg-white text-xs font-semibold text-[#204434]"
+                >
+                  <option value="ALL">Tất cả dạng bài</option>
+                  <option value="choose_correct">Chọn câu đúng</option>
+                  <option value="fill_blank">Điền từ vào chỗ trống</option>
+                  <option value="reorder">Sắp xếp từ thành câu</option>
+                  <option value="correct_mistake">Sửa câu sai</option>
+                  <option value="listen_dialogue">Nghe hiểu hội thoại</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Ô tìm kiếm */}
+            <div className="relative min-w-[240px]">
+              <Search className="w-3.5 h-3.5 text-[#8F6D3B] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Tìm theo đề bài, điểm ngữ pháp..."
+                value={exerciseSearch}
+                onChange={(e) => setExerciseSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#E5DEC9] bg-white text-xs"
+              />
+            </div>
+          </div>
+
+          {/* Danh sách câu hỏi */}
+          {filteredExercises.length === 0 ? (
+            <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/30 space-y-3">
+              <Target className="w-10 h-10 text-[#8F6D3B]/40 mx-auto" />
+              <p className="text-sm font-bold text-[#204434]">
+                Chưa có câu hỏi bài tập ngữ pháp nào khớp với bộ lọc
+              </p>
+              <p className="text-xs text-[#315E48]">
+                Bạn có thể bấm &quot;Sửa chi tiết bài&quot; để thêm câu hỏi bài tập trực tiếp vào từng bài học.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-xs text-[#8F6D3B] font-bold px-1 flex items-center justify-between">
+                <span>Hiển thị {filteredExercises.length} câu hỏi bài tập ngữ pháp</span>
+                <span>HSK {selectedLevel} 3.0</span>
+              </div>
+
+              {filteredExercises.map((item, idx) => {
+                const ex = item.exercise;
+                const modeInfo = EXERCISE_MODE_LABELS[ex.mode] || {
+                  label: ex.mode,
+                  color: "bg-slate-50 text-slate-700 border-slate-200",
+                };
+
+                return (
+                  <div
+                    key={ex.id || idx}
+                    className="p-4 sm:p-5 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/30 hover:border-[#204434] transition shadow-2xs space-y-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5DEC9] pb-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#204434] text-white text-[11px] font-bold">
+                          Bài {String(item.lessonNumber).padStart(2, "0")} · {item.lessonTitleZh}
+                        </span>
+                        <span className={`px-2.5 py-0.5 rounded-md border text-[11px] font-bold ${modeInfo.color}`}>
+                          {modeInfo.label}
+                        </span>
+                        <span className="text-xs font-bold text-[#8F6D3B]">
+                          📐 {ex.grammarRule}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const targetLesson = lessons.find((l) => l.number === item.lessonNumber);
+                            if (targetLesson) {
+                              setEditingLesson(JSON.parse(JSON.stringify(targetLesson)));
+                              setEditorTab("grammar_exercises");
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-white border border-[#E5DEC9] hover:bg-[#FAF7F0] text-xs font-semibold text-[#204434] transition cursor-pointer"
+                        >
+                          Sửa ở bài
+                        </button>
+                        <button
+                          onClick={() => handleDeleteExerciseFromHub(item.lessonNumber, ex.id)}
+                          className="p-1 rounded-lg text-red-500 hover:bg-red-50 transition cursor-pointer"
+                          title="Xóa câu hỏi này"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Nội dung câu hỏi */}
+                    <div className="space-y-1.5">
+                      <p className="font-serif font-bold text-sm text-[#204434]">
+                        {ex.prompt}
+                      </p>
+                      {ex.meaningVi && (
+                        <p className="text-xs text-[#315E48] italic">{ex.meaningVi}</p>
+                      )}
+
+                      {/* Các lựa chọn nếu có */}
+                      {Array.isArray(ex.options) && ex.options.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          {ex.options.map((opt, oIdx) => {
+                            const isCorrect =
+                              ex.correctAnswer === opt.charAt(0) ||
+                              opt.includes(ex.correctAnswer);
+                            return (
+                              <div
+                                key={oIdx}
+                                className={`p-2 rounded-xl border text-xs flex items-center justify-between ${
+                                  isCorrect
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-900 font-bold"
+                                    : "bg-white border-[#E5DEC9] text-[#204434]"
+                                }`}
+                              >
+                                <span>{opt}</span>
+                                {isCorrect && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white shrink-0 ml-2">
+                                    Đáp án đúng
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Từ xáo trộn nếu là reorder */}
+                      {ex.mode === "reorder" && Array.isArray(ex.scrambledWords) && (
+                        <div className="p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-1">
+                          <span className="text-[11px] font-bold text-[#8F6D3B] block">
+                            Các từ xáo trộn:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ex.scrambledWords.map((w, wIdx) => (
+                              <span
+                                key={wIdx}
+                                className="px-2.5 py-1 rounded-lg bg-white border border-[#BC9B6B]/40 text-xs font-mono font-bold text-[#204434]"
+                              >
+                                {w}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-xs text-emerald-800 font-bold pt-1">
+                            Đáp án chuẩn: {ex.correctAnswer}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Lời giải thích */}
+                      {ex.explanation && (
+                        <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200/60 text-xs text-amber-900 leading-relaxed">
+                          <strong className="font-bold">💡 Giải thích chi tiết:</strong> {ex.explanation}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -513,7 +1013,7 @@ export default function CurriculumBuilderWorkspace({
                   </span>
                 </h3>
                 <p className="text-xs text-[#315E48] mt-0.5">
-                  Thêm hoặc cập nhật từ vựng, ngữ pháp, đoạn hội thoại, phát âm và văn hóa.
+                  Thêm hoặc cập nhật từ vựng, ngữ pháp, đoạn hội thoại và bài tập ngữ pháp cho bài học này.
                 </p>
               </div>
 
@@ -577,6 +1077,27 @@ export default function CurriculumBuilderWorkspace({
               >
                 5. Ngữ âm & Văn hóa
               </button>
+              <button
+                onClick={() => setEditorTab("richcontent")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  editorTab === "richcontent"
+                    ? "bg-[#204434] text-white"
+                    : "text-[#315E48] hover:bg-white"
+                }`}
+              >
+                6. Đọc hiểu & Mở rộng
+              </button>
+              <button
+                onClick={() => setEditorTab("grammar_exercises")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  editorTab === "grammar_exercises"
+                    ? "bg-amber-700 text-white shadow-xs"
+                    : "bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100"
+                }`}
+              >
+                <Target className="w-3.5 h-3.5" />
+                <span>7. Bài tập ngữ pháp ({editingLesson.grammarExercises?.length || 0})</span>
+              </button>
             </div>
 
             {/* Modal Body */}
@@ -599,80 +1120,82 @@ export default function CurriculumBuilderWorkspace({
                             number: Number(e.target.value) || 1,
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DEC9] bg-white text-sm"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-bold"
                       />
                     </div>
-
                     <div>
                       <label className="text-xs font-bold text-[#204434] block mb-1">
-                        Tiêu đề tiếng Trung (Hanzi):
+                        Thời lượng dự kiến (phút):
                       </label>
                       <input
-                        type="text"
-                        placeholder="VD: 你好！"
-                        value={editingLesson.titleZh}
+                        type="number"
+                        min={10}
+                        value={editingLesson.durationMin || 45}
                         onChange={(e) =>
                           setEditingLesson({
                             ...editingLesson,
-                            titleZh: e.target.value,
+                            durationMin: Number(e.target.value) || 45,
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DEC9] bg-white text-sm font-medium"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-[#204434] block mb-1">
-                        Phiên âm Pinyin:
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="VD: Nǐ hǎo!"
-                        value={editingLesson.pinyin || ""}
-                        onChange={(e) =>
-                          setEditingLesson({
-                            ...editingLesson,
-                            pinyin: e.target.value,
-                          })
-                        }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DEC9] bg-white text-sm font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-[#204434] block mb-1">
-                        Tiêu đề tiếng Việt:
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="VD: Xin chào!"
-                        value={editingLesson.titleVi || ""}
-                        onChange={(e) =>
-                          setEditingLesson({
-                            ...editingLesson,
-                            titleVi: e.target.value,
-                          })
-                        }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DEC9] bg-white text-sm"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="text-xs font-bold text-[#204434] block mb-1">
-                      Mô tả & Mục tiêu bài học:
+                      Tiêu đề tiếng Trung (Hán tự):
+                    </label>
+                    <input
+                      type="text"
+                      value={editingLesson.titleZh}
+                      onChange={(e) =>
+                        setEditingLesson({ ...editingLesson, titleZh: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm font-bold font-serif"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-[#204434] block mb-1">
+                        Phiên âm Pinyin:
+                      </label>
+                      <input
+                        type="text"
+                        value={editingLesson.pinyin}
+                        onChange={(e) =>
+                          setEditingLesson({ ...editingLesson, pinyin: e.target.value })
+                        }
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-[#204434] block mb-1">
+                        Tiêu đề tiếng Việt:
+                      </label>
+                      <input
+                        type="text"
+                        value={editingLesson.titleVi || ""}
+                        onChange={(e) =>
+                          setEditingLesson({ ...editingLesson, titleVi: e.target.value })
+                        }
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#204434] block mb-1">
+                      Mô tả bài học & Mục tiêu:
                     </label>
                     <textarea
                       rows={3}
-                      placeholder="Mục tiêu kiến thức, từ vựng và ngữ pháp cần đạt sau bài học..."
                       value={editingLesson.desc || ""}
                       onChange={(e) =>
-                        setEditingLesson({
-                          ...editingLesson,
-                          desc: e.target.value,
-                        })
+                        setEditingLesson({ ...editingLesson, desc: e.target.value })
                       }
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5DEC9] bg-white text-sm"
+                      className="w-full px-3.5 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs leading-relaxed"
                     />
                   </div>
                 </div>
@@ -680,368 +1203,318 @@ export default function CurriculumBuilderWorkspace({
 
               {/* TAB 2: TỪ VỰNG */}
               {editorTab === "vocab" && (
-                <div className="space-y-6">
-                  {/* Form thêm từ mới */}
-                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-3">
+                <div className="space-y-5">
+                  {/* Form thêm từ vựng mới */}
+                  <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      + Thêm từ vựng mới vào bài:
+                      + Thêm từ vựng mới:
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <input
                         type="text"
-                        placeholder="Chữ Hán (VD: 老师)"
+                        placeholder="Hán tự (VD: 你好)"
                         value={newVocabHanzi}
                         onChange={(e) => setNewVocabHanzi(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm font-bold"
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-bold"
                       />
                       <input
                         type="text"
-                        placeholder="Pinyin (VD: lǎoshī)"
+                        placeholder="Pinyin (nǐ hǎo)"
                         value={newVocabPinyin}
                         onChange={(e) => setNewVocabPinyin(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm font-mono"
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-mono"
                       />
                       <input
                         type="text"
-                        placeholder="Nghĩa TV (VD: thầy giáo)"
+                        placeholder="Nghĩa tiếng Việt"
                         value={newVocabMeaning}
                         onChange={(e) => setNewVocabMeaning(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm"
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs"
                       />
                       <select
                         value={newVocabType}
                         onChange={(e) => setNewVocabType(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-sm"
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs bg-white"
                       >
                         <option value="Danh từ">Danh từ</option>
                         <option value="Động từ">Động từ</option>
                         <option value="Tính từ">Tính từ</option>
                         <option value="Đại từ">Đại từ</option>
                         <option value="Phó từ">Phó từ</option>
-                        <option value="Trợ từ">Trợ từ</option>
                         <option value="Lượng từ">Lượng từ</option>
-                        <option value="Số từ">Số từ</option>
+                        <option value="Trợ từ">Trợ từ</option>
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         type="text"
-                        placeholder="Câu ví dụ tiếng Hán (VD: 他µ��µ��们的中µ��老师。)"
+                        placeholder="Ví dụ tiếng Trung (VD: 你好，老师！)"
                         value={newVocabExZh}
                         onChange={(e) => setNewVocabExZh(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs"
                       />
                       <input
                         type="text"
-                        placeholder="Dịch nghĩa câu ví dụ (VD: Thầy ấy là giáo viên tiếng Trung của chúng tôi.)"
+                        placeholder="Dịch nghĩa ví dụ (Chào thầy cô ạ!)"
                         value={newVocabExVi}
                         onChange={(e) => setNewVocabExVi(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs"
                       />
                     </div>
 
                     <button
                       onClick={() => {
                         if (!newVocabHanzi.trim()) {
-                          showToast("Vui lòng nhập chữ Hán!", "error");
+                          showToast("Vui lòng nhập chữ Hán tự!", "error");
                           return;
                         }
-                        const newItem = {
-                          id: `v-${Date.now()}`,
-                          hanzi: newVocabHanzi.trim(),
-                          pinyin: newVocabPinyin.trim(),
-                          meaning: newVocabMeaning.trim() || newVocabHanzi,
-                          type: newVocabType,
-                          exampleZh: newVocabExZh.trim(),
-                          exampleVi: newVocabExVi.trim(),
-                        };
+                        const vList = editingLesson.vocabList || [];
                         setEditingLesson({
                           ...editingLesson,
-                          vocabList: [...(editingLesson.vocabList || []), newItem],
+                          vocabList: [
+                            ...vList,
+                            {
+                              hanzi: newVocabHanzi.trim(),
+                              pinyin: newVocabPinyin.trim(),
+                              meaning: newVocabMeaning.trim(),
+                              type: newVocabType,
+                              exampleZh: newVocabExZh.trim(),
+                              exampleVi: newVocabExVi.trim(),
+                            },
+                          ],
                         });
                         setNewVocabHanzi("");
                         setNewVocabPinyin("");
                         setNewVocabMeaning("");
                         setNewVocabExZh("");
                         setNewVocabExVi("");
-                        showToast(`Đã thêm từ "${newItem.hanzi}"!`);
+                        showToast("Đã thêm từ vựng thành công!");
                       }}
-                      className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#17382F] transition cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Thêm vào danh sách từ vựng</span>
+                      Thêm từ này
                     </button>
                   </div>
 
-                  {/* Bảng danh sách từ vựng */}
-                  <div className="space-y-2">
-                    <span className="text-xs font-bold text-[#8F6D3B]">
-                      Danh sách từ vựng hiện tại ({editingLesson.vocabList?.length || 0} từ):
-                    </span>
-                    <div className="border border-[#E5DEC9] rounded-2xl overflow-hidden bg-white">
-                      {editingLesson.vocabList?.map((v, vIdx) => (
-                        <div
-                          key={vIdx}
-                          className="p-3 border-b border-[#E5DEC9] last:border-none flex items-center justify-between gap-3 text-xs"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-slate-400 w-5">#{vIdx + 1}</span>
-                            <span className="font-serif font-bold text-base text-[#204434]">
-                              {v.hanzi}
-                            </span>
-                            <span className="font-mono text-[#8F6D3B]">{v.pinyin}</span>
-                            <span className="px-2 py-0.5 rounded bg-[#FAF7F0] text-[11px] font-medium text-slate-600">
-                              {v.type || "Từ vựng"}
-                            </span>
-                            <span className="text-[#315E48] font-medium">{v.meaning}</span>
-                          </div>
-
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => handleSpeak(v.hanzi)}
-                              className="p-1 rounded-lg hover:bg-slate-100 text-slate-600"
-                              title="Nghe phát âm"
-                            >
-                              <Volume2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingLesson({
-                                  ...editingLesson,
-                                  vocabList: editingLesson.vocabList?.filter((_, i) => i !== vIdx),
-                                });
-                              }}
-                              className="p-1 rounded-lg hover:bg-red-50 text-red-500"
-                              title="Xóa từ này"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 3: NGỮ PHÁP */}
-              {editorTab === "grammar" && (
-                <div className="space-y-6">
-                  {/* Form thêm ngữ pháp */}
-                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-3">
-                    <span className="text-xs font-bold text-[#204434] block">
-                      + Thêm điểm ngữ pháp mới:
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        placeholder="Tên điểm ngữ pháp (VD: Câu hỏi nghi vấn với 吗)"
-                        value={newGrammarTitle}
-                        onChange={(e) => setNewGrammarTitle(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-bold"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Cấu trúc câu (VD: Câu trần thuật + 吗?)"
-                        value={newGrammarStructure}
-                        onChange={(e) => setNewGrammarStructure(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-mono"
-                      />
-                    </div>
-                    <textarea
-                      rows={2}
-                      placeholder="Giải thích chi tiết quy tắc ngữ pháp..."
-                      value={newGrammarExplanation}
-                      onChange={(e) => setNewGrammarExplanation(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Câu ví dụ minh họa (VD: 你µ��老师吗？)"
-                      value={newGrammarExample}
-                      onChange={(e) => setNewGrammarExample(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
-                    />
-
-                    <button
-                      onClick={() => {
-                        if (!newGrammarTitle.trim()) {
-                          showToast("Vui lòng nhập tên điểm ngữ pháp!", "error");
-                          return;
-                        }
-                        const newG = {
-                          title: newGrammarTitle.trim(),
-                          structure: newGrammarStructure.trim(),
-                          explanation: newGrammarExplanation.trim(),
-                          example: newGrammarExample.trim(),
-                        };
-                        setEditingLesson({
-                          ...editingLesson,
-                          grammarList: [...(editingLesson.grammarList || []), newG],
-                        });
-                        setNewGrammarTitle("");
-                        setNewGrammarStructure("");
-                        setNewGrammarExplanation("");
-                        setNewGrammarExample("");
-                        showToast(`Đã thêm điểm ngữ pháp mới!`);
-                      }}
-                      className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Thêm vào danh sách ngữ pháp</span>
-                    </button>
-                  </div>
-
-                  {/* Danh sách ngữ pháp */}
-                  <div className="space-y-3">
-                    {editingLesson.grammarList?.map((g, gIdx) => (
+                  {/* Danh sách từ vựng */}
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {editingLesson.vocabList?.map((v, i) => (
                       <div
-                        key={gIdx}
-                        className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-2 relative"
+                        key={i}
+                        className="p-3 rounded-xl bg-white border border-[#E5DEC9] flex items-center justify-between gap-3 text-xs"
                       >
+                        <div className="flex items-center gap-2">
+                          <span className="font-serif font-bold text-base text-[#204434]">
+                            {v.hanzi}
+                          </span>
+                          <span className="font-mono text-[#8F6D3B]">{v.pinyin}</span>
+                          <span className="text-[#315E48]">({v.type || "Từ vựng"}):</span>
+                          <span className="font-semibold text-slate-800">{v.meaning}</span>
+                        </div>
                         <button
                           onClick={() => {
                             setEditingLesson({
                               ...editingLesson,
-                              grammarList: editingLesson.grammarList?.filter((_, i) => i !== gIdx),
+                              vocabList: editingLesson.vocabList?.filter((_, idx) => idx !== i),
                             });
                           }}
-                          className="absolute right-3 top-3 p-1 rounded-lg hover:bg-red-50 text-red-500"
-                          title="Xóa ngữ pháp này"
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded bg-[#204434]/10 text-[#204434] text-[11px] font-bold">
-                            Ngữ pháp #{gIdx + 1}
-                          </span>
-                          <h4 className="font-serif font-bold text-sm text-[#204434]">{g.title}</h4>
-                        </div>
-
-                        {g.structure && (
-                          <div className="p-2 rounded-lg bg-[#FAF7F0] text-xs font-mono font-semibold text-[#8F6D3B]">
-                            Cấu trúc: {g.structure}
-                          </div>
-                        )}
-
-                        <p className="text-xs text-[#315E48]">{g.explanation}</p>
-
-                        {g.example && (
-                          <p className="text-xs font-medium text-[#204434] italic">
-                            Ví dụ: {g.example}
-                          </p>
-                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* TAB 4: HỘI THOẠI */}
-              {editorTab === "dialogue" && (
-                <div className="space-y-6">
-                  {/* Form thêm câu thoại */}
-                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-3">
+              {/* TAB 3: NGỮ PHÁP */}
+              {editorTab === "grammar" && (
+                <div className="space-y-5">
+                  <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      + Thêm câu thoại mới vào bài:
+                      + Thêm cấu trúc ngữ pháp mới:
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <input
-                        type="text"
-                        placeholder="Người nói (VD: µ��µ�� / A)"
-                        value={newDialSpeaker}
-                        onChange={(e) => setNewDialSpeaker(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-bold"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Chữ Hán (VD: 你好！)"
-                        value={newDialZh}
-                        onChange={(e) => setNewDialZh(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-serif font-bold col-span-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Pinyin (VD: Nǐ hǎo!)"
-                        value={newDialPinyin}
-                        onChange={(e) => setNewDialPinyin(e.target.value)}
-                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs font-mono"
-                      />
-                    </div>
                     <input
                       type="text"
-                      placeholder="Dịch nghĩa tiếng Việt (VD: Chào bạn!)"
-                      value={newDialVi}
-                      onChange={(e) => setNewDialVi(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] bg-white text-xs"
+                      placeholder="Tiêu đề ngữ pháp (VD: Ngữ pháp 1: Câu chữ 把)"
+                      value={newGrammarTitle}
+                      onChange={(e) => setNewGrammarTitle(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-bold"
                     />
+                    <input
+                      type="text"
+                      placeholder="Công thức/Cấu trúc (VD: Chủ ngữ + 把 + Tân ngữ + Động từ...)"
+                      value={newGrammarStructure}
+                      onChange={(e) => setNewGrammarStructure(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-mono"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Câu ví dụ thực tế (VD: 我把作业做完了。)"
+                      value={newGrammarExample}
+                      onChange={(e) => setNewGrammarExample(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs"
+                    />
+                    <textarea
+                      rows={2}
+                      placeholder="Giải thích chi tiết và lưu ý sử dụng..."
+                      value={newGrammarExplanation}
+                      onChange={(e) => setNewGrammarExplanation(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!newGrammarTitle.trim() || !newGrammarStructure.trim()) {
+                          showToast("Vui lòng nhập tiêu đề và cấu trúc ngữ pháp!", "error");
+                          return;
+                        }
+                        const gList = editingLesson.grammarList || [];
+                        setEditingLesson({
+                          ...editingLesson,
+                          grammarList: [
+                            ...gList,
+                            {
+                              title: newGrammarTitle.trim(),
+                              structure: newGrammarStructure.trim(),
+                              example: newGrammarExample.trim(),
+                              explanation: newGrammarExplanation.trim(),
+                            },
+                          ],
+                        });
+                        setNewGrammarTitle("");
+                        setNewGrammarStructure("");
+                        setNewGrammarExample("");
+                        setNewGrammarExplanation("");
+                        showToast("Đã thêm điểm ngữ pháp mới!");
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#17382F] transition cursor-pointer"
+                    >
+                      Thêm ngữ pháp này
+                    </button>
+                  </div>
 
+                  {/* Danh sách ngữ pháp */}
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {editingLesson.grammarList?.map((g, i) => (
+                      <div
+                        key={i}
+                        className="p-3.5 rounded-xl bg-white border border-[#E5DEC9] space-y-1.5 text-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#204434]">{g.title}</span>
+                          <button
+                            onClick={() => {
+                              setEditingLesson({
+                                ...editingLesson,
+                                grammarList: editingLesson.grammarList?.filter((_, idx) => idx !== i),
+                              });
+                            }}
+                            className="text-red-500 hover:text-red-700 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <p className="font-mono text-[#8F6D3B]">{g.structure}</p>
+                        <p className="text-slate-700 italic">Ví dụ: {g.example}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: ĐOẠN HỘI THOẠI */}
+              {editorTab === "dialogue" && (
+                <div className="space-y-5">
+                  <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
+                    <span className="text-xs font-bold text-[#204434] block">
+                      + Thêm câu thoại mới:
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Người nói (A, B, Tiểu Ngữ...)"
+                        value={newDialSpeaker}
+                        onChange={(e) => setNewDialSpeaker(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-bold"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Hán tự câu nói"
+                        value={newDialZh}
+                        onChange={(e) => setNewDialZh(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-bold col-span-1 sm:col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Pinyin phiên âm"
+                        value={newDialPinyin}
+                        onChange={(e) => setNewDialPinyin(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-mono"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Dịch nghĩa tiếng Việt"
+                        value={newDialVi}
+                        onChange={(e) => setNewDialVi(e.target.value)}
+                        className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs"
+                      />
+                    </div>
                     <button
                       onClick={() => {
                         if (!newDialZh.trim()) {
-                          showToast("Vui lòng nhập câu thoại chữ Hán!", "error");
+                          showToast("Vui lòng nhập nội dung câu thoại!", "error");
                           return;
                         }
-                        const newD = {
-                          speaker: newDialSpeaker.trim() || "A",
-                          zh: newDialZh.trim(),
-                          pinyin: newDialPinyin.trim(),
-                          vi: newDialVi.trim(),
-                        };
+                        const dList = editingLesson.dialogue || [];
                         setEditingLesson({
                           ...editingLesson,
-                          dialogue: [...(editingLesson.dialogue || []), newD],
+                          dialogue: [
+                            ...dList,
+                            {
+                              speaker: newDialSpeaker.trim() || "A",
+                              zh: newDialZh.trim(),
+                              pinyin: newDialPinyin.trim(),
+                              vi: newDialVi.trim(),
+                            },
+                          ],
                         });
                         setNewDialZh("");
                         setNewDialPinyin("");
                         setNewDialVi("");
-                        showToast("Đã thêm câu thoại!");
+                        showToast("Đã thêm câu thoại mới!");
                       }}
-                      className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#17382F] transition cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Thêm câu thoại</span>
+                      Thêm câu thoại
                     </button>
                   </div>
 
-                  {/* Danh sách thoại */}
-                  <div className="space-y-2 bg-white p-4 rounded-2xl border border-[#E5DEC9]">
-                    {editingLesson.dialogue?.map((d, dIdx) => (
+                  {/* Danh sách câu thoại */}
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {editingLesson.dialogue?.map((d, i) => (
                       <div
-                        key={dIdx}
-                        className="p-3 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] flex items-center justify-between gap-3 text-xs"
+                        key={i}
+                        className="p-3 rounded-xl bg-white border border-[#E5DEC9] flex items-center justify-between gap-3 text-xs"
                       >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-[#204434] px-2 py-0.5 rounded bg-white border border-[#E5DEC9]">
-                              {d.speaker}
-                            </span>
-                            <span className="font-serif font-bold text-sm text-[#204434]">
-                              {d.zh}
-                            </span>
-                            <button
-                              onClick={() => handleSpeak(d.zh)}
-                              className="text-[#8F6D3B] hover:text-[#204434]"
-                              title="Nghe câu này"
-                            >
-                              <Volume2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          {d.pinyin && <p className="font-mono text-[#8F6D3B] pl-2">{d.pinyin}</p>}
-                          {d.vi && <p className="text-[#315E48] pl-2 italic">({d.vi})</p>}
+                        <div>
+                          <span className="font-bold text-[#8F6D3B] mr-2">{d.speaker}:</span>
+                          <span className="font-serif font-bold text-sm text-[#204434] mr-2">
+                            {d.zh}
+                          </span>
+                          <span className="text-[#315E48] italic">({d.vi})</span>
                         </div>
-
                         <button
                           onClick={() => {
                             setEditingLesson({
                               ...editingLesson,
-                              dialogue: editingLesson.dialogue?.filter((_, i) => i !== dIdx),
+                              dialogue: editingLesson.dialogue?.filter((_, idx) => idx !== i),
                             });
                           }}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"
-                          title="Xóa câu này"
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1102,7 +1575,7 @@ export default function CurriculumBuilderWorkspace({
                     </span>
                     <textarea
                       rows={3}
-                      placeholder="Kiến thức văn hóa, phong tục, lễ nghi chào hỏi hoặc câu chuyện thú vị..."
+                      placeholder="Kiến thức văn hóa, phong tục, lễ nghi chào hỏi..."
                       value={editingLesson.culture || ""}
                       onChange={(e) =>
                         setEditingLesson({
@@ -1115,22 +1588,17 @@ export default function CurriculumBuilderWorkspace({
                   </div>
                 </div>
               )}
-            </div>
 
-              {/* TAB 6: ĐỌC HIỂU & VĂN HÓA GIAO TIẾP */}
+              {/* TAB 6: ĐỌC HIỂU & MỞ RỘNG */}
               {editorTab === "richcontent" && (
                 <div className="space-y-8">
-                  {/* Phần A: B�i đọc hiểu (reading_items) */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-[#E5DEC9]">
                       <BookMarked className="w-4 h-4 text-[#8F6D3B]" />
                       <h4 className="font-serif font-bold text-sm text-[#204434]">
-                        B�i đọc hiểu (reading_items)
+                        Bài đọc hiểu (reading_items)
                       </h4>
                     </div>
-                    <p className="text-xs text-[#315E48] leading-5">
-                      Nhập nội dung b�i đọc v� từ vựng mở rộng. Dữ liệu sẽ tự động đồng bộ sang gi�o vi�n v� hiển thị ở phần &quot;Luyện đọc hiểu&quot; độc lập.
-                    </p>
                     <RichReadingEditor
                       value={editingLesson.reading ?? {
                         id: `${editingLesson.id}-reading`,
@@ -1146,30 +1614,15 @@ export default function CurriculumBuilderWorkspace({
                         setEditingLesson({ ...editingLesson, reading: val })
                       }
                     />
-                    {editingLesson.reading?.contentZh && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditingLesson({ ...editingLesson, reading: undefined })
-                        }
-                        className="text-xs text-red-500 underline hover:text-red-700 cursor-pointer"
-                      >
-                        X�a b�i đọc hiểu n�y
-                      </button>
-                    )}
                   </div>
 
-                  {/* Phần B: Văn h�a giao tiếp & Thực tế (culture_items) */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-[#E5DEC9]">
                       <Globe2 className="w-4 h-4 text-[#8F6D3B]" />
                       <h4 className="font-serif font-bold text-sm text-[#204434]">
-                        Văn h�a giao tiếp & C�ch sử dụng thực tế (culture_items)
+                        Văn hóa giao tiếp & Cách sử dụng thực tế (culture_items)
                       </h4>
                     </div>
-                    <p className="text-xs text-[#315E48] leading-5">
-                      Nhập mẫu c�u v�ng, c�ch n�i lịch sự, bối cảnh v� cấm kỵ văn h�a. B�n gi�o vi�n sẽ hiển thị độc lập tại &quot;Văn h�a giao tiếp & C�ch sử dụng thực tế&quot;.
-                    </p>
                     <RichCultureEditor
                       value={editingLesson.culturalNote ?? {
                         context: "",
@@ -1187,6 +1640,351 @@ export default function CurriculumBuilderWorkspace({
                   </div>
                 </div>
               )}
+
+              {/* TAB 7: BÀI TẬP NGỮ PHÁP (GRAMMAR EXERCISES - TÍNH NĂNG MỚI THEO Ý KIẾN ADMIN) */}
+              {editorTab === "grammar_exercises" && (
+                <div className="space-y-6">
+                  {/* Thanh giới thiệu & nút tự động sinh câu hỏi mẫu */}
+                  <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-300/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                        <Target className="w-4 h-4 text-amber-700" />
+                        <span>Kho bài tập luyện ngữ pháp của Bài {editingLesson.number}</span>
+                      </h4>
+                      <p className="text-[11px] text-amber-800">
+                        Admin nhập câu hỏi để học sinh làm bài tập bám sát kiến thức bài này thay vì câu hỏi fix cứng.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerateSampleExercisesForLesson}
+                      className="px-3.5 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                      <span>⚡ Sinh câu hỏi mẫu theo ngữ pháp bài</span>
+                    </button>
+                  </div>
+
+                  {/* FORM THÊM CÂU HỎI MỚI */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5DEC9] space-y-4">
+                    <span className="text-xs font-bold text-[#204434] block border-b border-[#E5DEC9] pb-2">
+                      + Thêm câu hỏi bài tập ngữ pháp mới cho Bài {editingLesson.number}:
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-[#8F6D3B] block mb-1">
+                          1. Dạng bài tập:
+                        </label>
+                        <select
+                          value={newExMode}
+                          onChange={(e) => setNewExMode(e.target.value as GrammarExerciseMode)}
+                          className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-bold bg-white text-[#204434]"
+                        >
+                          <option value="choose_correct">Chọn câu đúng ngữ pháp</option>
+                          <option value="fill_blank">Điền từ vào chỗ trống</option>
+                          <option value="reorder">Sắp xếp từ thành câu</option>
+                          <option value="correct_mistake">Sửa câu sai thành đúng</option>
+                          <option value="listen_dialogue">Nghe hiểu hội thoại ngắn</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-[#8F6D3B] block mb-1">
+                          2. Thuộc điểm ngữ pháp nào:
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Nhập tên ngữ pháp hoặc chọn bên cạnh..."
+                            value={newExRule}
+                            onChange={(e) => setNewExRule(e.target.value)}
+                            className="flex-1 px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-semibold"
+                          />
+                          {editingLesson.grammarList && editingLesson.grammarList.length > 0 && (
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) setNewExRule(e.target.value);
+                              }}
+                              className="px-2 py-2 rounded-xl border border-[#E5DEC9] text-xs bg-[#FAF7F0] text-[#204434]"
+                            >
+                              <option value="">Chọn từ bài</option>
+                              {editingLesson.grammarList.map((g, gi) => (
+                                <option key={gi} value={g.title}>
+                                  {g.title}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#8F6D3B] block mb-1">
+                        3. Đề bài câu hỏi:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="VD: Chọn câu chào hỏi đúng trật tự từ tiếng Trung / Điền từ thích hợp vào chỗ trống..."
+                        value={newExPrompt}
+                        onChange={(e) => setNewExPrompt(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-serif font-bold text-[#204434]"
+                      />
+                    </div>
+
+                    {/* Form tùy biến theo từng dạng bài */}
+                    {(newExMode === "choose_correct" || newExMode === "fill_blank" || newExMode === "listen_dialogue") && (
+                      <div className="space-y-2 pt-1">
+                        <label className="text-[11px] font-bold text-[#8F6D3B] block">
+                          4. Các lựa chọn đáp án:
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-5 text-xs font-bold text-blue-700">A.</span>
+                            <input
+                              type="text"
+                              placeholder="Lựa chọn A"
+                              value={newExOptionA}
+                              onChange={(e) => setNewExOptionA(e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-5 text-xs font-bold text-blue-700">B.</span>
+                            <input
+                              type="text"
+                              placeholder="Lựa chọn B"
+                              value={newExOptionB}
+                              onChange={(e) => setNewExOptionB(e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-5 text-xs font-bold text-blue-700">C.</span>
+                            <input
+                              type="text"
+                              placeholder="Lựa chọn C (tùy chọn)"
+                              value={newExOptionC}
+                              onChange={(e) => setNewExOptionC(e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-5 text-xs font-bold text-blue-700">D.</span>
+                            <input
+                              type="text"
+                              placeholder="Lựa chọn D (tùy chọn)"
+                              value={newExOptionD}
+                              onChange={(e) => setNewExOptionD(e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2 flex items-center gap-3">
+                          <label className="text-[11px] font-bold text-emerald-800">
+                            Đáp án đúng:
+                          </label>
+                          <select
+                            value={newExCorrect}
+                            onChange={(e) => setNewExCorrect(e.target.value)}
+                            className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-900"
+                          >
+                            <option value="A">Đáp án A</option>
+                            <option value="B">Đáp án B</option>
+                            <option value="C">Đáp án C</option>
+                            <option value="D">Đáp án D</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {newExMode === "reorder" && (
+                      <div className="space-y-2 pt-1">
+                        <label className="text-[11px] font-bold text-[#8F6D3B] block">
+                          4. Các từ xáo trộn (ngăn cách bằng dấu phẩy):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="VD: 好, 老师, 您, ！"
+                          value={newExScrambled}
+                          onChange={(e) => setNewExScrambled(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-mono font-bold"
+                        />
+                        <div className="pt-1">
+                          <label className="text-[11px] font-bold text-emerald-800 block mb-1">
+                            Câu hoàn chỉnh chính xác (Đáp án đúng):
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="VD: 老师，您好！"
+                            value={newExCorrect}
+                            onChange={(e) => setNewExCorrect(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-900"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {newExMode === "correct_mistake" && (
+                      <div className="space-y-2 pt-1">
+                        <label className="text-[11px] font-bold text-rose-800 block">
+                          Câu có lỗi sai ngữ pháp:
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="VD: 教室里有三个学生们。"
+                          value={newExWrongSentence}
+                          onChange={(e) => setNewExWrongSentence(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-rose-300 bg-rose-50 text-xs font-bold text-rose-900"
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          <input
+                            type="text"
+                            placeholder="Lựa chọn sửa A (VD: Bỏ '们', viết là: 三个学生)"
+                            value={newExOptionA}
+                            onChange={(e) => setNewExOptionA(e.target.value)}
+                            className="px-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Lựa chọn sửa B"
+                            value={newExOptionB}
+                            onChange={(e) => setNewExOptionB(e.target.value)}
+                            className="px-3 py-1.5 rounded-xl border border-[#E5DEC9] text-xs"
+                          />
+                        </div>
+                        <div className="pt-1 flex items-center gap-3">
+                          <label className="text-[11px] font-bold text-emerald-800">
+                            Đáp án đúng:
+                          </label>
+                          <select
+                            value={newExCorrect}
+                            onChange={(e) => setNewExCorrect(e.target.value)}
+                            className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-900"
+                          >
+                            <option value="A">Đáp án A</option>
+                            <option value="B">Đáp án B</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[11px] font-bold text-[#8F6D3B] block mb-1">
+                        5. Lời giải thích ngữ pháp chi tiết:
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Giải thích vì sao chọn đáp án này, quy tắc ngữ pháp liên quan..."
+                        value={newExExplanation}
+                        onChange={(e) => setNewExExplanation(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs leading-relaxed"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddGrammarExerciseToEditingLesson}
+                      className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                    >
+                      <Plus className="w-4 h-4 text-[#BC9B6B]" />
+                      <span>Thêm câu hỏi này vào Bài {editingLesson.number}</span>
+                    </button>
+                  </div>
+
+                  {/* DANH SÁCH BÀI TẬP ĐÃ CÓ TRONG BÀI NÀY */}
+                  <div className="space-y-3">
+                    <span className="text-xs font-bold text-[#204434] block">
+                      Danh sách bài tập hiện có ({editingLesson.grammarExercises?.length || 0} câu):
+                    </span>
+
+                    {(!editingLesson.grammarExercises || editingLesson.grammarExercises.length === 0) ? (
+                      <div className="py-8 text-center bg-white rounded-2xl border border-dashed border-[#E5DEC9] text-xs text-slate-500">
+                        Chưa có câu hỏi bài tập nào cho bài này. Hãy nhập form phía trên hoặc bấm &quot;Sinh câu hỏi mẫu&quot;.
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                        {editingLesson.grammarExercises.map((ex, eIdx) => {
+                          const modeInfo = EXERCISE_MODE_LABELS[ex.mode] || {
+                            label: ex.mode,
+                            color: "bg-slate-50 text-slate-700 border-slate-200",
+                          };
+                          return (
+                            <div
+                              key={ex.id || eIdx}
+                              className="p-3.5 rounded-xl bg-white border border-[#E5DEC9] space-y-2 text-xs shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between border-b border-[#FAF7F0] pb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-5 h-5 rounded-full bg-[#204434] text-white text-[10px] font-bold flex items-center justify-center">
+                                    {eIdx + 1}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${modeInfo.color}`}>
+                                    {modeInfo.label}
+                                  </span>
+                                  <span className="font-bold text-[#8F6D3B]">
+                                    {ex.grammarRule}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteGrammarExercise(ex.id)}
+                                  className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
+                                  title="Xóa câu này"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <p className="font-serif font-bold text-[#204434]">
+                                {ex.prompt}
+                              </p>
+
+                              {Array.isArray(ex.options) && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                                  {ex.options.map((opt, oi) => {
+                                    const isCorrect =
+                                      ex.correctAnswer === opt.charAt(0) ||
+                                      opt.includes(ex.correctAnswer);
+                                    return (
+                                      <div
+                                        key={oi}
+                                        className={`px-2.5 py-1 rounded-lg border text-[11px] ${
+                                          isCorrect
+                                            ? "bg-emerald-50 border-emerald-300 text-emerald-900 font-bold"
+                                            : "bg-[#FAF7F0] border-[#E5DEC9] text-slate-700"
+                                        }`}
+                                      >
+                                        {opt}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {ex.mode === "reorder" && Array.isArray(ex.scrambledWords) && (
+                                <p className="text-[11px] font-mono text-[#8F6D3B]">
+                                  Từ xáo trộn: {ex.scrambledWords.join(" / ")} · Đáp án: <strong className="text-emerald-800">{ex.correctAnswer}</strong>
+                                </p>
+                              )}
+
+                              {ex.explanation && (
+                                <p className="text-[11px] text-amber-900 bg-amber-50/50 p-2 rounded-lg">
+                                  💡 <strong>Giải thích:</strong> {ex.explanation}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Modal Footer */}
             <div className="p-4 sm:p-5 bg-[#FAF7F0] border-t border-[#E5DEC9] flex items-center justify-between">

@@ -30,6 +30,31 @@ export interface LessonPhoneticGuide {
   examples: string[];
 }
 
+export type GrammarExerciseMode =
+  | "choose_correct" // Chọn câu đúng ngữ pháp
+  | "listen_dialogue" // Nghe hiểu hội thoại ngắn
+  | "fill_blank" // Điền từ vào chỗ trống
+  | "reorder" // Sắp xếp từ thành câu
+  | "correct_mistake"; // Sửa câu sai thành đúng
+
+export interface GrammarExerciseItem {
+  id: string;
+  mode: GrammarExerciseMode;
+  grammarRule: string;
+  prompt: string;
+  meaningVi?: string;
+  options?: string[];
+  correctAnswer: string;
+  dialogueLines?: { speaker: string; zh: string; pinyin: string; vi: string }[];
+  audioText?: string;
+  sentence?: string;
+  pinyin?: string;
+  scrambledWords?: string[];
+  wrongSentence?: string;
+  wrongSentencePinyin?: string;
+  explanation: string;
+}
+
 export interface Hsk1FullLesson {
   id: string;
   number: number;
@@ -49,6 +74,7 @@ export interface Hsk1FullLesson {
   culture: string;
   reading?: ReadingItem;
   culturalNote?: CulturalNoteItem;
+  grammarExercises?: GrammarExerciseItem[];
 }
 
 export const OFFICIAL_HSK1_15_LESSONS: Hsk1FullLesson[] = [
@@ -204,6 +230,135 @@ export const OFFICIAL_HSK1_15_LESSONS: Hsk1FullLesson[] = [
       ],
     },
     culture: "8 Học liệu Văn hóa giao tiếp thực tế:\n• Nhóm 1: Mẫu câu vàng khuyên dùng: 1. 你好！– Lời chào phổ biến nhất khi gặp gỡ; 2. 老师好！– Lời chào thể hiện sự kính trọng dành cho giáo viên\n• Nhóm 2: Cách nói lịch sự & tôn trọng: 3. 您好！– Dùng cho người lớn tuổi, thầy cô, đối tác; 4. 谢谢！– Thể hiện lòng biết ơn chân thành; 5. 不客气！– Lời đáp nhã nhặn khiêm tốn\n• Nhóm 3: Lưu ý & Cấm kỵ văn hóa: 6. Không gọi thẳng tên giáo viên (Họ + 老师); 7. Biến điệu của 你好 (nǐ hǎo -> ní hǎo); 8. Tránh dùng 您 với bạn bè đồng trang lứa.",
+    grammarExercises: [
+      {
+        id: "hsk1-01-ex-01",
+        mode: "choose_correct",
+        grammarRule: "Quy tắc chào hỏi lịch sự & xưng hô",
+        prompt: "Chọn câu chào hỏi thầy giáo Vương đúng trật tự và lịch sự nhất:",
+        options: [
+          "A. 好王老师！",
+          "B. 王老师，您好！",
+          "C. 王老师，你好们！",
+          "D. 您好王老师是！"
+        ],
+        correctAnswer: "B",
+        explanation: "Quy tắc chào hỏi: Danh từ/Chức danh + 您好 (王老师，您好！). Dùng '您' để thể hiện sự tôn trọng với thầy cô, không đảo '好' lên trước danh xưng."
+      },
+      {
+        id: "hsk1-01-ex-02",
+        mode: "choose_correct",
+        grammarRule: "Phân biệt đại từ 你 và 您",
+        prompt: "Khi gặp người lớn tuổi hoặc thầy cô giáo, ta nên dùng đại từ nào để xưng hô lịch sự?",
+        options: [
+          "A. 你 (nǐ)",
+          "B. 您 (nín)",
+          "C. 你们 (nǐmen)",
+          "D. 他 (tā)"
+        ],
+        correctAnswer: "B",
+        explanation: "'您' (nín) là đại từ nhân xưng ngôi thứ hai dạng kính trọng, dùng cho người lớn tuổi, thầy cô giáo hoặc đối tác tôn kính."
+      },
+      {
+        id: "hsk1-01-ex-03",
+        mode: "choose_correct",
+        grammarRule: "Hậu tố số nhiều 们",
+        prompt: "Chọn câu dùng hậu tố số nhiều '们' đúng quy tắc ngữ pháp:",
+        options: [
+          "A. 同学们，你们好！",
+          "B. 三个学生们好！",
+          "C. 老师们好一个！",
+          "D. 你们两个们好！"
+        ],
+        correctAnswer: "A",
+        explanation: "Hậu tố '们' đứng sau đại từ hoặc danh từ chỉ người (同学们, 你们). Lưu ý: Khi đã có số lượng từ cụ thể (như 三个) thì tuyệt đối KHÔNG thêm '们'."
+      },
+      {
+        id: "hsk1-01-ex-04",
+        mode: "fill_blank",
+        grammarRule: "Đại từ kính trọng 您",
+        prompt: "Điền từ thích hợp vào chỗ trống: 小语遇见王老师，礼貌地说：“王老师，____ 好！”",
+        options: ["A. 您", "B. 们", "C. 谁", "D. 吗"],
+        correctAnswer: "A",
+        explanation: "Chào thầy cô cần dùng '您好' (Nín hǎo) để thể hiện sự lễ phép và tôn kính."
+      },
+      {
+        id: "hsk1-01-ex-05",
+        mode: "fill_blank",
+        grammarRule: "Hậu tố số nhiều 们",
+        prompt: "Điền từ thích hợp vào chỗ trống: 老师走进教室，对全班说：“____ 好！”",
+        options: ["A. 同学们", "B. 老师", "C. 一个同学", "D. 您"],
+        correctAnswer: "A",
+        explanation: "Giáo viên chào cả lớp gồm nhiều học sinh nên dùng '同学们好！' (Chào các em học sinh!)."
+      },
+      {
+        id: "hsk1-01-ex-06",
+        mode: "reorder",
+        grammarRule: "Trật tự câu chào hỏi",
+        prompt: "Sắp xếp các từ sau thành câu chào hỏi chuẩn xác: [您好] [王老师] [，] [！]",
+        scrambledWords: ["您好", "，", "王老师", "！"],
+        correctAnswer: "王老师，您好！",
+        explanation: "Trật tự chào hỏi tiếng Trung: Danh xưng/Tên người + Dấu phẩy + Lời chào (王老师，您好！)."
+      },
+      {
+        id: "hsk1-01-ex-07",
+        mode: "reorder",
+        grammarRule: "Hậu tố số nhiều 们 & Chào hỏi",
+        prompt: "Sắp xếp các từ sau thành câu chào: [好] [同学们] [！]",
+        scrambledWords: ["好", "同学们", "！"],
+        correctAnswer: "同学们好！",
+        explanation: "Đối tượng được chào (同学们) đứng trước tính từ '好' (同学们好！)."
+      },
+      {
+        id: "hsk1-01-ex-08",
+        mode: "correct_mistake",
+        grammarRule: "Lỗi dùng 们 sau số từ cụ thể",
+        prompt: "Tìm và sửa lỗi sai trong câu: '教室里有五个学生们。'",
+        wrongSentence: "教室里有五个学生们。",
+        options: [
+          "A. Bỏ '们', sửa thành: 教室里有五个学生。",
+          "B. Đổi '五个' thành '两'",
+          "C. Thêm '好' vào cuối câu",
+          "D. Câu trên hoàn toàn đúng"
+        ],
+        correctAnswer: "A",
+        explanation: "Trong tiếng Trung, danh từ chỉ người khi đã có số từ và lượng từ xác định phía trước (五个) thì KHÔNG được thêm hậu tố '们'. Viết đúng là: 五个学生."
+      },
+      {
+        id: "hsk1-01-ex-09",
+        mode: "correct_mistake",
+        grammarRule: "Lỗi đảo vị trí trong câu chào",
+        prompt: "Sửa câu chào sai trật tự từ: '好王老师！'",
+        wrongSentence: "好王老师！",
+        options: [
+          "A. Sửa thành: 王老师好！ hoặc 王老师，您好！",
+          "B. Sửa thành: 王老师是好！",
+          "C. Sửa thành: 老师好王！",
+          "D. Sửa thành: 好老师王！"
+        ],
+        correctAnswer: "A",
+        explanation: "Không được dịch từng từ từ tiếng Việt hay tiếng Anh sang đặt '好' lên đầu. Phải đặt danh từ gọi trước: 王老师好！"
+      },
+      {
+        id: "hsk1-01-ex-10",
+        mode: "listen_dialogue",
+        grammarRule: "Nghe hiểu hội thoại chào hỏi",
+        prompt: "Nghe đoạn thoại ngắn giữa Tiểu Ngữ và thầy Vương, trả lời câu hỏi:",
+        dialogueLines: [
+          { speaker: "小语", zh: "王老师，您好！我是小语。", pinyin: "Wáng lǎoshī, nín hǎo! Wǒ shì Xiǎoyǔ.", vi: "Em chào thầy Vương ạ! Em là Tiểu Ngữ." },
+          { speaker: "王老师", zh: "你好，小语！欢迎来到中文课。", pinyin: "Nǐ hǎo, Xiǎoyǔ! Huānyíng lái dào zhōngwén kè.", vi: "Chào Tiểu Ngữ! Chào mừng em đến lớp tiếng Trung." }
+        ],
+        audioText: "小语：王老师，您好！我是小语。王老师：你好，小语！欢迎来到中文课。",
+        options: [
+          "A. Tiểu Ngữ dùng '您' vì thầy Vương là giáo viên, cần thể hiện sự kính trọng",
+          "B. Tiểu Ngữ dùng '您' vì thầy Vương là bạn học cùng lớp",
+          "C. Thầy Vương dùng '您' để chào Tiểu Ngữ",
+          "D. Tiểu Ngữ và thầy Vương không quen biết nhau"
+        ],
+        correctAnswer: "A",
+        explanation: "Học sinh chào giáo viên cần dùng đại từ '您' để bày tỏ sự lễ phép và tôn kính đối với thầy cô giáo."
+      }
+    ],
   },
   {
     id: "hsk1-02",
