@@ -24,6 +24,30 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, message: "Không tìm thấy học sinh" }, { status: 404 });
     }
 
+    // Tự động tính toán và cập nhật Streak ngày học liên tiếp
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(now);
+    const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(yesterdayDate);
+
+    const createdDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(student.createdAt);
+    const updatedDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(student.updatedAt);
+
+    let activeStreak = student.streakDays || 1;
+    if (createdDateStr < todayStr && activeStreak < 2) {
+      activeStreak = 2;
+    } else if (updatedDateStr === yesterdayStr) {
+      activeStreak = (student.streakDays || 1) + 1;
+    }
+
+    if (activeStreak !== student.streakDays) {
+      await prisma.user.update({
+        where: { id: student.id },
+        data: { streakDays: activeStreak, updatedAt: new Date() },
+      });
+      student.streakDays = activeStreak;
+    }
+
     // Thời điểm bắt đầu của ngày hôm nay (00:00:00)
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -137,6 +161,30 @@ export async function POST(request: Request) {
 
     if (!student) {
       return NextResponse.json({ success: false, message: "Không tìm thấy học sinh" }, { status: 404 });
+    }
+
+    // Tự động tính toán và cập nhật Streak ngày học liên tiếp
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(now);
+    const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(yesterdayDate);
+
+    const createdDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(student.createdAt);
+    const updatedDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(student.updatedAt);
+
+    let activeStreak = student.streakDays || 1;
+    if (createdDateStr < todayStr && activeStreak < 2) {
+      activeStreak = 2;
+    } else if (updatedDateStr === yesterdayStr) {
+      activeStreak = (student.streakDays || 1) + 1;
+    }
+
+    if (activeStreak !== student.streakDays) {
+      await prisma.user.update({
+        where: { id: student.id },
+        data: { streakDays: activeStreak, updatedAt: new Date() },
+      });
+      student.streakDays = activeStreak;
     }
 
     const questRewards: Record<string, number> = {

@@ -5,7 +5,33 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
-    const auth=await getAuthUser(request);if(!auth||auth.role!=="STUDENT")return NextResponse.json({success:false,message:"Vui lòng đăng nhập học sinh."},{status:401}); const student=await prisma.user.findUniqueOrThrow({where:{id:auth.id}});
+    const auth=await getAuthUser(request);if(!auth||auth.role!=="STUDENT")return NextResponse.json({success:false,message:"Vui lòng đăng nhập học sinh."},{status:401}); 
+    const student=await prisma.user.findUniqueOrThrow({where:{id:auth.id}});
+
+    // Tự động tính toán và cập nhật chuỗi ngày học thực tế (Dynamic Streak)
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(now);
+    const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(yesterdayDate);
+
+    const createdDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(student.createdAt);
+    const updatedDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(student.updatedAt);
+
+    let currentStreak = student.streakDays || 1;
+    // Nếu học sinh đã tạo tài khoản hoặc hoạt động từ hôm qua trở về trước và hôm nay tiếp tục vào học
+    if (createdDateStr < todayStr && currentStreak < 2) {
+      currentStreak = 2;
+    } else if (updatedDateStr === yesterdayStr) {
+      currentStreak = (student.streakDays || 1) + 1;
+    }
+
+    if (currentStreak !== student.streakDays) {
+      await prisma.user.update({
+        where: { id: student.id },
+        data: { streakDays: currentStreak, updatedAt: new Date() },
+      });
+      student.streakDays = currentStreak;
+    }
     // 1. Lấy danh sách lớp mà học sinh này thực sự tham gia
     const enrolledClasses = await prisma.classStudent.findMany({
       where: { studentId: student.id, status:"APPROVED" },

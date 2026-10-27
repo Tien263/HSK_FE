@@ -115,6 +115,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // Tự động tính toán và cập nhật chuỗi Streak ngày học thực tế
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(now);
+    const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(yesterdayDate);
+
+    const createdDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(user.createdAt);
+    const updatedDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(user.updatedAt);
+
+    let activeStreak = user.streakDays || 1;
+    if (createdDateStr < todayStr && activeStreak < 2) {
+      activeStreak = 2;
+    } else if (updatedDateStr === yesterdayStr) {
+      activeStreak = (user.streakDays || 1) + 1;
+    }
+
+    if (activeStreak !== user.streakDays) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { streakDays: activeStreak, updatedAt: new Date() },
+      });
+      user.streakDays = activeStreak;
+    }
+
     // Trả về thông tin user đã xác thực
     const response = NextResponse.json({
       success: true,

@@ -128,50 +128,197 @@ export async function POST(request: Request) {
       });
     }
 
-    // 4. Gọi LLM bổ trợ nếu có API key để nâng cấp văn phong bản xứ (Native Polish)
+    // Rule F: Phủ định động từ '有' bằng '不' (Sai: 不有 -> Sửa: 没有)
+    if (/不有/u.test(rawText)) {
+      issues.push({
+        type: "SPELLING",
+        original: "不有",
+        suggestion: "没有",
+        reason: "Trong tiếng Trung, phủ định của động từ '有' bắt buộc phải dùng '没' (没有), không bao giờ dùng '不有'.",
+      });
+      correctedText = correctedText.replace(/不有/gu, "没有");
+    }
+
+    // Rule G: Nhầm lẫn tính từ với '是' (Sai: 我是好 -> Sửa: 我很好)
+    if (/是(好|忙|高兴|大|小|累|冷|热)(?!的)/u.test(rawText)) {
+      issues.push({
+        type: "WORD_ORDER",
+        original: "Dùng '是' trước tính từ đơn",
+        suggestion: "Thay '是' bằng phó từ mức độ '很' (ví dụ: 很好, 很忙)",
+        reason: "Trong câu vị ngữ hình dung từ, tiếng Trung không dùng hệ từ '是' trước tính từ mà dùng phó từ mức độ như '很'.",
+      });
+      correctedText = correctedText.replace(/是(好|忙|高兴|大|小|累|冷|热)/gu, "很$1");
+    }
+
+    // 4. Gọi LLM chuyên gia để chấm điểm thật, phát hiện lỗi ngữ pháp & diễn đạt tự nhiên
     let nativePolish = correctedText;
-    let pedagogicalComment = "Bài viết có cấu trúc rõ ràng. Hãy chú ý trật tự từ và vị trí lượng từ để câu văn tự nhiên hơn.";
+    let pedagogicalComment = "Bài viết cần chú ý rèn luyện thêm trật tự câu và cách kết hợp từ vựng chuẩn xác.";
+    let llmScore: number | null = null;
 
-    const openAiKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
+    const groqKey = process.env.GROQ_API_KEY;
     const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
+    const openAiKey = process.env.OPENAI_API_KEY;
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-    if (qwenKey || geminiKey || openAiKey) {
-      try {
-        const prompt = `Bạn là chuyên gia ngôn ngữ tiếng Trung HSK. Hãy kiểm tra đoạn văn sau:
+    const promptText = `Bạn là giám khảo chấm thi HSK và chuyên gia ngữ pháp tiếng Trung chuẩn mực.
+Hãy đánh giá bài viết tiếng Trung sau đây của học sinh (HSK ${hskLevel}):
 "${rawText}"
-Trả về định dạng JSON thuần túy:
+
+Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
+1. ĐÁNH GIÁ LỖI: Tìm TẤT CẢ các lỗi sai về: ngữ pháp, trật tự từ (Word Order), dùng sai từ (Wrong Word), nhầm thanh điệu/chính tả, thiếu lượng từ, thừa thiếu trợ từ.
+2. CHẤM ĐIỂM (score từ 0 đến 100):
+   - Nếu có lỗi sai ngữ pháp hoặc dùng từ sai: Chấm từ 40 đến 75 điểm (tùy mức độ nghiêm trọng). TUYỆT ĐỐI KHÔNG CHO 90-100 ĐIỂM KHI CÓ LỖI SAI!
+   - Nếu câu hoàn toàn chuẩn xác, tự nhiên như người bản xứ: Mới cho 90-100 điểm.
+3. TRẢ VỀ DUY NHẤT một chuỗi JSON thuần túy (không bọc markdown, không thêm chữ thừa):
 {
-  "nativePolish": "Câu văn viết lại trau chuốt, tự nhiên nhất chuẩn người bản xứ",
-  "pedagogicalComment": "Lời nhận xét sư phạm khuyến khích và hướng dẫn học sinh bằng tiếng Việt (2-3 câu)"
+  "score": 65,
+  "correctedText": "Đoạn văn sau khi đã sửa toàn bộ các lỗi ngữ pháp",
+  "nativePolish": "Câu văn viết lại mượt mà, tự nhiên nhất chuẩn người bản xứ",
+  "pedagogicalComment": "Lời nhận xét sư phạm chi tiết bằng tiếng Việt chỉ rõ lỗi sai và cách khắc phục (2-3 câu)",
+  "issues": [
+    {
+      "type": "WORD_ORDER",
+      "original": "Cụm từ bị sai",
+      "suggestion": "Cách sửa đúng",
+      "reason": "Giải thích quy tắc ngữ pháp bằng tiếng Việt"
+    }
+  ]
 }`;
-        if (qwenKey) {
-          const qRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${qwenKey}` },
-            body: JSON.stringify({
-              model: "qwen-turbo",
-              messages: [{ role: "user", content: prompt }],
-              temperature: 0.3,
-            }),
-          });
-          const qData = await qRes.json();
-          const contentStr = qData?.choices?.[0]?.message?.content || "";
-          const parsed = JSON.parse(contentStr.replace(/```json|```/g, "").trim());
-          if (parsed.nativePolish) nativePolish = parsed.nativePolish;
-          if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+
+    // A. Thử gọi GEMINI API nếu có key
+    if (geminiKey) {
+      try {
+        const geminiModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+        for (const model of geminiModels) {
+          try {
+            const gRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: promptText }] }],
+                  generationConfig: { temperature: 0.2 },
+                }),
+              }
+            );
+            if (gRes.ok) {
+              const gData = await gRes.json();
+              const raw = gData?.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g, "").trim();
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (typeof parsed.score === "number") llmScore = parsed.score;
+                if (parsed.correctedText) correctedText = parsed.correctedText;
+                if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+                if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+                if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+                  // Hợp nhất lỗi từ LLM
+                  parsed.issues.forEach((iss: any) => {
+                    if (!issues.some((ex) => ex.original === iss.original)) {
+                      issues.push(iss);
+                    }
+                  });
+                }
+                break;
+              }
+            }
+          } catch (errInner) {
+            continue;
+          }
         }
       } catch (e) {
-        console.warn("LLM polish fallback:", e);
+        console.warn("Gemini check-writing error:", e);
       }
     }
 
-    // Tính điểm dựa trên số lỗi
-    let score = 100;
-    if (issues.length === 1) score = 88;
-    else if (issues.length === 2) score = 76;
-    else if (issues.length === 3) score = 65;
-    else if (issues.length >= 4) score = Math.max(40, 60 - issues.length * 6);
+    // B. Thử gọi GROQ nếu có key và chưa xong
+    if (llmScore === null && groqKey) {
+      try {
+        const grRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: "You are an expert native Chinese teacher. Respond ONLY in valid JSON." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.2,
+          }),
+        });
+        if (grRes.ok) {
+          const grData = await grRes.json();
+          const raw = grData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.score === "number") llmScore = parsed.score;
+            if (parsed.correctedText) correctedText = parsed.correctedText;
+            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              parsed.issues.forEach((iss: any) => {
+                if (!issues.some((ex) => ex.original === iss.original)) {
+                  issues.push(iss);
+                }
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Groq check-writing error:", e);
+      }
+    }
+
+    // C. Thử gọi QWEN nếu có key và chưa xong
+    if (llmScore === null && qwenKey) {
+      try {
+        const qRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${qwenKey}` },
+          body: JSON.stringify({
+            model: "qwen-turbo",
+            messages: [
+              { role: "system", content: "You are an expert Chinese teacher. Output only JSON." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.2,
+          }),
+        });
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          const contentStr = qData?.choices?.[0]?.message?.content || "";
+          const parsed = JSON.parse(contentStr.replace(/```json|```/g, "").trim());
+          if (typeof parsed.score === "number") llmScore = parsed.score;
+          if (parsed.correctedText) correctedText = parsed.correctedText;
+          if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+          if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+          if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+            parsed.issues.forEach((iss: any) => {
+              if (!issues.some((ex) => ex.original === iss.original)) {
+                issues.push(iss);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Qwen check-writing error:", e);
+      }
+    }
+
+    // Tính điểm cuối cùng: Ưu tiên điểm số thực từ LLM, nếu không có thì tính từ bộ quy tắc
+    let score = llmScore !== null ? llmScore : 100;
+    if (llmScore === null) {
+      if (issues.length === 1) score = 75;
+      else if (issues.length === 2) score = 60;
+      else if (issues.length === 3) score = 50;
+      else if (issues.length >= 4) score = Math.max(30, 45 - issues.length * 5);
+      else {
+        // Kiểm tra độ dài câu nếu không có lỗi nào
+        if (rawText.length < 4) score = 80;
+        else score = 95;
+      }
+    }
 
     // Chuẩn bị danh sách từ vựng tra cứu từ điển
     const vocabBreakdown = uniqueWords.slice(0, 15).map((w) => {

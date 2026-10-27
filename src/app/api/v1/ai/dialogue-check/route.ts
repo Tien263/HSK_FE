@@ -120,7 +120,43 @@ Yêu cầu bắt buộc:
   ]
 }`;
 
-        // Gọi GROQ (Hỗ trợ model tốc độ cao)
+        // Ưu tiên gọi GEMINI (Google AI Studio - Ổn định & Nhanh chóng)
+        if (!llmSuccess && geminiKey) {
+          const geminiModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+          for (const model of geminiModels) {
+            try {
+              const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: { temperature: 0.7 },
+                  }),
+                }
+              );
+              if (res.ok) {
+                const data = await res.json();
+                const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g, "").trim();
+                const parsed = JSON.parse(raw);
+                if (parsed.aiReplyZh) {
+                  aiReplyZh = parsed.aiReplyZh;
+                  aiReplyPinyin = parsed.aiReplyPinyin || "";
+                  aiReplyVi = parsed.aiReplyVi || "";
+                  if (parsed.feedback) feedback = parsed.feedback;
+                  if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+                  llmSuccess = true;
+                  break;
+                }
+              }
+            } catch (e) {
+              console.warn(`Gemini dialogue error on ${model}:`, e);
+            }
+          }
+        }
+
+        // Gọi GROQ nếu có và chưa thành công
         if (!llmSuccess && groqKey) {
           try {
             const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -150,70 +186,6 @@ Yêu cầu bắt buộc:
             }
           } catch (e) {
             console.warn("Groq dialogue call error:", e);
-          }
-        }
-
-        // Gọi QWEN (Alibaba Cloud DashScope)
-        if (!llmSuccess && qwenKey) {
-          try {
-            const res = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${qwenKey}` },
-              body: JSON.stringify({
-                model: "qwen-turbo",
-                messages: [
-                  { role: "system", content: "You are a native Chinese dialogue tutor. Output only JSON." },
-                  { role: "user", content: promptText },
-                ],
-                temperature: 0.7,
-              }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const raw = data.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
-              const parsed = JSON.parse(raw);
-              if (parsed.aiReplyZh) {
-                aiReplyZh = parsed.aiReplyZh;
-                aiReplyPinyin = parsed.aiReplyPinyin || "";
-                aiReplyVi = parsed.aiReplyVi || "";
-                if (parsed.feedback) feedback = parsed.feedback;
-                if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                llmSuccess = true;
-              }
-            }
-          } catch (e) {
-            console.warn("Qwen dialogue call error:", e);
-          }
-        }
-
-        // Gọi GEMINI nếu có
-        if (!llmSuccess && geminiKey) {
-          try {
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: promptText }] }],
-                }),
-              }
-            );
-            if (res.ok) {
-              const data = await res.json();
-              const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g, "").trim();
-              const parsed = JSON.parse(raw);
-              if (parsed.aiReplyZh) {
-                aiReplyZh = parsed.aiReplyZh;
-                aiReplyPinyin = parsed.aiReplyPinyin || "";
-                aiReplyVi = parsed.aiReplyVi || "";
-                if (parsed.feedback) feedback = parsed.feedback;
-                if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                llmSuccess = true;
-              }
-            }
-          } catch (e) {
-            console.warn("Gemini dialogue call error:", e);
           }
         }
 

@@ -2426,70 +2426,70 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
-      {/* Mobile Bottom Navigation Bar cho Admin */}
+      {/* Mobile Bottom Navigation Bar cho Admin (Phong cách Thủy Mặc Hanyu) */}
       <nav
         aria-label="Điều hướng nhanh quản trị trên điện thoại"
-        className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-[#FFFCF6]/95 backdrop-blur-md border-t border-[#E5DEC9] px-3 py-1.5 flex items-center justify-around shadow-lg"
+        className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-[#FAF7F0]/95 backdrop-blur-md border-t border-[#BC9B6B]/30 px-3 py-1.5 flex items-center justify-around shadow-[0_-4px_16px_rgba(32,68,52,0.06)]"
       >
         <button
           type="button"
           onClick={() => selectAdminTab("overview")}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
             activeTab === "overview"
-              ? "text-[#204434] font-bold"
-              : "text-[#526c50]/70 hover:text-[#204434]"
+              ? "bg-[#204434] text-[#FFFCF6] font-serif shadow-xs"
+              : "text-[#526c50] hover:text-[#204434]"
           }`}
         >
-          <BarChart3 className="w-5 h-5 stroke-[1.9]" />
+          <BarChart3 className="w-4.5 h-4.5 stroke-[1.9]" />
           <span className="text-[10px] mt-0.5">Tổng quan</span>
         </button>
 
         <button
           type="button"
           onClick={() => selectAdminTab("curriculum")}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
             activeTab === "curriculum"
-              ? "text-[#204434] font-bold"
-              : "text-[#526c50]/70 hover:text-[#204434]"
+              ? "bg-[#204434] text-[#FFFCF6] font-serif shadow-xs"
+              : "text-[#526c50] hover:text-[#204434]"
           }`}
         >
-          <BookOpen className="w-5 h-5 stroke-[1.8]" />
+          <BookOpen className="w-4.5 h-4.5 stroke-[1.8]" />
           <span className="text-[10px] mt-0.5">Giáo trình</span>
         </button>
 
         <button
           type="button"
           onClick={() => selectAdminTab("users")}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
             activeTab === "users"
-              ? "text-[#204434] font-bold"
-              : "text-[#526c50]/70 hover:text-[#204434]"
+              ? "bg-[#204434] text-[#FFFCF6] font-serif shadow-xs"
+              : "text-[#526c50] hover:text-[#204434]"
           }`}
         >
-          <Users className="w-5 h-5 stroke-[1.8]" />
+          <Users className="w-4.5 h-4.5 stroke-[1.8]" />
           <span className="text-[10px] mt-0.5">Tài khoản</span>
         </button>
 
         <button
           type="button"
           onClick={() => selectAdminTab("ai")}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
             activeTab === "ai"
-              ? "text-[#204434] font-bold"
-              : "text-[#526c50]/70 hover:text-[#204434]"
+              ? "bg-[#204434] text-[#FFFCF6] font-serif shadow-xs"
+              : "text-[#526c50] hover:text-[#204434]"
           }`}
         >
-          <Sparkles className="w-5 h-5 stroke-[1.8]" />
+          <Sparkles className="w-4.5 h-4.5 stroke-[1.8]" />
           <span className="text-[10px] mt-0.5">Trợ lý AI</span>
         </button>
 
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
-          className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[#526c50]/70 hover:text-[#204434] transition cursor-pointer"
+          className="flex flex-col items-center justify-center py-1 px-3 rounded-2xl text-[#526c50] hover:text-[#204434] transition cursor-pointer"
         >
-          <Menu className="w-5 h-5 stroke-[1.8]" />
-          <span className="text-[10px] mt-0.5">Menu</span>
+          <Menu className="w-4.5 h-4.5 stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Danh mục</span>
         </button>
       </nav>
     </div>

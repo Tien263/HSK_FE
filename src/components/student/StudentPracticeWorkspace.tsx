@@ -108,6 +108,27 @@ export default function StudentPracticeWorkspace({
   // State Quản lý Mức độ Ghi nhớ & Thống kê học tập
   const [memoryStats, setMemoryStats] = useState(() => getMemoryStats(currentUser?.id));
   const [weeklyMinutes, setWeeklyMinutes] = useState(() => getWeeklyStudyMinutes(currentUser?.id));
+  const [currentStreakVal, setCurrentStreakVal] = useState<number>(currentUser?.streakDays || 1);
+  const [currentXpVal, setCurrentXpVal] = useState<number>(currentUser?.totalXp || 50);
+
+  // Đồng bộ streak và XP realtime từ CSDL
+  useEffect(() => {
+    async function syncStreak() {
+      try {
+        const res = await fetch("/api/v1/my/summary");
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data?.student?.streakDays) {
+            setCurrentStreakVal(json.data.student.streakDays);
+          }
+          if (json?.data?.student?.totalXp !== undefined) {
+            setCurrentXpVal(json.data.student.totalXp);
+          }
+        }
+      } catch (err) {}
+    }
+    syncStreak();
+  }, [currentUser?.id]);
 
   // Thời gian học thực tế hôm nay & tuần này (tính theo giây, hiển thị phút/giờ động)
   const [isMounted, setIsMounted] = useState<boolean>(false);
@@ -245,8 +266,8 @@ export default function StudentPracticeWorkspace({
     }
   }, [activeMode, fetchWrongQuestions]);
 
-  const streak = currentUser?.streakDays || 1;
-  const xp = currentUser?.totalXp || 50;
+  const streak = currentStreakVal || currentUser?.streakDays || 1;
+  const xp = currentXpVal || currentUser?.totalXp || 50;
 
   // Resolved Lesson Content for Selected Lesson
   const currentOfficialLesson = useMemo(() => {
@@ -557,84 +578,86 @@ export default function StudentPracticeWorkspace({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button
-            onClick={() => setShowDailyQuestsModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-xs text-xs font-bold transition cursor-pointer"
-            title="Xem nhiệm vụ hàng ngày và chuỗi ngày học Streak"
-          >
-            <Flame className="w-4 h-4 fill-white" />
-            <span>Nhiệm vụ & Streak</span>
-          </button>
-
-          <button
-            onClick={() => setShowVocabNotebookModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
-            title="Mở Sổ tay từ vựng cá nhân & Thẻ Flashcard SRS Leitner 5 hộp"
-          >
-            <BookOpen className="w-4 h-4 text-[#204434]" />
-            <span>📖 Sổ từ vựng SRS</span>
-          </button>
-
-          <button
-            onClick={() => setShowMistakeNotebookModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-rose-300 hover:bg-rose-50 text-rose-800 shadow-2xs text-xs font-bold transition cursor-pointer"
-            title="Xem các câu hỏi đã làm sai và chế độ luyện phục hồi"
-          >
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
-            <span>🎯 Sổ câu sai</span>
-          </button>
-
-          <button
-            onClick={() => setShowHskRadarModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-800 shadow-2xs text-xs font-bold transition cursor-pointer"
-            title="Biểu đồ đa giác Radar 5 kỹ năng và dự đoán tỷ lệ đỗ HSK"
-          >
-            <TrendingUp className="w-4 h-4 text-indigo-600" />
-            <span>📊 Radar HSK</span>
-          </button>
-
-          <button
-            onClick={() => setShowAiDialogueModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
-            title="Luyện khẩu ngữ hội thoại 2 chiều và trò chuyện tự do có Từ Điển chấm điểm"
-          >
-            <Headphones className="w-4 h-4 text-[#BC9B6B]" />
-            <span>🎙️ Khẩu ngữ AI</span>
-          </button>
-
-          <button
-            onClick={() => setShowAiWritingModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
-            title="Sửa lỗi ngữ pháp, trật tự từ và chấm đoạn văn tiếng Trung kết nối Từ Điển"
-          >
-            <PenTool className="w-4 h-4 text-[#8F6D3B]" />
-            <span>✍️ Sửa viết AI</span>
-          </button>
-
-          <Link
-            href="/s/mock-exam"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white border border-[#BC9B6B]/60 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
-            title="Vào phòng thi thử mô phỏng HSK chuẩn quốc tế"
-          >
-            <Award className="w-4 h-4 text-[#8F6D3B]" />
-            <span>Thi thử HSK</span>
-          </Link>
-          <button
-            onClick={() => setShowLeaderboard(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-xs text-xs font-bold transition cursor-pointer"
-            title="Xem Bảng Vàng Thi Đua"
-          >
-            <Trophy className="w-4 h-4 fill-white" />
-            <span>Bảng vàng thi đua</span>
-          </button>
-          <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs text-xs font-semibold text-[#8F6D3B]">
-            <Flame className="w-4 h-4 text-[#9D493E] fill-[#9D493E]" />
-            <span>{streak} ngày liên tục</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Nhóm 1: Luyện AI & Thi thử (Chủ lực) */}
+          <div className="inline-flex items-center rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/35 p-1 shadow-2xs">
+            <button
+              onClick={() => setShowAiDialogueModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
+              title="Luyện khẩu ngữ hội thoại 2 chiều và trò chuyện tự do có Từ Điển chấm điểm"
+            >
+              <Headphones className="w-3.5 h-3.5 text-[#BC9B6B]" />
+              <span>Khẩu ngữ AI</span>
+            </button>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <button
+              onClick={() => setShowAiWritingModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
+              title="Sửa lỗi ngữ pháp, trật tự từ và chấm đoạn văn tiếng Trung kết nối Từ Điển"
+            >
+              <PenTool className="w-3.5 h-3.5 text-[#8F6D3B]" />
+              <span>Sửa viết AI</span>
+            </button>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <Link
+              href="/s/mock-exam"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
+              title="Vào phòng thi thử mô phỏng HSK chuẩn quốc tế"
+            >
+              <Award className="w-3.5 h-3.5 text-[#8F6D3B]" />
+              <span>Thi thử HSK</span>
+            </Link>
           </div>
-          <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs text-xs font-semibold text-[#204434]">
-            <Trophy className="w-4 h-4 text-[#BC9B6B]" />
-            <span>+{xp.toLocaleString()} XP</span>
+
+          {/* Nhóm 2: Sổ tay & Đánh giá năng lực */}
+          <div className="inline-flex items-center rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/35 p-1 shadow-2xs">
+            <button
+              onClick={() => setShowVocabNotebookModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
+              title="Mở Sổ tay từ vựng cá nhân & Thẻ Flashcard SRS Leitner 5 hộp"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-[#204434]" />
+              <span>Sổ từ vựng</span>
+            </button>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <button
+              onClick={() => setShowMistakeNotebookModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#9D493E] text-xs font-semibold transition cursor-pointer"
+              title="Xem các câu hỏi đã làm sai và chế độ luyện phục hồi"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-[#9D493E]" />
+              <span>Sổ câu sai</span>
+            </button>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <button
+              onClick={() => setShowHskRadarModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
+              title="Biểu đồ đa giác Radar 5 kỹ năng và dự đoán tỷ lệ đỗ HSK"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-[#315E48]" />
+              <span>Radar HSK</span>
+            </button>
+          </div>
+
+          {/* Nhóm 3: Chuỗi Streak & Bảng vàng */}
+          <div className="inline-flex items-center rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/35 p-1 shadow-2xs">
+            <button
+              onClick={() => setShowDailyQuestsModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#204434] text-[#FFFCF6] text-xs font-semibold hover:bg-[#183629] transition cursor-pointer shadow-2xs"
+              title="Xem nhiệm vụ hàng ngày và chuỗi ngày học Streak"
+            >
+              <Flame className="w-3.5 h-3.5 text-[#BC9B6B] fill-[#BC9B6B]" />
+              <span>{streak} ngày liên tục</span>
+            </button>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#8F6D3B] text-xs font-semibold transition cursor-pointer"
+              title="Xem Bảng Vàng Thi Đua"
+            >
+              <Trophy className="w-3.5 h-3.5 text-[#BC9B6B]" />
+              <span>+{xp.toLocaleString()} XP</span>
+            </button>
           </div>
         </div>
       </div>
