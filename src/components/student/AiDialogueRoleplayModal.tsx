@@ -99,10 +99,27 @@ export default function AiDialogueRoleplayModal({
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [autoListen, setAutoListen] = useState<boolean>(true);
   const autoListenRef = useRef<boolean>(true);
+  const [aiVoiceGender, setAiVoiceGender] = useState<"female" | "male">("female");
 
   useEffect(() => {
     autoListenRef.current = autoListen;
   }, [autoListen]);
+
+  // Nạp danh sách giọng đọc trình duyệt không đồng bộ
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.getVoices();
+      const handleVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.onvoiceschanged = handleVoices;
+      return () => {
+        if ("speechSynthesis" in window) {
+          window.speechSynthesis.onvoiceschanged = null;
+        }
+      };
+    }
+  }, []);
 
   const [currentSuggestions, setCurrentSuggestions] = useState<
     Array<{
@@ -165,13 +182,41 @@ export default function AiDialogueRoleplayModal({
   const currentLine = dialogueLines[currentLineIdx] || dialogueLines[0];
   const isMyTurn = currentLine && currentLine.speaker === myRole;
 
-  // Phát âm câu thoại qua Web SpeechSynthesis có callback khi đọc xong
+  // Phát âm câu thoại qua Web SpeechSynthesis ưu tiên các giọng Neural / Natural bản xứ cao cấp
   const speakText = (text: string, onEnd?: () => void) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
+      utterance.rate = 0.9; // Tốc độ đàm thoại tự nhiên của người bản xứ
+
+      const voices = window.speechSynthesis.getVoices();
+      const zhVoices = voices.filter((v) => /^zh/i.test(v.lang));
+
+      let selectedVoice = null;
+      if (aiVoiceGender === "female") {
+        // Ưu tiên giọng nữ tự nhiên chuẩn Bắc Kinh (Xiaoxiao, Yaoyao, Google)
+        selectedVoice =
+          zhVoices.find((v) => /xiaoxiao/i.test(v.name)) ||
+          zhVoices.find((v) => /natural|online|neural/i.test(v.name) && /female|xiaoxiao|yaoyao|huihui/i.test(v.name)) ||
+          zhVoices.find((v) => /google.*(cmn|zh|mandarin)/i.test(v.name)) ||
+          zhVoices.find((v) => /female|yaoyao|xiaoxiao/i.test(v.name)) ||
+          zhVoices.find((v) => /natural|online/i.test(v.name)) ||
+          zhVoices[0];
+      } else {
+        // Ưu tiên giọng nam ấm áp chuẩn phát thanh viên (Yunxi, Yunjian, Kangkang)
+        selectedVoice =
+          zhVoices.find((v) => /yunxi/i.test(v.name)) ||
+          zhVoices.find((v) => /natural|online|neural/i.test(v.name) && /male|yunxi|yunjian|kangkang/i.test(v.name)) ||
+          zhVoices.find((v) => /male|yunxi|yunjian/i.test(v.name)) ||
+          zhVoices.find((v) => /natural|online/i.test(v.name)) ||
+          zhVoices[0];
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
       if (onEnd) {
         utterance.onend = () => onEnd();
         utterance.onerror = () => onEnd();
@@ -529,6 +574,16 @@ export default function AiDialogueRoleplayModal({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
+                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
+                  title="Đổi giọng đọc AI (Giọng Nữ Xiaoxiao / Giọng Nam Yunxi)"
+                >
+                  <Volume2 className="w-3 h-3 text-amber-600" />
+                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Tiểu Ngữ)" : "Nam (Tiểu Hi)"}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setAutoListen((prev) => !prev)}
                   className={`px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
                     autoListen
@@ -691,6 +746,16 @@ export default function AiDialogueRoleplayModal({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
+                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
+                  title="Đổi giọng đọc AI (Giọng Nữ Xiaoxiao / Giọng Nam Yunxi)"
+                >
+                  <Volume2 className="w-3 h-3 text-amber-600" />
+                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Tiểu Ngữ)" : "Nam (Tiểu Hi)"}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setAutoListen((prev) => !prev)}
