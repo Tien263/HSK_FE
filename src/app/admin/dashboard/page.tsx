@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import CurriculumBuilderWorkspace from "@/components/admin/CurriculumBuilderWorkspace";
+import AvatarUpload from "@/components/common/AvatarUpload";
 import {
   Users,
   UserPlus,
+  User,
   Shield,
   ShieldCheck,
   GraduationCap,
@@ -49,6 +51,7 @@ interface UserItem {
   username: string;
   email: string | null;
   name: string;
+  avatar?: string | null;
   role: "STUDENT" | "TEACHER" | "ADMIN";
   status: "ACTIVE" | "LOCKED" | "INACTIVE";
   currentHskLevel: number;
@@ -88,9 +91,21 @@ export default function AdminDashboardPage() {
   // State
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum"
+    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum" | "profile"
   >("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Admin Profile & Security State
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminAvatar, setAdminAvatar] = useState("");
+  const [adminPhone, setAdminPhone] = useState("");
+  const [adminBio, setAdminBio] = useState("");
+  const [savingAdminProfile, setSavingAdminProfile] = useState(false);
+
+  const [adminNewPassword, setAdminNewPassword] = useState("");
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState("");
+  const [changingAdminPassword, setChangingAdminPassword] = useState(false);
 
   function selectAdminTab(tab: typeof activeTab) {
     setActiveTab(tab);
@@ -100,7 +115,7 @@ export default function AdminDashboardPage() {
     window.history.replaceState(null, "", url);
   }
   useEffect(() => {
-    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum"].includes(tab)) setActiveTab(tab as typeof activeTab); };
+    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum","profile"].includes(tab)) setActiveTab(tab as typeof activeTab); };
     const timer = setTimeout(sync, 0); window.addEventListener("hashchange", sync);
     return () => { clearTimeout(timer); window.removeEventListener("hashchange", sync); };
   }, []);
@@ -249,17 +264,128 @@ export default function AdminDashboardPage() {
     } catch {}
   };
 
+  // Tải thông tin hồ sơ Admin từ API & LocalStorage
+  const fetchAdminProfile = async () => {
+    try {
+      const res = await fetch("/api/v1/profile");
+      const data = await res.json();
+      if (data.success && data.user) {
+        setCurrentUser(data.user);
+        setAdminName(data.user.name || "");
+        setAdminEmail(data.user.email || "");
+        setAdminAvatar(data.user.avatar || "");
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+
+        try {
+          const extraRaw = localStorage.getItem(`hsk_admin_extra_${data.user.id}`);
+          if (extraRaw) {
+            const extra = JSON.parse(extraRaw);
+            if (extra.phone) setAdminPhone(extra.phone);
+            if (extra.bio) setAdminBio(extra.bio);
+          } else {
+            setAdminBio("Quản trị viên tối cao hệ thống HSK Hanyu. Điều hành lớp học, kiểm duyệt học liệu và bảo mật toàn diện.");
+          }
+        } catch {}
+      }
+    } catch (e) {
+      console.warn("Could not fetch admin profile:", e);
+    }
+  };
+
   // Kiểm tra phiên đăng nhập admin
   useEffect(() => {
     fetchSmtpConfig();
+    fetchAdminProfile();
     const stored = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         setCurrentUser(parsed);
+        if (parsed.name) setAdminName(parsed.name);
+        if (parsed.email) setAdminEmail(parsed.email);
+        if (parsed.avatar) setAdminAvatar(parsed.avatar);
       } catch (e) {}
     }
   }, []);
+
+  // Lưu thông tin hồ sơ Admin
+  const handleSaveAdminProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminName.trim()) {
+      showToast("Vui lòng nhập họ và tên quản trị viên", "error");
+      return;
+    }
+
+    setSavingAdminProfile(true);
+    try {
+      const res = await fetch("/api/v1/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: adminName.trim(),
+          email: adminEmail.trim(),
+          avatar: adminAvatar.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        setCurrentUser(data.user);
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+        if (data.user.id) {
+          localStorage.setItem(
+            `hsk_admin_extra_${data.user.id}`,
+            JSON.stringify({ phone: adminPhone, bio: adminBio })
+          );
+        }
+        showToast("Đã cập nhật hồ sơ & ảnh đại diện Quản trị viên thành công!", "success");
+        fetchUsers(true);
+      } else {
+        showToast(data.message || "Không thể lưu thông tin hồ sơ.", "error");
+      }
+    } catch (err: any) {
+      showToast("Lỗi kết nối khi cập nhật hồ sơ: " + err.message, "error");
+    } finally {
+      setSavingAdminProfile(false);
+    }
+  };
+
+  // Đổi mật khẩu tài khoản Admin
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminNewPassword || adminNewPassword.length < 6) {
+      showToast("Mật khẩu mới phải từ 6 ký tự trở lên", "error");
+      return;
+    }
+    if (adminNewPassword !== adminConfirmPassword) {
+      showToast("Xác nhận mật khẩu mới không khớp", "error");
+      return;
+    }
+
+    setChangingAdminPassword(true);
+    try {
+      const res = await fetch("/api/v1/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser?.id,
+          action: "RESET_PASSWORD",
+          newPassword: adminNewPassword,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Đã đổi mật khẩu Quản trị viên thành công!", "success");
+        setAdminNewPassword("");
+        setAdminConfirmPassword("");
+      } else {
+        showToast(data.message || "Đổi mật khẩu thất bại.", "error");
+      }
+    } catch (err: any) {
+      showToast("Lỗi máy chủ khi đổi mật khẩu.", "error");
+    } finally {
+      setChangingAdminPassword(false);
+    }
+  };
 
   // Tải danh sách người dùng
   const fetchUsers = async (isBackground = false) => {
@@ -586,6 +712,7 @@ export default function AdminDashboardPage() {
               { id: "overview", label: "Tổng quan", icon: BarChart3 },
               { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
               { id: "users", label: "Tài khoản & phân quyền", icon: Users },
+              { id: "profile", label: "Hồ sơ & Tài khoản của tôi", icon: User },
               { id: "ai", label: "Trợ lý AI", icon: Sparkles },
               { id: "otp", label: "Xác thực OTP", icon: Mail },
               { id: "smtp", label: "Cấu hình email", icon: Server },
@@ -623,21 +750,45 @@ export default function AdminDashboardPage() {
             Thư viện media
           </Link>
         </nav>
-        <div className="relative m-4 rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6]/90 p-4">
-          <p className="flex items-center gap-2 text-xs font-bold">
-            <ShieldCheck size={16} />
-            {currentUser?.name || "Quản trị viên"}
-          </p>
-          <p className="mt-2 text-[10px] text-[#7e8b71]">
-            Chăm chút học liệu · Nuôi dưỡng tri thức
-          </p>
-          <button
-            onClick={handleLogout}
-            className="mt-4 flex items-center gap-2 text-xs text-[#9D493E] hover:underline cursor-pointer"
-          >
-            <LogOut size={13} />
-            Đăng xuất
-          </button>
+        <div
+          onClick={() => selectAdminTab("profile")}
+          className="relative m-4 rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6]/95 p-3.5 shadow-xs cursor-pointer hover:border-[#204434] transition group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#BC9B6B] bg-[#204434] text-[#FAF7F0] flex items-center justify-center font-bold text-sm shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+              {currentUser?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={currentUser.avatar} alt="Admin" className="w-full h-full object-cover" />
+              ) : (
+                <span>{currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "A"}</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <strong className="block truncate text-xs text-[#204434]">
+                {currentUser?.name || "Quản trị viên"}
+              </strong>
+              <small className="block truncate text-[10px] text-[#315E48]">
+                {currentUser?.email || `@${currentUser?.username || "admin"}`}
+              </small>
+            </div>
+          </div>
+          <div className="mt-2.5 pt-2 border-t border-[#E5DEC9]/60 flex items-center justify-between text-[11px]">
+            <span className="text-[#315E48] font-medium group-hover:text-[#204434] flex items-center gap-1">
+              <Settings size={12} />
+              <span>Hồ sơ Admin</span>
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLogout();
+              }}
+              className="text-[#9D493E] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <LogOut size={11} />
+              <span>Đăng xuất</span>
+            </button>
+          </div>
         </div>
       </aside>
       {/* Toast Notification */}
@@ -690,15 +841,31 @@ export default function AdminDashboardPage() {
 
           {/* User Info & Actions */}
           <div className="flex items-center gap-2 sm:gap-4">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#204434]/5 border border-[#BC9B6B]/20 text-xs">
-              <ShieldCheck className="w-4 h-4 text-[#BC9B6B]" />
-              <span className="font-semibold text-[#204434]">
-                {currentUser?.name || "Quản trị viên Hệ thống"}
-              </span>
-              <span className="px-1.5 py-0.5 rounded bg-[#204434] text-[#FFFCF6] text-[10px] font-bold">
-                QUẢN TRỊ VIÊN
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => selectAdminTab("profile")}
+              className="flex items-center gap-2.5 p-1 pr-3 rounded-2xl bg-[#204434]/5 border border-[#BC9B6B]/25 hover:border-[#204434] hover:bg-[#204434]/10 transition shadow-2xs group cursor-pointer"
+              title="Mở hồ sơ & cài đặt tài khoản Quản trị viên"
+            >
+              <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#BC9B6B] bg-[#204434] text-[#FAF7F0] flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                {currentUser?.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={currentUser.avatar} alt="Admin" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "A"}</span>
+                )}
+              </div>
+              <div className="text-left hidden sm:block">
+                <div className="font-bold text-xs text-[#204434] flex items-center gap-1.5 leading-tight">
+                  <span className="max-w-[130px] truncate">{currentUser?.name || "Quản trị viên"}</span>
+                  <span className="px-1.5 py-0.2 rounded bg-[#204434] text-[#FFFCF6] text-[9px] font-bold">
+                    ADMIN
+                  </span>
+                </div>
+                <div className="text-[10px] text-[#315E48] leading-tight">Hồ sơ & Tài khoản</div>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-[#8F6D3B] group-hover:translate-y-0.5 transition-transform hidden sm:block" />
+            </button>
 
             <Link
               href="/s/home"
@@ -835,6 +1002,18 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
+              onClick={() => selectAdminTab("profile")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "profile"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>Hồ sơ Admin</span>
+            </button>
+
+            <button
               onClick={() => selectAdminTab("ai")}
               className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === "ai"
@@ -915,6 +1094,63 @@ export default function AdminDashboardPage() {
         {/* =================================================================== */}
         {activeTab === "overview" && (
           <div className="space-y-6">
+            {/* Thẻ danh thiếp Quản trị viên Thủy Mặc */}
+            <div className="bg-[#FFFDF9] border border-[#BC9B6B]/30 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-5 relative overflow-hidden">
+              <div
+                className="absolute right-0 top-0 w-80 h-full opacity-10 pointer-events-none bg-cover bg-right"
+                style={{ backgroundImage: `url('/theme/phong_canh_thuy_mac_ben_ho_suong_som.jpg')` }}
+              />
+              <div className="flex items-center gap-4 z-10">
+                <div className="relative group shrink-0">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#BC9B6B] ring-4 ring-[#FAF7F0] shadow-md bg-[#204434] text-[#FAF7F0] flex items-center justify-center font-bold text-xl">
+                    {currentUser?.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={currentUser.avatar} alt="Admin" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "A"}</span>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#9E2A2B] text-white flex items-center justify-center text-[10px] font-serif font-bold border border-white shadow-2xs">
+                    令
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#7A5B2E] font-bold uppercase tracking-wider">
+                      Quản trị viên tối cao
+                    </span>
+                    <span className="text-[11px] text-[#8F6D3B] font-mono">
+                      @{currentUser?.username || "admin"}
+                    </span>
+                  </div>
+                  <h3 className="font-serif font-bold text-lg text-[#204434] mt-0.5">
+                    Kính chào, {currentUser?.name || "Quản trị viên"}!
+                  </h3>
+                  <p className="text-xs text-[#526c50] mt-0.5">
+                    Hệ thống HSK Hanyu đang vận hành ổn định. Chúc bạn một ngày làm việc hiệu quả và an nhiên.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 z-10 shrink-0 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => selectAdminTab("profile")}
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <User className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                  <span>Hồ sơ & Đổi ảnh đại diện</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectAdminTab("users")}
+                  className="px-4 py-2 rounded-xl bg-[#FAF7F0] hover:bg-[#F3EEDD] border border-[#BC9B6B]/40 text-[#204434] text-xs font-semibold shadow-2xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                  <span>Quản lý tài khoản</span>
+                </button>
+              </div>
+            </div>
             {/* System Health Status Banner */}
             <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-5 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#BC9B6B]/20">
@@ -1274,15 +1510,24 @@ export default function AdminDashboardPage() {
                             <td className="py-3.5 px-4">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-[#FFFCF6] shrink-0 ${
+                                  className={`w-10 h-10 rounded-full overflow-hidden border-2 flex items-center justify-center font-bold text-sm text-[#FFFCF6] shrink-0 shadow-2xs ${
                                     u.role === "ADMIN"
-                                      ? "bg-[#BC9B6B]"
+                                      ? "border-[#BC9B6B] bg-[#BC9B6B]"
                                       : u.role === "TEACHER"
-                                      ? "bg-[#9D493E]"
-                                      : "bg-[#204434]"
+                                      ? "border-[#9D493E] bg-[#9D493E]"
+                                      : "border-[#204434] bg-[#204434]"
                                   }`}
                                 >
-                                  {u.name ? u.name.charAt(0).toUpperCase() : "U"}
+                                  {u.avatar ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={u.avatar}
+                                      alt={u.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <span>{u.name ? u.name.charAt(0).toUpperCase() : "U"}</span>
+                                  )}
                                 </div>
                                 <div>
                                   <div className="font-semibold text-[#204434] flex items-center gap-1.5">
@@ -2235,6 +2480,288 @@ export default function AdminDashboardPage() {
         {/* TAB 4: CURRICULUM & LESSON BUILDER */}
         {activeTab === "curriculum" && (
           <CurriculumBuilderWorkspace showToast={showToast} />
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 5: ADMIN PROFILE & SECURITY SETTINGS */}
+        {/* =================================================================== */}
+        {activeTab === "profile" && (
+          <div className="space-y-6 max-w-4xl mx-auto pb-12">
+            {/* 1. HERO BANNER THỦY MẶC QUẢN TRỊ VIÊN */}
+            <div className="relative overflow-hidden rounded-3xl border border-[#BC9B6B]/40 bg-[#163325] text-[#FAF7F0] shadow-md">
+              <div
+                className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity"
+                style={{ backgroundImage: `url('/theme/phong_canh_thuy_mac_ben_ho_suong_som.jpg')` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#163325]/95 via-[#163325]/85 to-[#163325]/60" />
+
+              <div className="relative z-10 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-xl">
+                  <div className="flex items-center gap-3">
+                    {/* Ấn triện đỏ chu sa Tổng Quản */}
+                    <div className="w-10 h-10 rounded-lg bg-[#9E2A2B] text-white flex items-center justify-center font-serif font-bold text-base shadow-md border border-[#F2C94C]/50 shrink-0">
+                      令
+                    </div>
+                    <div>
+                      <span className="text-[10px] tracking-[0.2em] uppercase font-bold text-[#BC9B6B] block">
+                        SUPER ADMIN PROFILE · 超级管理员档案
+                      </span>
+                      <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#FFFDF9] tracking-tight">
+                        Hồ sơ Quản trị viên Tối cao
+                      </h1>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-[#E3DFD5]/90 font-light leading-relaxed italic pt-1">
+                    “以德服人，以智治理” — Dùng đức thu phục lòng người, dùng trí trị vì đại nghiệp.
+                  </p>
+                </div>
+
+                <div className="hidden sm:flex flex-col items-end gap-1.5 text-right shrink-0">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF7F0]/10 border border-[#BC9B6B]/40 backdrop-blur-xs text-[#FAF7F0] text-xs font-serif">
+                    <ShieldCheck className="w-4 h-4 text-[#F2C94C]" />
+                    <span>Toàn quyền Quản trị Hệ thống</span>
+                  </div>
+                  <span className="text-[11px] text-[#BC9B6B] font-mono">
+                    Root User: @{currentUser?.username || "admin"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. KHUNG HỒ SƠ CHÍNH PHONG CÁCH TUYÊN CHỈ */}
+            <div className="rounded-3xl border border-[#E5DEC9] bg-[#FFFDF9] p-6 sm:p-9 shadow-sm relative overflow-hidden space-y-8">
+              <div
+                className="absolute -right-10 -bottom-10 w-64 h-64 opacity-5 pointer-events-none bg-contain bg-no-repeat"
+                style={{ backgroundImage: `url('/theme/clean-bamboo-branch.svg')` }}
+              />
+
+              {/* KHỐI A: CHÂN DUNG & ẢNH ĐẠI DIỆN CLOUDINARY */}
+              <div className="p-6 rounded-2xl bg-[#FAF7F0]/80 border border-[#E5DEC9] relative">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#E5DEC9]/70">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                    <h2 className="font-serif font-bold text-sm text-[#204434] uppercase tracking-wider">
+                      Ảnh đại diện & Nhận diện Quản trị viên
+                    </h2>
+                  </div>
+                  <span className="text-[11px] font-serif text-[#8F6D3B] italic">
+                    Lưu trữ an toàn trên Đám mây Cloudinary CDN
+                  </span>
+                </div>
+
+                <AvatarUpload
+                  value={adminAvatar}
+                  onChange={(url) => setAdminAvatar(url)}
+                  folder="hsk_avatars"
+                  fallbackUrl="/theme/avatar-teacher.jpg"
+                  size="xl"
+                  label="Ảnh chân dung đại diện (Avatar)"
+                  subtext="Nhấp trực tiếp vào ảnh hoặc nút để chọn ảnh chân dung mới từ máy tính. Ảnh sẽ hiển thị tại Header, thanh điều hướng và nhật ký quản trị toàn hệ thống."
+                />
+              </div>
+
+              {/* KHỐI B: THÔNG TIN ĐỊNH DANH & LIÊN LẠC QUẢN TRỊ */}
+              <form onSubmit={handleSaveAdminProfile} className="space-y-6">
+                <div className="flex items-center gap-2 pb-1 border-b border-[#E5DEC9]/70">
+                  <User className="w-4 h-4 text-[#BC9B6B]" />
+                  <h2 className="font-serif font-bold text-sm text-[#204434] uppercase tracking-wider">
+                    Thông tin định danh Quản trị viên
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Tên đăng nhập */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5 flex items-center justify-between">
+                      <span>Tên đăng nhập hệ thống</span>
+                      <span className="text-[10px] text-[#8F6D3B] font-normal italic">(Cố định - Super Admin)</span>
+                    </label>
+                    <div className="flex items-center gap-2 bg-[#F3EFE6] border border-[#E5DEC9] rounded-xl px-3.5 py-2.5 text-xs text-[#526058] font-mono">
+                      <Shield className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                      <span>@{currentUser?.username || "admin"}</span>
+                    </div>
+                  </div>
+
+                  {/* Vai trò */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                      Đặc quyền hệ thống
+                    </label>
+                    <div className="bg-[#F3EFE6] border border-[#E5DEC9] rounded-xl px-3.5 py-2.5 text-xs text-[#204434] font-bold flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                      <span>Tổng quản trị viên (SUPER ADMIN - Toàn quyền)</span>
+                    </div>
+                  </div>
+
+                  {/* Họ và tên hiển thị */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                      Họ và tên Quản trị viên <span className="text-[#9E2A2B]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={200}
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
+                      placeholder="Ví dụ: Nguyễn Thảo (Quản trị viên)"
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] focus:border-[#204434] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs text-[#204434] transition outline-hidden shadow-2xs font-medium"
+                    />
+                  </div>
+
+                  {/* Email liên hệ */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                      Địa chỉ Email chính thức
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-[#8F6D3B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="email"
+                        maxLength={300}
+                        value={adminEmail}
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                        placeholder="admin@hskedu.vn"
+                        className="w-full pl-9 pr-3.5 py-2.5 bg-[#FAF7F0] border border-[#E5DEC9] focus:border-[#204434] focus:bg-white rounded-xl text-xs text-[#204434] transition outline-hidden shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Hotline */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                      Số điện thoại / Hotline điều hành
+                    </label>
+                    <input
+                      type="tel"
+                      maxLength={50}
+                      value={adminPhone}
+                      onChange={(e) => setAdminPhone(e.target.value)}
+                      placeholder="0987 654 321"
+                      className="w-full px-3.5 py-2.5 bg-[#FAF7F0] border border-[#E5DEC9] focus:border-[#204434] focus:bg-white rounded-xl text-xs text-[#204434] transition outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Chức vụ */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                      Chức vụ điều hành
+                    </label>
+                    <div className="bg-[#F3EFE6] border border-[#E5DEC9] rounded-xl px-3.5 py-2.5 text-xs text-[#315E48] font-medium">
+                      Tổng quản lý học liệu & vận hành Hanyu LMS
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ghi chú quản trị */}
+                <div>
+                  <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                    Lời mở đầu / Ghi chú phương châm quản trị
+                  </label>
+                  <textarea
+                    rows={2}
+                    maxLength={500}
+                    value={adminBio}
+                    onChange={(e) => setAdminBio(e.target.value)}
+                    placeholder="Ghi chú điều hành hệ thống..."
+                    className="w-full bg-[#FAF7F0] border border-[#E5DEC9] focus:border-[#204434] focus:bg-white rounded-xl p-3 text-xs text-[#204434] transition outline-hidden shadow-2xs leading-relaxed"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingAdminProfile}
+                    className="px-7 py-3 rounded-2xl bg-gradient-to-r from-[#204434] to-[#153325] hover:from-[#17382B] hover:to-[#0F261C] text-[#FFFDF9] text-xs font-bold transition-all shadow-md hover:shadow-lg cursor-pointer disabled:opacity-50 flex items-center gap-2 group"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#F2C94C] group-hover:rotate-12 transition-transform" />
+                    <span>{savingAdminProfile ? "Đang lưu trữ..." : "Lưu thay đổi hồ sơ Admin (保存档案)"}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* KHỐI C: BẢO MẬT & ĐỔI MẬT KHẨU TÀI KHOẢN ADMIN */}
+              <form onSubmit={handleChangeAdminPassword} className="space-y-4 pt-6 border-t border-[#E5DEC9]">
+                <div className="flex items-center gap-2 pb-1 border-b border-[#E5DEC9]/70">
+                  <KeyRound className="w-4 h-4 text-[#9E2A2B]" />
+                  <h2 className="font-serif font-bold text-sm text-[#204434] uppercase tracking-wider">
+                    Bảo mật & Đổi mật khẩu Quản trị viên
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                      Mật khẩu mới (Tối thiểu 6 ký tự) <span className="text-[#9E2A2B]">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={adminNewPassword}
+                      onChange={(e) => setAdminNewPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu mới an toàn..."
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] focus:border-[#204434] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs text-[#204434] transition outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#204434] mb-1.5">
+                      Xác nhận lại mật khẩu mới <span className="text-[#9E2A2B]">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={adminConfirmPassword}
+                      onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới..."
+                      className="w-full bg-[#FAF7F0] border border-[#E5DEC9] focus:border-[#204434] focus:bg-white rounded-xl px-3.5 py-2.5 text-xs text-[#204434] transition outline-hidden shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={changingAdminPassword}
+                    className="px-6 py-2.5 rounded-xl bg-[#9E2A2B] hover:bg-[#831F20] text-white text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>{changingAdminPassword ? "Đang đổi mật khẩu..." : "Cập nhật mật khẩu Quản trị viên"}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* KHỐI D: BẢNG CHỈ SỐ ĐẶC QUYỀN TOÀN HỆ THỐNG */}
+              <div className="pt-6 border-t border-[#E5DEC9] space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#204434]">
+                  <BarChart3 className="w-4 h-4 text-[#BC9B6B]" />
+                  <span>Tổng quan năng lực vận hành hệ thống</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-center">
+                    <span className="block text-xl font-bold font-serif text-[#204434]">{stats.totalUsers}</span>
+                    <span className="text-[11px] text-[#526058]">Tài khoản hệ thống</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-center">
+                    <span className="block text-xl font-bold font-serif text-[#204434]">{stats.totalClasses || 0}</span>
+                    <span className="text-[11px] text-[#526058]">Lớp học HSK</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-center">
+                    <span className="block text-xl font-bold font-serif text-emerald-800">Hoạt động</span>
+                    <span className="text-[11px] text-[#526058]">PostgreSQL & CDN</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-center">
+                    <span className="block text-xl font-bold font-serif text-[#7A5B2E]">Sẵn sàng</span>
+                    <span className="text-[11px] text-[#526058]">AI & SMTP Gateway</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
 

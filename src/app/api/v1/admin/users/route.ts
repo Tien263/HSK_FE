@@ -28,6 +28,7 @@ export async function GET(request: Request) {
         username: true,
         email: true,
         name: true,
+        avatar: true,
         role: true,
         status: true,
         currentHskLevel: true,
@@ -252,6 +253,26 @@ export async function PATCH(request: Request) {
       return NextResponse.json({
         success: true,
         message: `Đã cập nhật quyền thành ${newRole} cho tài khoản ${user.username}!`,
+      });
+    }
+
+    // Update Profile (Name, Email, Avatar)
+    if (action === "UPDATE_PROFILE") {
+      const { name, email, avatar } = body;
+      const dataToUpdate: any = {};
+      if (typeof name === "string" && name.trim()) dataToUpdate.name = name.trim();
+      if (typeof email === "string") dataToUpdate.email = email.trim() || null;
+      if (typeof avatar === "string") dataToUpdate.avatar = avatar.trim() || null;
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: dataToUpdate,
+        select: { id: true, name: true, username: true, email: true, avatar: true, role: true },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Đã cập nhật thông tin tài khoản ${user.username}!`,
+        user: updated,
       });
     }
 
