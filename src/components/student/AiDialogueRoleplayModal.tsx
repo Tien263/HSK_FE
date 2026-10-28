@@ -20,8 +20,244 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Target,
+  Trophy,
+  Flame,
+  ChevronRight,
 } from "lucide-react";
 import { LessonDialogueLine } from "@/lib/hsk1-full-lessons";
+
+export interface RoleplayScenario {
+  id: string;
+  title: string;
+  badge: string;
+  icon: string;
+  level: string;
+  description: string;
+  aiRole: string;
+  studentRole: string;
+  initialGreeting: {
+    zh: string;
+    pinyin: string;
+    vi: string;
+  };
+  missions: Array<{
+    id: number;
+    title: string;
+    description: string;
+    hintZh: string;
+    hintPinyin: string;
+    hintVi: string;
+  }>;
+}
+
+export const ROLEPLAY_SCENARIOS: RoleplayScenario[] = [
+  {
+    id: "haidilao",
+    title: "Gọi món tại Nhà hàng Lẩu Haidilao",
+    badge: "Ẩm thực đời sống",
+    icon: "🍲",
+    level: "HSK 1 - 2",
+    description: "Bạn vừa bước vào nhà hàng lẩu, phục vụ niềm nở đón tiếp. Hãy chọn bàn, gọi nước lẩu, món thịt và thanh toán.",
+    aiRole: "Phục vụ Haidilao (服务员小王)",
+    studentRole: "Thực khách đi ăn lẩu (顾客)",
+    initialGreeting: {
+      zh: "您好！欢迎光临海底捞！请问您一共几位？想坐靠窗的位置吗？",
+      pinyin: "Nǐ hǎo! Huānyíng guānglín Hǎidǐlāo! Qǐngwèn nín yígòng jǐ wèi? Xiǎng zuò kào chuāng de wèizhì ma?",
+      vi: "Chào quý khách! Hoan nghênh đến với Haidilao! Xin hỏi quý khách đi mấy người ạ? Quý khách muốn ngồi bàn gần cửa sổ không?",
+    },
+    missions: [
+      {
+        id: 1,
+        title: "Báo số lượng người đi ăn",
+        description: "Chào phục vụ và nói bạn đi 2 người (hoặc 3 người)",
+        hintZh: "你好，我们两个人，请问有空位吗？",
+        hintPinyin: "Nǐ hǎo, wǒmen liǎng gè rén, qǐngwèn yǒu kòngwèi ma?",
+        hintVi: "Chào bạn, chúng tôi đi 2 người, xin hỏi có chỗ trống không?",
+      },
+      {
+        id: 2,
+        title: "Chọn nước lẩu và gọi thịt",
+        description: "Gọi nước lẩu cà chua/ít cay và 1 đĩa thịt bò",
+        hintZh: "我们要番茄锅底，还要一份牛肉。",
+        hintPinyin: "Wǒmen yào fānqié guōdǐ, hái yào yí fèn niúròu.",
+        hintVi: "Chúng tôi muốn nước lẩu cà chua, và thêm một phần thịt bò.",
+      },
+      {
+        id: 3,
+        title: "Xin hóa đơn và thanh toán",
+        description: "Gọi thanh toán và hỏi có dùng WeChat Pay được không",
+        hintZh: "服务员，买单！可以微信支付吗？",
+        hintPinyin: "Fúwùyuán, mǎidān! Kěyǐ Wēixìn zhīfù ma?",
+        hintVi: "Phục vụ ơi tính tiền! Có thể thanh toán bằng WeChat được không?",
+      },
+    ],
+  },
+  {
+    id: "night_market",
+    title: "Mua sắm & Trả giá ở Chợ đêm",
+    badge: "Mua sắm du lịch",
+    icon: "🛍️",
+    level: "HSK 2 - 3",
+    description: "Bạn dạo chợ đêm thấy một chiếc áo rất đẹp. Hãy bắt chuyện với chủ sạp, hỏi giá, mặc cả khéo léo để mua được giá tốt.",
+    aiRole: "Chủ sạp hàng vui tính (热情摊主)",
+    studentRole: "Khách du lịch khéo mặc cả (游客)",
+    initialGreeting: {
+      zh: "帅哥/美女，来看一看啊！最新款的纯棉短袖，今天刚到的新货！你喜欢哪一件？",
+      pinyin: "Shuàigē / měinǚ, lái kàn yí kàn a! Zuì xīn kuǎn de chúnmián duǎnxiù, jīntiān gāng dào de xīn huò! Nǐ xǐhuan nǎ yí jiàn?",
+      vi: "Anh đẹp trai / Người đẹp ơi lại xem đi! Áo ngắn tay cotton mẫu mới nhất, hàng vừa về hôm nay! Bạn thích chiếc nào?",
+    },
+    missions: [
+      {
+        id: 1,
+        title: "Hỏi giá chiếc áo",
+        description: "Hỏi người bán xem chiếc áo này giá bao nhiêu tiền",
+        hintZh: "老板，这件衣服多少钱一件？",
+        hintPinyin: "Lǎobǎn, zhè jiàn yīfu duōshao qián yí jiàn?",
+        hintVi: "Ông chủ ơi, chiếc áo này bao nhiêu tiền một chiếc?",
+      },
+      {
+        id: 2,
+        title: "Chê đắt và xin bớt giá",
+        description: "Nói giá hơi đắt và đề nghị bớt một chút (ví dụ 50 tệ)",
+        hintZh: "太贵了，便宜一点儿吧！五十块行不行？",
+        hintPinyin: "Tài guì le, piányi yìdiǎnr ba! Wǔshí kuài xíng bu xíng?",
+        hintVi: "Đắt quá, bớt chút đi ông chủ! 50 tệ được không?",
+      },
+      {
+        id: 3,
+        title: "Chốt mua chiếc áo",
+        description: "Đồng ý mua và cảm ơn chủ quán",
+        hintZh: "好的，那我要这一件，谢谢老板！",
+        hintPinyin: "Hǎo de, nà wǒ yào zhè yí jiàn, xièxie lǎobǎn!",
+        hintVi: "Được rồi, thế tôi lấy chiếc này, cảm ơn ông chủ!",
+      },
+    ],
+  },
+  {
+    id: "taxi_airport",
+    title: "Bắt Taxi ra Sân bay Bắc Kinh",
+    badge: "Giao thông đi lại",
+    icon: "🚕",
+    level: "HSK 2 - 3",
+    description: "Bạn cần ra sân bay Đại Hưng để kịp chuyến bay. Hãy nói điểm đến cho bác tài, hỏi thời gian và yêu cầu hóa đơn.",
+    aiRole: "Bác tài xế Bắc Kinh thân thiện (出租车师傅)",
+    studentRole: "Hành khách ra sân bay (赶飞机的乘客)",
+    initialGreeting: {
+      zh: "您好！上车请系好安全带。请问您去哪儿啊？",
+      pinyin: "Nǐ hǎo! Shàng chē qǐng jì hǎo ānquándài. Qǐngwèn nín qù nǎr a?",
+      vi: "Chào quý khách! Lên xe xin thắt dây an toàn. Xin hỏi quý khách đi đâu ạ?",
+    },
+    missions: [
+      {
+        id: 1,
+        title: "Nói rõ điểm đến",
+        description: "Nói với tài xế bạn muốn đi sân bay Đại Hưng",
+        hintZh: "师傅，我去北京大兴机场，飞机两点起飞。",
+        hintPinyin: "Shīfu, wǒ qù Běijīng Dàxīng Jīchǎng, fēijī liǎng diǎn qǐfēi.",
+        hintVi: "Bác tài ơi, tôi đi sân bay Đại Hưng Bắc Kinh, máy bay cất cánh lúc 2 giờ.",
+      },
+      {
+        id: 2,
+        title: "Hỏi thời gian và xin đi cao tốc",
+        description: "Hỏi đi mất bao lâu và xin chạy đường cao tốc cho nhanh",
+        hintZh: "大概要多长时间？能走高速公路吗？",
+        hintPinyin: "Dàgài yào duō cháng shíjiān? Néng zǒu gāosù gōnglù ma?",
+        hintVi: "Mất khoảng bao lâu thế bác? Có thể đi đường cao tốc được không?",
+      },
+      {
+        id: 3,
+        title: "Trả tiền và lấy hóa đơn",
+        description: "Đưa tiền cho tài xế và xin hóa đơn",
+        hintZh: "师傅，给你一百块，请给我发票，谢谢！",
+        hintPinyin: "Shīfu, gěi nǐ yìbǎi kuài, qǐng gěi wǒ fāpiào, xièxie!",
+        hintVi: "Bác tài ơi gửi bác 100 tệ, làm ơn cho cháu xin hóa đơn, cảm ơn bác!",
+      },
+    ],
+  },
+  {
+    id: "hotel_checkin",
+    title: "Check-in & Đổi phòng ở Khách sạn",
+    badge: "Khách sạn du lịch",
+    icon: "🏨",
+    level: "HSK 3 - 4",
+    description: "Bạn đến khách sạn nhận phòng đã đặt online, sau đó phát hiện phòng cạnh đường lớn bị ồn và nhờ lễ tân đổi phòng yên tĩnh hơn.",
+    aiRole: "Lễ tân khách sạn (酒店前台小李)",
+    studentRole: "Khách nhận phòng (预订房客)",
+    initialGreeting: {
+      zh: "您好，欢迎光临希尔顿酒店！请问您有预订吗？请出示一下您的护照。",
+      pinyin: "Nǐ hǎo, huānyíng guānglín Xī'ěrdùn Jiǔdiàn! Qǐngwèn nín yǒu yùdìng ma? Qǐng chūshì yíxià nín de hùzhào.",
+      vi: "Xin chào, hoan nghênh đến khách sạn Hilton! Xin hỏi quý khách đã đặt phòng chưa? Xin vui lòng xuất trình hộ chiếu.",
+    },
+    missions: [
+      {
+        id: 1,
+        title: "Xác nhận đặt phòng và đưa hộ chiếu",
+        description: "Nói bạn đã đặt phòng trên mạng và đưa hộ chiếu",
+        hintZh: "你好，我在网上预订了大床房，这是我的护照。",
+        hintPinyin: "Nǐ hǎo, wǒ zài wǎngshang yùdìng le dàchuángfáng, zhè shì wǒ de hùzhào.",
+        hintVi: "Xin chào, tôi đã đặt phòng giường đôi trên mạng, đây là hộ chiếu của tôi.",
+      },
+      {
+        id: 2,
+        title: "Phản ánh phòng ồn và xin đổi phòng",
+        description: "Phản ánh phòng sát đường hơi ồn và xin đổi phòng yên tĩnh",
+        hintZh: "你好，这个房间靠近马路有点儿吵，可以帮我换一间安静的吗？",
+        hintPinyin: "Nǐ hǎo, zhège fángjiān kàojìn mǎlù yǒudiǎnr chǎo, kěyǐ bāng wǒ huàn yì jiān ānjìng de ma?",
+        hintVi: "Xin chào, phòng này gần mặt đường hơi ồn, có thể đổi cho tôi một phòng yên tĩnh không?",
+      },
+      {
+        id: 3,
+        title: "Hỏi giờ ăn sáng và mật khẩu Wi-Fi",
+        description: "Hỏi ăn sáng mấy giờ bắt đầu và mật khẩu Wi-Fi là gì",
+        hintZh: "请问明天的早餐几点开始？还有WiFi密码是多少？",
+        hintPinyin: "Qǐngwèn míngtiān de zǎocān jǐ diǎn kāishǐ? Hái yǒu WiFi mìmǎ shì duōshao?",
+        hintVi: "Xin hỏi bữa sáng ngày mai mấy giờ bắt đầu? Và mật khẩu Wi-Fi là bao nhiêu ạ?",
+      },
+    ],
+  },
+  {
+    id: "job_interview",
+    title: "Phỏng vấn Xin việc Tiếng Trung",
+    badge: "Công sở HSK Cao cấp",
+    icon: "💼",
+    level: "HSK 4 - 5",
+    description: "Bạn ứng tuyển vào công ty thương mại song phương Việt - Trung. Người phỏng vấn yêu cầu bạn giới thiệu bản thân và nêu thế mạnh.",
+    aiRole: "Giám đốc nhân sự (HR总监陈经理)",
+    studentRole: "Ứng viên phỏng vấn (应聘者)",
+    initialGreeting: {
+      zh: "请坐！我看过你的简历，你的中文水平很不错。首先请你用中文做一个简短的自我介绍吧。",
+      pinyin: "Qǐng zuò! Wǒ kànguo nǐ de jiǎnlì, nǐ de Zhōngwén shuǐpíng hěn búcuò. Shǒuxiān qǐng nǐ yòng Zhōngwén zuò yí gè jiǎnduǎn de zìwǒ jièshào ba.",
+      vi: "Mời bạn ngồi! Tôi đã xem qua CV của bạn, trình độ tiếng Trung của bạn khá tốt. Trước tiên mời bạn dùng tiếng Trung giới thiệu ngắn gọn về bản thân.",
+    },
+    missions: [
+      {
+        id: 1,
+        title: "Giới thiệu bản thân cơ bản",
+        description: "Giới thiệu tên, trường tốt nghiệp hoặc kinh nghiệm làm việc",
+        hintZh: "陈经理好，我毕业于河内大学中文系，有两年的外贸工作经验。",
+        hintPinyin: "Chén jīnglǐ hǎo, wǒ bìyè yú Hénèi Dàxué Zhōngwénxì, yǒu liǎng nián de wàimào gōngzuò jīngyàn.",
+        hintVi: "Chào giám đốc Trần, tôi tốt nghiệp khoa tiếng Trung ĐH Hà Nội, có 2 năm kinh nghiệm làm xuất nhập khẩu.",
+      },
+      {
+        id: 2,
+        title: "Trình bày thế mạnh cá nhân",
+        description: "Nói về kỹ năng giao tiếp tốt và khả năng chịu áp lực công việc",
+        hintZh: "我的优势是沟通能力强，而且能吃苦，抗压能力很好。",
+        hintPinyin: "Wǒ de yōushì shì gōutōng nénglì qiáng, érqiě néng chīkǔ, kàngyā nénglì hěn hǎo.",
+        hintVi: "Thế mạnh của tôi là khả năng giao tiếp tốt, chăm chỉ chịu khó và chịu áp lực công việc rất tốt.",
+      },
+      {
+        id: 3,
+        title: "Hỏi về thời gian thông báo kết quả",
+        description: "Cảm ơn người phỏng vấn và hỏi thời gian nhận kết quả",
+        hintZh: "非常感谢您的时间！请问大概什么时候能知道面试结果呢？",
+        hintPinyin: "Fēicháng gǎnxiè nín de shíjiān! Qǐngwèn dàgài shénme shíhou néng zhīdào miànshì jiéguǒ ne?",
+        hintVi: "Rất cảm ơn thời gian của quý công ty! Xin hỏi khoảng bao giờ thì có kết quả phỏng vấn ạ?",
+      },
+    ],
+  },
+];
 
 interface AiDialogueRoleplayModalProps {
   isOpen: boolean;
@@ -42,8 +278,31 @@ export default function AiDialogueRoleplayModal({
   hskLevel = 1,
   studentId,
 }: AiDialogueRoleplayModalProps) {
-  // Chế độ: THEO HỘI THOẠI BÀI HỌC (LESSON) vs TRÒ CHUYỆN TỰ DO KHÔNG GIỚI HẠN (FREE_TALK)
-  const [talkMode, setTalkMode] = useState<"LESSON" | "FREE_TALK">("LESSON");
+  // Chế độ: BÀI HỌC (LESSON) vs TÌNH HUỐNG THỰC TẾ (SCENARIO) vs TRÒ CHUYỆN TỰ DO (FREE_TALK)
+  const [talkMode, setTalkMode] = useState<"LESSON" | "SCENARIO" | "FREE_TALK">("LESSON");
+  const [selectedScenario, setSelectedScenario] = useState<RoleplayScenario>(ROLEPLAY_SCENARIOS[0]);
+  const [completedMissions, setCompletedMissions] = useState<number[]>([]);
+  const [showCelebration, setShowCelebration] = useState<boolean>(false);
+  const [activeHintMission, setActiveHintMission] = useState<any | null>(null);
+
+  // Lịch sử hội thoại tình huống
+  const [scenarioChatHistory, setScenarioChatHistory] = useState<
+    Array<{
+      sender: "STUDENT" | "AI";
+      zh: string;
+      pinyin?: string;
+      vi?: string;
+      score?: number;
+      vocab?: any[];
+    }>
+  >([
+    {
+      sender: "AI",
+      zh: ROLEPLAY_SCENARIOS[0].initialGreeting.zh,
+      pinyin: ROLEPLAY_SCENARIOS[0].initialGreeting.pinyin,
+      vi: ROLEPLAY_SCENARIOS[0].initialGreeting.vi,
+    },
+  ]);
 
   // Danh sách câu thoại (cho phép người dùng thêm hoặc sửa theo ý muốn)
   const [dialogueLines, setDialogueLines] = useState<LessonDialogueLine[]>([]);
@@ -158,7 +417,7 @@ export default function AiDialogueRoleplayModal({
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [freeChatHistory]);
+  }, [freeChatHistory, scenarioChatHistory]);
 
   // Khởi tạo dialogue từ bài học
   useEffect(() => {
@@ -288,11 +547,58 @@ export default function AiDialogueRoleplayModal({
     });
   };
 
+  // Chọn kịch bản tình huống nhập vai
+  const handleSelectScenario = (sc: RoleplayScenario) => {
+    setSelectedScenario(sc);
+    setCompletedMissions([]);
+    setShowCelebration(false);
+    setCheckResult(null);
+    setScenarioChatHistory([
+      {
+        sender: "AI",
+        zh: sc.initialGreeting.zh,
+        pinyin: sc.initialGreeting.pinyin,
+        vi: sc.initialGreeting.vi,
+      },
+    ]);
+    if (sc.missions[0]) {
+      setCurrentSuggestions([
+        {
+          zh: sc.missions[0].hintZh,
+          pinyin: sc.missions[0].hintPinyin,
+          vi: sc.missions[0].hintVi,
+          grammarStructure: "Câu mẫu gợi ý tình huống",
+          explanation: sc.missions[0].description,
+        },
+      ]);
+    }
+    setTimeout(() => {
+      speakText(sc.initialGreeting.zh, () => {
+        if (autoListenRef.current) {
+          setTimeout(() => {
+            handleStartRecording();
+          }, 700);
+        }
+      });
+    }, 400);
+  };
+
   // Gửi âm thanh lên backend đối chiếu kho từ điển và chấm điểm
   const verifySpeechWithBackend = async (spokenText: string) => {
-    const historyPayload = freeChatHistory.map((m) => ({ sender: m.sender, zh: m.zh }));
+    const historyPayload =
+      talkMode === "SCENARIO"
+        ? scenarioChatHistory.map((m) => ({ sender: m.sender, zh: m.zh }))
+        : freeChatHistory.map((m) => ({ sender: m.sender, zh: m.zh }));
 
-    if (talkMode === "FREE_TALK") {
+    if (talkMode === "SCENARIO") {
+      setScenarioChatHistory((prev) => [
+        ...prev,
+        {
+          sender: "STUDENT",
+          zh: spokenText,
+        },
+      ]);
+    } else if (talkMode === "FREE_TALK") {
       setFreeChatHistory((prev) => [
         ...prev,
         {
@@ -311,12 +617,16 @@ export default function AiDialogueRoleplayModal({
         body: JSON.stringify({
           spokenText,
           targetText,
-          mode: talkMode === "LESSON" ? "DIALOGUE" : "FREE_TALK",
-          speaker: myRole,
+          mode: talkMode === "LESSON" ? "DIALOGUE" : talkMode === "SCENARIO" ? "SCENARIO" : "FREE_TALK",
+          speaker: talkMode === "SCENARIO" ? selectedScenario.studentRole : myRole,
           lessonNumber,
           hskLevel,
           studentId,
           history: historyPayload,
+          scenarioTitle: selectedScenario.title,
+          scenarioAiRole: selectedScenario.aiRole,
+          scenarioStudentRole: selectedScenario.studentRole,
+          scenarioMissions: selectedScenario.missions,
         }),
       });
 
@@ -324,7 +634,59 @@ export default function AiDialogueRoleplayModal({
       if (data.success) {
         setCheckResult(data);
 
-        if (talkMode === "FREE_TALK") {
+        if (talkMode === "SCENARIO") {
+          // Cập nhật câu nói của học sinh và thêm phản hồi nhập vai của AI
+          setScenarioChatHistory((prev) => {
+            const nextList = [...prev];
+            const lastStudentIdx = nextList.findLastIndex((m) => m.sender === "STUDENT");
+            if (lastStudentIdx >= 0) {
+              nextList[lastStudentIdx] = {
+                ...nextList[lastStudentIdx],
+                score: data.score,
+                vocab: data.vocabDetected,
+              };
+            }
+            if (data.aiReplyZh) {
+              nextList.push({
+                sender: "AI",
+                zh: data.aiReplyZh,
+                pinyin: data.aiReplyPinyin,
+                vi: data.aiReplyVi,
+              });
+            }
+            return nextList;
+          });
+
+          // Kiểm tra và cập nhật nhiệm vụ đã hoàn thành
+          if (data.completedMissionId) {
+            setCompletedMissions((prev) => {
+              if (!prev.includes(data.completedMissionId)) {
+                const nextMissions = [...prev, data.completedMissionId];
+                if (nextMissions.length >= selectedScenario.missions.length) {
+                  setShowCelebration(true);
+                }
+                return nextMissions;
+              }
+              return prev;
+            });
+          }
+
+          if (data.suggestedReplies && Array.isArray(data.suggestedReplies) && data.suggestedReplies.length > 0) {
+            setCurrentSuggestions(data.suggestedReplies);
+          }
+
+          if (data.aiReplyZh) {
+            setTimeout(() => {
+              speakText(data.aiReplyZh, () => {
+                if (autoListenRef.current) {
+                  setTimeout(() => {
+                    handleStartRecording();
+                  }, 700);
+                }
+              });
+            }, 500);
+          }
+        } else if (talkMode === "FREE_TALK") {
           // Cập nhật điểm cho câu nói vừa rồi của học sinh và thêm câu đáp của AI
           setFreeChatHistory((prev) => {
             const nextList = [...prev];
@@ -512,21 +874,39 @@ export default function AiDialogueRoleplayModal({
           </button>
         </div>
 
-        {/* Chuyển đổi 2 chế độ: Theo bài học vs Trò chuyện tự do */}
-        <div className="flex items-center gap-2 bg-[#FAF7F0] p-1.5 rounded-2xl border border-[#E5DEC9]">
+        {/* Chuyển đổi 3 chế độ: Theo bài học vs Tình huống nhập vai vs Trò chuyện tự do */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-[#FAF7F0] p-1.5 rounded-2xl border border-[#E5DEC9]">
           <button
             onClick={() => {
               setTalkMode("LESSON");
               setCheckResult(null);
             }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer min-w-[130px] ${
               talkMode === "LESSON"
                 ? "bg-[#204434] text-white shadow-xs"
                 : "text-[#315E48] hover:text-[#204434]"
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Đoạn hội thoại bài học ({dialogueLines.length} câu)</span>
+            <span>Hội thoại bài học ({dialogueLines.length})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setTalkMode("SCENARIO");
+              setCheckResult(null);
+            }}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer min-w-[170px] ${
+              talkMode === "SCENARIO"
+                ? "bg-[#204434] text-white shadow-xs"
+                : "text-[#315E48] hover:text-[#204434]"
+            }`}
+          >
+            <Target className="w-3.5 h-3.5 text-amber-400" />
+            <span>Tình huống nhập vai ({ROLEPLAY_SCENARIOS.length})</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-800 font-extrabold uppercase">
+              Mới
+            </span>
           </button>
 
           <button
@@ -534,14 +914,14 @@ export default function AiDialogueRoleplayModal({
               setTalkMode("FREE_TALK");
               setCheckResult(null);
             }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer min-w-[130px] ${
               talkMode === "FREE_TALK"
                 ? "bg-[#204434] text-white shadow-xs"
                 : "text-[#315E48] hover:text-[#204434]"
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Trò chuyện tự do không giới hạn chủ đề</span>
+            <span>Trò chuyện tự do</span>
           </button>
         </div>
 
@@ -734,7 +1114,358 @@ export default function AiDialogueRoleplayModal({
         )}
 
         {/* =================================================================== */}
-        {/* CHẾ ĐỘ 2: TRÒ CHUYỆN TỰ DO KHÔNG GIỚI HẠN CHỦ ĐỀ                    */}
+        {/* CHẾ ĐỘ 2: NHẬP VAI TÌNH HUỐNG ĐỜI THỰC CÓ NHIỆM VỤ (SCENARIO MISSIONS) */}
+        {/* =================================================================== */}
+        {talkMode === "SCENARIO" && (
+          <div className="space-y-3.5">
+            {/* Thanh chọn 5 kịch bản tình huống */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-[#8F6D3B] block">
+                Chọn một tình huống thực tế để nhập vai và rèn luyện phản xạ:
+              </span>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                {ROLEPLAY_SCENARIOS.map((sc) => {
+                  const isSelected = selectedScenario.id === sc.id;
+                  return (
+                    <button
+                      key={sc.id}
+                      onClick={() => handleSelectScenario(sc)}
+                      className={`px-3 py-2 rounded-2xl border text-left transition shrink-0 flex items-center gap-2.5 cursor-pointer ${
+                        isSelected
+                          ? "bg-amber-50/90 border-amber-400 shadow-xs ring-1 ring-amber-400"
+                          : "bg-white border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                      }`}
+                    >
+                      <span className="text-xl">{sc.icon}</span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-[#204434] font-serif">{sc.title}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-[#FAF7F0] border border-[#E5DEC9] text-[#8F6D3B] font-bold">
+                            {sc.level}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block">
+                          Vai của bạn: {sc.studentRole}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bảng nhiệm vụ của tình huống đang chọn */}
+            <div className="p-3.5 bg-gradient-to-br from-amber-50/80 to-[#FAF7F0] rounded-2xl border border-amber-200/90 space-y-2.5 shadow-2xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">{selectedScenario.icon}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-serif font-bold text-sm text-[#204434]">{selectedScenario.title}</h4>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
+                        {selectedScenario.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Vai của bạn: <strong>{selectedScenario.studentRole}</strong> · AI đóng vai: <strong>{selectedScenario.aiRole}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-xl border border-amber-300 shadow-2xs">
+                    <Trophy className="w-3.5 h-3.5 text-amber-600" />
+                    <span className="text-xs font-bold text-[#204434]">
+                      Nhiệm vụ: {completedMissions.length}/{selectedScenario.missions.length}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => handleSelectScenario(selectedScenario)}
+                    className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                    title="Bắt đầu lại tình huống này"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Bắt đầu lại
+                  </button>
+                </div>
+              </div>
+
+              {/* Danh sách 3 nhiệm vụ với trạng thái & nút xem câu mẫu */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                {selectedScenario.missions.map((m, idx) => {
+                  const isDone = completedMissions.includes(m.id);
+                  return (
+                    <div
+                      key={m.id}
+                      className={`p-2.5 rounded-xl border transition flex flex-col justify-between text-xs space-y-1.5 ${
+                        isDone
+                          ? "bg-emerald-50/90 border-emerald-300 text-emerald-900"
+                          : "bg-white border-[#E5DEC9] text-[#204434]"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
+                            isDone ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 border border-slate-300"
+                          }`}
+                        >
+                          {isDone ? <Check className="w-3 h-3 text-white" /> : idx + 1}
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className={`font-bold text-[11px] ${isDone ? "line-through text-emerald-800" : "text-[#204434]"}`}>
+                            {m.title}
+                          </p>
+                          <p className="text-[10px] text-slate-500 leading-tight">{m.description}</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-1 flex items-center justify-between border-t border-slate-100 mt-1">
+                        <span className="text-[10px] font-bold text-amber-700">
+                          {isDone ? "✅ Đã đạt" : "Chưa hoàn thành"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveHintMission(m)}
+                          className="text-[10px] text-emerald-700 hover:text-emerald-800 underline font-semibold cursor-pointer"
+                        >
+                          Gợi ý câu
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Banner chúc mừng khi hoàn thành cả 3 nhiệm vụ */}
+            {showCelebration && (
+              <div className="p-3.5 bg-gradient-to-r from-emerald-600 to-[#204434] text-white rounded-2xl shadow-lg flex items-center justify-between gap-3 animate-fadeIn">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center font-bold text-lg">
+                    🏆
+                  </div>
+                  <div>
+                    <h5 className="font-serif font-bold text-sm">Xuất sắc! Bạn đã hoàn thành toàn bộ nhiệm vụ tình huống!</h5>
+                    <p className="text-xs text-emerald-100">Khả năng phản xạ và ứng biến rất tự nhiên · Đã thưởng +30 XP vào hồ sơ của bạn!</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCelebration(false)}
+                  className="px-3 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition cursor-pointer"
+                >
+                  Tiếp tục trò chuyện
+                </button>
+              </div>
+            )}
+
+            {/* Khung chat tình huống */}
+            <div
+              ref={chatContainerRef}
+              className="space-y-3.5 min-h-[220px] max-h-[300px] overflow-y-auto p-4 bg-white rounded-3xl border border-[#E5DEC9] shadow-inner"
+            >
+              {scenarioChatHistory.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-start gap-2.5 ${
+                    msg.sender === "STUDENT" ? "flex-row-reverse" : "flex-row"
+                  }`}
+                >
+                  <div
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs ${
+                      msg.sender === "STUDENT"
+                        ? "bg-[#204434] text-white"
+                        : "bg-amber-100 text-amber-800 border border-amber-200"
+                    }`}
+                  >
+                    {msg.sender === "STUDENT" ? "Bạn" : "AI"}
+                  </div>
+
+                  <div
+                    className={`max-w-md p-3.5 rounded-2xl text-xs space-y-1 shadow-2xs ${
+                      msg.sender === "STUDENT"
+                        ? "bg-[#204434] text-white rounded-tr-none"
+                        : "bg-[#FAF7F0] border border-[#E5DEC9] text-[#204434] rounded-tl-none"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-serif font-bold text-base block">{msg.zh}</span>
+                      {msg.sender === "AI" && (
+                        <button
+                          onClick={() => speakText(msg.zh)}
+                          className="p-1 rounded-lg hover:bg-white text-slate-500 hover:text-[#204434] transition shrink-0"
+                          title="Nghe lại phát âm của AI"
+                        >
+                          <Volume2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {msg.pinyin && (
+                      <span className="font-mono text-[11px] block text-emerald-700 font-medium">
+                        {msg.pinyin}
+                      </span>
+                    )}
+                    {msg.vi && (
+                      <p className="text-[11px] text-slate-600 font-sans italic">{msg.vi}</p>
+                    )}
+
+                    {msg.score && (
+                      <div className="pt-1 text-[10px] text-amber-300 font-bold border-t border-white/20 mt-1 flex items-center justify-between">
+                        <span>Điểm phát âm: {msg.score}/100đ</span>
+                        {msg.vocab && msg.vocab.length > 0 && (
+                          <span className="text-[9px] opacity-80">
+                            Tra được {msg.vocab.length} từ điển
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {checking && (
+                <div className="flex items-start gap-2.5 flex-row animate-fadeIn">
+                  <div className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs bg-amber-100 text-amber-800 border border-amber-200">
+                    AI
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-[#204434] text-xs flex items-center gap-2 shadow-2xs">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    <span className="italic text-slate-600 font-sans">
+                      {selectedScenario.aiRole} đang đối đáp cùng bạn...
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Thanh điều khiển âm giọng & thoại 2 chiều */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
+                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
+                  title="Đổi giọng đọc AI (Giọng Nữ Xiaoxiao / Giọng Nam Yunxi)"
+                >
+                  <Volume2 className="w-3 h-3 text-amber-600" />
+                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Tiểu Ngữ)" : "Nam (Tiểu Hi)"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAutoListen((prev) => !prev)}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                    autoListen
+                      ? "bg-emerald-700 text-white"
+                      : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
+                  }`}
+                  title="Khi AI nói xong, micro sẽ tự động mở để bạn tiếp tục trò chuyện rảnh tay mà không cần bấm nút"
+                >
+                  <Headphones className="w-3 h-3" />
+                  <span>Thoại 2 chiều: {autoListen ? "Tự động (BẬT)" : "Bấm nút (TẮT)"}</span>
+                </button>
+              </div>
+
+              {currentSuggestions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowSuggestions((prev) => !prev)}
+                  className="inline-flex items-center gap-2 px-3.5 py-1 rounded-xl text-xs font-bold bg-[#FAF7F0] hover:bg-[#F3EEDD] border border-[#E5DEC9] text-[#204434] transition shadow-2xs cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>{showSuggestions ? "Ẩn gợi ý đối đáp" : "💡 Gợi ý đối đáp & Ngữ pháp"}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold font-mono">
+                    {currentSuggestions.length}
+                  </span>
+                  {showSuggestions ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Panel gợi ý chi tiết nếu mở */}
+            {showSuggestions && currentSuggestions.length > 0 && (
+              <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] space-y-2 animate-fadeIn">
+                <span className="text-[11px] font-bold text-[#8F6D3B] block">
+                  Gợi ý câu đối đáp phù hợp với tình huống này:
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {currentSuggestions.map((sug, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        handleSendTypedText(sug.zh);
+                        setShowSuggestions(false);
+                      }}
+                      disabled={checking || isRecording}
+                      className="p-2.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-200 hover:border-amber-400 text-left transition shadow-2xs group cursor-pointer space-y-1"
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-serif font-bold text-xs text-[#204434] group-hover:text-amber-800">
+                          {sug.zh}
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold">
+                          Chọn
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-mono text-[#8F6D3B]">{sug.pinyin}</p>
+                      <p className="text-[10px] text-slate-600 italic">{sug.vi}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Khung nhập văn bản hoặc thu âm bằng Micro */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={typedText}
+                  onChange={(e) => setTypedText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSendTypedText();
+                  }}
+                  placeholder={`Đóng vai ${selectedScenario.studentRole}: nói hoặc gõ câu trả lời...`}
+                  disabled={checking || isRecording}
+                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-[#E5DEC9] text-xs text-[#204434] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#204434] transition shadow-2xs font-medium"
+                />
+              </div>
+
+              <button
+                onClick={() => handleSendTypedText()}
+                disabled={!typedText.trim() || checking || isRecording}
+                className="px-4 py-2.5 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition shadow-2xs flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                title="Gửi tin nhắn"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden sm:inline">Gửi</span>
+              </button>
+
+              <button
+                onClick={handleStartRecording}
+                disabled={isRecording || checking}
+                className={`px-4 sm:px-5 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer transition ${
+                  isRecording
+                    ? "bg-rose-600 text-white animate-pulse"
+                    : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
+                }`}
+                title="Nói bằng giọng nói qua Microphone"
+              >
+                <Mic className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {isRecording ? "Đang nghe..." : "Nói Micro"}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* CHẾ ĐỘ 3: TRÒ CHUYỆN TỰ DO KHÔNG GIỚI HẠN CHỦ ĐỀ                    */}
         {/* =================================================================== */}
         {talkMode === "FREE_TALK" && (
           <div className="space-y-3.5">
@@ -1164,6 +1895,60 @@ export default function AiDialogueRoleplayModal({
                   className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-xs font-bold text-white shadow-xs cursor-pointer"
                 >
                   Lưu câu thoại
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Gợi ý câu mẫu cho nhiệm vụ tình huống */}
+        {activeHintMission && (
+          <div className="fixed inset-0 z-60 bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-5 w-full max-w-sm border border-[#E5DEC9] shadow-2xl space-y-3 animate-scaleUp">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" /> Gợi ý câu mẫu nhiệm vụ
+                </span>
+                <button
+                  onClick={() => setActiveHintMission(null)}
+                  className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <h5 className="font-serif font-bold text-sm text-[#204434]">{activeHintMission.title}</h5>
+                <p className="text-xs text-slate-600">{activeHintMission.description}</p>
+
+                <div className="p-3 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] space-y-1 mt-2">
+                  <span className="font-serif font-bold text-base text-[#204434] block">
+                    {activeHintMission.hintZh}
+                  </span>
+                  <span className="font-mono text-xs text-[#8F6D3B] block">
+                    {activeHintMission.hintPinyin}
+                  </span>
+                  <p className="text-xs text-slate-600 italic">
+                    {activeHintMission.hintVi}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  onClick={() => speakText(activeHintMission.hintZh)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Volume2 className="w-3.5 h-3.5 text-amber-600" /> Nghe
+                </button>
+                <button
+                  onClick={() => {
+                    handleSendTypedText(activeHintMission.hintZh);
+                    setActiveHintMission(null);
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold cursor-pointer"
+                >
+                  Chọn câu này để nói
                 </button>
               </div>
             </div>

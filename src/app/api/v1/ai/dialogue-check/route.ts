@@ -7,12 +7,16 @@ export async function POST(request: Request) {
     const {
       spokenText = "",
       targetText = "",
-      mode = "DIALOGUE", // DIALOGUE hoặc FREE_TALK
+      mode = "DIALOGUE", // DIALOGUE, SCENARIO hoặc FREE_TALK
       speaker = "Học sinh",
       lessonNumber = 1,
       hskLevel = 1,
       studentId,
       history = [], // Lịch sử hội thoại: Array<{ sender: 'STUDENT' | 'AI', zh: string }>
+      scenarioTitle = "",
+      scenarioAiRole = "",
+      scenarioStudentRole = "",
+      scenarioMissions = [],
     } = body;
 
     const spokenClean = spokenText.trim().replace(/[.,?!，。？！\s]/g, "");
@@ -50,6 +54,7 @@ export async function POST(request: Request) {
     let aiReplyVi = "";
     let grammarCorrection = "";
     let grammarTip = "";
+    let completedMissionId: number | null = null;
     let suggestedReplies: Array<{
       zh: string;
       pinyin: string;
@@ -101,8 +106,50 @@ export async function POST(request: Request) {
         const openAiKey = process.env.OPENAI_API_KEY;
 
         let llmSuccess = false;
+        const isScenario = mode === "SCENARIO";
 
-        const systemPrompt = `Bạn là Tiểu Ngữ (小语) - một người bạn bản xứ Trung Quốc thân thiện, chân thành và vui tính, đang trò chuyện đối thoại hai chiều trực tiếp trên WeChat với học viên HSK cấp độ ${hskLevel}.
+        const systemPrompt = isScenario
+          ? `Bạn đang tham gia NHẬP VAI TÌNH HUỐNG THỰC TẾ với học viên HSK cấp độ ${hskLevel}.
+TÌNH HUỐNG: ${scenarioTitle || "Tình huống giao tiếp thực tế đời thường"}
+VAI CỦA BẠN (AI): ${scenarioAiRole || "Người bản xứ"}
+VAI CỦA HỌC VIÊN: ${scenarioStudentRole || "Khách hàng / Du khách"}
+
+DANH SÁCH NHIỆM VỤ HỌC VIÊN CẦN HOÀN THÀNH:
+${
+  Array.isArray(scenarioMissions) && scenarioMissions.length > 0
+    ? scenarioMissions.map((m: any, idx: number) => `Nhiệm vụ ${idx + 1} (id: ${m.id}): ${m.title} - ${m.description} (Gợi ý câu: ${m.hintZh || ""})`).join("\n")
+    : "Hoàn thành cuộc đối thoại tự nhiên."
+}
+
+QUY TẮC NHẬP VAI TÌNH HUỐNG:
+1. ĐÓNG VAI CHÂN THỰC 100%: Bạn phải nhập tâm trọn vẹn vào nhân vật (${scenarioAiRole}), dùng ngữ điệu, cách xưng hô và phong thái của nhân vật ngoài đời thực ở Trung Quốc (vui vẻ, nhiệt tình, có thể pha chút hài hước hoặc lém lỉnh nếu là chủ quán/tài xế).
+2. ĐÁNH GIÁ NHIỆM VỤ (BẮT BUỘC): Đối chiếu kỹ câu nói của học viên ("${spokenText}"). Nếu câu nói này đã thể hiện đúng mục tiêu của một trong các nhiệm vụ ở trên, trả về "completedMissionId": <id số của nhiệm vụ đó>. Nếu chưa đạt được nhiệm vụ nào mới, trả về null.
+3. PHẢN HỒI THEO TÌNH HUỐNG: Trả lời 2-3 câu tự nhiên theo diễn biến tình huống, đưa ra câu hỏi hoặc lời đề nghị để học viên nói tiếp các nhiệm vụ tiếp theo.
+4. SỬA LỖI & GỢI Ý ĐỐI THOẠI:
+   - grammarCorrection: Sửa lỗi trật tự từ/thiếu chữ/dùng sai từ nếu học viên nói sai.
+   - grammarTip: Nêu 1 cấu trúc khẩu ngữ hữu ích trong tình huống này.
+   - suggestedReplies: Gợi ý 2-3 câu đối đáp tự nhiên học viên có thể dùng để đối đáp với bạn và hướng tới hoàn thành các nhiệm vụ còn lại (kèm grammarStructure và explanation).
+
+ĐỊNH DẠNG JSON DUY NHẤT:
+{
+  "aiReplyZh": "Câu thoại tiếng Trung của nhân vật",
+  "aiReplyPinyin": "Phiên âm pinyin chuẩn",
+  "aiReplyVi": "Bản dịch tiếng Việt",
+  "feedback": "Nhận xét ngắn về cách ứng biến của học viên trong vai",
+  "grammarCorrection": "",
+  "grammarTip": "",
+  "completedMissionId": 1 hoặc null,
+  "suggestedReplies": [
+    {
+      "zh": "Câu đối đáp gợi ý 1 cho học viên",
+      "pinyin": "pinyin 1",
+      "vi": "nghĩa 1",
+      "grammarStructure": "Cấu trúc: ...",
+      "explanation": "Giải thích ngữ cảnh..."
+    }
+  ]
+}`
+          : `Bạn là Tiểu Ngữ (小语) - một người bạn bản xứ Trung Quốc thân thiện, chân thành và vui tính, đang trò chuyện đối thoại hai chiều trực tiếp trên WeChat với học viên HSK cấp độ ${hskLevel}.
 
 QUY TẮC ĐỐI THOẠI CỐT LÕI (BẮT BUỘC TUÂN THỦ NGHIÊM NGẶT ĐỂ ĐẠT ĐỘ TỰ NHIÊN NHƯ BẢN XỨ):
 1. ĐỐI THOẠI HAI CHIỀU TỰ NHIÊN, SỐNG ĐỘNG NHƯ TRÒ CHUYỆN ĐỜI THƯỜNG:
@@ -178,6 +225,9 @@ Học viên vừa nói: "${spokenText}"`;
           if (parsed.grammarCorrection) grammarCorrection = parsed.grammarCorrection;
           if (parsed.grammarTip) grammarTip = parsed.grammarTip;
           if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+          if (parsed.completedMissionId !== undefined && parsed.completedMissionId !== null) {
+            completedMissionId = Number(parsed.completedMissionId);
+          }
           llmSuccess = true;
           return true;
         };
@@ -609,6 +659,21 @@ Học viên vừa nói: "${spokenText}"`;
       }
     }
 
+    // Bổ trợ so khớp từ khóa nhiệm vụ tình huống nếu LLM chưa kịp đánh dấu
+    if (mode === "SCENARIO" && completedMissionId === null && Array.isArray(scenarioMissions)) {
+      for (const m of scenarioMissions) {
+        if (m.hintZh) {
+          const hintKeywords = m.hintZh.replace(/[.,?!，。？！\s]/g, "");
+          const words = hintKeywords.match(/[\p{Script=Han}]{2,}/gu) || [];
+          const hasKeyword = words.some((w: string) => spokenClean.includes(w));
+          if (hasKeyword) {
+            completedMissionId = m.id;
+            break;
+          }
+        }
+      }
+    }
+
     // 3. Cộng XP thật cho học sinh nếu đạt >= 70 điểm
     let xpEarned = 0;
     if (score >= 70 && studentId) {
@@ -641,6 +706,7 @@ Học viên vừa nói: "${spokenText}"`;
       grammarCorrection,
       grammarTip,
       suggestedReplies,
+      completedMissionId,
       xpEarned,
     });
   } catch (error: any) {
