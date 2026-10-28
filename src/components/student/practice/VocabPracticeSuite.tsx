@@ -47,6 +47,7 @@ import {
   getWeeklyStudySeconds,
   formatStudyTimeVi,
 } from "@/lib/memory-review-service";
+import { saveVocabItem, isVocabSaved } from "@/lib/saved-knowledge-service";
 import {
   getEtymology,
   getRelatedWords,
@@ -170,6 +171,7 @@ export default function VocabPracticeSuite({
   }, [studentId]);
 
   // Tìm kiếm & Sắp xếp danh sách từ vựng bên trái
+  const [, setSavedVocabTick] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"DEFAULT" | "NOT_REMEMBERED" | "REVIEW_NEEDED" | "PINYIN">("DEFAULT");
   const [statusFilter, setStatusFilter] = useState<"ALL" | MemoryStatus>(initialFilter);
@@ -998,6 +1000,34 @@ export default function VocabPracticeSuite({
                 title="Phát âm chữ này"
               >
                 <Volume2 className="w-4 h-4" />
+              </button>
+                            <button
+                type="button"
+                onClick={() => {
+                  if (!currentVocab) return;
+                  saveVocabItem(studentId, {
+                    id: currentVocab.id || currentVocab.hanzi,
+                    hanzi: currentVocab.hanzi,
+                    pinyin: currentVocab.pinyin,
+                    meaning: currentVocab.meaningVi || currentVocab.meaning,
+                    type: currentVocab.type,
+                    exampleZh: currentVocab.exampleZh,
+                    exampleVi: currentVocab.exampleVi,
+                    hskLevel,
+                    lessonNumber,
+                    lessonTitleZh,
+                  });
+                  setSavedVocabTick((t) => t + 1);
+                }}
+                className={`px-3.5 py-2.5 rounded-2xl border text-xs font-bold shadow-2xs transition cursor-pointer flex items-center gap-1.5 ${
+                  currentVocab && isVocabSaved(studentId, currentVocab.id || currentVocab.hanzi)
+                    ? "bg-amber-100 border-amber-300 text-amber-900"
+                    : "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]"
+                }`}
+                title="Lưu từ vựng này vào Kiến thức đã lưu"
+              >
+                <BookmarkCheck className={`w-3.5 h-3.5 ${currentVocab && isVocabSaved(studentId, currentVocab.id || currentVocab.hanzi) ? "text-amber-700" : ""}`} />
+                <span>{currentVocab && isVocabSaved(studentId, currentVocab.id || currentVocab.hanzi) ? "Đã lưu" : "Lưu từ vựng"}</span>
               </button>
               <button
                 type="button"

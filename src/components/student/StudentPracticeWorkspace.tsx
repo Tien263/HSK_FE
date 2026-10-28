@@ -33,6 +33,16 @@ import {
   PenTool,
 } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
+import {
+  getSavedKnowledge,
+  removeSavedVocab,
+  removeSavedGrammar,
+  removeSavedQuestion,
+  SavedKnowledgeStore,
+  SavedVocabItem,
+  SavedGrammarItem,
+  SavedQuestionItem,
+} from "@/lib/saved-knowledge-service";
 import VocabPracticeSuite from "./practice/VocabPracticeSuite";
 import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
 import ComprehensivePracticeSuite from "./practice/ComprehensivePracticeSuite";
@@ -63,7 +73,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-export type PracticeSubMode = "vocab" | "grammar" | "comprehensive" | "game" | "wrong";
+export type PracticeSubMode = "vocab" | "grammar" | "comprehensive" | "game" | "saved" | "wrong";
 
 interface StudentPracticeWorkspaceProps {
   currentUser?: any;
@@ -181,6 +191,30 @@ export default function StudentPracticeWorkspace({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ==========================================
+    // ==========================================
+  // STATE CHO MODE 5: KIẾN THỨC ĐÃ LƯU (TỪ VỰNG, NGỮ PHÁP, CÂU HỎI)
+  // ==========================================
+  const [savedStore, setSavedStore] = useState<SavedKnowledgeStore>({ vocabs: [], grammars: [], questions: [] });
+  const [savedSubTab, setSavedSubTab] = useState<"vocabs" | "grammars" | "questions">("vocabs");
+  const [selectedSavedVocabIds, setSelectedSavedVocabIds] = useState<string[]>([]);
+  const [selectedSavedGrammarIds, setSelectedSavedGrammarIds] = useState<string[]>([]);
+  const [selectedSavedQuestionIds, setSelectedSavedQuestionIds] = useState<string[]>([]);
+  const [isReviewingSelected, setIsReviewingSelected] = useState<boolean>(false);
+  const [reviewCurrentIndex, setReviewCurrentIndex] = useState<number>(0);
+  const [reviewShowAnswer, setReviewShowAnswer] = useState<boolean>(false);
+  const [reviewQuizSelected, setReviewQuizSelected] = useState<string | null>(null);
+
+  const reloadSavedKnowledge = useCallback(() => {
+    setSavedStore(getSavedKnowledge(currentUser?.id));
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    reloadSavedKnowledge();
+    const handleUpdate = () => reloadSavedKnowledge();
+    window.addEventListener("saved_knowledge_updated", handleUpdate);
+    return () => window.removeEventListener("saved_knowledge_updated", handleUpdate);
+  }, [reloadSavedKnowledge]);
+
   // STATE CHO MODE 4: SỔ CÂU HỎI SAI & LUYỆN LẠI
   // ==========================================
   const [wrongQuestions, setWrongQuestions] = useState<any[]>([]);
@@ -832,18 +866,23 @@ export default function StudentPracticeWorkspace({
             <span>4. Phản xạ nhanh</span>
           </button>
 
-          {/* Tab 5: Sổ câu hỏi sai */}
+          {/* Tab 5: Kiến thức đã lưu (thay thế Sổ câu hỏi sai theo yêu cầu người dùng) */}
           <button
-            onClick={() => setActiveMode("wrong")}
+            onClick={() => {
+              setActiveMode("saved");
+              setIsReviewingSelected(false);
+            }}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              activeMode === "wrong"
+              activeMode === "saved" || activeMode === "wrong"
                 ? "bg-[#204434] text-white shadow-xs"
                 : "text-[#315E48] hover:text-[#204434] hover:bg-[#FAF7F0]"
             }`}
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-            <span>5. Sổ câu hỏi sai</span>
-            <span className="text-[10px] opacity-80">({wrongQuestions.length})</span>
+            <BookmarkCheck className="w-3.5 h-3.5 text-amber-500" />
+            <span>5. Kiến thức đã lưu</span>
+            <span className="text-[10px] opacity-80">
+              ({savedStore.vocabs.length + savedStore.grammars.length + savedStore.questions.length})
+            </span>
           </button>
         </div>
       </div>
@@ -1041,151 +1080,722 @@ export default function StudentPracticeWorkspace({
       )}
 
       {/* =================================================================== */}
-      {/* 4. CHẾ ĐỘ 4: SỔ CÂU HỎI SAI (WRONG QUESTIONS NOTEBOOK)               */}
+      {/* 5. CHẾ ĐỘ 5: KIẾN THỨC ĐÃ LƯU (SAVED KNOWLEDGE - 3 PHÂN MỤC)        */}
       {/* =================================================================== */}
-      {activeMode === "wrong" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E5DEC9]">
+      {(activeMode === "saved" || activeMode === "wrong") && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header vùng kiến thức đã lưu */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#E5DEC9]">
             <div>
               <h3 className="font-serif font-bold text-lg text-[#204434] flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
-                <span>Sổ câu hỏi sai & Luyện lại trực tiếp</span>
+                <BookmarkCheck className="w-5 h-5 text-amber-600" />
+                <span>Kho Kiến Thức Đã Lưu Của Bạn</span>
               </h3>
               <p className="text-xs text-[#315E48] mt-0.5">
-                Luyện lại ngay các câu hỏi bạn từng làm sai. Trả lời đúng 3 lần liên tiếp để hoàn thành và nhận thưởng +20 XP.
+                Xem lại từ vựng, ngữ pháp và các câu hỏi bạn đã đánh dấu lưu trong quá trình học. Chọn các mục để ôn tập tổng hợp.
               </p>
             </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={reloadSavedKnowledge}
+                className="p-2 rounded-xl border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] transition text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                title="Làm mới danh sách"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Làm mới</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 3 PHÂN MỤC TABS: TỪ VỰNG - NGỮ PHÁP - CÂU HỎI */}
+          <div className="flex items-center gap-2 border-b border-[#E5DEC9] pb-2 overflow-x-auto">
             <button
-              onClick={fetchWrongQuestions}
-              className="p-2 rounded-xl border border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0] transition text-xs font-semibold flex items-center gap-1.5"
+              onClick={() => {
+                setSavedSubTab("vocabs");
+                setIsReviewingSelected(false);
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                savedSubTab === "vocabs"
+                  ? "bg-[#204434] text-white shadow-xs"
+                  : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+              }`}
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Làm mới</span>
+              <span>📚 Từ vựng đã lưu</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/20">
+                {savedStore.vocabs.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSavedSubTab("grammars");
+                setIsReviewingSelected(false);
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                savedSubTab === "grammars"
+                  ? "bg-[#204434] text-white shadow-xs"
+                  : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+              }`}
+            >
+              <span>📐 Ngữ pháp đã lưu</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/20">
+                {savedStore.grammars.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSavedSubTab("questions");
+                setIsReviewingSelected(false);
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                savedSubTab === "questions"
+                  ? "bg-[#204434] text-white shadow-xs"
+                  : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+              }`}
+            >
+              <span>❓ Câu hỏi luyện tập</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/20">
+                {savedStore.questions.length}
+              </span>
             </button>
           </div>
 
-          {loadingWrongQuestions ? (
-            <div className="py-12 text-center text-xs text-[#315E48]">Đang tải danh sách câu hỏi sai...</div>
-          ) : wrongQuestions.length > 0 ? (
+          {/* ================================================================= */}
+          {/* PHÂN MỤC 1: TỪ VỰNG ĐÃ LƯU                                         */}
+          {/* ================================================================= */}
+          {savedSubTab === "vocabs" && (
             <div className="space-y-4">
-              {wrongQuestions.map((item, idx) => {
-                const selectedOpt = retrySelectedAnswer[item.id];
-                const resStatus = retryResult[item.id];
-                const isSubmitting = submittingRetry[item.id];
-                const successMsg = retrySuccessMsg[item.id];
-
-                return (
-                  <div
-                    key={item.id || idx}
-                    className="p-5 rounded-2xl bg-[#FFFCF6] border border-amber-200/80 shadow-2xs space-y-3.5 transition-all"
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold">
-                          Câu #{idx + 1} · Đã sai {item.wrongCount || 1} lần
-                        </span>
-                        {item.pinyinPrompt && (
-                          <span className="text-[#8F6D3B] font-mono text-[11px]">
-                            {item.pinyinPrompt}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[#204434] font-semibold text-[11px] bg-white px-2.5 py-0.5 rounded-lg border border-[#E5DEC9]">
-                        Chuỗi đúng: <strong className="text-emerald-700">{item.consecutiveRight || 0}/3</strong>
+              {savedStore.vocabs.length === 0 ? (
+                <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/40 space-y-3">
+                  <BookmarkCheck className="w-12 h-12 text-[#8F6D3B]/40 mx-auto" />
+                  <p className="text-sm font-bold text-[#204434]">Chưa có từ vựng nào được lưu</p>
+                  <p className="text-xs text-[#315E48]">
+                    Trong lúc học từ vựng hoặc luyện Flashcard, bạn có thể bấm nút &quot;Lưu từ vựng&quot; để lưu lại các từ cần ghi nhớ.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Thanh công cụ chọn & ôn tập */}
+                  <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (selectedSavedVocabIds.length === savedStore.vocabs.length) {
+                            setSelectedSavedVocabIds([]);
+                          } else {
+                            setSelectedSavedVocabIds(savedStore.vocabs.map((v) => v.id));
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] font-bold hover:bg-[#FAF7F0] cursor-pointer"
+                      >
+                        {selectedSavedVocabIds.length === savedStore.vocabs.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                      </button>
+                      <span className="text-[#315E48]">
+                        Đã chọn: <strong>{selectedSavedVocabIds.length}</strong> / {savedStore.vocabs.length} từ
                       </span>
                     </div>
 
-                    <p className="font-bold text-sm text-[#204434] leading-relaxed">
-                      {item.content}
-                    </p>
-
-                    {/* VÙNG LUYỆN LẠI: Chọn đáp án tương tác */}
-                    {Array.isArray(item.options) && item.options.length > 0 && (
-                      <div className="space-y-2 pt-1">
-                        <span className="text-[11px] font-bold text-[#315E48] block">
-                          Chọn đáp án để luyện lại ngay:
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          {item.options.map((opt: string, optIdx: number) => {
-                            const isSelected = selectedOpt === opt;
-                            const isCorrectOpt = opt.trim() === String(item.correctAnswer || "").trim();
-
-                            let btnStyle = "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]";
-                            if (selectedOpt) {
-                              if (isCorrectOpt) {
-                                btnStyle = "bg-emerald-600 text-white border-emerald-600 font-bold";
-                              } else if (isSelected) {
-                                btnStyle = "bg-rose-500 text-white border-rose-500 font-bold";
-                              } else {
-                                btnStyle = "bg-[#FAF7F0] opacity-50 border-[#E5DEC9] text-[#315E48]";
-                              }
-                            }
-
-                            return (
-                              <button
-                                key={optIdx}
-                                disabled={!!selectedOpt || isSubmitting}
-                                onClick={() => handleRetryAnswer(item, opt)}
-                                className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${btnStyle}`}
-                              >
-                                <span>{opt}</span>
-                                {selectedOpt && isCorrectOpt && (
-                                  <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
-                                )}
-                                {selectedOpt && isSelected && !isCorrectOpt && (
-                                  <X className="w-4 h-4 shrink-0 text-white" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Phản hồi sau khi làm lại */}
-                    {successMsg && (
-                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-bold animate-fadeIn">
-                        {successMsg}
-                      </div>
-                    )}
-
-                    {selectedOpt && !successMsg && (
-                      <div className={`p-2.5 rounded-xl text-xs font-semibold ${resStatus === "CORRECT" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
-                        {resStatus === "CORRECT"
-                          ? `✓ Trả lời chính xác! Chuỗi đúng hiện tại: ${item.consecutiveRight}/3`
-                          : "✕ Chưa chính xác, hãy đọc kỹ lời giải bên dưới để ghi nhớ nhé!"}
-                      </div>
-                    )}
-
-                    {/* Lời giải chi tiết */}
-                    {item.explanation && (
-                      <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/60 text-xs text-amber-950 space-y-1">
-                        <span className="font-bold text-amber-900 block flex items-center gap-1">
-                          <HelpCircle className="w-3.5 h-3.5" />
-                          <span>Lời giải chi tiết:</span>
-                        </span>
-                        <p className="leading-relaxed">{item.explanation}</p>
-                      </div>
+                    {selectedSavedVocabIds.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setIsReviewingSelected(true);
+                          setReviewCurrentIndex(0);
+                          setReviewShowAnswer(false);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#204434] text-white font-bold hover:bg-[#17382F] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Zap className="w-4 h-4 text-amber-300" />
+                        <span>🚀 Ôn tập tổng hợp ({selectedSavedVocabIds.length} từ)</span>
+                      </button>
                     )}
                   </div>
-                );
-              })}
+
+                  {/* CHẾ ĐỘ ÔN TẬP TỔNG HỢP CÁC TỪ ĐÃ CHỌN */}
+                  {isReviewingSelected && selectedSavedVocabIds.length > 0 && (
+                    <div className="p-6 rounded-3xl bg-gradient-to-br from-[#FAF7F0] to-[#FFFCF6] border-2 border-[#BC9B6B] shadow-md space-y-4 animate-fadeIn text-center">
+                      <div className="flex items-center justify-between text-xs text-[#8F6D3B] font-bold border-b border-[#E5DEC9] pb-2">
+                        <span>Đang ôn tập từ đã lưu ({reviewCurrentIndex + 1}/{selectedSavedVocabIds.length})</span>
+                        <button
+                          onClick={() => setIsReviewingSelected(false)}
+                          className="text-red-500 hover:underline cursor-pointer"
+                        >
+                          Đóng ôn tập
+                        </button>
+                      </div>
+
+                      {(() => {
+                        const targetVocab = savedStore.vocabs.find(
+                          (v) => v.id === selectedSavedVocabIds[reviewCurrentIndex]
+                        );
+                        if (!targetVocab) return null;
+
+                        return (
+                          <div className="space-y-4 py-4 max-w-md mx-auto">
+                            <span className="font-serif text-5xl font-bold text-[#204434] block">
+                              {targetVocab.hanzi}
+                            </span>
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="font-mono text-base font-semibold text-[#8F6D3B]">
+                                {targetVocab.pinyin}
+                              </span>
+                              <button
+                                onClick={() => handleSpeak(targetVocab.hanzi)}
+                                className="p-1 rounded-full text-[#8F6D3B] hover:text-[#204434] cursor-pointer"
+                              >
+                                <Volume2 className="w-5 h-5" />
+                              </button>
+                            </div>
+
+                            {reviewShowAnswer ? (
+                              <div className="space-y-2 animate-fadeIn">
+                                <p className="text-xl font-bold text-[#204434]">
+                                  {targetVocab.meaning}
+                                </p>
+                                {targetVocab.exampleZh && (
+                                  <p className="text-xs text-[#315E48] italic">
+                                    Ví dụ: {targetVocab.exampleZh} ({targetVocab.exampleVi})
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setReviewShowAnswer(true)}
+                                className="px-5 py-2.5 rounded-2xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 cursor-pointer transition shadow-xs"
+                              >
+                                Xem nghĩa tiếng Việt
+                              </button>
+                            )}
+
+                            <div className="pt-4 flex items-center justify-center gap-3">
+                              <button
+                                disabled={reviewCurrentIndex === 0}
+                                onClick={() => {
+                                  setReviewCurrentIndex((i) => Math.max(0, i - 1));
+                                  setReviewShowAnswer(false);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs font-bold text-[#204434] disabled:opacity-40 cursor-pointer"
+                              >
+                                Từ trước
+                              </button>
+                              <button
+                                disabled={reviewCurrentIndex >= selectedSavedVocabIds.length - 1}
+                                onClick={() => {
+                                  setReviewCurrentIndex((i) => i + 1);
+                                  setReviewShowAnswer(false);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
+                              >
+                                Từ tiếp theo
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Danh sách các từ vựng */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {savedStore.vocabs.map((v) => {
+                      const isChecked = selectedSavedVocabIds.includes(v.id);
+                      return (
+                        <div
+                          key={v.id}
+                          className={`p-4 rounded-2xl border transition shadow-2xs space-y-3 ${
+                            isChecked ? "bg-amber-50/50 border-amber-300" : "bg-[#FFFCF6] border-[#BC9B6B]/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSavedVocabIds((prev) => [...prev, v.id]);
+                                  } else {
+                                    setSelectedSavedVocabIds((prev) => prev.filter((id) => id !== v.id));
+                                  }
+                                }}
+                                className="w-4 h-4 rounded text-[#204434] cursor-pointer"
+                              />
+                              <span className="text-[11px] font-bold text-[#8F6D3B]">
+                                HSK {v.hskLevel || 1} · Bài {v.lessonNumber || 1}
+                              </span>
+                            </label>
+
+                            <button
+                              onClick={() => {
+                                removeSavedVocab(currentUser?.id, v.id);
+                                reloadSavedKnowledge();
+                              }}
+                              className="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                              title="Bỏ lưu từ này"
+                            >
+                              Bỏ lưu
+                            </button>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-serif font-bold text-2xl text-[#204434]">{v.hanzi}</span>
+                              <span className="font-mono text-xs font-semibold text-[#8F6D3B]">{v.pinyin}</span>
+                              <button
+                                onClick={() => handleSpeak(v.hanzi)}
+                                className="p-1 rounded-full text-[#8F6D3B] hover:text-[#204434] cursor-pointer"
+                              >
+                                <Volume2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <p className="text-xs font-bold text-[#315E48] mt-1">{v.meaning}</p>
+                            {v.exampleZh && (
+                              <p className="text-[11px] text-slate-600 italic mt-1">
+                                {v.exampleZh} ({v.exampleVi})
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400">
+                              Lưu lúc: {new Date(v.savedAt).toLocaleDateString("vi-VN")}
+                            </span>
+                            <button
+                              onClick={() => {
+                                if (v.lessonNumber) {
+                                  setSelectedPracticeLesson(v.lessonNumber);
+                                  setActiveMode("vocab");
+                                }
+                              }}
+                              className="font-bold text-[#204434] hover:underline cursor-pointer"
+                            >
+                              Xem bài học nguồn →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
-          ) : (
-            <div className="py-14 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#E5DEC9] space-y-2 max-w-lg mx-auto">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-6 h-6 text-emerald-700" />
-              </div>
-              <h4 className="font-serif font-bold text-base text-[#204434]">
-                Sổ câu hỏi sai đang trống!
-              </h4>
-              <p className="text-xs text-[#315E48] leading-relaxed max-w-sm mx-auto">
-                Tuyệt vời! Hiện tại bạn không có câu hỏi nào bị sai hoặc tất cả các câu sai trước đây đã được bạn vượt qua xuất sắc!
-              </p>
+          )}
+
+          {/* ================================================================= */}
+          {/* PHÂN MỤC 2: NGỮ PHÁP ĐÃ LƯU                                       */}
+          {/* ================================================================= */}
+          {savedSubTab === "grammars" && (
+            <div className="space-y-4">
+              {savedStore.grammars.length === 0 ? (
+                <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/40 space-y-3">
+                  <BookmarkCheck className="w-12 h-12 text-[#8F6D3B]/40 mx-auto" />
+                  <p className="text-sm font-bold text-[#204434]">Chưa có điểm ngữ pháp nào được lưu</p>
+                  <p className="text-xs text-[#315E48]">
+                    Khi học trong phòng Luyện ngữ pháp, bạn có thể bấm nút &quot;Lưu ngữ pháp&quot; để lưu lại các cấu trúc quan trọng.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (selectedSavedGrammarIds.length === savedStore.grammars.length) {
+                            setSelectedSavedGrammarIds([]);
+                          } else {
+                            setSelectedSavedGrammarIds(savedStore.grammars.map((g) => g.id));
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] font-bold hover:bg-[#FAF7F0] cursor-pointer"
+                      >
+                        {selectedSavedGrammarIds.length === savedStore.grammars.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                      </button>
+                      <span className="text-[#315E48]">
+                        Đã chọn: <strong>{selectedSavedGrammarIds.length}</strong> / {savedStore.grammars.length} điểm ngữ pháp
+                      </span>
+                    </div>
+
+                    {selectedSavedGrammarIds.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setIsReviewingSelected(true);
+                          setReviewCurrentIndex(0);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#204434] text-white font-bold hover:bg-[#17382F] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Zap className="w-4 h-4 text-amber-300" />
+                        <span>🚀 Ôn tập tổng hợp ({selectedSavedGrammarIds.length} ngữ pháp)</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Chế độ ôn tập ngữ pháp */}
+                  {isReviewingSelected && selectedSavedGrammarIds.length > 0 && (
+                    <div className="p-6 rounded-3xl bg-gradient-to-br from-[#FAF7F0] to-[#FFFCF6] border-2 border-[#BC9B6B] shadow-md space-y-4 animate-fadeIn max-w-xl mx-auto">
+                      <div className="flex items-center justify-between text-xs text-[#8F6D3B] font-bold border-b border-[#E5DEC9] pb-2">
+                        <span>Ôn tập ngữ pháp ({reviewCurrentIndex + 1}/{selectedSavedGrammarIds.length})</span>
+                        <button
+                          onClick={() => setIsReviewingSelected(false)}
+                          className="text-red-500 hover:underline cursor-pointer"
+                        >
+                          Đóng ôn tập
+                        </button>
+                      </div>
+
+                      {(() => {
+                        const targetGrammar = savedStore.grammars.find(
+                          (g) => g.id === selectedSavedGrammarIds[reviewCurrentIndex]
+                        );
+                        if (!targetGrammar) return null;
+
+                        return (
+                          <div className="space-y-3 py-2">
+                            <h4 className="font-serif font-bold text-lg text-[#204434]">
+                              {targetGrammar.title}
+                            </h4>
+                            <div className="p-3 rounded-xl bg-white border border-[#E5DEC9] font-mono text-xs text-[#8F6D3B] font-bold">
+                              Công thức: {targetGrammar.structure}
+                            </div>
+                            <p className="text-xs text-[#315E48] leading-relaxed">
+                              <strong>Ví dụ:</strong> {targetGrammar.example}
+                            </p>
+                            {targetGrammar.explanation && (
+                              <p className="text-xs text-slate-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                                💡 {targetGrammar.explanation}
+                              </p>
+                            )}
+
+                            <div className="pt-4 flex items-center justify-between">
+                              <button
+                                disabled={reviewCurrentIndex === 0}
+                                onClick={() => setReviewCurrentIndex((i) => Math.max(0, i - 1))}
+                                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs font-bold text-[#204434] disabled:opacity-40 cursor-pointer"
+                              >
+                                Ngữ pháp trước
+                              </button>
+                              <button
+                                disabled={reviewCurrentIndex >= selectedSavedGrammarIds.length - 1}
+                                onClick={() => setReviewCurrentIndex((i) => i + 1)}
+                                className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
+                              >
+                                Ngữ pháp tiếp theo
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Danh sách card ngữ pháp */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {savedStore.grammars.map((g) => {
+                      const isChecked = selectedSavedGrammarIds.includes(g.id);
+                      return (
+                        <div
+                          key={g.id}
+                          className={`p-4 sm:p-5 rounded-2xl border transition shadow-2xs space-y-3 ${
+                            isChecked ? "bg-amber-50/50 border-amber-300" : "bg-[#FFFCF6] border-[#BC9B6B]/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSavedGrammarIds((prev) => [...prev, g.id]);
+                                  } else {
+                                    setSelectedSavedGrammarIds((prev) => prev.filter((id) => id !== g.id));
+                                  }
+                                }}
+                                className="w-4 h-4 rounded text-[#204434] cursor-pointer"
+                              />
+                              <span className="text-[11px] font-bold text-[#8F6D3B]">
+                                HSK {g.hskLevel || 1} · Bài {g.lessonNumber || 1}
+                              </span>
+                            </label>
+
+                            <button
+                              onClick={() => {
+                                removeSavedGrammar(currentUser?.id, g.id);
+                                reloadSavedKnowledge();
+                              }}
+                              className="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                              title="Bỏ lưu ngữ pháp này"
+                            >
+                              Bỏ lưu
+                            </button>
+                          </div>
+
+                          <div>
+                            <h4 className="font-serif font-bold text-base text-[#204434]">{g.title}</h4>
+                            <div className="p-2.5 rounded-xl bg-white border border-[#E5DEC9] font-mono text-xs text-[#8F6D3B] font-bold mt-1.5">
+                              {g.structure}
+                            </div>
+                            <p className="text-xs text-[#315E48] mt-2 italic">Ví dụ: {g.example}</p>
+                            {g.explanation && (
+                              <p className="text-[11px] text-slate-700 mt-1 line-clamp-2">{g.explanation}</p>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400">
+                              Lưu lúc: {new Date(g.savedAt).toLocaleDateString("vi-VN")}
+                            </span>
+                            <button
+                              onClick={() => {
+                                if (g.lessonNumber) {
+                                  setSelectedPracticeLesson(g.lessonNumber);
+                                  setActiveMode("grammar");
+                                }
+                              }}
+                              className="font-bold text-[#204434] hover:underline cursor-pointer"
+                            >
+                              Xem bài học nguồn →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ================================================================= */}
+          {/* PHÂN MỤC 3: CÂU HỎI LUYỆN TẬP ĐÃ LƯU                              */}
+          {/* ================================================================= */}
+          {savedSubTab === "questions" && (
+            <div className="space-y-4">
+              {savedStore.questions.length === 0 ? (
+                <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/40 space-y-3">
+                  <BookmarkCheck className="w-12 h-12 text-[#8F6D3B]/40 mx-auto" />
+                  <p className="text-sm font-bold text-[#204434]">Chưa có câu hỏi luyện tập nào được lưu</p>
+                  <p className="text-xs text-[#315E48]">
+                    Khi làm bài tập trắc nghiệm ngữ pháp, bạn có thể bấm nút &quot;Lưu câu hỏi&quot; để lưu lại những câu cần luyện lại.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (selectedSavedQuestionIds.length === savedStore.questions.length) {
+                            setSelectedSavedQuestionIds([]);
+                          } else {
+                            setSelectedSavedQuestionIds(savedStore.questions.map((q) => q.id));
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg border border-[#E5DEC9] bg-white text-[#204434] font-bold hover:bg-[#FAF7F0] cursor-pointer"
+                      >
+                        {selectedSavedQuestionIds.length === savedStore.questions.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                      </button>
+                      <span className="text-[#315E48]">
+                        Đã chọn: <strong>{selectedSavedQuestionIds.length}</strong> / {savedStore.questions.length} câu hỏi
+                      </span>
+                    </div>
+
+                    {selectedSavedQuestionIds.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setIsReviewingSelected(true);
+                          setReviewCurrentIndex(0);
+                          setReviewQuizSelected(null);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#204434] text-white font-bold hover:bg-[#17382F] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Zap className="w-4 h-4 text-amber-300" />
+                        <span>🎯 Làm lại bài tập ({selectedSavedQuestionIds.length} câu)</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Chế độ làm lại câu hỏi trắc nghiệm trực tiếp */}
+                  {isReviewingSelected && selectedSavedQuestionIds.length > 0 && (
+                    <div className="p-6 rounded-3xl bg-gradient-to-br from-[#FAF7F0] to-[#FFFCF6] border-2 border-[#BC9B6B] shadow-md space-y-4 animate-fadeIn max-w-xl mx-auto">
+                      <div className="flex items-center justify-between text-xs text-[#8F6D3B] font-bold border-b border-[#E5DEC9] pb-2">
+                        <span>Làm lại câu hỏi ({reviewCurrentIndex + 1}/{selectedSavedQuestionIds.length})</span>
+                        <button
+                          onClick={() => setIsReviewingSelected(false)}
+                          className="text-red-500 hover:underline cursor-pointer"
+                        >
+                          Đóng làm bài
+                        </button>
+                      </div>
+
+                      {(() => {
+                        const targetQuestion = savedStore.questions.find(
+                          (q) => q.id === selectedSavedQuestionIds[reviewCurrentIndex]
+                        );
+                        if (!targetQuestion) return null;
+
+                        return (
+                          <div className="space-y-4 py-2">
+                            <p className="font-serif font-bold text-base text-[#204434]">
+                              {targetQuestion.prompt}
+                            </p>
+
+                            {/* Lựa chọn trắc nghiệm */}
+                            {Array.isArray(targetQuestion.options) && targetQuestion.options.length > 0 && (
+                              <div className="space-y-2">
+                                {targetQuestion.options.map((opt, oi) => {
+                                  const isSelected = reviewQuizSelected === opt;
+                                  const isCorrect = opt.trim().startsWith(targetQuestion.correctAnswer) || opt.includes(targetQuestion.correctAnswer);
+
+                                  let style = "bg-white border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]";
+                                  if (reviewQuizSelected) {
+                                    if (isCorrect) style = "bg-emerald-600 text-white font-bold border-emerald-600";
+                                    else if (isSelected) style = "bg-rose-500 text-white font-bold border-rose-500";
+                                  }
+
+                                  return (
+                                    <button
+                                      key={oi}
+                                      onClick={() => setReviewQuizSelected(opt)}
+                                      className={`w-full p-3 rounded-xl border text-xs text-left transition flex items-center justify-between cursor-pointer ${style}`}
+                                    >
+                                      <span>{opt}</span>
+                                      {reviewQuizSelected && isCorrect && <Check className="w-4 h-4 text-white" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {reviewQuizSelected && targetQuestion.explanation && (
+                              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 leading-relaxed animate-fadeIn">
+                                💡 <strong>Giải thích:</strong> {targetQuestion.explanation}
+                              </div>
+                            )}
+
+                            <div className="pt-3 flex items-center justify-between">
+                              <button
+                                disabled={reviewCurrentIndex === 0}
+                                onClick={() => {
+                                  setReviewCurrentIndex((i) => Math.max(0, i - 1));
+                                  setReviewQuizSelected(null);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-xs font-bold text-[#204434] disabled:opacity-40 cursor-pointer"
+                              >
+                                Câu trước
+                              </button>
+                              <button
+                                disabled={reviewCurrentIndex >= selectedSavedQuestionIds.length - 1}
+                                onClick={() => {
+                                  setReviewCurrentIndex((i) => i + 1);
+                                  setReviewQuizSelected(null);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
+                              >
+                                Câu tiếp theo
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Danh sách câu hỏi */}
+                  <div className="space-y-3">
+                    {savedStore.questions.map((q) => {
+                      const isChecked = selectedSavedQuestionIds.includes(q.id);
+                      return (
+                        <div
+                          key={q.id}
+                          className={`p-4 sm:p-5 rounded-2xl border transition shadow-2xs space-y-3 ${
+                            isChecked ? "bg-amber-50/50 border-amber-300" : "bg-[#FFFCF6] border-[#BC9B6B]/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSavedQuestionIds((prev) => [...prev, q.id]);
+                                  } else {
+                                    setSelectedSavedQuestionIds((prev) => prev.filter((id) => id !== q.id));
+                                  }
+                                }}
+                                className="w-4 h-4 rounded text-[#204434] cursor-pointer"
+                              />
+                              <span className="text-[11px] font-bold text-[#8F6D3B]">
+                                HSK {q.hskLevel || 1} · Bài {q.lessonNumber || 1} · {q.grammarRule || "Ngữ pháp"}
+                              </span>
+                            </label>
+
+                            <button
+                              onClick={() => {
+                                removeSavedQuestion(currentUser?.id, q.id);
+                                reloadSavedKnowledge();
+                              }}
+                              className="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                              title="Bỏ lưu câu hỏi này"
+                            >
+                              Bỏ lưu
+                            </button>
+                          </div>
+
+                          <p className="font-serif font-bold text-sm text-[#204434]">{q.prompt}</p>
+
+                          {Array.isArray(q.options) && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              {q.options.map((opt, oi) => {
+                                const isCorrect = opt.trim().startsWith(q.correctAnswer) || opt.includes(q.correctAnswer);
+                                return (
+                                  <div
+                                    key={oi}
+                                    className={`p-2 rounded-xl border text-[11px] ${
+                                      isCorrect ? "bg-emerald-50 border-emerald-300 font-bold text-emerald-900" : "bg-white border-[#E5DEC9]"
+                                    }`}
+                                  >
+                                    {opt} {isCorrect && "✓"}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {q.explanation && (
+                            <p className="text-[11px] text-amber-900 bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/50">
+                              💡 <strong>Giải thích:</strong> {q.explanation}
+                            </p>
+                          )}
+
+                          <div className="pt-2 border-t border-[#E5DEC9] flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400">
+                              Lưu lúc: {new Date(q.savedAt).toLocaleDateString("vi-VN")}
+                            </span>
+                            <button
+                              onClick={() => {
+                                if (q.lessonNumber) {
+                                  setSelectedPracticeLesson(q.lessonNumber);
+                                  setActiveMode("grammar");
+                                }
+                              }}
+                              className="font-bold text-[#204434] hover:underline cursor-pointer"
+                            >
+                              Xem bài học nguồn →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
       )}
+
       {/* =================================================================== */}
       {/* PHẦN 3: CHỨC NĂNG HỖ TRỢ & THEO DÕI NẮM VỮNG KIẾN THỨC             */}
       {/* =================================================================== */}

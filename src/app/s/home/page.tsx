@@ -113,7 +113,7 @@ export default function StudentHomePage() {
   }, []);
   const [activeNav, setActiveNav] = useState("home");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [practiceSubMode, setPracticeSubMode] = useState<"vocab" | "grammar" | "game" | "wrong">("vocab");
+  const [practiceSubMode, setPracticeSubMode] = useState<"vocab" | "grammar" | "game" | "saved" | "wrong">("vocab");
   const [username, setUsername] = useState("student");
   const [studentName, setStudentName] = useState("Học viên");
   const [studyProfile, setStudyProfile] = useState<StudyProfile | null>(null);
@@ -308,7 +308,7 @@ export default function StudentHomePage() {
           setActiveNav(tab);
         }
         const mode = urlParams.get("mode");
-        if (mode && ["vocab", "grammar", "game", "wrong"].includes(mode)) {
+        if (mode && ["vocab", "grammar", "game", "saved", "wrong"].includes(mode)) {
           setPracticeSubMode(mode as any);
         }
       }
@@ -695,16 +695,16 @@ export default function StudentHomePage() {
                   type="button"
                   onClick={() => {
                     setActiveNav("practice");
-                    setPracticeSubMode("wrong");
+                    setPracticeSubMode("saved");
                     setMobileMenuOpen(false);
                   }}
                   className={`w-full text-left block py-1 transition hover:translate-x-0.5 cursor-pointer ${
-                    activeNav === "practice" && practiceSubMode === "wrong"
+                    activeNav === "practice" && (practiceSubMode === "saved" || practiceSubMode === "wrong")
                       ? "text-[#204434] font-bold"
                       : "hover:text-[#204434]"
                   }`}
                 >
-                  Sổ câu hỏi sai
+                  Kiến thức đã lưu
                 </button>
               </div>
             </div>

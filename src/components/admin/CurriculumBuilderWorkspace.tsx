@@ -198,8 +198,139 @@ export default function CurriculumBuilderWorkspace({
     showToast(`Đã xuất template mẫu HSK ${selectedLevel} thành công!`);
   };
 
-  // 2. NHẬP FILE GIÁO TRÌNH (.JSON)
-  const handleImportJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 1B. TẢI VỀ FILE TEMPLATE CÂU HỎI BÀI TẬP NGỮ PHÁP (.JSON)
+  const handleDownloadExerciseTemplate = () => {
+    const exerciseTemplateSample = {
+      hskLevel: selectedLevel,
+      description: `Template mẫu nhập câu hỏi bài tập ngữ pháp HSK ${selectedLevel}`,
+      instructions: "Admin có thể chuẩn bị nhiều câu hỏi bài tập cho các bài học khác nhau trong file này. Trường 'lessonNumber' quy định câu hỏi thuộc về bài học nào (ví dụ: bài 1 hoặc bài 9).",
+      exercises: [
+        {
+          lessonNumber: 1,
+          mode: "choose_correct",
+          grammarRule: "Quy tắc chào hỏi lịch sự & xưng hô",
+          prompt: "Chọn câu chào hỏi thầy giáo Vương đúng trật tự và lịch sự nhất:",
+          options: [
+            "A. 好王老师！",
+            "B. 王老师，您好！",
+            "C. 王老师，你好们！",
+            "D. 您好王老师是！"
+          ],
+          correctAnswer: "B",
+          explanation: "Quy tắc chào hỏi: Danh từ/Chức danh + 您好 (王老师，您好！). Dùng '您' để thể hiện sự tôn trọng với thầy cô."
+        },
+        {
+          lessonNumber: 1,
+          mode: "fill_blank",
+          grammarRule: "Đại từ kính trọng 您",
+          prompt: "Điền từ thích hợp vào chỗ trống: 小语遇见王老师，礼貌地说：“王老师，____ 好！”",
+          options: ["A. 您", "B. 们", "C. 谁", "D. 吗"],
+          correctAnswer: "A",
+          explanation: "Chào thầy cô cần dùng '您好' (Nín hǎo) để thể hiện sự lễ phép và tôn kính."
+        },
+        {
+          lessonNumber: 1,
+          mode: "reorder",
+          grammarRule: "Trật tự câu chào hỏi",
+          prompt: "Sắp xếp các từ sau thành câu chào hỏi chuẩn xác:",
+          scrambledWords: ["您好", "，", "王老师", "！"],
+          correctAnswer: "王老师，您好！",
+          explanation: "Trật tự chào hỏi tiếng Trung: Danh xưng/Tên người + Dấu phẩy + Lời chào."
+        },
+        {
+          lessonNumber: 1,
+          mode: "correct_mistake",
+          grammarRule: "Lỗi dùng 们 sau số từ cụ thể",
+          prompt: "Tìm và sửa lỗi sai trong câu: '教室里有五个学生们。'",
+          wrongSentence: "教室里有五个学生们。",
+          options: [
+            "A. Bỏ '们', sửa thành: 教室里有五个学生。",
+            "B. Đổi '五个' thành '两'"
+          ],
+          correctAnswer: "A",
+          explanation: "Khi đã có số từ và lượng từ xác định phía trước (五个) thì KHÔNG được thêm hậu tố '们'."
+        },
+        {
+          lessonNumber: 1,
+          mode: "listen_dialogue",
+          grammarRule: "Nghe hiểu hội thoại chào hỏi",
+          prompt: "Nghe đoạn thoại ngắn giữa Tiểu Ngữ và thầy Vương, trả lời câu hỏi:",
+          dialogueLines: [
+            { "speaker": "小语", "zh": "王老师，您好！我是小语。", "pinyin": "Wáng lǎoshī, nín hǎo! Wǒ shì Xiǎoyǔ.", "vi": "Em chào thầy Vương ạ! Em là Tiểu Ngữ." },
+            { "speaker": "王老师", "zh": "你好，小语！欢迎来到中文课。", "pinyin": "Nǐ hǎo, Xiǎoyǔ! Huānyíng lái dào zhōngwén kè.", "vi": "Chào Tiểu Ngữ! Chào mừng em đến lớp tiếng Trung." }
+          ],
+          options: [
+            "A. Tiểu Ngữ dùng '您' vì thầy Vương là giáo viên, cần thể hiện sự kính trọng",
+            "B. Tiểu Ngữ dùng '您' vì thầy Vương là bạn học cùng lớp"
+          ],
+          correctAnswer: "A",
+          explanation: "Học sinh chào giáo viên cần dùng đại từ '您' để bày tỏ sự lễ phép đối với thầy cô giáo."
+        }
+      ]
+    };
+
+    const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exerciseTemplateSample, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", jsonStr);
+    downloadAnchor.setAttribute("download", `template_cau_hoi_ngu_phap_HSK${selectedLevel}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    showToast(`Đã tải template mẫu câu hỏi bài tập HSK ${selectedLevel} thành công!`);
+  };
+
+  // 2A. NHẬP THÊM BÀI MỚI (MERGE / APPEND - GIỮ NGUYÊN CÁC BÀI CŨ 1..8)
+  const handleImportAppendLessonsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+
+        let incomingLessons: Hsk1FullLesson[] = [];
+        if (Array.isArray(parsed)) {
+          incomingLessons = parsed;
+        } else if (Array.isArray(parsed.lessons)) {
+          incomingLessons = parsed.lessons;
+        } else if (parsed && typeof parsed === "object" && parsed.number) {
+          incomingLessons = [parsed as Hsk1FullLesson];
+        }
+
+        if (incomingLessons.length === 0) {
+          showToast("File không chứa danh sách bài học hợp lệ!", "error");
+          return;
+        }
+
+        // Ghép thông minh: Giữ nguyên tất cả các bài cũ, bài nào mới thì thêm vào, bài nào trùng số bài thì cập nhật
+        const lessonMap = new Map<number, Hsk1FullLesson>();
+        lessons.forEach((l) => lessonMap.set(l.number, l));
+        incomingLessons.forEach((l) => lessonMap.set(l.number, l));
+
+        const merged = Array.from(lessonMap.values()).sort((a, b) => a.number - b.number);
+        setLessons(merged);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+            JSON.stringify(merged)
+          );
+        }
+
+        showToast(`Đã ghép thành công ${incomingLessons.length} bài mới vào giáo trình! Hiện có ${merged.length} bài. Hãy bấm "Lưu & Xuất bản" để đồng bộ.`);
+      } catch (err) {
+        showToast("Lỗi định dạng file JSON!", "error");
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  };
+
+  // 2B. NHẬP ĐÈ TOÀN BỘ GIÁO TRÌNH (.JSON)
+  const handleImportReplaceLessonsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -221,14 +352,102 @@ export default function CurriculumBuilderWorkspace({
           return;
         }
 
+        if (!confirm(`Hành động này sẽ thay thế TOÀN BỘ bài học hiện tại bằng ${incomingLessons.length} bài trong file. Bạn có chắc chắn không?`)) {
+          return;
+        }
+
         setLessons(incomingLessons);
-        showToast(`Đã nạp thành công ${incomingLessons.length} bài học từ file JSON! Bấm "Lưu & Xuất bản" để áp dụng.`);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+            JSON.stringify(incomingLessons)
+          );
+        }
+
+        showToast(`Đã thay thế toàn bộ bằng ${incomingLessons.length} bài học mới! Bấm "Lưu & Xuất bản" để đồng bộ.`);
       } catch {
         showToast("Lỗi định dạng file JSON!", "error");
       }
     };
     reader.readAsText(file, "UTF-8");
+    e.target.value = "";
   };
+
+  // 2C. NHẬP CÂU HỎI BÀI TẬP HÀNG LOẠT TỪ FILE (.JSON)
+  const handleImportExercisesBatchFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+
+        let incomingExercises: Array<GrammarExerciseItem & { lessonNumber?: number }> = [];
+        if (Array.isArray(parsed)) {
+          incomingExercises = parsed;
+        } else if (Array.isArray(parsed.exercises)) {
+          incomingExercises = parsed.exercises;
+        }
+
+        if (incomingExercises.length === 0) {
+          showToast("File không chứa danh sách câu hỏi hợp lệ!", "error");
+          return;
+        }
+
+        let assignedCount = 0;
+        const updatedLessons = lessons.map((les) => {
+          const forThisLesson = incomingExercises.filter(
+            (ex) => !ex.lessonNumber || ex.lessonNumber === les.number
+          );
+
+          if (forThisLesson.length === 0) return les;
+
+          const currentExs = Array.isArray(les.grammarExercises) ? [...les.grammarExercises] : [];
+
+          forThisLesson.forEach((exItem, idx) => {
+            const cleanItem: GrammarExerciseItem = {
+              id: exItem.id || `hsk${selectedLevel}-${String(les.number).padStart(2, "0")}-ex-batch-${Date.now()}-${idx}`,
+              mode: exItem.mode || "choose_correct",
+              grammarRule: exItem.grammarRule || "Ngữ pháp bài học",
+              prompt: exItem.prompt || "",
+              options: exItem.options,
+              correctAnswer: exItem.correctAnswer || "A",
+              explanation: exItem.explanation || "",
+              scrambledWords: exItem.scrambledWords,
+              wrongSentence: exItem.wrongSentence,
+              dialogueLines: exItem.dialogueLines,
+            };
+            currentExs.push(cleanItem);
+            assignedCount++;
+          });
+
+          return {
+            ...les,
+            grammarExercises: currentExs,
+          };
+        });
+
+        setLessons(updatedLessons);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+            JSON.stringify(updatedLessons)
+          );
+        }
+
+        showToast(`Đã nạp thành công ${assignedCount} câu hỏi bài tập vào các bài học tương ứng! Bấm "Lưu & Xuất bản" để đồng bộ.`);
+      } catch {
+        showToast("Lỗi định dạng file JSON câu hỏi!", "error");
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  };
+
 
   // 3. THÊM BÀI HỌC MỚI VÀO CẤP ĐỘ NÀY
   const handleAddNewLesson = () => {
@@ -581,41 +800,78 @@ export default function CurriculumBuilderWorkspace({
           </div>
 
           {/* Cụm công cụ nhập / xuất / lưu */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Tải template bài học */}
             <button
               onClick={handleDownloadTemplate}
-              className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Tải về file JSON mẫu"
+              className="px-3 py-2 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              title="Tải về file JSON mẫu bài học"
             >
-              <Download className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Tải Template</span>
+              <Download className="w-3.5 h-3.5 text-[#8F6D3B]" />
+              <span>Template bài học</span>
             </button>
 
-            <label className="px-3.5 py-2.5 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
-              <Upload className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Nhập file (.JSON)</span>
+            {/* Tải template câu hỏi bài tập */}
+            <button
+              onClick={handleDownloadExerciseTemplate}
+              className="px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              title="Tải về file JSON mẫu nhập câu hỏi bài tập ngữ pháp"
+            >
+              <Download className="w-3.5 h-3.5 text-amber-700" />
+              <span>Template câu hỏi (.JSON)</span>
+            </button>
+
+            {/* Nhập thêm bài mới (Append / Merge - Giữ nguyên các bài cũ) */}
+            <label className="px-3 py-2 rounded-xl border border-[#204434] bg-[#204434]/5 hover:bg-[#204434]/10 text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
+              <Upload className="w-3.5 h-3.5 text-[#204434]" />
+              <span>➕ Nhập thêm bài riêng (.JSON)</span>
               <input
                 type="file"
                 accept=".json"
                 className="hidden"
-                onChange={handleImportJsonFile}
+                onChange={handleImportAppendLessonsFile}
               />
             </label>
 
+            {/* Nhập câu hỏi hàng loạt */}
+            <label className="px-3 py-2 rounded-xl border border-amber-400 bg-amber-100/60 hover:bg-amber-200/60 text-amber-950 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
+              <Upload className="w-3.5 h-3.5 text-amber-800" />
+              <span>📤 Nhập câu hỏi (.JSON)</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportExercisesBatchFile}
+              />
+            </label>
+
+            {/* Nhập đè toàn bộ */}
+            <label className="px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium flex items-center gap-1 transition cursor-pointer" title="Nhập thay thế toàn bộ danh sách bài học">
+              <span>🔄 Nhập đè tất cả</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportReplaceLessonsFile}
+              />
+            </label>
+
+            {/* Thêm bài mới */}
             <button
               onClick={handleAddNewLesson}
-              className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+              className="px-3.5 py-2 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             >
-              <Plus className="w-4 h-4 text-[#BC9B6B]" />
+              <Plus className="w-3.5 h-3.5 text-[#BC9B6B]" />
               <span>Thêm bài mới</span>
             </button>
 
+            {/* Lưu & Xuất bản toàn bộ */}
             <button
               disabled={saving || lessons.length === 0}
               onClick={handleSaveAndPublishAll}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] hover:from-[#17382F] hover:to-[#204434] text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-md shadow-[#204434]/20 disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] hover:from-[#17382F] hover:to-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#204434]/20 disabled:opacity-50"
             >
-              <Save className="w-4 h-4 text-[#BC9B6B]" />
+              <Save className="w-3.5 h-3.5 text-[#BC9B6B]" />
               <span>{saving ? "Đang xuất bản..." : "Lưu & Xuất bản kho chung"}</span>
             </button>
           </div>
