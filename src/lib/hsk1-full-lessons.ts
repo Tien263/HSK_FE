@@ -43,6 +43,7 @@ export interface GrammarExerciseItem {
   grammarRule: string;
   prompt: string;
   meaningVi?: string;
+  audioUrl?: string;
   options?: string[];
   correctAnswer: string;
   dialogueLines?: { speaker: string; zh: string; pinyin: string; vi: string }[];

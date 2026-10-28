@@ -28,6 +28,7 @@ import {
   Check,
   BookMarked,
   Globe2,
+  Headphones,
 } from "lucide-react";
 import {
   Hsk1FullLesson,
@@ -122,6 +123,7 @@ export default function CurriculumBuilderWorkspace({
   const [newExExplanation, setNewExExplanation] = useState("");
   const [newExScrambled, setNewExScrambled] = useState(""); // cho reorder, ngăn cách bằng dấu phẩy
   const [newExWrongSentence, setNewExWrongSentence] = useState(""); // cho correct_mistake
+  const [newExAudioUrl, setNewExAudioUrl] = useState(""); // cho listen_dialogue (URL file nghe)
 
   // State bộ lọc cho Ngân hàng bài tập ngữ pháp (grammar_hub)
   const [filterLessonNumber, setFilterLessonNumber] = useState<number | "ALL">("ALL");
@@ -255,6 +257,7 @@ export default function CurriculumBuilderWorkspace({
           mode: "listen_dialogue",
           grammarRule: "Nghe hiểu hội thoại chào hỏi",
           prompt: "Nghe đoạn thoại ngắn giữa Tiểu Ngữ và thầy Vương, trả lời câu hỏi:",
+          audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
           dialogueLines: [
             { "speaker": "小语", "zh": "王老师，您好！我是小语。", "pinyin": "Wáng lǎoshī, nín hǎo! Wǒ shì Xiǎoyǔ.", "vi": "Em chào thầy Vương ạ! Em là Tiểu Ngữ." },
             { "speaker": "王老师", "zh": "你好，小语！欢迎来到中文课。", "pinyin": "Nǐ hǎo, Xiǎoyǔ! Huānyíng lái dào zhōngwén kè.", "vi": "Chào Tiểu Ngữ! Chào mừng em đến lớp tiếng Trung." }
@@ -615,6 +618,7 @@ export default function CurriculumBuilderWorkspace({
       mode: newExMode,
       grammarRule: newExRule.trim() || (editingLesson.grammarList?.[0]?.title ?? "Ngữ pháp trọng tâm"),
       prompt: newExPrompt.trim(),
+      audioUrl: newExMode === "listen_dialogue" ? newExAudioUrl.trim() || undefined : undefined,
       options: finalOptions,
       scrambledWords: finalScrambled,
       wrongSentence: newExWrongSentence.trim() || undefined,
@@ -641,6 +645,7 @@ export default function CurriculumBuilderWorkspace({
     setNewExExplanation("");
     setNewExScrambled("");
     setNewExWrongSentence("");
+    setNewExAudioUrl("");
 
     showToast("Đã thêm câu hỏi bài tập ngữ pháp mới thành công!");
   };
@@ -1989,6 +1994,26 @@ export default function CurriculumBuilderWorkspace({
                         className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-serif font-bold text-[#204434]"
                       />
                     </div>
+
+                    {/* Ô nhập File nghe âm thanh (cho dạng listen_dialogue) */}
+                    {newExMode === "listen_dialogue" && (
+                      <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/70 space-y-1.5">
+                        <label className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                          <Headphones className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Đường dẫn file âm thanh bài nghe (Audio URL / Link MP3):</span>
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="VD: https://domain.com/audio/hsk1-bai1-nghe.mp3 (Nếu để trống hệ thống sẽ dùng AI giọng đọc chuẩn)"
+                          value={newExAudioUrl}
+                          onChange={(e) => setNewExAudioUrl(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-xl border border-amber-300 bg-white text-xs font-mono text-[#204434] focus:outline-hidden focus:border-amber-500"
+                        />
+                        <p className="text-[10px] text-amber-800 italic">
+                          💡 Thầy/Cô có thể dán liên kết file MP3 bài nghe hoặc file âm thanh lưu trữ trên Cloud/CDN.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Form tùy biến theo từng dạng bài */}
                     {(newExMode === "choose_correct" || newExMode === "fill_blank" || newExMode === "listen_dialogue") && (

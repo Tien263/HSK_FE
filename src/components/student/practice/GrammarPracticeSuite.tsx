@@ -67,6 +67,7 @@ export interface GrammarExerciseItem {
   grammarRule: string;
   prompt: string;
   meaningVi?: string;
+  audioUrl?: string;
   options?: string[];
   correctAnswer: string;
   dialogueLines?: { speaker: string; zh: string; pinyin: string; vi: string }[];
@@ -77,6 +78,19 @@ export interface GrammarExerciseItem {
   wrongSentence?: string;
   wrongSentencePinyin?: string;
   explanation: string;
+}
+
+// Hàm chuẩn hóa chuỗi phục vụ so sánh câu ghép xáo trộn chính xác tuyệt đối
+function normalizeForComparison(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/[\s\u3000\u00A0]+/g, "")
+    .replace(/[！!]/g, "!")
+    .replace(/[？?]/g, "?")
+    .replace(/[，,]/g, ",")
+    .replace(/[。.：:]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 interface GrammarPracticeSuiteProps {
@@ -239,12 +253,45 @@ export default function GrammarPracticeSuite({
     return generated;
   }, [customExercises, normalizedGrammars, vocabList, dialogueList, hskLevel, lessonNumber]);
 
-  // Danh sách câu hỏi của dạng bài đang chọn
+  // Danh sách câu hỏi của dạng bài đang chọn theo điểm ngữ pháp hiện tại
   const currentModeExercises = useMemo(() => {
-    return allExercises.filter((ex) => ex.mode === activeExerciseMode);
-  }, [allExercises, activeExerciseMode]);
+    const byMode = allExercises.filter((ex) => ex.mode === activeExerciseMode);
+    if (!currentGrammar) return byMode;
+
+    // 1. Tìm câu hỏi khớp với ngữ pháp hiện tại (grammarRule, grammarId hoặc tiêu đề)
+    const matched = byMode.filter((ex) => {
+      if ((ex as any).grammarId && (ex as any).grammarId === currentGrammar.id) return true;
+      if (ex.grammarRule) {
+        const ruleClean = ex.grammarRule.toLowerCase().trim();
+        const titleClean = (currentGrammar.title || "").toLowerCase().trim();
+        const zhClean = (currentGrammar.titleZh || "").toLowerCase().trim();
+        if (ruleClean === titleClean) return true;
+        if (titleClean && (ruleClean.includes(titleClean) || titleClean.includes(ruleClean))) return true;
+        if (zhClean && ruleClean.includes(zhClean)) return true;
+      }
+      return false;
+    });
+
+    if (matched.length > 0) return matched;
+
+    // 2. Nếu câu hỏi chưa phân rule cụ thể, chia đều số câu hỏi cho các điểm ngữ pháp
+    if (normalizedGrammars.length > 1 && byMode.length > 0) {
+      const idx = selectedGrammarIdx >= 0 ? selectedGrammarIdx : 0;
+      const countPerGrammar = Math.max(1, Math.ceil(byMode.length / normalizedGrammars.length));
+      const start = idx * countPerGrammar;
+      const sliced = byMode.slice(start, start + countPerGrammar);
+      if (sliced.length > 0) return sliced;
+    }
+
+    return byMode;
+  }, [allExercises, activeExerciseMode, currentGrammar, normalizedGrammars, selectedGrammarIdx]);
 
   const currentExercise = currentModeExercises[currentQuestionIdx] || currentModeExercises[0];
+
+  // Khi chuyển điểm ngữ pháp hoặc dạng bài, reset về câu đầu tiên
+  useEffect(() => {
+    setCurrentQuestionIdx(0);
+  }, [selectedGrammarIdx, activeExerciseMode]);
 
   // Lọc danh sách ngữ pháp bên cột trái theo tìm kiếm
   const filteredGrammars = useMemo(() => {
@@ -300,17 +347,34 @@ export default function GrammarPracticeSuite({
 
   const handleCheckReorder = () => {
     if (assembledTokens.length === 0) return;
-    const joined = assembledTokens.join("").trim();
-    const correctClean = (currentExercise.sentence || "").replace(/\s+/g, "").trim();
-    const isMatch = joined === correctClean || assembledTokens.join(" ") === currentExercise.correctAnswer;
+    const joinedRaw = assembledTokens.join("").trim();
+    const joinedNorm = normalizeForComparison(joinedRaw);
 
-    setOrderCorrect(isMatch);
+    const targetSentenceNorm = normalizeForComparison(currentExercise.sentence || "");
+    const targetAnswerNorm = normalizeForComparison(currentExercise.correctAnswer || "");
+
+    const stripPunct = (s: string) => s.replace(/[!?,]/g, "");
+    const joinedNoPunct = stripPunct(joinedNorm);
+
+    const isMatch =
+      (targetSentenceNorm && joinedNorm === targetSentenceNorm) ||
+      (targetAnswerNorm && joinedNorm === targetAnswerNorm) ||
+      (targetSentenceNorm && joinedNoPunct === stripPunct(targetSentenceNorm)) ||
+      (targetAnswerNorm && joinedNoPunct === stripPunct(targetAnswerNorm));
+
+    setOrderCorrect(Boolean(isMatch));
     setOrderChecked(true);
 
     if (isMatch) {
       setScore((s) => s + 10);
       setCorrectCount((c) => c + 1);
-      handleSpeak(currentExercise.sentence || joined);
+      handleSpeak(currentExercise.sentence || joinedRaw);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIdx > 0) {
+      setCurrentQuestionIdx((prev) => prev - 1);
     }
   };
 
@@ -721,20 +785,35 @@ export default function GrammarPracticeSuite({
               </div>
             )}
 
-            {/* Dạng Nghe Hội Thoại: Nút phát âm thanh */}
+            {/* Dạng Nghe Hội Thoại: Audio Player hoặc Nút phát âm thanh */}
             {activeExerciseMode === "listen_dialogue" && (
-              <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 text-center space-y-2">
-                <button
-                  type="button"
-                  onClick={() => handleSpeak(currentExercise.audioText || "")}
-                  className="w-14 h-14 mx-auto rounded-full bg-[#17382F] text-white hover:bg-[#0f241e] flex items-center justify-center shadow-md cursor-pointer transition"
-                  title="Nghe hội thoại"
-                >
-                  <Volume2 className="w-6 h-6" />
-                </button>
-                <span className="text-[11px] text-[#8F6D3B] font-semibold block">
-                  Bấm loa để nghe đoạn hội thoại (5 - 10 giây)
-                </span>
+              <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 text-center space-y-3">
+                {currentExercise.audioUrl ? (
+                  <div className="space-y-2">
+                    <audio
+                      controls
+                      src={currentExercise.audioUrl}
+                      className="w-full max-w-md mx-auto h-10 rounded-xl"
+                    />
+                    <span className="text-[11px] text-[#8F6D3B] font-semibold block">
+                      Phát file nghe của bài tập
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSpeak(currentExercise.audioText || currentExercise.prompt || "")}
+                      className="w-14 h-14 mx-auto rounded-full bg-[#17382F] text-white hover:bg-[#0f241e] flex items-center justify-center shadow-md cursor-pointer transition"
+                      title="Nghe hội thoại"
+                    >
+                      <Volume2 className="w-6 h-6" />
+                    </button>
+                    <span className="text-[11px] text-[#8F6D3B] font-semibold block">
+                      Bấm loa để nghe đoạn hội thoại (5 - 10 giây)
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -841,30 +920,27 @@ export default function GrammarPracticeSuite({
                   <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
                   <span>Xem giải thích chi tiết</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleSpeak(
-                      currentExercise.sentence ||
-                        currentExercise.audioText ||
-                        currentExercise.prompt
-                    )
-                  }
-                  className="px-3 py-1.5 rounded-xl border border-[#E5DEC9] bg-white text-[11px] font-bold text-[#204434] hover:bg-[#FAF7F0] flex items-center gap-1 cursor-pointer"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Nghe lại</span>
-                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={handleNextQuestion}
-                className="px-5 py-2 rounded-xl bg-[#17382F] hover:bg-[#0f241e] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
-              >
-                <span>Câu tiếp theo</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrevQuestion}
+                  disabled={currentQuestionIdx === 0}
+                  className="px-4 py-2 rounded-xl border border-[#E5DEC9] bg-white hover:bg-[#FAF7F0] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-[#204434] transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Câu trước</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextQuestion}
+                  className="px-5 py-2 rounded-xl bg-[#17382F] hover:bg-[#0f241e] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                >
+                  <span>Câu tiếp theo</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

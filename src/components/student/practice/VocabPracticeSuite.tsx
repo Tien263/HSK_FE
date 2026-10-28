@@ -1167,63 +1167,22 @@ export default function VocabPracticeSuite({
               </div>
             </div>
 
-            {/* 3. HÀNG BỔ TRỢ 2: 3 KHỐI ĐÁY (MẸO GHI NHỚ / TỪ LIÊN QUAN / HÌNH MINH HỌA) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
-              {/* Khối 1: Mẹo ghi nhớ */}
-              <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] shadow-2xs space-y-1.5">
-                <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
-                  <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Mẹo ghi nhớ</span>
-                </span>
-                <p className="text-[11px] font-bold text-[#8F6D3B]">
-                  {etymologyInfo.radicals}
-                </p>
-                <p className="text-[11px] text-[#315E48] leading-relaxed line-clamp-3">
-                  {etymologyInfo.memo}
-                </p>
-              </div>
-
-              {/* Khối 2: Từ liên quan */}
-              <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] shadow-2xs space-y-1.5">
-                <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
-                  <Link2 className="w-3.5 h-3.5 text-[#8F6D3B]" />
-                  <span>Từ liên quan</span>
-                </span>
-                <div className="space-y-1 max-h-20 overflow-y-auto">
-                  {relatedWords.map((rw, i) => (
-                    <div
-                      key={i}
-                      onClick={() => handleSpeak(rw.hanzi)}
-                      className="flex items-center justify-between text-[11px] p-1 rounded-lg hover:bg-[#FAF7F0] cursor-pointer"
-                      title="Bấm để nghe phát âm"
-                    >
-                      <span className="font-serif font-bold text-[#204434]">
-                        {rw.hanzi}
-                      </span>
-                      <span className="text-[10px] text-[#8F6D3B] font-mono">
-                        {rw.pinyin}
-                      </span>
-                      <span className="text-[10px] text-[#6B766D] truncate max-w-[70px]">
-                        {rw.meaningVi}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Khối 3: Hình ảnh minh họa */}
-              <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] shadow-2xs space-y-1.5 flex flex-col justify-between text-center">
-                <span className="text-xs font-bold text-[#204434] flex items-center justify-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-[#315E48]" />
-                  <span>Hình ảnh minh họa</span>
-                </span>
-                <div className="w-full h-16 rounded-xl bg-[#FAF7F0] border border-dashed border-[#E5DEC9] flex items-center justify-center">
-                  <span className="font-serif font-bold text-2xl text-[#204434]/70">
-                    {currentVocab.hanzi}！
+            {/* 3. HÀNG BỔ TRỢ: MẸO GHI NHỚ CHI TIẾT */}
+            <div className="pt-1">
+              <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    <span>Mẹo ghi nhớ chữ Hán</span>
                   </span>
+                  {etymologyInfo.radicals && (
+                    <span className="text-[11px] font-bold text-[#8F6D3B] px-2.5 py-0.5 rounded-full bg-[#FAF7F0] border border-[#E5DEC9]">
+                      {etymologyInfo.radicals}
+                    </span>
+                  )}
                 </div>
-                <p className="text-[10px] text-[#8F6D3B] italic">
-                  Hình ảnh trực quan ngữ cảnh
+                <p className="text-xs text-[#315E48] leading-relaxed">
+                  {etymologyInfo.memo}
                 </p>
               </div>
             </div>
