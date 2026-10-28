@@ -45,6 +45,7 @@ import {
   Camera,
 } from "lucide-react";
 import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
+import AvatarUpload from "@/components/common/AvatarUpload";
 import StudentClassesWorkspace from "@/components/student/StudentClassesWorkspace";
 import StudentAssignmentsWorkspace from "@/components/student/StudentAssignmentsWorkspace";
 import StudentRoadmapWorkspace from "@/components/student/StudentRoadmapWorkspace";
@@ -2246,38 +2247,17 @@ export default function StudentHomePage() {
             {/* TAB 1: THÔNG TIN CÁ NHÂN */}
             {settingsTab === "profile" && (
               <div className="space-y-4 text-xs">
-                {/* 1. KHỐI ẢNH ĐẠI DIỆN HỌC VIÊN CLOUDINARY (THƯ MỤC HSK_AVATARS) */}
-                <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-[#204434] flex items-center gap-1.5">
-                      <Camera className="w-3.5 h-3.5 text-[#BC9B6B]" />
-                      <span>Ảnh đại diện (Avatar học viên)</span>
-                    </label>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-300">
-                      ☁️ Cloudinary: hsk_avatars
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full border-2 border-[#BC9B6B] overflow-hidden bg-[#FAF7F0] shrink-0 flex items-center justify-center shadow-2xs">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={profileForm.avatar || "/theme/avatar-student.jpg"}
-                        alt="Avatar học viên"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <CloudinaryUpload
-                        value={profileForm.avatar}
-                        onChange={(url) => setProfileForm({ ...profileForm, avatar: url })}
-                        folder="hsk_avatars"
-                        accept="image/*"
-                        placeholder="Chọn ảnh đại diện để tải lên Cloudinary..."
-                        showPreview={false}
-                      />
-                    </div>
-                  </div>
+                {/* 1. KHỐI ẢNH ĐẠI DIỆN HỌC VIÊN */}
+                <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-2">
+                  <AvatarUpload
+                    value={profileForm.avatar}
+                    onChange={(url) => setProfileForm({ ...profileForm, avatar: url })}
+                    folder="hsk_avatars"
+                    fallbackUrl="/theme/avatar-student.jpg"
+                    size="md"
+                    label="Ảnh đại diện (Avatar)"
+                    subtext="Nhấp vào ảnh để chọn ảnh chân dung mới từ máy tính (PNG, JPG, WebP)."
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
