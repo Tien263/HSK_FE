@@ -195,8 +195,10 @@ export default function AiWritingCheckerModal({
                     {result.score >= 90
                       ? "🌟 Xuất sắc! Câu văn rất tự nhiên và chuẩn ngữ pháp"
                       : result.score >= 75
-                      ? "👍 Khá tốt! Câu văn rõ nghĩa, có vài điểm ngữ pháp cần lưu ý"
-                      : "⚠️ Cần chú ý trật tự từ và quy tắc ngữ pháp tiếng Trung"}
+                      ? "👍 Khá tốt! Câu văn rõ nghĩa, có vài điểm cần trau chuốt"
+                      : result.score >= 60
+                      ? "⚠️ Cần lưu ý: Câu có lỗi trật tự từ hoặc dùng từ chưa chuẩn"
+                      : "❌ Chưa đạt: Câu mắc lỗi trật tự từ nghiêm trọng hoặc thiếu thành phần/thiếu chữ"}
                   </h4>
                   <p className="text-xs text-[#315E48] mt-0.5 leading-relaxed">
                     {result.pedagogicalComment}

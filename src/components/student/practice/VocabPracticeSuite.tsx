@@ -74,7 +74,7 @@ interface VocabPracticeSuiteProps {
   initialFilter?: "ALL" | MemoryStatus;
 }
 
-// Chuẩn hóa so sánh nghĩa tiếng Việt
+// Chuẩn hóa so sánh nghĩa tiếng Việt (loại bỏ dấu, ký tự đặc biệt, chuẩn hóa khoảng trắng)
 function normalizeVi(str: string): string {
   return str
     .toLowerCase()
@@ -82,17 +82,70 @@ function normalizeVi(str: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]/g, "");
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
+// Kiểm tra nghĩa tiếng Việt nhập vào: Phải đúng đầy đủ nghĩa, KHÔNG chấp nhận gõ thiếu chữ hoặc viết cụt
 function checkMeaningMatch(userInput: string, targetMeaning: string): boolean {
   const u = normalizeVi(userInput);
-  const t = normalizeVi(targetMeaning);
-  if (!u) return false;
-  if (u === t) return true;
-  if (t.includes(u) || u.includes(t)) return true;
-  if (t.includes("camon") && (u.includes("camon") || u.includes("thanks"))) return true;
-  if (t.includes("xinchao") && (u.includes("xinchao") || u.includes("chao"))) return true;
+  if (!u || u.length < 2) return false;
+
+  // Tách các nghĩa khác nhau nếu target có dấu phẩy / chấm phẩy / ngoặc đơn
+  // Ví dụ: "thầy giáo, cô giáo (giáo viên)" -> ["thay giao", "co giao", "giao vien"]
+  const cleanTarget = targetMeaning.replace(/\([^)]*\)/g, " ");
+  const rawParts = cleanTarget
+    .split(/[,;/+&|\n]+/)
+    .map((p) => normalizeVi(p))
+    .filter(Boolean);
+
+  // Thêm chính cụm đầy đủ
+  rawParts.push(normalizeVi(cleanTarget));
+
+  for (const part of rawParts) {
+    if (!part) continue;
+
+    // 1. Trùng khớp hoàn toàn cả cụm
+    if (u === part) return true;
+
+    // 2. Trùng khớp không khoảng trắng: "thaygiao" === "thaygiao"
+    const uCompact = u.replace(/\s+/g, "");
+    const pCompact = part.replace(/\s+/g, "");
+    if (uCompact === pCompact) return true;
+
+    // 3. Nếu nghĩa gồm nhiều từ (ví dụ: "học sinh", "thầy giáo"), kiểm tra người dùng phải gõ đủ các từ
+    const pWords = part.split(/\s+/).filter((w) => w.length > 1);
+    const uWords = u.split(/\s+/).filter((w) => w.length > 1);
+
+    // Tuyệt đối KHÔNG chấp nhận nếu người dùng viết thiếu từ:
+    // Ví dụ nghĩa là "học sinh" (2 từ) mà chỉ gõ "học" (1 từ) -> KHÔNG ĐƯỢC COI LÀ ĐÚNG
+    if (pWords.length >= 2 && uWords.length < pWords.length) {
+      continue;
+    }
+
+    // Nếu số từ bằng nhau và từng từ trùng khớp
+    if (pWords.length > 0 && pWords.length === uWords.length) {
+      const allMatch = pWords.every((pw, idx) => pw === uWords[idx]);
+      if (allMatch) return true;
+    }
+  }
+
+  // Hỗ trợ từ chào hỏi / cảm ơn thông dụng nếu gõ đầy đủ
+  const uComp = u.replace(/\s+/g, "");
+  if (
+    (uComp === "camon" || uComp === "thankyou" || uComp === "thanks") &&
+    normalizeVi(targetMeaning).includes("camon")
+  ) {
+    return true;
+  }
+  if (
+    (uComp === "xinchao" || uComp === "chao") &&
+    normalizeVi(targetMeaning).includes("xinchao")
+  ) {
+    return true;
+  }
+
   return false;
 }
 

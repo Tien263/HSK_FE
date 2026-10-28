@@ -65,33 +65,55 @@ export async function POST(request: Request) {
 
     let correctedText = rawText;
 
-    // Rule A: Kiểm tra vị trí trạng từ chỉ thời gian / nơi chốn
-    // Trong tiếng Trung, thời gian / nơi chốn đứng trước động từ (Subject + Time + Verb)
-    // Ví dụ sai: 我去学校明天 -> Sửa: 我明天去学校
-    if (/去.*(明天|今天|昨天|晚上|早上)/u.test(rawText)) {
+    // Rule A: Kiểm tra vị trí trạng từ chỉ thời gian / nơi chốn / người đồng hành
+    // Trong tiếng Trung: Thời gian, nơi chốn, đồng hành ĐỨNG TRƯỚC ĐỘNG TỪ (Subject + Time/Place/With + Verb)
+    // Ví dụ sai: 我去学校明天, 他看书在图书馆, 我吃饭和朋友一起
+    if (/(?:去|来|看|吃|喝|买|学|写|读|做|听|说|玩)[^\s,。！？]*(?:明天|今天|昨天|晚上|早上|中午|现在|去年|明年)/u.test(rawText)) {
       issues.push({
         type: "WORD_ORDER",
         original: "Trạng từ chỉ thời gian đặt sau động từ",
-        suggestion: "Đưa từ chỉ thời gian (今天, 明天, 晚上...) lên trước động từ",
+        suggestion: "Đưa từ chỉ thời gian (今天, 明天, 昨天, 晚上...) lên trước động từ",
         reason: "Quy tắc ngữ pháp tiếng Trung: Trạng từ chỉ thời gian luôn đứng trước động từ (Chủ ngữ + Thời gian + Động từ).",
       });
-      correctedText = correctedText
-        .replace(/(去[^\s,。！？]+)(明天|今天|昨天|晚上|早上)/u, "$2$1");
     }
 
-    // Rule B: Kiểm tra lượng từ 个, 杯, 本, 张
-    // Ví dụ sai: 我买两苹果 -> Sửa: 我买两个苹果
-    if (/(一|两|三|四|五|六|七|八|九|十)(苹果|手机|电影|学生|老师|人)(?!个)/u.test(rawText)) {
+    if (/(?:去|来|看|吃|喝|买|学|写|读|做|听|说|玩)[^\s,。！？]*在[\p{Script=Han}]{2,6}/u.test(rawText)) {
+      issues.push({
+        type: "WORD_ORDER",
+        original: "Trạng ngữ chỉ nơi chốn (在...) đặt sau động từ",
+        suggestion: "Đưa cụm '在 + địa điểm' lên trước động từ chính",
+        reason: "Trong tiếng Trung, địa điểm diễn ra hành động phải đặt trước động từ (Chủ ngữ + 在 Địa điểm + Động từ).",
+      });
+    }
+
+    if (/(?:去|来|看|吃|喝|买|学|写|读|做|听|说|玩)[^\s,。！？]*(?:和|跟)[\p{Script=Han}]+(?:一起)?/u.test(rawText)) {
+      issues.push({
+        type: "WORD_ORDER",
+        original: "Cụm chỉ người đồng hành (和/跟...一起) đặt sau động từ",
+        suggestion: "Đưa '和...一起' lên trước động từ",
+        reason: "Trong tiếng Trung, cụm đồng hành cùng ai phải đứng trước động từ (Chủ ngữ + 和 Ai + 一起 + Động từ).",
+      });
+    }
+
+    // Rule B: Kiểm tra lượng từ bắt buộc giữa số từ và danh từ
+    // Ví dụ sai: 一水, 两苹果, 三书, 这人
+    if (/(?:一|两|三|四|五|六|七|八|九|十|几)(?!个|本|杯|瓶|张|只|条|双|位|件|门|把|棵|支|节|台|部|碗)(?:人|书|水|苹果|手机|老师|学生|朋友|电影|衣服|车|笔|茶|咖啡|钱|汉语|中文)/u.test(rawText)) {
       issues.push({
         type: "MEASURE_WORD",
-        original: "Thiếu lượng từ '个' giữa số từ và danh từ",
-        suggestion: "Thêm lượng từ '个' (ví dụ: 两个苹果, 一个手机)",
+        original: "Thiếu lượng từ giữa số từ và danh từ",
+        suggestion: "Thêm lượng từ thích hợp (như 个, 本, 杯, 瓶, 张, 件...)",
         reason: "Trong tiếng Trung, giữa số từ và danh từ bắt buộc phải có lượng từ thích hợp.",
       });
-      correctedText = correctedText.replace(
-        /(一|两|三|四|五|六|七|八|九|十)(苹果|手机|电影|学生|老师|人)/gu,
-        "$1个$2"
-      );
+    }
+
+    // Rule J: Kiểm tra câu cụt lửng lơ / thiếu chữ / dở dang
+    if (/(?:在|和|跟|比|从|向|往|给|想|要|能|可以)$/u.test(rawText.replace(/[.,?!，。？！\s]/g, ""))) {
+      issues.push({
+        type: "WORD_ORDER",
+        original: "Câu kết thúc lửng lơ, thiếu thành phần chính",
+        suggestion: "Bổ sung tân ngữ hoặc vị ngữ hoàn chỉnh",
+        reason: "Câu bị viết dở dang, giới từ hoặc trợ động từ không thể đứng cụt lủn ở cuối câu.",
+      });
     }
 
     // Rule C: Nhầm lẫn giữa 两 và 二
@@ -183,27 +205,33 @@ export async function POST(request: Request) {
     const openAiKey = process.env.OPENAI_API_KEY;
     const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-    const promptText = `Bạn là giám khảo chấm thi HSK và chuyên gia ngữ pháp tiếng Trung chuẩn mực.
-Hãy đánh giá bài viết tiếng Trung sau đây của học sinh (HSK ${hskLevel}):
+    const promptText = `Bạn là giám khảo chấm thi HSK và chuyên gia ngôn ngữ tiếng Trung bản xứ cực kỳ nghiêm khắc và chuẩn mực.
+Hãy kiểm tra và chấm điểm bài viết tiếng Trung sau đây của học sinh (HSK ${hskLevel}):
 "${rawText}"
 
-Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
-1. ĐÁNH GIÁ LỖI: Tìm TẤT CẢ các lỗi sai về: ngữ pháp, trật tự từ (Word Order), dùng sai từ (Wrong Word), nhầm thanh điệu/chính tả, thiếu lượng từ, thừa thiếu trợ từ.
-2. CHẤM ĐIỂM (score từ 0 đến 100):
-   - Nếu có lỗi sai ngữ pháp hoặc dùng từ sai: Chấm từ 40 đến 70 điểm (tùy mức độ nghiêm trọng). TUYỆT ĐỐI KHÔNG CHO 90-100 ĐIỂM KHI CÓ LỖI SAI!
-   - Nếu câu hoàn toàn chuẩn xác, tự nhiên như người bản xứ: Mới cho 88-100 điểm.
-3. TRẢ VỀ DUY NHẤT một chuỗi JSON thuần túy (không bọc markdown, không thêm chữ thừa):
+QUY TẮC BẮT LỖI VÀ CHẤM ĐIỂM NGHIÊM NGẶT (TUYỆT ĐỐI TUÂN THỦ):
+1. BẮT LỖI TRẬT TỰ TỪ (WORD ORDER):
+   - Trong tiếng Trung, trạng từ chỉ thời gian (今天, 明天, 昨天, 晚上...), trạng ngữ chỉ nơi chốn (在...), cụm đồng hành (和...一起), phương thức PHẢI ĐỨNG TRƯỚC ĐỘNG TỪ CHÍNH.
+   - Nếu học sinh đặt thời gian, nơi chốn hoặc cụm đồng hành ở sau động từ (Ví dụ: "我去学校明天", "他看书在图书馆", "我吃饭和朋友"): BẮT BUỘC COI LÀ LỖI NGHIÊM TRỌNG, chấm từ 40-60 điểm!
+2. BẮT LỖI VIẾT THIẾU CHỮ / TỪ CỤT / THIẾU THÀNH PHẦN CÂU (MISSING WORDS / INCOMPLETE SENTENCES):
+   - Nếu học sinh viết dở dang, viết thiếu chữ trong từ vựng (ví dụ "图馆" thay vì "图书馆"), thiếu lượng từ bắt buộc (ví dụ "两苹果", "一水"), thiếu vị ngữ hoặc tân ngữ (ví dụ "我去学", "他是好"): BẮT BUỘC BẮT LỖI, chấm từ 35-50 điểm, KHÔNG ĐƯỢC khen hay bỏ qua!
+3. THANG ĐIỂM (score từ 0 đến 100):
+   - Nếu có bất kỳ lỗi nào về trật tự từ, thiếu chữ, dùng sai từ: TỐI ĐA 65 ĐIỂM. TUYỆT ĐỐI KHÔNG CHO 85-100 ĐIỂM KHI CÓ LỖI!
+   - Nếu câu quá ngắn (< 5 chữ) hoặc cụt lủn: Tối đa 60 điểm.
+   - Chỉ khi câu hoàn chỉnh, đúng trật tự từ, đúng lượng từ và diễn đạt chuẩn xác: Mới cho từ 88-100 điểm.
+
+Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
 {
-  "score": 65,
+  "score": 50,
   "correctedText": "Đoạn văn sau khi đã sửa toàn bộ các lỗi ngữ pháp",
   "nativePolish": "Câu văn viết lại mượt mà, tự nhiên nhất chuẩn người bản xứ",
-  "pedagogicalComment": "Lời nhận xét sư phạm chi tiết bằng tiếng Việt chỉ rõ lỗi sai và cách khắc phục (2-3 câu)",
+  "pedagogicalComment": "Lời nhận xét sư phạm chi tiết bằng tiếng Việt chỉ rõ cụ thể lỗi sai trật tự từ hoặc thiếu chữ và cách khắc phục (2-3 câu)",
   "issues": [
     {
       "type": "WORD_ORDER",
       "original": "Cụm từ bị sai",
       "suggestion": "Cách sửa đúng",
-      "reason": "Giải thích quy tắc ngữ pháp bằng tiếng Việt"
+      "reason": "Giải thích rõ ràng quy tắc ngữ pháp bằng tiếng Việt"
     }
   ]
 }`;
