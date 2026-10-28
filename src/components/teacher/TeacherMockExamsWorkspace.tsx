@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
 import {
   Award,
   PlusCircle,
@@ -22,6 +23,10 @@ import {
   FileText,
   X,
   AlertCircle,
+  Music,
+  Headphones,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface TeacherMockExamsWorkspaceProps {
@@ -46,6 +51,11 @@ export default function TeacherMockExamsWorkspace({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedExamPreview, setUploadedExamPreview] = useState<any | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // State Modal Upload Audio bài nghe Cloudinary CDN (hsk_mock_exams)
+  const [showAudioUploadModal, setShowAudioUploadModal] = useState(false);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
+  const [copiedAudioUrl, setCopiedAudioUrl] = useState(false);
 
   const fetchExams = useCallback(async (level: number) => {
     setLoading(true);
@@ -336,6 +346,16 @@ export default function TeacherMockExamsWorkspace({
             <span>📤 Upload đề thi của Cô (.JSON)</span>
           </button>
 
+          {/* Nút 2.5: Upload Audio bài nghe lên Cloudinary CDN */}
+          <button
+            onClick={() => setShowAudioUploadModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 shadow-2xs text-xs font-bold transition cursor-pointer"
+            title="Tải file nghe MP3 lên Cloudinary CDN để lấy link dán vào đề thi nghe"
+          >
+            <Headphones className="w-3.5 h-3.5 text-emerald-700" />
+            <span>🎧 Upload Audio đề thi</span>
+          </button>
+
           {/* Nút 3: Tự động sinh đề */}
           <button
             onClick={handlePublishNewMockExam}
@@ -502,6 +522,94 @@ export default function TeacherMockExamsWorkspace({
                     ? "Đang xuất bản vào phòng thi..."
                     : "🚀 Xác nhận & Xuất bản vào Phòng thi ảo"}
                 </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL UPLOAD AUDIO BÀI NGHE LÊN CLOUDINARY CDN (HSK_MOCK_EXAMS) */}
+      {showAudioUploadModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-[#E5DEC9] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95">
+            <div className="p-5 bg-gradient-to-r from-[#FAF7F0] to-[#F4EFE6] border-b border-[#E5DEC9] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#204434] text-white flex items-center justify-center font-bold">
+                  <Headphones className="w-5 h-5 text-[#BC9B6B]" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#204434]">
+                    Tải Audio Bài Nghe Đề Thi HSK
+                  </h3>
+                  <p className="text-xs text-[#6B766D]">
+                    Lưu trữ trên Đám mây Cloudinary CDN (thư mục hsk_mock_exams)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAudioUploadModal(false)}
+                className="w-8 h-8 rounded-full bg-white hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/30 space-y-3">
+                <label className="block font-bold text-[#204434]">
+                  Chọn file âm thanh đề thi (.mp3, .wav, .m4a):
+                </label>
+                <CloudinaryUpload
+                  value={uploadedAudioUrl}
+                  onChange={(url) => setUploadedAudioUrl(url)}
+                  folder="hsk_mock_exams"
+                  accept="audio/*"
+                  placeholder="Kéo thả hoặc nhấp để tải file nghe đề thi lên..."
+                  showPreview={true}
+                />
+              </div>
+
+              {uploadedAudioUrl && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-2.5 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                      <span>Đã tải lên Cloudinary thành công!</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(uploadedAudioUrl);
+                        setCopiedAudioUrl(true);
+                        setTimeout(() => setCopiedAudioUrl(false), 2000);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                    >
+                      {copiedAudioUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedAudioUrl ? "Đã sao chép" : "Sao chép link"}</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    readOnly
+                    value={uploadedAudioUrl}
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-[11px] font-mono text-emerald-900 outline-hidden select-all"
+                  />
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    💡 <strong>Hướng dẫn:</strong> Thầy/Cô sao chép đường dẫn này và dán vào trường <code className="bg-white/80 px-1 py-0.5 rounded font-mono font-bold text-[#204434]">pinyinPrompt</code> hoặc <code className="bg-white/80 px-1 py-0.5 rounded font-mono font-bold text-[#204434]">audioUrl</code> của câu hỏi dạng Nghe hiểu (LISTENING) trong file JSON đề thi.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-[#FAF7F0] border-t border-[#E5DEC9] flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAudioUploadModal(false)}
+                className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                Hoàn tất
               </button>
             </div>
           </div>

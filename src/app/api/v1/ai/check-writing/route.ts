@@ -150,14 +150,36 @@ export async function POST(request: Request) {
       correctedText = correctedText.replace(/是(好|忙|高兴|大|小|累|冷|热)/gu, "很$1");
     }
 
+    // Rule H: So sánh với 比 không đi cùng phó từ 很, 非常, 太 (Sai: 我比他很大 -> Sửa: 我比他大)
+    if (/比.+?(很|非常|太|十分)(高|大|小|多|少|长|短|快|慢|漂亮|帅|胖|瘦)/u.test(rawText)) {
+      issues.push({
+        type: "WORD_ORDER",
+        original: "Dùng '很/非常/太' trong câu so sánh chữ '比'",
+        suggestion: "Bỏ phó từ mức độ (ví dụ: 我比他大, không dùng 我比他很大)",
+        reason: "Trong câu so sánh chữ '比', tính từ sau không được kết hợp với các phó từ chỉ mức độ tuyệt đối như '很', '非常', '太'.",
+      });
+      correctedText = correctedText.replace(/(比.+?)(很|非常|太|十分)(高|大|小|多|少|长|短|快|慢|漂亮|帅|胖|瘦)/gu, "$1$3");
+    }
+
+    // Rule I: Dùng thừa chữ '吗' trong câu có đại từ nghi vấn (Sai: 你叫什么名字吗？ -> Sửa: 你叫什么名字？)
+    if (/(什么|谁|哪儿|哪里|怎么|怎么样|几|多少).+?吗/u.test(rawText)) {
+      issues.push({
+        type: "PARTICLE",
+        original: "Thừa trợ từ nghi vấn '吗'",
+        suggestion: "Bỏ '吗' ở cuối câu (ví dụ: 你叫什么名字？)",
+        reason: "Câu đã chứa đại từ nghi vấn (什么, 谁, 哪儿...) thì cuối câu không được dùng thêm trợ từ nghi vấn '吗'.",
+      });
+      correctedText = correctedText.replace(/吗([？?]?)$/gu, "$1");
+    }
+
     // 4. Gọi LLM chuyên gia để chấm điểm thật, phát hiện lỗi ngữ pháp & diễn đạt tự nhiên
     let nativePolish = correctedText;
     let pedagogicalComment = "Bài viết cần chú ý rèn luyện thêm trật tự câu và cách kết hợp từ vựng chuẩn xác.";
     let llmScore: number | null = null;
 
+    const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
-    const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
     const openRouterKey = process.env.OPENROUTER_API_KEY;
 
@@ -168,8 +190,8 @@ Hãy đánh giá bài viết tiếng Trung sau đây của học sinh (HSK ${hsk
 Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
 1. ĐÁNH GIÁ LỖI: Tìm TẤT CẢ các lỗi sai về: ngữ pháp, trật tự từ (Word Order), dùng sai từ (Wrong Word), nhầm thanh điệu/chính tả, thiếu lượng từ, thừa thiếu trợ từ.
 2. CHẤM ĐIỂM (score từ 0 đến 100):
-   - Nếu có lỗi sai ngữ pháp hoặc dùng từ sai: Chấm từ 40 đến 75 điểm (tùy mức độ nghiêm trọng). TUYỆT ĐỐI KHÔNG CHO 90-100 ĐIỂM KHI CÓ LỖI SAI!
-   - Nếu câu hoàn toàn chuẩn xác, tự nhiên như người bản xứ: Mới cho 90-100 điểm.
+   - Nếu có lỗi sai ngữ pháp hoặc dùng từ sai: Chấm từ 40 đến 70 điểm (tùy mức độ nghiêm trọng). TUYỆT ĐỐI KHÔNG CHO 90-100 ĐIỂM KHI CÓ LỖI SAI!
+   - Nếu câu hoàn toàn chuẩn xác, tự nhiên như người bản xứ: Mới cho 88-100 điểm.
 3. TRẢ VỀ DUY NHẤT một chuỗi JSON thuần túy (không bọc markdown, không thêm chữ thừa):
 {
   "score": 65,
@@ -186,8 +208,48 @@ Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
   ]
 }`;
 
-    // A. Thử gọi GEMINI API nếu có key
-    if (geminiKey) {
+    // A. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN (DASHSCOPE)
+    if (qwenKey) {
+      const qwenModels = ["qwen-plus", "qwen-turbo", "qwen-max"];
+      for (const qModel of qwenModels) {
+        try {
+          const qRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${qwenKey}` },
+            body: JSON.stringify({
+              model: qModel,
+              messages: [
+                { role: "system", content: "You are an expert native Chinese HSK grading teacher. Output ONLY valid JSON." },
+                { role: "user", content: promptText },
+              ],
+              temperature: 0.2,
+            }),
+          });
+          if (qRes.ok) {
+            const qData = await qRes.json();
+            const contentStr = qData?.choices?.[0]?.message?.content || "";
+            const parsed = JSON.parse(contentStr.replace(/```json|```/g, "").trim());
+            if (typeof parsed.score === "number") llmScore = parsed.score;
+            if (parsed.correctedText) correctedText = parsed.correctedText;
+            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              parsed.issues.forEach((iss: any) => {
+                if (!issues.some((ex) => ex.original === iss.original)) {
+                  issues.push(iss);
+                }
+              });
+            }
+            break;
+          }
+        } catch (qErr) {
+          console.warn(`Qwen check-writing error on ${qModel}:`, qErr);
+        }
+      }
+    }
+
+    // B. DỰ PHÒNG 1: GOOGLE GEMINI (GEMINI 2.0 / 1.5 FLASH)
+    if (llmScore === null && geminiKey) {
       try {
         const geminiModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
         for (const model of geminiModels) {
@@ -213,7 +275,6 @@ Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
                 if (parsed.nativePolish) nativePolish = parsed.nativePolish;
                 if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
                 if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
-                  // Hợp nhất lỗi từ LLM
                   parsed.issues.forEach((iss: any) => {
                     if (!issues.some((ex) => ex.original === iss.original)) {
                       issues.push(iss);
@@ -270,53 +331,30 @@ Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
       }
     }
 
-    // C. Thử gọi QWEN nếu có key và chưa xong
-    if (llmScore === null && qwenKey) {
-      try {
-        const qRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${qwenKey}` },
-          body: JSON.stringify({
-            model: "qwen-turbo",
-            messages: [
-              { role: "system", content: "You are an expert Chinese teacher. Output only JSON." },
-              { role: "user", content: promptText },
-            ],
-            temperature: 0.2,
-          }),
-        });
-        if (qRes.ok) {
-          const qData = await qRes.json();
-          const contentStr = qData?.choices?.[0]?.message?.content || "";
-          const parsed = JSON.parse(contentStr.replace(/```json|```/g, "").trim());
-          if (typeof parsed.score === "number") llmScore = parsed.score;
-          if (parsed.correctedText) correctedText = parsed.correctedText;
-          if (parsed.nativePolish) nativePolish = parsed.nativePolish;
-          if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
-          if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
-            parsed.issues.forEach((iss: any) => {
-              if (!issues.some((ex) => ex.original === iss.original)) {
-                issues.push(iss);
-              }
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("Qwen check-writing error:", e);
-      }
-    }
-
-    // Tính điểm cuối cùng: Ưu tiên điểm số thực từ LLM, nếu không có thì tính từ bộ quy tắc
+    // Tính điểm cuối cùng: Ưu tiên điểm số thực từ LLM, nếu không có thì tính từ bộ quy tắc sư phạm
     let score = llmScore !== null ? llmScore : 100;
     if (llmScore === null) {
-      if (issues.length === 1) score = 75;
-      else if (issues.length === 2) score = 60;
-      else if (issues.length === 3) score = 50;
-      else if (issues.length >= 4) score = Math.max(30, 45 - issues.length * 5);
-      else {
+      if (issues.length === 1) {
+        score = 65;
+        pedagogicalComment = "Bài viết có 1 lỗi cấu trúc ngữ pháp cần khắc phục. Thầy/Cô và AI khuyên bạn xem chi tiết cách sửa ở bảng bên dưới.";
+      } else if (issues.length === 2) {
+        score = 50;
+        pedagogicalComment = "Bài viết xuất hiện 2 lỗi sai ngữ pháp. Bạn cần chú ý thứ tự trạng từ và lượng từ thích hợp.";
+      } else if (issues.length >= 3) {
+        score = Math.max(30, 45 - issues.length * 5);
+        pedagogicalComment = "Bài viết có nhiều lỗi ngữ pháp cơ bản. Hãy xem kỹ phần gợi ý viết lại tự nhiên để nâng cao kỹ năng.";
+      } else {
         // Kiểm tra độ dài câu nếu không có lỗi nào
-        if (rawText.length < 4) score = 80;
-        else score = 95;
+        if (rawText.length < 5) {
+          score = 75;
+          pedagogicalComment = "Câu đúng ngữ pháp nhưng còn quá ngắn. Hãy mở rộng thêm trạng từ chỉ thời gian hoặc nơi chốn nhé!";
+        } else if (rawText.length < 12) {
+          score = 85;
+          pedagogicalComment = "Diễn đạt tốt và chuẩn ngữ pháp HSK. Bạn có thể thêm liên từ nối để câu văn thêm uyển chuyển.";
+        } else {
+          score = 95;
+          pedagogicalComment = "🌟 Xuất sắc! Đoạn văn đạt chuẩn ngữ pháp HSK, cấu trúc mạch lạc và từ vựng phong phú.";
+        }
       }
     }
 

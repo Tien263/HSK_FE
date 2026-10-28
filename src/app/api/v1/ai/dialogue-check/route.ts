@@ -120,7 +120,53 @@ Quy tắc trò chuyện QUAN TRỌNG:
   ]
 }`;
 
-        // Ưu tiên gọi GEMINI (Google AI Studio - Ổn định & Nhanh chóng)
+        // -------------------------------------------------------------
+        // 1. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN (TONGYI QIANWEN)
+        // Mô hình tiếng Trung mạnh mẽ nhất hiện nay cho HSK & đàm thoại
+        // -------------------------------------------------------------
+        if (!llmSuccess && qwenKey) {
+          const qwenModels = ["qwen-plus", "qwen-turbo", "qwen-max"];
+          for (const qModel of qwenModels) {
+            try {
+              const qwenRes = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${qwenKey}`,
+                },
+                body: JSON.stringify({
+                  model: qModel,
+                  messages: [
+                    { role: "system", content: "You are Xiao Yu (小语), a friendly native Chinese friend chatting on WeChat. Respond ONLY in valid raw JSON." },
+                    { role: "user", content: promptText },
+                  ],
+                  temperature: 0.7,
+                }),
+              });
+
+              if (qwenRes.ok) {
+                const qwenData = await qwenRes.json();
+                const raw = qwenData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (parsed.aiReplyZh) {
+                    aiReplyZh = parsed.aiReplyZh;
+                    aiReplyPinyin = parsed.aiReplyPinyin || "";
+                    aiReplyVi = parsed.aiReplyVi || "";
+                    if (parsed.feedback) feedback = parsed.feedback;
+                    if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+                    llmSuccess = true;
+                    break;
+                  }
+                }
+              }
+            } catch (qErr) {
+              console.warn(`Qwen dialogue error on ${qModel}:`, qErr);
+            }
+          }
+        }
+
+        // 2. DỰ PHÒNG: GOOGLE GEMINI (GEMINI 2.0 / 1.5 FLASH)
         if (!llmSuccess && geminiKey) {
           const geminiModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
           for (const model of geminiModels) {

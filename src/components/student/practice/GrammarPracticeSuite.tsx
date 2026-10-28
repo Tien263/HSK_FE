@@ -84,13 +84,26 @@ export interface GrammarExerciseItem {
 function normalizeForComparison(str: string): string {
   if (!str) return "";
   return str
+    // Loại bỏ phần pinyin hoặc tiếng Việt trong ngoặc đơn nếu có (vd: (Wǒ míngtiān qù) hoặc (Tôi ngày mai đi))
+    .replace(/\s*[(（\[][^()（）\[\]]*?[)）\]]\s*/g, "")
+    // Loại bỏ toàn bộ khoảng trắng
     .replace(/[\s\u3000\u00A0]+/g, "")
+    // Chuẩn hóa dấu câu tiếng Trung và tiếng Anh
     .replace(/[！!]/g, "!")
     .replace(/[？?]/g, "?")
-    .replace(/[，,]/g, ",")
-    .replace(/[。.：:]/g, "")
+    .replace(/[，,、]/g, ",")
+    .replace(/[。.：:;；—~\-_"“”'‘’]/g, "")
     .toLowerCase()
     .trim();
+}
+
+// Trích xuất chỉ các ký tự chữ Hán để so sánh thứ tự từ chuẩn xác nhất
+function extractHanziOnly(str: string): string {
+  if (!str) return "";
+  // Loại bỏ phần dịch hoặc pinyin trong ngoặc trước
+  const clean = str.replace(/\s*[(（\[][^()（）\[\]]*?[)）\]]\s*/g, "");
+  const matches = clean.match(/[\p{Script=Han}]+/gu);
+  return matches ? matches.join("") : "";
 }
 
 interface GrammarPracticeSuiteProps {
@@ -349,18 +362,41 @@ export default function GrammarPracticeSuite({
     if (assembledTokens.length === 0) return;
     const joinedRaw = assembledTokens.join("").trim();
     const joinedNorm = normalizeForComparison(joinedRaw);
+    const joinedHanzi = extractHanziOnly(joinedRaw);
 
     const targetSentenceNorm = normalizeForComparison(currentExercise.sentence || "");
     const targetAnswerNorm = normalizeForComparison(currentExercise.correctAnswer || "");
+    const targetSentenceHanzi = extractHanziOnly(currentExercise.sentence || "");
+    const targetAnswerHanzi = extractHanziOnly(currentExercise.correctAnswer || "");
 
     const stripPunct = (s: string) => s.replace(/[!?,]/g, "");
     const joinedNoPunct = stripPunct(joinedNorm);
 
-    const isMatch =
+    // 1. So sánh chuẩn trực tiếp
+    let isMatch =
       (targetSentenceNorm && joinedNorm === targetSentenceNorm) ||
       (targetAnswerNorm && joinedNorm === targetAnswerNorm) ||
       (targetSentenceNorm && joinedNoPunct === stripPunct(targetSentenceNorm)) ||
-      (targetAnswerNorm && joinedNoPunct === stripPunct(targetAnswerNorm));
+      (targetAnswerNorm && joinedNoPunct === stripPunct(targetAnswerNorm)) ||
+      (targetSentenceHanzi && joinedHanzi === targetSentenceHanzi) ||
+      (targetAnswerHanzi && joinedHanzi === targetAnswerHanzi);
+
+    // 2. Kiểm tra hoán vị hợp lệ của Trạng từ chỉ thời gian trong tiếng Trung (Subject + Time <=> Time + Subject)
+    if (!isMatch && joinedHanzi) {
+      const timeWords = ["今天", "明天", "昨天", "现在", "早上", "晚上", "中午", "下午", "去年", "今年", "明年", "星期一", "星期天", "周一", "周日"];
+      for (const tw of timeWords) {
+        if (targetSentenceHanzi.includes(tw) && joinedHanzi.includes(tw)) {
+          // Hoán vị dạng 1: Chủ ngữ + Thời gian + Vị ngữ (vd: 我明天去学校)
+          // Hoán vị dạng 2: Thời gian + Chủ ngữ + Vị ngữ (vd: 明天我去学校)
+          const perm1 = targetSentenceHanzi.replace(new RegExp(`^(.*?)${tw}(.*)$`), `${tw}$1$2`);
+          const perm2 = targetSentenceHanzi.replace(new RegExp(`^${tw}(.*?)(去|吃|喝|看|买|学|是|在|有|做|来)(.*)$`), `$1${tw}$2$3`);
+          if (joinedHanzi === perm1 || joinedHanzi === perm2) {
+            isMatch = true;
+            break;
+          }
+        }
+      }
+    }
 
     setOrderCorrect(Boolean(isMatch));
     setOrderChecked(true);

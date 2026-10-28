@@ -1,6 +1,31 @@
 import { prisma } from "@/lib/prisma";
 import { classAccess, portalResponse, portalJson, PortalError, teacherOnly, textField } from "@/lib/portal-auth";
 import { materialSelection } from "@/lib/teaching-materials";
+
+async function notifyStudentsAboutMaterial(classIds: string[], materialTitle: string) {
+  if (!classIds.length) return;
+  try {
+    const classStudents = await prisma.classStudent.findMany({
+      where: { classId: { in: classIds }, status: "APPROVED" },
+      select: { studentId: true },
+    });
+    const uniqueStudentIds = [...new Set(classStudents.map(cs => cs.studentId))];
+    if (uniqueStudentIds.length > 0) {
+      await prisma.notification.createMany({
+        data: uniqueStudentIds.map(sId => ({
+          userId: sId,
+          title: "Tài liệu học tập mới",
+          message: `Giáo viên đã chia sẻ tài liệu mới: "${materialTitle}". Vào góc học tập để xem và tải về.`,
+          type: "INFO",
+          linkUrl: "/s/home",
+        })),
+      });
+    }
+  } catch (err) {
+    console.warn("Lỗi khi gửi thông báo tài liệu mới tới học sinh:", err);
+  }
+}
+
 export function GET(request: Request) { return portalResponse(request, async user => {
   const classId = new URL(request.url).searchParams.get("classId");
   if (classId) await classAccess(user, classId); else teacherOnly(user);
@@ -42,6 +67,7 @@ export function POST(request: Request) { return portalResponse(request, async us
       },
       select: materialSelection,
     });
+    await notifyStudentsAboutMaterial(classIds, title);
     return portalJson({ success: true, item: { ...item, downloadUrl: `/api/v1/materials/${item.id}/file` } }, 201);
   }
 
@@ -57,5 +83,6 @@ export function POST(request: Request) { return portalResponse(request, async us
   if (classIds.length > 100 || new Set(classIds).size !== classIds.length) throw new PortalError(400, "Danh sách lớp không hợp lệ.");
   for (const classId of classIds) await classAccess(user, classId, true);
   const item = await prisma.teachingMaterial.create({ data: { teacherId: user.id, title, description, fileName: file.name.replace(/[\r\n/\\]/g, "_").slice(0, 240), mimeType, byteSize: file.size, content: Buffer.from(await file.arrayBuffer()), classes: { create: classIds.map(classId => ({ classId })) } }, select: materialSelection });
+  await notifyStudentsAboutMaterial(classIds, title);
   return portalJson({ success: true, item: { ...item, downloadUrl: `/api/v1/materials/${item.id}/file` } }, 201);
 }, true); }
