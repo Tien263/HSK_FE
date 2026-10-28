@@ -62,6 +62,17 @@ export default function AiDialogueRoleplayModal({
   const [editPinyin, setEditPinyin] = useState("");
   const [editVi, setEditVi] = useState("");
 
+  // Lời chào mở đầu mặc định của AI Tiểu Ngữ để cuộc hội thoại có khởi đầu hai chiều tự nhiên
+  const defaultAiIntro = useMemo(
+    () => ({
+      sender: "AI" as const,
+      zh: "你好！我是你的中文语伴小语。很高兴今天能和你聊天！你今天过得怎么样？",
+      pinyin: "Nǐ hǎo! Wǒ shì nǐ de Zhōngwén yǔbàn Xiǎo Yǔ. Hěn gāoxìng jīntiān néng hé nǐ liáotiān! Nǐ jīntiān guò de zěnmeyàng?",
+      vi: "Chào bạn! Mình là bạn học tiếng Trung Tiểu Ngữ. Rất vui hôm nay được trò chuyện cùng bạn! Hôm nay bạn thế nào?",
+    }),
+    []
+  );
+
   // Free talk chat history
   const [freeChatHistory, setFreeChatHistory] = useState<
     Array<{
@@ -72,16 +83,23 @@ export default function AiDialogueRoleplayModal({
       score?: number;
       vocab?: any[];
     }>
-  >([]);
+  >([
+    {
+      sender: "AI",
+      zh: "你好！我是你的中文语伴小语。很高兴今天能和你聊天！你今天过得怎么样？",
+      pinyin: "Nǐ hǎo! Wǒ shì nǐ de Zhōngwén yǔbàn Xiǎo Yǔ. Hěn gāoxìng jīntiān néng hé nǐ liáotiān! Nǐ jīntiān guò de zěnmeyàng?",
+      vi: "Chào bạn! Mình là bạn học tiếng Trung Tiểu Ngữ. Rất vui hôm nay được trò chuyện cùng bạn! Hôm nay bạn thế nào?",
+    },
+  ]);
 
   // Gợi ý phản hồi và ô nhập văn bản tự do
   const [typedText, setTypedText] = useState("");
   const [currentSuggestions, setCurrentSuggestions] = useState<
     Array<{ zh: string; pinyin: string; vi: string }>
   >([
-    { zh: "你好！很高兴和你聊天。", pinyin: "Nǐ hǎo! Hěn gāoxìng hé nǐ liáotiān.", vi: "Chào bạn! Rất vui được trò chuyện với bạn." },
-    { zh: "你叫什么名字？", pinyin: "Nǐ jiào shénme míngzi?", vi: "Bạn tên là gì?" },
-    { zh: "你今天过得怎么样？", pinyin: "Nǐ jīntiān guò de zěnmeyàng?", vi: "Hôm nay bạn thế nào?" },
+    { zh: "我今天挺好的，不太忙。", pinyin: "Wǒ jīntiān tǐng hǎo de, bú tài máng.", vi: "Hôm nay mình khá ổn, không bận lắm." },
+    { zh: "今天工作有点多，有点累。", pinyin: "Jīntiān gōngzuò yǒudiǎn duō, yǒudiǎn lèi.", vi: "Hôm nay công việc hơi nhiều, có chút mệt." },
+    { zh: "你叫什么名字？你是哪国人？", pinyin: "Nǐ jiào shénme míngzi? Nǐ shì nǎ guó rén?", vi: "Bạn tên là gì? Bạn là người nước nào?" },
   ]);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -167,8 +185,34 @@ export default function AiDialogueRoleplayModal({
     }
   };
 
+  // Cho AI tự động đọc câu hiện tại (khi đến lượt AI nói trong bài học) và chuyển lượt cho học sinh
+  const handleAiSpeakCurrentLine = () => {
+    if (!currentLine) return;
+    speakText(currentLine.zh);
+    const nextIdx = currentLineIdx + 1;
+    if (nextIdx < dialogueLines.length) {
+      setTimeout(() => {
+        setCurrentLineIdx(nextIdx);
+        setCheckResult(null);
+        setSpokenResult("");
+      }, 2600);
+    }
+  };
+
   // Gửi âm thanh lên backend đối chiếu kho từ điển và chấm điểm
   const verifySpeechWithBackend = async (spokenText: string) => {
+    const historyPayload = freeChatHistory.map((m) => ({ sender: m.sender, zh: m.zh }));
+
+    if (talkMode === "FREE_TALK") {
+      setFreeChatHistory((prev) => [
+        ...prev,
+        {
+          sender: "STUDENT",
+          zh: spokenText,
+        },
+      ]);
+    }
+
     setChecking(true);
     try {
       const targetText = talkMode === "LESSON" ? currentLine?.zh || "" : "";
@@ -183,7 +227,7 @@ export default function AiDialogueRoleplayModal({
           lessonNumber,
           hskLevel,
           studentId,
-          history: freeChatHistory.map((m) => ({ sender: m.sender, zh: m.zh })),
+          history: historyPayload,
         }),
       });
 
@@ -192,26 +236,27 @@ export default function AiDialogueRoleplayModal({
         setCheckResult(data);
 
         if (talkMode === "FREE_TALK") {
-          // Thêm vào lịch sử trò chuyện tự do
-          setFreeChatHistory((prev) => [
-            ...prev,
-            {
-              sender: "STUDENT",
-              zh: spokenText,
-              score: data.score,
-              vocab: data.vocabDetected,
-            },
-            ...(data.aiReplyZh
-              ? [
-                  {
-                    sender: "AI" as const,
-                    zh: data.aiReplyZh,
-                    pinyin: data.aiReplyPinyin,
-                    vi: data.aiReplyVi,
-                  },
-                ]
-              : []),
-          ]);
+          // Cập nhật điểm cho câu nói vừa rồi của học sinh và thêm câu đáp của AI
+          setFreeChatHistory((prev) => {
+            const nextList = [...prev];
+            const lastStudentIdx = nextList.findLastIndex((m) => m.sender === "STUDENT");
+            if (lastStudentIdx >= 0) {
+              nextList[lastStudentIdx] = {
+                ...nextList[lastStudentIdx],
+                score: data.score,
+                vocab: data.vocabDetected,
+              };
+            }
+            if (data.aiReplyZh) {
+              nextList.push({
+                sender: "AI",
+                zh: data.aiReplyZh,
+                pinyin: data.aiReplyPinyin,
+                vi: data.aiReplyVi,
+              });
+            }
+            return nextList;
+          });
 
           // Cập nhật gợi ý câu đối đáp mới từ AI
           if (data.suggestedReplies && Array.isArray(data.suggestedReplies) && data.suggestedReplies.length > 0) {
@@ -221,6 +266,35 @@ export default function AiDialogueRoleplayModal({
           // Tự động phát âm câu đối đáp của AI
           if (data.aiReplyZh) {
             setTimeout(() => speakText(data.aiReplyZh), 600);
+          }
+        } else if (talkMode === "LESSON") {
+          // Nếu học sinh nói tốt trong chế độ bài học, tự động chuyển lượt và đối đáp
+          if (data.score >= 70) {
+            const nextIdx = currentLineIdx + 1;
+            if (nextIdx < dialogueLines.length) {
+              const nextLine = dialogueLines[nextIdx];
+              if (nextLine.speaker !== myRole) {
+                // AI tự động phát âm câu thoại của mình rồi nhường lượt tiếp theo cho học sinh
+                setTimeout(() => {
+                  setCurrentLineIdx(nextIdx);
+                  speakText(nextLine.zh);
+                  const afterNextIdx = nextIdx + 1;
+                  if (afterNextIdx < dialogueLines.length && dialogueLines[afterNextIdx].speaker === myRole) {
+                    setTimeout(() => {
+                      setCurrentLineIdx(afterNextIdx);
+                      setCheckResult(null);
+                      setSpokenResult("");
+                    }, 2800);
+                  }
+                }, 1200);
+              } else {
+                setTimeout(() => {
+                  setCurrentLineIdx(nextIdx);
+                  setCheckResult(null);
+                  setSpokenResult("");
+                }, 1200);
+              }
+            }
           }
         }
       }
@@ -493,28 +567,40 @@ export default function AiDialogueRoleplayModal({
                 <p className="text-xs text-[#315E48]">{currentLine?.vi}</p>
               </div>
 
-              {/* Nút bấm Micro hoặc Nghe mẫu */}
+              {/* Nút bấm hành động đối đáp hai chiều */}
               <div className="flex items-center justify-center gap-3 pt-1">
                 <button
                   onClick={() => speakText(currentLine?.zh || "")}
                   className="px-4 py-2 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] hover:bg-[#F3EEDD] text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  title="Nghe lại phát âm câu này"
                 >
                   <Volume2 className="w-4 h-4 text-[#BC9B6B]" />
                   <span>Nghe giọng mẫu</span>
                 </button>
 
-                <button
-                  onClick={handleStartRecording}
-                  disabled={isRecording || checking}
-                  className={`px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer transition ${
-                    isRecording
-                      ? "bg-red-500 text-white animate-pulse"
-                      : "bg-[#204434] hover:bg-[#183629] text-white"
-                  }`}
-                >
-                  <Mic className="w-4 h-4" />
-                  <span>{isRecording ? "Đang lắng nghe bạn..." : "Bấm Micro để nói câu này"}</span>
-                </button>
+                {isMyTurn ? (
+                  <button
+                    onClick={handleStartRecording}
+                    disabled={isRecording || checking}
+                    className={`px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer transition ${
+                      isRecording
+                        ? "bg-red-500 text-white animate-pulse"
+                        : "bg-[#204434] hover:bg-[#183629] text-white"
+                    }`}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{isRecording ? "Đang lắng nghe bạn..." : "Bấm Micro để nói câu này"}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleAiSpeakCurrentLine}
+                    className="px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md cursor-pointer transition bg-amber-600 hover:bg-amber-700 text-white"
+                    title="AI đọc câu này và tự động chuyển lượt cho bạn nói tiếp"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    <span>Bấm để AI đối đáp câu này</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -621,6 +707,20 @@ export default function AiDialogueRoleplayModal({
                     </div>
                   </div>
                 ))
+              )}
+
+              {checking && (
+                <div className="flex items-start gap-2.5 flex-row animate-fadeIn">
+                  <div className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs bg-amber-100 text-amber-800 border border-amber-200">
+                    AI
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-[#204434] text-xs flex items-center gap-2 shadow-2xs">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    <span className="italic text-slate-600 font-sans">
+                      Tiểu Ngữ đang lắng nghe và soạn câu đối đáp...
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
 

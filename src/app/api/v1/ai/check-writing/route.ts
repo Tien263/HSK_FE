@@ -208,7 +208,7 @@ Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
   ]
 }`;
 
-    // A. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN (DASHSCOPE)
+    // A. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN (DASHSCOPE HOẶC GROQ)
     if (qwenKey) {
       const qwenModels = ["qwen-plus", "qwen-turbo", "qwen-max"];
       for (const qModel of qwenModels) {
@@ -243,15 +243,54 @@ Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
             break;
           }
         } catch (qErr) {
-          console.warn(`Qwen check-writing error on ${qModel}:`, qErr);
+          console.warn(`Qwen DashScope check-writing error on ${qModel}:`, qErr);
         }
       }
     }
 
-    // B. DỰ PHÒNG 1: GOOGLE GEMINI (GEMINI 2.0 / 1.5 FLASH)
+    // A2. ALIBABA QWEN 2.5/3.8 TRÊN GROQ LPUs (SIÊU NHANH)
+    if (llmScore === null && groqKey) {
+      try {
+        const grRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({
+            model: "qwen/qwen3.8-27b",
+            messages: [
+              { role: "system", content: "You are an expert native Chinese HSK grading teacher. Output ONLY valid JSON." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.2,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (grRes.ok) {
+          const grData = await grRes.json();
+          const raw = grData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.score === "number") llmScore = parsed.score;
+            if (parsed.correctedText) correctedText = parsed.correctedText;
+            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              parsed.issues.forEach((iss: any) => {
+                if (!issues.some((ex) => ex.original === iss.original)) {
+                  issues.push(iss);
+                }
+              });
+            }
+          }
+        }
+      } catch (gErr) {
+        console.warn("Groq Qwen check-writing error:", gErr);
+      }
+    }
+
+    // B. DỰ PHÒNG 1: GOOGLE GEMINI (GEMINI 2.5 FLASH / LITE)
     if (llmScore === null && geminiKey) {
       try {
-        const geminiModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+        const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
         for (const model of geminiModels) {
           try {
             const gRes = await fetch(
@@ -261,7 +300,10 @@ Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   contents: [{ parts: [{ text: promptText }] }],
-                  generationConfig: { temperature: 0.2 },
+                  generationConfig: {
+                    temperature: 0.2,
+                    responseMimeType: "application/json",
+                  },
                 }),
               }
             );
@@ -293,19 +335,20 @@ Yêu cầu chấm điểm và nhận xét cực kỳ nghiêm túc, chuẩn xác:
       }
     }
 
-    // B. Thử gọi GROQ nếu có key và chưa xong
+    // C. DỰ PHÒNG 2: GROQ OSS
     if (llmScore === null && groqKey) {
       try {
         const grRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
           body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             messages: [
               { role: "system", content: "You are an expert native Chinese teacher. Respond ONLY in valid JSON." },
               { role: "user", content: promptText },
             ],
             temperature: 0.2,
+            response_format: { type: "json_object" },
           }),
         });
         if (grRes.ok) {

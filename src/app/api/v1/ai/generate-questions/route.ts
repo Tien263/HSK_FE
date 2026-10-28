@@ -99,7 +99,7 @@ Yêu cầu bắt buộc: Trả về duy nhất định dạng JSON thuần túy 
         if (groqRes && groqRes.ok) {
           groqData = await groqRes.json();
         } else {
-          // Fallback sang llama-3.3-70b-versatile
+          // Fallback sang openai/gpt-oss-120b trên Groq
           const fallbackRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -107,7 +107,7 @@ Yêu cầu bắt buộc: Trả về duy nhất định dạng JSON thuần túy 
               Authorization: `Bearer ${groqKey}`,
             },
             body: JSON.stringify({
-              model: "llama-3.3-70b-versatile",
+              model: "openai/gpt-oss-120b",
               messages: [
                 { role: "system", content: "You are an expert Chinese HSK test creator. Respond only with raw JSON array." },
                 { role: "user", content: promptText },
@@ -178,7 +178,7 @@ Yêu cầu bắt buộc: Trả về duy nhất định dạng JSON thuần túy 
     if (geminiKey) {
       try {
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

@@ -87,43 +87,111 @@ export async function POST(request: Request) {
         // Kiểm tra các API Key AI khả dụng
         const groqKey = process.env.GROQ_API_KEY;
         const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
-        const openRouterKey = process.env.OPENROUTER_API_KEY;
         const geminiKey = process.env.GEMINI_API_KEY;
         const openAiKey = process.env.OPENAI_API_KEY;
 
         let llmSuccess = false;
 
-        const conversationContext = history
-          .slice(-6)
-          .map((m: any) => `${m.sender === "STUDENT" ? "Học sinh" : "AI Tiểu Ngữ"}: ${m.zh}`)
-          .join("\n");
+        const systemPrompt = `Bạn là Tiểu Ngữ (小语) - một người bạn bản xứ Trung Quốc thân thiện, chân thành và vui tính, đang trò chuyện đối thoại hai chiều trực tiếp trên WeChat với học viên HSK cấp độ ${hskLevel}.
 
-        const promptText = `Bạn là Tiểu Ngữ (小语) - một người bạn bản xứ Trung Quốc thân thiện, tự nhiên và tâm sự trò chuyện như trên WeChat với học viên HSK cấp độ ${hskLevel}.
-Lịch sử hội thoại:
-${conversationContext || "(Bắt đầu cuộc trò chuyện mới)"}
+QUY TẮC ĐỐI THOẠI CỐT LÕI (BẮT BUỘC TUÂN THỦ NGHIÊM NGẶT):
+1. ĐỐI THOẠI HAI CHIỀU - CÓ HỎI PHẢI CÓ ĐÁP:
+   - NẾU HỌC VIÊN ĐẶT CÂU HỎI (VD: hỏi tên, tuổi, hỏi bạn ở đâu, ăn cơm chưa, đang làm gì, hỏi thời tiết, sở thích, hỏi nghĩa từ, ý kiến...):
+     -> BẮT BUỘC PHẢI TRẢ LỜI RÕ RÀNG, CHÂN THÀNH VÀO ĐÚNG CÂU HỎI ĐÓ ĐẦU TIÊN!
+     (Ví dụ: hỏi tên thì trả lời rõ mình tên Tiểu Ngữ; hỏi ăn cơm chưa thì trả lời đã ăn món gì rồi; hỏi ở đâu thì trả lời đang ở Bắc Kinh hoặc Trung Quốc).
+     -> TUYỆT ĐỐI KHÔNG ĐƯỢC lờ đi câu hỏi của học viên, không trả lời né tránh hay chuyển chủ đề đột ngột.
+   - NẾU HỌC VIÊN TRẢ LỜI CÂU HỎI TRƯỚC ĐÓ HOẶC TÂM SỰ:
+     -> Tiếp nhận câu trả lời đó, đưa ra nhận xét hoặc cảm nghĩ chân thành ("哇，听起来很棒！", "原来是这样...").
+2. NHỚ VÀ BÁM SÁT LỊCH SỬ HỘI THOẠI:
+   - Hãy liên kết với các thông tin đã trao đổi ở các câu nói trước (tên học viên, món ăn, thói quen, chủ đề đang bàn) để cuộc trò chuyện có tính liên tục, không bao giờ nói rời rạc như người xa lạ.
+3. DUY TRÌ MẠCH TRÒ CHUYỆN:
+   - Sau khi trả lời câu của học viên, hãy tự nhiên hỏi ngược lại học viên 1 câu hỏi ngắn, gần gũi (phù hợp HSK ${hskLevel}) liên quan đến chủ đề để học viên tiếp tục phản hồi.
+4. KHÔNG DÙNG CÂU KHEN SÁO RỖNG:
+   - Tuyệt đối không mở đầu bằng: "你说得很自然！", "你回答得太棒了！", "你的中文越来越好了！".
+5. GỢI Ý CÂU PHẢN HỒI (suggestedReplies):
+   - Phải gồm 2-3 câu trả lời trực tiếp cho câu hỏi mà bạn vừa hỏi học viên ở cuối câu thoại, giúp học viên dễ dàng bấm chọn để trả lời bạn.
 
-Bạn của bạn vừa nói: "${spokenText}"
-
-Quy tắc trò chuyện QUAN TRỌNG:
-1. ĐỐI THOẠI TỰ NHIÊN NHƯ NGƯỜI VỚI NGƯỜI: Tuyệt đối KHÔNG mở đầu bằng các lời khen hoặc nhận xét sáo rỗng (như "你说得很自然", "太棒了", "你说得很好", "你的中文越来越棒").
-2. Hãy phản hồi trực tiếp vào nội dung người bạn vừa nói bằng cảm xúc chân thật (ví dụ: "哈哈真的吗？", "哇，原来是这样！", "我也这么觉得...", "听起来很有意思！"), sau đó chia sẻ một chút suy nghĩ của bạn hoặc hỏi tiếp một câu gợi mở tự nhiên để tiếp tục câu chuyện.
-3. Từ vựng và ngữ pháp phù hợp HSK ${hskLevel}.
-4. Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
+ĐỊNH DẠNG JSON DUY NHẤT:
 {
-  "aiReplyZh": "Câu phản hồi tự nhiên bằng tiếng Trung",
-  "aiReplyPinyin": "Phiên âm pinyin có thanh điệu",
+  "aiReplyZh": "Câu phản hồi của AI bằng tiếng Trung (ngắn gọn 1-3 câu)",
+  "aiReplyPinyin": "Phiên âm pinyin có thanh điệu chuẩn xác",
   "aiReplyVi": "Bản dịch nghĩa tiếng Việt tự nhiên",
-  "feedback": "Lời góp ý ngắn nếu có từ nào phát âm/dùng sai, nếu đúng thì để rỗng hoặc động viên ngắn gọn",
+  "feedback": "Góp ý nhẹ nếu học viên có lỗi ngữ pháp/từ vựng, nếu đúng thì để rỗng hoặc 1 câu động viên ngắn",
   "suggestedReplies": [
-    { "zh": "Câu gợi ý 1 cho bạn học viên", "pinyin": "pinyin 1", "vi": "nghĩa 1" },
-    { "zh": "Câu gợi ý 2 cho bạn học viên", "pinyin": "pinyin 2", "vi": "nghĩa 2" }
+    { "zh": "Câu trả lời gợi ý 1 cho học viên", "pinyin": "pinyin 1", "vi": "nghĩa 1" },
+    { "zh": "Câu trả lời gợi ý 2 cho học viên", "pinyin": "pinyin 2", "vi": "nghĩa 2" }
   ]
 }`;
 
+        // Chuẩn bị chat messages cho multi-turn context
+        const rawChatMessages: Array<{ role: string; content: string }> = [
+          { role: "system", content: systemPrompt },
+        ];
+
+        // Đưa tối đa 10 lượt hội thoại gần nhất vào ngữ cảnh
+        if (Array.isArray(history) && history.length > 0) {
+          const recentHistory = history.slice(-10);
+          for (const item of recentHistory) {
+            if (item.sender === "STUDENT" && item.zh) {
+              rawChatMessages.push({ role: "user", content: item.zh });
+            } else if (item.sender === "AI" && item.zh) {
+              rawChatMessages.push({ role: "assistant", content: JSON.stringify({ aiReplyZh: item.zh }) });
+            }
+          }
+        }
+        rawChatMessages.push({ role: "user", content: spokenText });
+
+        const promptText = `${systemPrompt}
+
+Lịch sử trò chuyện trước đó:
+${history
+  .slice(-8)
+  .map((m: any) => `${m.sender === "STUDENT" ? "Học viên" : "Tiểu Ngữ (AI)"}: ${m.zh}`)
+  .join("\n") || "(Bắt đầu cuộc trò chuyện)"}
+
+Học viên vừa nói: "${spokenText}"`;
+
         // -------------------------------------------------------------
-        // 1. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN (TONGYI QIANWEN)
-        // Mô hình tiếng Trung mạnh mẽ nhất hiện nay cho HSK & đàm thoại
+        // 1. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN TRÊN GROQ LPUs (CỰC NHANH ~500ms)
+        // HOẶC QWEN DASHSCOPE NẾU CÓ KEY
         // -------------------------------------------------------------
+        if (!llmSuccess && groqKey) {
+          try {
+            const groqQwenRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${groqKey}`,
+              },
+              body: JSON.stringify({
+                model: "qwen/qwen3.8-27b",
+                messages: rawChatMessages,
+                temperature: 0.7,
+                response_format: { type: "json_object" },
+              }),
+            });
+
+            if (groqQwenRes.ok) {
+              const qwenData = await groqQwenRes.json();
+              const raw = qwenData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.aiReplyZh) {
+                  aiReplyZh = parsed.aiReplyZh;
+                  aiReplyPinyin = parsed.aiReplyPinyin || "";
+                  aiReplyVi = parsed.aiReplyVi || "";
+                  if (parsed.feedback) feedback = parsed.feedback;
+                  if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+                  llmSuccess = true;
+                }
+              }
+            }
+          } catch (gErr) {
+            console.warn("Groq Qwen call error:", gErr);
+          }
+        }
+
+        // Qwen DashScope chính hãng Alibaba Cloud
         if (!llmSuccess && qwenKey) {
           const qwenModels = ["qwen-plus", "qwen-turbo", "qwen-max"];
           for (const qModel of qwenModels) {
@@ -136,10 +204,7 @@ Quy tắc trò chuyện QUAN TRỌNG:
                 },
                 body: JSON.stringify({
                   model: qModel,
-                  messages: [
-                    { role: "system", content: "You are Xiao Yu (小语), a friendly native Chinese friend chatting on WeChat. Respond ONLY in valid raw JSON." },
-                    { role: "user", content: promptText },
-                  ],
+                  messages: rawChatMessages,
                   temperature: 0.7,
                 }),
               });
@@ -161,14 +226,16 @@ Quy tắc trò chuyện QUAN TRỌNG:
                 }
               }
             } catch (qErr) {
-              console.warn(`Qwen dialogue error on ${qModel}:`, qErr);
+              console.warn(`Qwen DashScope dialogue error on ${qModel}:`, qErr);
             }
           }
         }
 
-        // 2. DỰ PHÒNG: GOOGLE GEMINI (GEMINI 2.0 / 1.5 FLASH)
+        // -------------------------------------------------------------
+        // 2. DỰ PHÒNG 1: GOOGLE GEMINI (GEMINI 2.5 FLASH / LITE)
+        // -------------------------------------------------------------
         if (!llmSuccess && geminiKey) {
-          const geminiModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+          const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
           for (const model of geminiModels) {
             try {
               const res = await fetch(
@@ -178,22 +245,27 @@ Quy tắc trò chuyện QUAN TRỌNG:
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     contents: [{ parts: [{ text: promptText }] }],
-                    generationConfig: { temperature: 0.7 },
+                    generationConfig: {
+                      temperature: 0.7,
+                      responseMimeType: "application/json",
+                    },
                   }),
                 }
               );
               if (res.ok) {
                 const data = await res.json();
                 const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g, "").trim();
-                const parsed = JSON.parse(raw);
-                if (parsed.aiReplyZh) {
-                  aiReplyZh = parsed.aiReplyZh;
-                  aiReplyPinyin = parsed.aiReplyPinyin || "";
-                  aiReplyVi = parsed.aiReplyVi || "";
-                  if (parsed.feedback) feedback = parsed.feedback;
-                  if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                  llmSuccess = true;
-                  break;
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (parsed.aiReplyZh) {
+                    aiReplyZh = parsed.aiReplyZh;
+                    aiReplyPinyin = parsed.aiReplyPinyin || "";
+                    aiReplyVi = parsed.aiReplyVi || "";
+                    if (parsed.feedback) feedback = parsed.feedback;
+                    if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+                    llmSuccess = true;
+                    break;
+                  }
                 }
               }
             } catch (e) {
@@ -202,40 +274,48 @@ Quy tắc trò chuyện QUAN TRỌNG:
           }
         }
 
-        // Gọi GROQ nếu có và chưa thành công
+        // -------------------------------------------------------------
+        // 3. DỰ PHÒNG 2: GROQ OSS (OPENAI GPT-OSS / LLAMA)
+        // -------------------------------------------------------------
         if (!llmSuccess && groqKey) {
-          try {
-            const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
-              body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                messages: [
-                  { role: "system", content: "You are an expert native Chinese conversation teacher. Respond ONLY in valid JSON." },
-                  { role: "user", content: promptText },
-                ],
-                temperature: 0.7,
-              }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const raw = data.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
-              const parsed = JSON.parse(raw);
-              if (parsed.aiReplyZh) {
-                aiReplyZh = parsed.aiReplyZh;
-                aiReplyPinyin = parsed.aiReplyPinyin || "";
-                aiReplyVi = parsed.aiReplyVi || "";
-                if (parsed.feedback) feedback = parsed.feedback;
-                if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                llmSuccess = true;
+          const groqFallbackModels = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
+          for (const fModel of groqFallbackModels) {
+            try {
+              const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+                body: JSON.stringify({
+                  model: fModel,
+                  messages: rawChatMessages,
+                  temperature: 0.7,
+                  response_format: { type: "json_object" },
+                }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const raw = data.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (parsed.aiReplyZh) {
+                    aiReplyZh = parsed.aiReplyZh;
+                    aiReplyPinyin = parsed.aiReplyPinyin || "";
+                    aiReplyVi = parsed.aiReplyVi || "";
+                    if (parsed.feedback) feedback = parsed.feedback;
+                    if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+                    llmSuccess = true;
+                    break;
+                  }
+                }
               }
+            } catch (e) {
+              console.warn(`Groq fallback model error on ${fModel}:`, e);
             }
-          } catch (e) {
-            console.warn("Groq dialogue call error:", e);
           }
         }
 
-        // Gọi OPENAI nếu có
+        // -------------------------------------------------------------
+        // 4. DỰ PHÒNG 3: OPENAI (GPT-4O-MINI)
+        // -------------------------------------------------------------
         if (!llmSuccess && openAiKey) {
           try {
             const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -243,24 +323,24 @@ Quy tắc trò chuyện QUAN TRỌNG:
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${openAiKey}` },
               body: JSON.stringify({
                 model: "gpt-4o-mini",
-                messages: [
-                  { role: "system", content: "You are a native Chinese dialogue tutor. Output only JSON." },
-                  { role: "user", content: promptText },
-                ],
+                messages: rawChatMessages,
                 temperature: 0.7,
+                response_format: { type: "json_object" },
               }),
             });
             if (res.ok) {
               const data = await res.json();
               const raw = data.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
-              const parsed = JSON.parse(raw);
-              if (parsed.aiReplyZh) {
-                aiReplyZh = parsed.aiReplyZh;
-                aiReplyPinyin = parsed.aiReplyPinyin || "";
-                aiReplyVi = parsed.aiReplyVi || "";
-                if (parsed.feedback) feedback = parsed.feedback;
-                if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                llmSuccess = true;
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.aiReplyZh) {
+                  aiReplyZh = parsed.aiReplyZh;
+                  aiReplyPinyin = parsed.aiReplyPinyin || "";
+                  aiReplyVi = parsed.aiReplyVi || "";
+                  if (parsed.feedback) feedback = parsed.feedback;
+                  if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+                  llmSuccess = true;
+                }
               }
             }
           } catch (e) {
@@ -268,157 +348,187 @@ Quy tắc trò chuyện QUAN TRỌNG:
           }
         }
 
-        // BỘ ĐỐI ĐÁP PHONG PHÚ TỰ NHIÊN NHƯ BẠN BÈ WECHAT (KHÔNG ĐÁNH GIÁ SÁO RỖNG)
+        // -------------------------------------------------------------
+        // 5. BỘ ĐỐI THOẠI NGỮ CẢNH DỰ PHÒNG THÔNG MINH (KHI OFFLINE / KHÔNG CÓ MẠNG)
+        // TRẢ LỜI ĐÍCH DANH VÀO CÂU HỎI THƯỜNG GẶP - CÓ HỎI CÓ ĐÁP RÕ RÀNG
+        // -------------------------------------------------------------
         if (!llmSuccess) {
           const smartTopics = [
+            // 1. Học sinh hỏi tên / giới thiệu
+            {
+              matcher: /叫什么|名字|谁是|你是谁|小语/u,
+              replies: [
+                {
+                  zh: "你好呀！我是你的中文语伴，我叫小语。很高兴认识你！你叫什么名字呢？",
+                  pinyin: "Nǐ hǎo ya! Wǒ shì nǐ de Zhōngwén yǔbàn, wǒ jiào Xiǎo Yǔ. Hěn gāoxìng rènshi nǐ! Nǐ jiào shénme míngzi ne?",
+                  vi: "Chào bạn nhé! Mình là bạn luyện tiếng Trung của bạn, mình tên là Tiểu Ngữ. Rất vui được quen bạn! Bạn tên là gì thế?",
+                  suggestions: [
+                    { zh: "我叫明德，很高兴认识你！", pinyin: "Wǒ jiào Míngdé, hěn gāoxìng rènshi nǐ!", vi: "Mình tên là Minh Đức, rất vui được quen bạn!" },
+                    { zh: "你可以叫我小芳。", pinyin: "Nǐ kěyǐ jiào wǒ Xiǎofāng.", vi: "Bạn có thể gọi mình là Tiểu Phương." },
+                  ],
+                },
+              ],
+            },
+            // 2. Học sinh hỏi quốc tịch / nơi ở
+            {
+              matcher: /哪国人|哪里人|哪儿人|住在哪|什么地方|你在哪/u,
+              replies: [
+                {
+                  zh: "我是中国人，现在住在北京。你现在生活在哪个国家或者城市呢？",
+                  pinyin: "Wǒ shì Zhōngguó rén, xiànzài zhù zài Běijīng. Nǐ xiànzài shēnghuó zài nǎge guójiā huòzhě chéngshì ne?",
+                  vi: "Mình là người Trung Quốc, hiện đang sống ở Bắc Kinh. Bạn đang sinh sống ở quốc gia hoặc thành phố nào vậy?",
+                  suggestions: [
+                    { zh: "我是越南人，我住在河内。", pinyin: "Wǒ shì Yuènán rén, wǒ zhù zài Hénèi.", vi: "Mình là người Việt Nam, mình sống ở Hà Nội." },
+                    { zh: "我住在胡志明市，这里很热闹。", pinyin: "Wǒ zhù zài Húzhìmíng shì, zhèlǐ hěn rènào.", vi: "Mình sống ở TP. Hồ Chí Minh, ở đây rất nhộn nhịp." },
+                  ],
+                },
+              ],
+            },
+            // 3. Học sinh hỏi đã ăn cơm chưa
+            {
+              matcher: /吃了吗|吃了没有|吃饭了吗|吃饱了吗/u,
+              replies: [
+                {
+                  zh: "我已经吃过啦！今天中午吃了番茄炒蛋盖饭，特别香。你吃饱了吗？吃了什么呀？",
+                  pinyin: "Wǒ yǐjīng chī guò la! Jīntiān zhōngwǔ chī le fānqié chǎodàn gàifàn, tèbié xiāng. Nǐ chī bǎo le ma? Chī le shénme ya?",
+                  vi: "Mình ăn rồi nhé! Trưa nay mình ăn cơm trứng xào cà chua, thơm ngon lắm. Bạn ăn no chưa? Bạn đã ăn món gì thế?",
+                  suggestions: [
+                    { zh: "我刚刚吃了牛肉面，很好吃！", pinyin: "Wǒ gānggāng chī le niúròu miàn, hěn hǎochī!", vi: "Mình vừa ăn mì bò xong, ngon lắm!" },
+                    { zh: "我还没吃呢，正准备去吃。", pinyin: "Wǒ hái méi chī ne, zhèng zhǔnbèi qù chī.", vi: "Mình vẫn chưa ăn, đang chuẩn bị đi ăn đây." },
+                  ],
+                },
+              ],
+            },
+            // 4. Học sinh hỏi thích ăn món gì / món ngon
+            {
+              matcher: /喜欢吃|爱吃|想吃|什么好吃|好吃吗/u,
+              replies: [
+                {
+                  zh: "说到好吃的，我最喜欢吃四川火锅和北方水饺！你平时最喜欢吃什么中国菜呢？",
+                  pinyin: "Shuōdào hǎochī de, wǒ zuì xǐhuan chī Sìchuān huǒguō hé běifāng shuǐjiǎo! Nǐ píngshí zuì xǐhuan chī shénme Zhōngguó cài ne?",
+                  vi: "Nói đến đồ ăn ngon thì mình thích ăn lẩu Tứ Xuyên và sủi cảo phương bắc nhất! Bình thường bạn thích ăn món Trung nào nhất?",
+                  suggestions: [
+                    { zh: "我也超喜欢吃火锅，特别是麻辣牛肉！", pinyin: "Wǒ yě chāo xǐhuan chī huǒguō, tèbié shì málà niúròu!", vi: "Mình cũng cực thích ăn lẩu, đặc biệt là thịt bò cay tê!" },
+                    { zh: "我喜欢吃北京烤鸭，皮特别脆。", pinyin: "Wǒ xǐhuan chī Běijīng kǎoyā, pí tèbié cuì.", vi: "Mình thích ăn vịt quay Bắc Kinh, da cực kỳ giòn." },
+                  ],
+                },
+              ],
+            },
+            // 5. Học sinh hỏi sở thích / rảnh rỗi làm gì
+            {
+              matcher: /喜欢做|爱好|喜欢玩|平时喜欢|周末喜欢/u,
+              replies: [
+                {
+                  zh: "我平时最喜欢看书、听音乐，还有像现在这样和大家聊天练中文！你平时都有什么兴趣爱好呢？",
+                  pinyin: "Wǒ píngshí zuì xǐhuan kànshū, tīng yīnyuè, hái yǒu xiàng xiànzài zhèyàng hé dàjiā liáotiān liàn Zhōngwén! Nǐ píngshí dōu yǒu shénme xìngqù àihào ne?",
+                  vi: "Bình thường mình thích đọc sách, nghe nhạc, và thích trò chuyện luyện tiếng Trung cùng các bạn như thế này! Bạn có sở thích gì nào?",
+                  suggestions: [
+                    { zh: "我喜欢听中文歌和看电影。", pinyin: "Wǒ xǐhuan tīng Zhōngwén gē hé kàn diànyǐng.", vi: "Mình thích nghe nhạc Hoa và xem phim." },
+                    { zh: "我喜欢去健身房运动，踢足球。", pinyin: "Wǒ xǐhuan qù jiànshēnfáng yùndòng, tī zúqiú.", vi: "Mình thích đi tập gym vận động, đá bóng." },
+                  ],
+                },
+              ],
+            },
+            // 6. Học sinh hỏi thời tiết
+            {
+              matcher: /天气|冷不冷|热不热|下雨了吗|温度/u,
+              replies: [
+                {
+                  zh: "今天我这边天气很晴朗，微风徐徐，感觉挺舒服的。你那里的天气怎么样？冷不冷呀？",
+                  pinyin: "Jīntiān wǒ zhèbiān tiānqì hěn qínglǎng, wēifēng xúxú, gǎnjué tǐng shūfu de. Nǐ nàlǐ de tiānqì zěnmeyàng? Lěng bu lěng ya?",
+                  vi: "Hôm nay chỗ mình trời rất quang đãng, gió thổi nhẹ nhàng, cảm giác dễ chịu lắm. Thời tiết chỗ bạn thế nào? Có lạnh không?",
+                  suggestions: [
+                    { zh: "今天挺凉快的，温度刚刚好。", pinyin: "Jīntiān tǐng liángkuai de, wēndù gānggāng hǎo.", vi: "Hôm nay khá mát mẻ, nhiệt độ vừa đẹp." },
+                    { zh: "我这边下雨了，有点冷。", pinyin: "Wǒ zhèbiān xià yǔ le, yǒudiǎn lěng.", vi: "Chỗ mình đang mưa, hơi lạnh chút." },
+                  ],
+                },
+              ],
+            },
+            // 7. Học sinh hỏi sức khỏe / ngày hôm nay thế nào
+            {
+              matcher: /你好吗|好不好|身体好|累不累|忙不忙|过得怎么样/u,
+              replies: [
+                {
+                  zh: "我今天挺好的，心情也很不错！谢谢你的关心。你今天过得怎么样？工作学习顺利吗？",
+                  pinyin: "Wǒ jīntiān tǐng hǎo de, xīnqíng yě hěn búcuò! Xièxie nǐ de guānxīn. Nǐ jīntiān guò de zěnmeyàng? Gōngzuò xuéxí shùnlì ma?",
+                  vi: "Mình hôm nay ổn lắm, tâm trạng rất tốt! Cảm ơn bạn đã hỏi thăm. Hôm nay bạn thế nào? Công việc học tập suôn sẻ chứ?",
+                  suggestions: [
+                    { zh: "我今天一切都挺顺利的，很开心！", pinyin: "Wǒ jīntiān yíqiè dōu tǐng shùnlì de, hěn kāixīn!", vi: "Hôm nay mọi việc của mình đều suôn sẻ, rất vui vẻ!" },
+                    { zh: "今天事情有点多，有点累。", pinyin: "Jīntiān shìqing yǒudiǎn duō, yǒudiǎn lèi.", vi: "Hôm nay việc hơi nhiều nên có chút mệt mỏi." },
+                  ],
+                },
+              ],
+            },
+            // 8. Tâm sự mệt mỏi / áp lực / thi trượt
+            {
+              matcher: /累|烦|难过|伤心|不开心|没考好|考得不好|压力/u,
+              replies: [
+                {
+                  zh: "听到你这么说，真想给你一个大大的拥抱！遇到挫折没关系的，深呼吸放松一下。愿意跟我说说发生什么事了吗？",
+                  pinyin: "Tīngdào nǐ zhème shuō, zhēn xiǎng gěi nǐ yí ge dàdà de yōngbào! Yùdào cuòzhé méi guānxi de, shēnhūxī fàngsōng yíxià. Yuànyì gēn wǒ shuōshuo fāshēng shénme shì le ma?",
+                  vi: "Nghe bạn kể mình thật sự muốn ôm bạn một cái! Gặp chút trắc trở không sao cả, hít thở sâu thư giãn nhé. Bạn có muốn kể cho mình nghe chuyện gì xảy ra không?",
+                  suggestions: [
+                    { zh: "就是考试没考好，有点失落。", pinyin: "Jiù shì kǎoshì méi kǎo hǎo, yǒudiǎn shīluò.", vi: "Chỉ là thi không tốt lắm, hơi hụt hẫng chút thôi." },
+                    { zh: "工作遇到难题，有点烦心。", pinyin: "Gōngzuò yùdào nántí, yǒudiǎn fánxīn.", vi: "Công việc gặp chuyện nan giải nên hơi bận lòng." },
+                  ],
+                },
+              ],
+            },
+            // 9. Vui mừng / thành công / khoe chuyện vui
+            {
+              matcher: /开心|高兴|太棒了|通过了|考得好|成功/u,
+              replies: [
+                {
+                  zh: "太替你开心啦！这么棒的好消息，今晚一定要好好庆祝犒劳一下自己！快跟我分享分享具体的经过呗！",
+                  pinyin: "Tài tì nǐ kāixīn la! Zhème bàng de hǎoxiāoxi, jīnwǎn yídìng yào hǎohāo qìngzhù kàolao yíxià zìjǐ! Kuài gēn wǒ fēnxiǎng fēnxiǎng jùtǐ de jīngguò bei!",
+                  vi: "Quá vui mừng thay cho bạn! Tin tức tuyệt vời thế này tối nay nhớ ăn mừng tự thưởng bản thân nhé! Mau chia sẻ với mình chi tiết nào!",
+                  suggestions: [
+                    { zh: "我通过了HSK考试，太激动了！", pinyin: "Wǒ tōngguò le HSK kǎoshì, tài jīdòng le!", vi: "Mình đã thi đỗ kỳ thi HSK rồi, xúc động quá!" },
+                    { zh: "今天受到了老师的表扬！", pinyin: "Jīntiān shòudào le lǎoshī de biǎoyáng!", vi: "Hôm nay mình được thầy cô khen ngợi!" },
+                  ],
+                },
+              ],
+            },
+            // 10. Chào hỏi ban đầu
             {
               matcher: /好|您好|你好|嗨|哈喽|早上好|晚上好/u,
               replies: [
                 {
-                  zh: "哈喽！今天过得怎么样？忙不忙呀？",
-                  pinyin: "Hālóu! Jīntiān guò de zěnmeyàng? Máng bu máng ya?",
-                  vi: "Chào bạn nhé! Hôm nay bạn thế nào? Có bận rộn lắm không?",
+                  zh: "哈喽！见到你真高兴。今天一切都顺利吗？想跟我聊点什么有意思的话题呢？",
+                  pinyin: "Hālóu! Jiàndào nǐ zhēn gāoxìng. Jīntiān yíqiè dōu shùnlì ma? Xiǎng gēn wǒ liáo diǎn shénme yǒu yìsi de huàtí ne?",
+                  vi: "Chào bạn nhé! Gặp bạn vui ghê. Hôm nay mọi chuyện ổn chứ? Bạn muốn cùng mình nói về chủ đề thú vị nào đây?",
                   suggestions: [
-                    { zh: "我今天挺好的，不太忙。", pinyin: "Wǒ jīntiān tǐng hǎo de, bú tài máng.", vi: "Hôm nay mình khá ổn, không bận lắm." },
-                    { zh: "今天工作有点多，有点累。", pinyin: "Jīntiān gōngzuò yǒudiǎn duō, yǒudiǎn lèi.", vi: "Hôm nay công việc hơi nhiều, có chút mệt." },
-                  ],
-                },
-                {
-                  zh: "嗨！今天天气不错，你现在在家里还是在外面呢？",
-                  pinyin: "Hāi! Jīntiān tiānqì búcuò, nǐ xiànzài zài jiālǐ háishì zài wàimiàn ne?",
-                  vi: "Chào bạn! Thời tiết hôm nay đẹp ghê, giờ bạn đang ở nhà hay ở ngoài?",
-                  suggestions: [
-                    { zh: "我现在刚回到家休息。", pinyin: "Wǒ xiànzài gāng huí dào jiā xiūxi.", vi: "Mình vừa về tới nhà nghỉ ngơi." },
-                    { zh: "我还在外面和朋友喝咖啡呢。", pinyin: "Wǒ hái zài wàimiàn hé péngyou hē kāfēi ne.", vi: "Mình vẫn đang ở ngoài uống cà phê với bạn bè." },
+                    { zh: "我想聊聊今天的生活。", pinyin: "Wǒ xiǎng liáoliao jīntiān de shēnghuó.", vi: "Mình muốn kể về cuộc sống hôm nay." },
+                    { zh: "我想练练日常买东西的对话。", pinyin: "Wǒ xiǎng liànlian rìcháng mǎi dōngxi de duìhuà.", vi: "Mình muốn luyện đối thoại đi mua đồ hàng ngày." },
                   ],
                 },
               ],
             },
+            // 11. Cảm ơn
             {
-              matcher: /吃|喝|菜|茶|饭|水|米饭|面|肉|火锅|咖啡|奶茶/u,
+              matcher: /谢谢|多谢|感谢/u,
               replies: [
                 {
-                  zh: "哇，听起来好香！你平时喜欢自己做饭，还是点外卖或者去外面吃？",
-                  pinyin: "Wa, tīng qǐlái hǎo xiāng! Nǐ píngshí xǐhuan zìjǐ zuòfàn, háishì diǎn wàimài huòzhě qù wàimiàn chī?",
-                  vi: "Oa nghe hấp dẫn thế! Bình thường bạn thích tự nấu ăn, hay gọi đồ về hoặc ra ngoài ăn?",
+                  zh: "不用客气呀！能陪你一起练习中文我也觉得超级开心。你今天还想再多聊聊什么吗？",
+                  pinyin: "Búyòng kèqi ya! Néng péi nǐ yìqǐ liànxí Zhōngwén wǒ yě juéde chāojí kāixīn. Nǐ jīntiān hái xiǎng zài duō liáoliao shénme ma?",
+                  vi: "Đừng khách sáo nhé! Được đồng hành cùng bạn luyện tiếng Trung mình cũng thấy vui lắm. Hôm nay bạn còn muốn nói chuyện tiếp về gì nữa không?",
                   suggestions: [
-                    { zh: "我周末喜欢自己做饭，平时点外卖。", pinyin: "Wǒ zhōumò xǐhuan zìjǐ zuòfàn, píngshí diǎn wàimài.", vi: "Cuối tuần mình thích tự nấu ăn, ngày thường thì gọi đồ về." },
-                    { zh: "我很喜欢做饭，特别是中国菜。", pinyin: "Wǒ hěn xǐhuan zuòfàn, tèbié shì Zhōngguó cài.", vi: "Mình rất thích nấu ăn, đặc biệt là món Trung Hoa." },
-                  ],
-                },
-                {
-                  zh: "说到好吃的，我也馋了！你最喜欢的中国菜是什么？火锅、饺子还是炒饭？",
-                  pinyin: "Shuōdào hǎochī de, wǒ yě chán le! Nǐ zuì xǐhuan de Zhōngguó cài shì shénme? Huǒguō, jiǎozi háishì chǎofàn?",
-                  vi: "Nhắc đến đồ ngon mình cũng thèm rồi! Món Trung bạn thích nhất là gì? Lẩu, sủi cảo hay cơm rang?",
-                  suggestions: [
-                    { zh: "我最喜欢吃火锅，又辣又过瘾！", pinyin: "Wǒ zuì xǐhuan chī huǒguō, yòu là yòu guòyǐn!", vi: "Mình thích ăn lẩu nhất, vừa cay vừa đã!" },
-                    { zh: "我喜欢吃饺子，蘸醋特别香。", pinyin: "Wǒ xǐhuan chī jiǎozi, zhàn cù tèbié xiāng.", vi: "Mình thích ăn sủi cảo, chấm giấm cực kỳ thơm ngon." },
-                  ],
-                },
-                {
-                  zh: "你平时喜欢喝咖啡还是喝茶？我每天早上都要喝一杯提提神。",
-                  pinyin: "Nǐ píngshí xǐhuan hē kāfēi háishì hē chá? Wǒ měitiān zǎoshang dōu yào hē yì bēi tí tí shén.",
-                  vi: "Bình thường bạn thích uống cà phê hay uống trà? Sáng nào mình cũng phải làm một ly cho tỉnh táo.",
-                  suggestions: [
-                    { zh: "我也是！不喝咖啡一整天都没精神。", pinyin: "Wǒ yě shì! Bù hē kāfēi yì zhěng tiān dōu méi jīngshen.", vi: "Mình cũng vậy! Không uống cà phê là cả ngày uể oải liền." },
-                    { zh: "我更喜欢喝清香的绿茶，对身体好。", pinyin: "Wǒ gèng xǐhuan hē qīngxiāng de lǜchá, duì shēntǐ hǎo.", vi: "Mình thích uống trà xanh thanh mát hơn, tốt cho sức khỏe." },
+                    { zh: "今天就先聊到这里吧，下次再见！", pinyin: "Jīntiān jiù xiān liáo dào zhèlǐ ba, xià cì zàijiàn!", vi: "Hôm nay trò chuyện tới đây thôi nhé, hẹn lần sau gặp lại!" },
+                    { zh: "我想再跟你聊会儿中国文化。", pinyin: "Wǒ xiǎng zài gēn nǐ liáo huìr Zhōngguó wénhuà.", vi: "Mình muốn nói thêm chút về văn hóa Trung Quốc với bạn." },
                   ],
                 },
               ],
             },
+            // 12. Tạm biệt
             {
-              matcher: /天|冷|热|雨|晴|风|太阳|阴/u,
+              matcher: /再见|拜拜|下次聊|明天见/u,
               replies: [
                 {
-                  zh: "今天这天气挺舒服的，你那边现在冷不冷？",
-                  pinyin: "Jīntiān zhè tiānqì tǐng shūfu de, nǐ nàbiān xiànzài lěng bu lěng?",
-                  vi: "Thời tiết hôm nay khá dễ chịu, chỗ bạn giờ có lạnh không?",
+                  zh: "好的呀！今天聊得超级开心。记得经常来找我练习口语哦，祝你度过愉快的一天，再见啦！",
+                  pinyin: "Hǎo de ya! Jīntiān liáo de chāojí kāixīn. Jìde jīngcháng lái zhǎo wǒ liànxí kǒuyǔ o, zhù nǐ dùguò yúkuài de yì tiān, zàijiàn la!",
+                  vi: "Vâng ạ! Hôm nay trò chuyện vui vẻ lắm. Nhớ thường xuyên ghé qua cùng mình luyện khẩu ngữ nhé, chúc bạn một ngày tuyệt vời, tạm biệt bạn!",
                   suggestions: [
-                    { zh: "今天挺凉快的，温度刚刚好。", pinyin: "Jīntiān tǐng liángkuai de, wēndù gānggāng hǎo.", vi: "Hôm nay khá mát mẻ, nhiệt độ vừa vặn." },
-                    { zh: "我这边有点冷，出门都要穿厚衣服。", pinyin: "Wǒ nàbiān yǒudiǎn lěng, chūmén dōu yào chuān hòu yīfu.", vi: "Chỗ mình hơi lạnh, ra đường đều phải mặc áo dày." },
-                  ],
-                },
-                {
-                  zh: "要是天气好的话，真想去公园走走。你今天有出门吗？",
-                  pinyin: "Yàoshi tiānqì hǎo de huà, zhēn xiǎng qù gōngyuán zǒuzou. Nǐ jīntiān yǒu chūmén ma?",
-                  vi: "Nếu thời tiết đẹp thật muốn ra công viên dạo bộ. Hôm nay bạn có ra ngoài không?",
-                  suggestions: [
-                    { zh: "我今天一整天都在家里休息。", pinyin: "Wǒ jīntiān yì zhěng tiān dōu zài jiālǐ xiūxi.", vi: "Hôm nay cả ngày mình ở nhà nghỉ ngơi." },
-                    { zh: "我刚去超市买了点东西回来。", pinyin: "Wǒ gāng qù chāoshì mǎi le diǎn dōngxi huílái.", vi: "Mình vừa đi siêu thị mua ít đồ về." },
-                  ],
-                },
-              ],
-            },
-            {
-              matcher: /学|中文|字|考|课|书|汉语|老师/u,
-              replies: [
-                {
-                  zh: "学语言确实需要一点一滴慢慢积累。你平时习惯在早上学还是晚上学？",
-                  pinyin: "Xué yǔyán quèshí xūyào yìdiǎnyìdī mànman jīlěi. Nǐ píngshí xíguàn zài zǎoshang xué háishì wǎnshang xué?",
-                  vi: "Học ngoại ngữ đúng là cần từng chút tích lũy dần. Thường ngày bạn có thói quen học buổi sáng hay buổi tối?",
-                  suggestions: [
-                    { zh: "我习惯晚上比较安静的时候学。", pinyin: "Wǒ xíguàn wǎnshang bǐjiào ānjìng de shíhou xué.", vi: "Mình quen học vào buổi tối lúc yên tĩnh hơn." },
-                    { zh: "我喜欢早上记忆力好的时候背生词。", pinyin: "Wǒ xǐhuan zǎoshang jìyìlì hǎo de shíhou bèi shēngcí.", vi: "Mình thích học từ mới vào buổi sáng lúc trí nhớ tốt." },
-                  ],
-                },
-                {
-                  zh: "你觉得学中文最有趣的是什么？我平时超喜欢看汉字背后的演变故事！",
-                  pinyin: "Nǐ juéde xué zhōngwén zuì yǒu yìsi de shì shénme? Wǒ píngshí chāo xǐhuan kàn hànzì bèihòu de yǎnbiàn gùshi!",
-                  vi: "Bạn thấy học tiếng Trung điều gì thú vị nhất? Mình thì cực mê tìm hiểu câu chuyện đằng sau các chữ Hán!",
-                  suggestions: [
-                    { zh: "我觉得汉字结构很像画画，很有趣！", pinyin: "Wǒ juéde hànzì jiégòu hěn xiàng huàhuà, hěn yǒu yìsi!", vi: "Mình thấy cấu tạo chữ Hán rất giống vẽ tranh, cực kỳ thú vị!" },
-                    { zh: "我喜欢学口语，能跟世界各地的人交流。", pinyin: "Wǒ xǐhuan xué kǒuyǔ, néng gēn shìjiè gèdì de rén jiāoliú.", vi: "Mình thích học khẩu ngữ, để có thể giao lưu với mọi người khắp nơi." },
-                  ],
-                },
-              ],
-            },
-            {
-              matcher: /工作|上班|忙|累|加班|老板|同事|开会/u,
-              replies: [
-                {
-                  zh: "工作忙碌了一整天，今晚有打算怎么好好犒劳一下自己吗？",
-                  pinyin: "Gōngzuò mánglù le yì zhěng tiān, jīnwǎn yǒu dǎsuàn zěnme hǎohāo kàolao yíxià zìjǐ ma?",
-                  vi: "Đi làm bận rộn cả ngày rồi, tối nay bạn tính tự thưởng gì cho bản thân chưa?",
-                  suggestions: [
-                    { zh: "今晚吃顿大餐，然后早点睡！", pinyin: "Jīnwǎn chī dùn dàcān, ránhòu zǎodiǎn shuì!", vi: "Tối nay ăn một bữa ngon lành rồi đi ngủ sớm!" },
-                    { zh: "打算追追剧，听听歌放松一下。", pinyin: "Dǎsuàn zhuī zhuī jù, tīng tīng gē fàngsōng yíxià.", vi: "Định cày một tập phim, nghe nhạc chút cho thư thả." },
-                  ],
-                },
-              ],
-            },
-            {
-              matcher: /电影|音乐|歌|看|听|玩|运动|足球|篮球|游/u,
-              replies: [
-                {
-                  zh: "我也超喜欢！你最近有没有看什么好看的电影或者电视剧推荐？",
-                  pinyin: "Wǒ yě chāo xǐhuan! Nǐ zuìjìn yǒu méiyǒu kàn shénme hǎokàn de diànyǐng huòzhě diànshìjù tuījiàn?",
-                  vi: "Mình cũng mê lắm luôn! Gần đây bạn có bộ phim hay kịch truyền hình nào gợi ý không?",
-                  suggestions: [
-                    { zh: "最近有一部新出的喜剧挺搞笑的。", pinyin: "Zuìjìn yǒu yí bù xīn chū de xǐjù tǐng gǎoxiào de.", vi: "Dạo này có phim hài mới ra cười đau cả ruột." },
-                    { zh: "我最近在看一部悬疑剧，特别精彩！", pinyin: "Wǒ zuìjìn zài kàn yí bù xuányí jù, tèbié jīngcǎi!", vi: "Mình đang xem phim trinh thám hồi hộp, gay cấn lắm!" },
-                  ],
-                },
-                {
-                  zh: "听音乐真的超解压！你平时一般听舒缓的慢歌，还是节奏快一点的？",
-                  pinyin: "Tīng yīnyuè zhēn de chāo jiěyā! Nǐ píngshí yìbān tīng shūhuǎn de màngē, háishì jiézòu kuài yìdiǎn de?",
-                  vi: "Nghe nhạc giải tỏa stress cực tốt! Bạn hay nghe nhạc nhẹ du dương hay nhạc tiết tấu sôi động?",
-                  suggestions: [
-                    { zh: "我喜欢听安静温柔的抒情歌。", pinyin: "Wǒ xǐhuan tīng ānjìng wēnróu de shūqíng gē.", vi: "Mình thích nghe những bản tình ca êm dịu, nhẹ nhàng." },
-                    { zh: "我喜欢节奏欢快的，让人充满活力！", pinyin: "Wǒ xǐhuan jiézòu huānkuài de, ràng rén chōngmǎn huólì!", vi: "Mình thích bài tiết tấu vui tươi, làm người tràn đầy năng lượng!" },
-                  ],
-                },
-              ],
-            },
-            {
-              matcher: /去|旅游|北京|上海|飞机|路|中国|走|玩儿/u,
-              replies: [
-                {
-                  zh: "去旅行真的很让人放松！如果有长假，你最想去哪个城市走走？",
-                  pinyin: "Qù lǚxíng zhēn de hěn ràng rén fàngsōng! Rúguǒ yǒu chángjià, nǐ zuì xiǎng qù nǎge chéngshì zǒuzou?",
-                  vi: "Đi du lịch thực sự giúp xả hơi tuyệt vời! Nếu có kỳ nghỉ dài, bạn muốn đi thành phố nào nhất?",
-                  suggestions: [
-                    { zh: "我想去成都看可爱的大熊猫，吃火锅！", pinyin: "Wǒ xiǎng qù Chéngdū kàn kě'ài de dàxióngmāo, chī huǒguō!", vi: "Mình muốn đi Thành Đô ngắm gấu trúc và ăn lẩu!" },
-                    { zh: "我想去海边吹吹海风，散散心。", pinyin: "Wǒ xiǎng qù hǎibiān chuī chuī hǎifēng, sànsàn xīn.", vi: "Mình muốn ra biển đón gió biển, thư giãn đầu óc." },
+                    { zh: "好的，再见！祝你开心！", pinyin: "Hǎo de, zàijiàn! Zhù nǐ kāixīn!", vi: "Được rồi, tạm biệt! Chúc bạn vui vẻ!" },
                   ],
                 },
               ],
@@ -431,46 +541,18 @@ Quy tắc trò chuyện QUAN TRỌNG:
               matcher: /.*/,
               replies: [
                 {
-                  zh: "哈哈，原来是这样！那你平时周末一般喜欢怎么度过呢？",
-                  pinyin: "Hāhā, yuánlái shì zhèyàng! Nà nǐ píngshí zhōumò yìbān xǐhuan zěnme dùguò ne?",
-                  vi: "Haha, hóa ra là như vậy! Thế thường ngày cuối tuần bạn thích trải qua thế nào?",
+                  zh: `听你这么一说，我也觉得挺有意思的！关于“${spokenClean.slice(0, 8)}”，你还有什么特别的想法吗？`,
+                  pinyin: `Tīng nǐ zhème yì shuō, wǒ yě juéde tǐng yǒu yìsi de! Guānyú “${spokenClean.slice(0, 8)}”, nǐ hái yǒu shénme tèbié de xiǎngfǎ ma?`,
+                  vi: `Nghe bạn chia sẻ mình thấy rất thú vị! Bạn có cảm nghĩ đặc biệt nào khác nữa không?`,
                   suggestions: [
-                    { zh: "周末我一般睡个懒觉，在家里看电影。", pinyin: "Zhōumò wǒ yìbān shuì ge lǎnjiào, zài jiālǐ kàn diànyǐng.", vi: "Cuối tuần mình hay ngủ nướng rồi ở nhà xem phim." },
-                    { zh: "我喜欢约朋友出去逛街或者喝下午茶。", pinyin: "Wǒ xǐhuan yuē péngyou chūqù guàngjiē huòzhě hē xiàwǔchá.", vi: "Mình thích hẹn bạn bè ra ngoài dạo phố hoặc uống trà chiều." },
-                  ],
-                },
-                {
-                  zh: "听你这么一说，我也觉得挺有意思的！你接下来有什么打算吗？",
-                  pinyin: "Tīng nǐ zhème yì shuō, wǒ yě juéde tǐng yǒu yìsi de! Nǐ jiēxiàlái yǒu shénme dǎsuàn ma?",
-                  vi: "Nghe bạn kể mình cũng thấy thú vị phết! Lát nữa/sắp tới bạn có dự định gì chưa?",
-                  suggestions: [
-                    { zh: "我打算待会儿去准备晚饭。", pinyin: "Wǒ dǎsuàn dāihuǐr qù zhǔnbèi wǎnfàn.", vi: "Lát nữa mình định đi chuẩn bị bữa tối." },
-                    { zh: "我打算再多练几句中文对话。", pinyin: "Wǒ dǎsuàn zài duō liàn jǐ jù Zhōngwén duìhuà.", vi: "Mình định luyện thêm vài câu hội thoại tiếng Trung nữa." },
-                  ],
-                },
-                {
-                  zh: "今天身边有什么开心的事发生吗？跟我分享分享呗！",
-                  pinyin: "Jīntiān shēnbiān yǒu shénme kāixīn de shì fāshēng ma? Gēn wǒ fēnxiǎng fēnxiǎng bei!",
-                  vi: "Hôm nay quanh bạn có chuyện gì vui xảy ra không? Kể mình nghe chung với nào!",
-                  suggestions: [
-                    { zh: "今天工作挺顺利的，心情不错！", pinyin: "Jīntiān gōngzuò tǐng shùnlì de, xīnqíng búcuò!", vi: "Hôm nay công việc suôn sẻ lắm, tâm trạng rất tốt!" },
-                    { zh: "今天吃到了一家特别好吃的餐厅！", pinyin: "Jīntiān chī dào le yì jiā tèbié hǎochī de cāntīng!", vi: "Hôm nay mình ăn được ở một quán cực kỳ ngon!" },
-                  ],
-                },
-                {
-                  zh: "聊了这么多真开心！你平时是个习惯早睡早起的人，还是个夜猫子？",
-                  pinyin: "Liáo le zhème duō zhēn kāixīn! Nǐ píngshí shì ge xíguàn zǎoshuì zǎoqǐ de rén, háishì ge yèmāozi?",
-                  vi: "Trò chuyện vui ghê! Bạn là kiểu người ngủ sớm dậy sớm hay là cú đêm chính hiệu vậy?",
-                  suggestions: [
-                    { zh: "我经常熬夜，是个典型的夜猫子。", pinyin: "Wǒ jīngcháng áoyè, shì ge diǎnxíng de yèmāozi.", vi: "Mình hay thức khuya lắm, đúng chuẩn cú đêm luôn." },
-                    { zh: "我生活挺规律的，一般晚上十一点前睡。", pinyin: "Wǒ shēnghuó tǐng guīlǜ de, yìbān wǎnshang shíyī diǎn qián shuì.", vi: "Mình sinh hoạt khá điều độ, thường ngủ trước 11 giờ đêm." },
+                    { zh: "我想听听你的看法。", pinyin: "Wǒ xiǎng tīngting nǐ de kànfǎ.", vi: "Mình muốn lắng nghe góc nhìn của bạn." },
+                    { zh: "我觉得这很有挑战性。", pinyin: "Wǒ juéde zhè hěn yǒu tiǎozhànxìng.", vi: "Mình thấy điều này khá là thử thách." },
                   ],
                 },
               ],
             };
           }
 
-          // Chọn ngẫu nhiên 1 câu đáp trong nhóm để câu trả lời luôn luôn mới lạ
           const randomReply = matchedTopic.replies[Math.floor(Math.random() * matchedTopic.replies.length)];
           aiReplyZh = randomReply.zh;
           aiReplyPinyin = randomReply.pinyin;
