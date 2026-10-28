@@ -42,7 +42,9 @@ import {
   Key,
   Menu,
   PenTool,
+  Camera,
 } from "lucide-react";
+import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
 import StudentClassesWorkspace from "@/components/student/StudentClassesWorkspace";
 import StudentAssignmentsWorkspace from "@/components/student/StudentAssignmentsWorkspace";
 import StudentRoadmapWorkspace from "@/components/student/StudentRoadmapWorkspace";
@@ -182,6 +184,7 @@ export default function StudentHomePage() {
   const [profileForm, setProfileForm] = useState({
     name: "",
     chineseName: "",
+    avatar: "",
     phone: "",
     email: "",
     birthday: "",
@@ -203,6 +206,7 @@ export default function StudentHomePage() {
     setProfileForm({
       name: currentUser?.name || studentName || "",
       chineseName: currentUser?.chineseName || "李小雨 (Lý Tiểu Vũ)",
+      avatar: currentUser?.avatar || "/theme/avatar-student.jpg",
       phone: currentUser?.phone || "0987654321",
       email: currentUser?.email || userEmail || "student@hanyu.edu.vn",
       birthday: currentUser?.birthday || "2002-05-18",
@@ -217,11 +221,12 @@ export default function StudentHomePage() {
     setShowSettingsModal(true);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     const updated = {
       ...currentUser,
       name: profileForm.name,
       chineseName: profileForm.chineseName,
+      avatar: profileForm.avatar,
       phone: profileForm.phone,
       email: profileForm.email,
       birthday: profileForm.birthday,
@@ -234,6 +239,22 @@ export default function StudentHomePage() {
     setStudentName(profileForm.name);
     setUserEmail(profileForm.email);
     setEditingDailyTime(profileForm.dailyTime as any);
+
+    // Lưu vào máy chủ nếu có kết nối
+    try {
+      await fetch("/api/v1/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profileForm.name,
+          email: profileForm.email,
+          avatar: profileForm.avatar,
+        }),
+      });
+    } catch (err) {
+      console.warn("Save remote profile note:", err);
+    }
+
     try {
       if (typeof window !== "undefined") {
         localStorage.setItem("currentUser", JSON.stringify(updated));
@@ -241,6 +262,7 @@ export default function StudentHomePage() {
         const profObj = prof ? JSON.parse(prof) : {};
         profObj.dailyTime = profileForm.dailyTime;
         profObj.targetHsk = profileForm.targetHsk;
+        profObj.avatar = profileForm.avatar;
         localStorage.setItem("hanyu_study_profile", JSON.stringify(profObj));
       }
     } catch (e) {
@@ -746,11 +768,11 @@ export default function StudentHomePage() {
           <div className="p-2 rounded-2xl bg-[#FFFCF6]/95 border border-[#E5DEC9] shadow-xs flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-8 h-8 rounded-full overflow-hidden bg-[#204434]/10 border border-[#BC9B6B]/30 relative shrink-0">
-                <Image
-                  src="/theme/avatar-student.jpg"
-                  alt="ning"
-                  fill
-                  className="object-cover object-top"
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentUser?.avatar || profileForm.avatar || "/theme/avatar-student.jpg"}
+                  alt="avatar"
+                  className="w-full h-full object-cover object-top"
                 />
               </div>
               <div className="leading-tight truncate">
@@ -923,11 +945,11 @@ export default function StudentHomePage() {
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-[#FFFCF6] border border-[#E5DEC9] hover:border-[#204434]/40 transition shadow-2xs cursor-pointer text-left"
             >
               <div className="w-7 h-7 rounded-full overflow-hidden bg-[#204434]/10 border border-[#BC9B6B]/30 relative shrink-0">
-                <Image
-                  src="/theme/avatar-student.jpg"
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentUser?.avatar || profileForm.avatar || "/theme/avatar-student.jpg"}
                   alt="Avatar"
-                  fill
-                  className="object-cover object-top"
+                  className="w-full h-full object-cover object-top"
                 />
               </div>
               <div className="leading-tight hidden sm:block">
@@ -2223,7 +2245,41 @@ export default function StudentHomePage() {
 
             {/* TAB 1: THÔNG TIN CÁ NHÂN */}
             {settingsTab === "profile" && (
-              <div className="space-y-3.5 text-xs">
+              <div className="space-y-4 text-xs">
+                {/* 1. KHỐI ẢNH ĐẠI DIỆN HỌC VIÊN CLOUDINARY (THƯ MỤC HSK_AVATARS) */}
+                <div className="p-3.5 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-[#204434] flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                      <span>Ảnh đại diện (Avatar học viên)</span>
+                    </label>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-300">
+                      ☁️ Cloudinary: hsk_avatars
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full border-2 border-[#BC9B6B] overflow-hidden bg-[#FAF7F0] shrink-0 flex items-center justify-center shadow-2xs">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={profileForm.avatar || "/theme/avatar-student.jpg"}
+                        alt="Avatar học viên"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <CloudinaryUpload
+                        value={profileForm.avatar}
+                        onChange={(url) => setProfileForm({ ...profileForm, avatar: url })}
+                        folder="hsk_avatars"
+                        accept="image/*"
+                        placeholder="Chọn ảnh đại diện để tải lên Cloudinary..."
+                        showPreview={false}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-[#204434] mb-1">

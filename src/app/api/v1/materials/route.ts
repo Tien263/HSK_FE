@@ -9,6 +9,43 @@ export function GET(request: Request) { return portalResponse(request, async use
 }); }
 export function POST(request: Request) { return portalResponse(request, async user => {
   teacherOnly(user);
+  const contentType = request.headers.get("content-type") || "";
+
+  // 1. Hỗ trợ upload qua Cloudinary CDN (JSON payload)
+  if (contentType.includes("application/json")) {
+    const body = await request.json();
+    const title = textField(body.title, "Tên tài liệu", true, 300);
+    const description = textField(body.description || "", "Mô tả", false, 3000);
+    const fileUrl = String(body.fileUrl || "").trim();
+    if (!fileUrl || (!fileUrl.startsWith("http://") && !fileUrl.startsWith("https://"))) {
+      throw new PortalError(400, "Đường dẫn file tài liệu không hợp lệ.");
+    }
+    const fileName = String(body.fileName || "tai_lieu").replace(/[\r\n/\\]/g, "_").slice(0, 240);
+    const mimeType = String(body.mimeType || "application/octet-stream").slice(0, 100);
+    const byteSize = Number(body.byteSize) || 1024;
+    const classIds: string[] = Array.isArray(body.classIds) ? body.classIds.map((c: unknown) => String(c)) : [];
+    if (classIds.length > 100 || new Set(classIds).size !== classIds.length) {
+      throw new PortalError(400, "Danh sách lớp không hợp lệ.");
+    }
+    for (const classId of classIds) await classAccess(user, classId, true);
+
+    const item = await prisma.teachingMaterial.create({
+      data: {
+        teacherId: user.id,
+        title,
+        description,
+        fileName,
+        mimeType,
+        byteSize,
+        content: Buffer.from(fileUrl, "utf8"),
+        classes: { create: classIds.map((classId: string) => ({ classId })) },
+      },
+      select: materialSelection,
+    });
+    return portalJson({ success: true, item: { ...item, downloadUrl: `/api/v1/materials/${item.id}/file` } }, 201);
+  }
+
+  // 2. Hỗ trợ form-data truyền thống
   if (Number(request.headers.get("content-length")) > 17 * 1024 * 1024) throw new PortalError(413, "File tối đa 15 MB.");
   const form = await request.formData(); const file = form.get("file");
   if (!(file instanceof File) || !file.size || file.size > 15 * 1024 * 1024) throw new PortalError(400, "Chọn file có dung lượng từ 1 byte đến 15 MB.");
