@@ -18,6 +18,8 @@ import {
   HelpCircle,
   Headphones,
   Check,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { LessonDialogueLine } from "@/lib/hsk1-full-lessons";
 
@@ -94,12 +96,44 @@ export default function AiDialogueRoleplayModal({
 
   // Gợi ý phản hồi và ô nhập văn bản tự do
   const [typedText, setTypedText] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [autoListen, setAutoListen] = useState<boolean>(true);
+  const autoListenRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    autoListenRef.current = autoListen;
+  }, [autoListen]);
+
   const [currentSuggestions, setCurrentSuggestions] = useState<
-    Array<{ zh: string; pinyin: string; vi: string }>
+    Array<{
+      zh: string;
+      pinyin: string;
+      vi: string;
+      grammarStructure?: string;
+      explanation?: string;
+    }>
   >([
-    { zh: "我今天挺好的，不太忙。", pinyin: "Wǒ jīntiān tǐng hǎo de, bú tài máng.", vi: "Hôm nay mình khá ổn, không bận lắm." },
-    { zh: "今天工作有点多，有点累。", pinyin: "Jīntiān gōngzuò yǒudiǎn duō, yǒudiǎn lèi.", vi: "Hôm nay công việc hơi nhiều, có chút mệt." },
-    { zh: "你叫什么名字？你是哪国人？", pinyin: "Nǐ jiào shénme míngzi? Nǐ shì nǎ guó rén?", vi: "Bạn tên là gì? Bạn là người nước nào?" },
+    {
+      zh: "我今天挺好的，不太忙。",
+      pinyin: "Wǒ jīntiān tǐng hǎo de, bú tài máng.",
+      vi: "Hôm nay mình khá ổn, không bận lắm.",
+      grammarStructure: "主语 + 挺 + 形容词 + 的 (Khá / Rất ...)",
+      explanation: "Dùng để diễn tả tình trạng khá tốt một cách khiêm tốn, tự nhiên trong giao tiếp hàng ngày.",
+    },
+    {
+      zh: "今天工作有点多，有点累。",
+      pinyin: "Jīntiān gōngzuò yǒudiǎn duō, yǒudiǎn lèi.",
+      vi: "Hôm nay công việc hơi nhiều, có chút mệt.",
+      grammarStructure: "有点儿 + 形容词 (Hơi / Có chút ...)",
+      explanation: "Dùng '有点儿' trước tính từ mang hàm ý hơi tiêu cực (hơi mệt, hơi đắt, hơi bận).",
+    },
+    {
+      zh: "你叫什么名字？你是哪国人？",
+      pinyin: "Nǐ jiào shénme míngzi? Nǐ shì nǎ guó rén?",
+      vi: "Bạn tên là gì? Bạn là người nước nào?",
+      grammarStructure: "疑问代词 (Đại từ nghi vấn 什么 / 哪)",
+      explanation: "Hai câu hỏi làm quen cơ bản và tự nhiên nhất khi bắt đầu cuộc trò chuyện.",
+    },
   ]);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -131,14 +165,20 @@ export default function AiDialogueRoleplayModal({
   const currentLine = dialogueLines[currentLineIdx] || dialogueLines[0];
   const isMyTurn = currentLine && currentLine.speaker === myRole;
 
-  // Phát âm câu thoại qua Web SpeechSynthesis
-  const speakText = (text: string) => {
+  // Phát âm câu thoại qua Web SpeechSynthesis có callback khi đọc xong
+  const speakText = (text: string, onEnd?: () => void) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "zh-CN";
       utterance.rate = 0.85;
+      if (onEnd) {
+        utterance.onend = () => onEnd();
+        utterance.onerror = () => onEnd();
+      }
       window.speechSynthesis.speak(utterance);
+    } else if (onEnd) {
+      onEnd();
     }
   };
 
@@ -188,15 +228,19 @@ export default function AiDialogueRoleplayModal({
   // Cho AI tự động đọc câu hiện tại (khi đến lượt AI nói trong bài học) và chuyển lượt cho học sinh
   const handleAiSpeakCurrentLine = () => {
     if (!currentLine) return;
-    speakText(currentLine.zh);
-    const nextIdx = currentLineIdx + 1;
-    if (nextIdx < dialogueLines.length) {
-      setTimeout(() => {
+    speakText(currentLine.zh, () => {
+      const nextIdx = currentLineIdx + 1;
+      if (nextIdx < dialogueLines.length) {
         setCurrentLineIdx(nextIdx);
         setCheckResult(null);
         setSpokenResult("");
-      }, 2600);
-    }
+        if (autoListenRef.current) {
+          setTimeout(() => {
+            handleStartRecording();
+          }, 600);
+        }
+      }
+    });
   };
 
   // Gửi âm thanh lên backend đối chiếu kho từ điển và chấm điểm
@@ -263,9 +307,17 @@ export default function AiDialogueRoleplayModal({
             setCurrentSuggestions(data.suggestedReplies);
           }
 
-          // Tự động phát âm câu đối đáp của AI
+          // Tự động phát âm câu đối đáp của AI & Khi đọc xong tự động mở lại micro nếu bật autoListen
           if (data.aiReplyZh) {
-            setTimeout(() => speakText(data.aiReplyZh), 600);
+            setTimeout(() => {
+              speakText(data.aiReplyZh, () => {
+                if (autoListenRef.current) {
+                  setTimeout(() => {
+                    handleStartRecording();
+                  }, 700);
+                }
+              });
+            }, 500);
           }
         } else if (talkMode === "LESSON") {
           // Nếu học sinh nói tốt trong chế độ bài học, tự động chuyển lượt và đối đáp
@@ -274,25 +326,29 @@ export default function AiDialogueRoleplayModal({
             if (nextIdx < dialogueLines.length) {
               const nextLine = dialogueLines[nextIdx];
               if (nextLine.speaker !== myRole) {
-                // AI tự động phát âm câu thoại của mình rồi nhường lượt tiếp theo cho học sinh
+                // AI tự động phát âm câu thoại của mình rồi nhường lượt tiếp theo cho học sinh và mở micro
                 setTimeout(() => {
                   setCurrentLineIdx(nextIdx);
-                  speakText(nextLine.zh);
-                  const afterNextIdx = nextIdx + 1;
-                  if (afterNextIdx < dialogueLines.length && dialogueLines[afterNextIdx].speaker === myRole) {
-                    setTimeout(() => {
+                  speakText(nextLine.zh, () => {
+                    const afterNextIdx = nextIdx + 1;
+                    if (afterNextIdx < dialogueLines.length && dialogueLines[afterNextIdx].speaker === myRole) {
                       setCurrentLineIdx(afterNextIdx);
                       setCheckResult(null);
                       setSpokenResult("");
-                    }, 2800);
-                  }
-                }, 1200);
+                      if (autoListenRef.current) {
+                        setTimeout(() => {
+                          handleStartRecording();
+                        }, 700);
+                      }
+                    }
+                  });
+                }, 1000);
               } else {
                 setTimeout(() => {
                   setCurrentLineIdx(nextIdx);
                   setCheckResult(null);
                   setSpokenResult("");
-                }, 1200);
+                }, 1000);
               }
             }
           }
@@ -470,14 +526,30 @@ export default function AiDialogueRoleplayModal({
                 </div>
               </div>
 
-              <button
-                onClick={handleOpenAdd}
-                className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
-                title="Thêm câu thoại mới vào đoạn hội thoại"
-              >
-                <Plus className="w-3.5 h-3.5 text-amber-700" />
-                <span>Thêm câu thoại mới</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAutoListen((prev) => !prev)}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                    autoListen
+                      ? "bg-emerald-700 text-white"
+                      : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
+                  }`}
+                  title="Khi bạn nói đạt điểm, AI sẽ tự phát âm câu tiếp theo và tự mở micro cho bạn"
+                >
+                  <Headphones className="w-3 h-3" />
+                  <span>Thoại 2 chiều: {autoListen ? "Tự động (BẬT)" : "Bấm nút (TẮT)"}</span>
+                </button>
+
+                <button
+                  onClick={handleOpenAdd}
+                  className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                  title="Thêm câu thoại mới vào đoạn hội thoại"
+                >
+                  <Plus className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Thêm câu thoại mới</span>
+                </button>
+              </div>
             </div>
 
             {/* Danh sách câu thoại tuần tự */}
@@ -611,25 +683,41 @@ export default function AiDialogueRoleplayModal({
         {/* =================================================================== */}
         {talkMode === "FREE_TALK" && (
           <div className="space-y-3.5">
-            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-[#8F6D3B] flex items-center justify-between gap-2">
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-[#8F6D3B] flex flex-wrap items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 shrink-0 text-amber-600" />
                 <span>
-                  Trò chuyện tự do cùng <strong>AI Tiểu Ngữ</strong>: Nói hoặc gõ bất kỳ câu gì, AI sẽ đối đáp liên tục, đa dạng chủ đề và gợi ý câu tiếp theo!
+                  Trò chuyện tự nhiên cùng <strong>AI Tiểu Ngữ (Qwen/Gemini)</strong>: Đối đáp linh hoạt 2 chiều, phân tích ngữ pháp và sửa lỗi chi tiết.
                 </span>
               </div>
-              {freeChatHistory.length > 0 && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    setFreeChatHistory([]);
-                    setCheckResult(null);
-                  }}
-                  className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-bold flex items-center gap-1 transition"
-                  title="Xóa lịch sử và bắt đầu cuộc trò chuyện mới"
+                  type="button"
+                  onClick={() => setAutoListen((prev) => !prev)}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                    autoListen
+                      ? "bg-emerald-700 text-white"
+                      : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
+                  }`}
+                  title="Khi AI nói xong, micro sẽ tự động mở để bạn tiếp tục trò chuyện rảnh tay mà không cần bấm nút"
                 >
-                  <RotateCcw className="w-3 h-3" /> Bắt đầu lại
+                  <Headphones className="w-3 h-3" />
+                  <span>Thoại 2 chiều: {autoListen ? "Tự động nghe (BẬT)" : "Bấm nút (TẮT)"}</span>
                 </button>
-              )}
+
+                {freeChatHistory.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setFreeChatHistory([]);
+                      setCheckResult(null);
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                    title="Xóa lịch sử và bắt đầu cuộc trò chuyện mới"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Bắt đầu lại
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Khung chat cuộn mượt mà */}
@@ -644,7 +732,7 @@ export default function AiDialogueRoleplayModal({
                     Chào bạn! Tôi là Tiểu Ngữ, rất vui được luyện khẩu ngữ cùng bạn.
                   </p>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
-                    Bạn có thể bấm vào một trong các câu gợi ý bên dưới, gõ phím hoặc bấm nút Micro để bắt đầu trò chuyện nhé!
+                    Bạn có thể bấm vào Micro để nói chuyện trực tiếp, hoặc gõ phím bên dưới. AI sẽ tự động lắng nghe và phản hồi liên tục!
                   </p>
                 </div>
               ) : (
@@ -717,38 +805,120 @@ export default function AiDialogueRoleplayModal({
                   <div className="p-3 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] text-[#204434] text-xs flex items-center gap-2 shadow-2xs">
                     <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
                     <span className="italic text-slate-600 font-sans">
-                      Tiểu Ngữ đang lắng nghe và soạn câu đối đáp...
+                      Tiểu Ngữ đang suy nghĩ và đối đáp cùng bạn...
                     </span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Gợi ý câu trả lời nhanh từ AI */}
+            {/* Thanh bật / tắt gợi ý đối đáp & ngữ pháp (Không hiển thị tràn lan vô ích) */}
             {currentSuggestions.length > 0 && (
-              <div className="space-y-1.5 pt-0.5">
-                <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  Gợi ý câu đối đáp tiếp theo (Bấm để chọn ngay):
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {currentSuggestions.map((sug, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSendTypedText(sug.zh)}
-                      disabled={checking || isRecording}
-                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-200/90 hover:border-amber-400 text-left transition shadow-2xs group cursor-pointer text-xs"
-                      title={sug.vi}
-                    >
-                      <span className="font-bold text-[#204434] block group-hover:text-amber-800 font-serif">
-                        {sug.zh}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block truncate max-w-xs">
-                        {sug.pinyin} · {sug.vi}
-                      </span>
-                    </button>
-                  ))}
+              <div className="space-y-2 pt-0.5">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowSuggestions((prev) => !prev)}
+                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#FAF7F0] hover:bg-[#F3EEDD] border border-[#E5DEC9] text-[#204434] transition shadow-2xs cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{showSuggestions ? "Ẩn gợi ý đối đáp & Ngữ pháp" : "💡 Xem gợi ý câu đối đáp & Cấu trúc ngữ pháp"}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold font-mono">
+                      {currentSuggestions.length}
+                    </span>
+                    {showSuggestions ? (
+                      <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                    )}
+                  </button>
+
+                  <span className="text-[11px] text-slate-400 italic hidden sm:inline">
+                    {autoListen ? "🎙️ Chế độ tự động nghe đang hoạt động" : "💡 Nhấn micro hoặc gõ phím để tiếp tục"}
+                  </span>
                 </div>
+
+                {/* Panel gợi ý chi tiết kèm cấu trúc ngữ pháp và giải thích ngữ cảnh */}
+                {showSuggestions && (
+                  <div className="p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9] space-y-3 animate-fadeIn">
+                    {checkResult && (checkResult.grammarCorrection || checkResult.grammarTip) && (
+                      <div className="p-3 bg-white rounded-xl border border-amber-200/90 text-xs space-y-2 shadow-2xs">
+                        {checkResult.grammarCorrection && (
+                          <div className="flex items-start gap-2">
+                            <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 font-bold text-[10px] shrink-0 mt-0.5">
+                              Sửa câu & Trật tự từ
+                            </span>
+                            <span className="font-serif font-bold text-sm text-[#204434]">
+                              {checkResult.grammarCorrection}
+                            </span>
+                          </div>
+                        )}
+                        {checkResult.grammarTip && (
+                          <div className="flex items-start gap-2 pt-1 border-t border-slate-100">
+                            <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-[10px] shrink-0 mt-0.5">
+                              Cấu trúc trọng tâm
+                            </span>
+                            <p className="text-slate-700 leading-relaxed font-sans">
+                              {checkResult.grammarTip}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-bold text-[#8F6D3B] block">
+                        Chọn một câu bên dưới để đối đáp tự nhiên và áp dụng cấu trúc ngữ pháp:
+                      </span>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
+                        {currentSuggestions.map((sug, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              handleSendTypedText(sug.zh);
+                              setShowSuggestions(false);
+                            }}
+                            disabled={checking || isRecording}
+                            className="p-3 rounded-2xl bg-white hover:bg-amber-50/70 border border-amber-200/80 hover:border-amber-400 text-left transition shadow-2xs group cursor-pointer flex flex-col justify-between space-y-2"
+                            title="Bấm để chọn câu đối đáp này"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-serif font-bold text-sm text-[#204434] group-hover:text-amber-800">
+                                  {sug.zh}
+                                </span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold shrink-0">
+                                  Chọn
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-mono text-[#8F6D3B]">{sug.pinyin}</p>
+                              <p className="text-[11px] text-slate-600 font-sans italic">{sug.vi}</p>
+                            </div>
+
+                            {(sug.grammarStructure || sug.explanation) && (
+                              <div className="pt-2 border-t border-slate-100 text-[10px] space-y-1">
+                                {sug.grammarStructure && (
+                                  <div className="text-emerald-800 font-medium leading-snug">
+                                    <span className="font-bold text-[#204434]">Cấu trúc: </span>
+                                    <code className="bg-emerald-50 text-emerald-900 px-1 py-0.5 rounded text-[10px] font-mono">
+                                      {sug.grammarStructure}
+                                    </code>
+                                  </div>
+                                )}
+                                {sug.explanation && (
+                                  <p className="text-slate-600 leading-snug">
+                                    <span className="font-bold text-slate-700">Ngữ cảnh: </span>
+                                    {sug.explanation}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -813,6 +983,32 @@ export default function AiDialogueRoleplayModal({
             </div>
 
             <p className="text-[#315E48] font-medium leading-relaxed">{checkResult.feedback}</p>
+
+            {/* Sửa câu & Trật tự từ */}
+            {checkResult.grammarCorrection && (
+              <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/90 space-y-1">
+                <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                  <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                  Sửa lỗi diễn đạt & Trật tự từ chuẩn:
+                </span>
+                <p className="text-amber-900 font-serif text-sm font-semibold">
+                  {checkResult.grammarCorrection}
+                </p>
+              </div>
+            )}
+
+            {/* Cấu trúc ngữ pháp áp dụng */}
+            {checkResult.grammarTip && (
+              <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 space-y-1">
+                <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+                  Cấu trúc ngữ pháp áp dụng:
+                </span>
+                <p className="text-emerald-900 text-xs leading-relaxed font-sans">
+                  {checkResult.grammarTip}
+                </p>
+              </div>
+            )}
 
             {/* Danh sách từ vựng tra cứu được trong câu */}
             {checkResult.vocabDetected && checkResult.vocabDetected.length > 0 && (

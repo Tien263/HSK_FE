@@ -48,7 +48,15 @@ export async function POST(request: Request) {
     let aiReplyZh = "";
     let aiReplyPinyin = "";
     let aiReplyVi = "";
-    let suggestedReplies: Array<{ zh: string; pinyin: string; vi: string }> = [];
+    let grammarCorrection = "";
+    let grammarTip = "";
+    let suggestedReplies: Array<{
+      zh: string;
+      pinyin: string;
+      vi: string;
+      grammarStructure?: string;
+      explanation?: string;
+    }> = [];
 
     if (mode === "DIALOGUE") {
       // Chế độ luyện hội thoại theo bài học
@@ -95,31 +103,38 @@ export async function POST(request: Request) {
         const systemPrompt = `Bạn là Tiểu Ngữ (小语) - một người bạn bản xứ Trung Quốc thân thiện, chân thành và vui tính, đang trò chuyện đối thoại hai chiều trực tiếp trên WeChat với học viên HSK cấp độ ${hskLevel}.
 
 QUY TẮC ĐỐI THOẠI CỐT LÕI (BẮT BUỘC TUÂN THỦ NGHIÊM NGẶT):
-1. ĐỐI THOẠI HAI CHIỀU - CÓ HỎI PHẢI CÓ ĐÁP:
-   - NẾU HỌC VIÊN ĐẶT CÂU HỎI (VD: hỏi tên, tuổi, hỏi bạn ở đâu, ăn cơm chưa, đang làm gì, hỏi thời tiết, sở thích, hỏi nghĩa từ, ý kiến...):
-     -> BẮT BUỘC PHẢI TRẢ LỜI RÕ RÀNG, CHÂN THÀNH VÀO ĐÚNG CÂU HỎI ĐÓ ĐẦU TIÊN!
-     (Ví dụ: hỏi tên thì trả lời rõ mình tên Tiểu Ngữ; hỏi ăn cơm chưa thì trả lời đã ăn món gì rồi; hỏi ở đâu thì trả lời đang ở Bắc Kinh hoặc Trung Quốc).
-     -> TUYỆT ĐỐI KHÔNG ĐƯỢC lờ đi câu hỏi của học viên, không trả lời né tránh hay chuyển chủ đề đột ngột.
-   - NẾU HỌC VIÊN TRẢ LỜI CÂU HỎI TRƯỚC ĐÓ HOẶC TÂM SỰ:
-     -> Tiếp nhận câu trả lời đó, đưa ra nhận xét hoặc cảm nghĩ chân thành ("哇，听起来很棒！", "原来是这样...").
-2. NHỚ VÀ BÁM SÁT LỊCH SỬ HỘI THOẠI:
-   - Hãy liên kết với các thông tin đã trao đổi ở các câu nói trước (tên học viên, món ăn, thói quen, chủ đề đang bàn) để cuộc trò chuyện có tính liên tục, không bao giờ nói rời rạc như người xa lạ.
-3. DUY TRÌ MẠCH TRÒ CHUYỆN:
-   - Sau khi trả lời câu của học viên, hãy tự nhiên hỏi ngược lại học viên 1 câu hỏi ngắn, gần gũi (phù hợp HSK ${hskLevel}) liên quan đến chủ đề để học viên tiếp tục phản hồi.
-4. KHÔNG DÙNG CÂU KHEN SÁO RỖNG:
-   - Tuyệt đối không mở đầu bằng: "你说得很自然！", "你回答得太棒了！", "你的中文越来越好了！".
-5. GỢI Ý CÂU PHẢN HỒI (suggestedReplies):
-   - Phải gồm 2-3 câu trả lời trực tiếp cho câu hỏi mà bạn vừa hỏi học viên ở cuối câu thoại, giúp học viên dễ dàng bấm chọn để trả lời bạn.
+1. ĐỐI THOẠI HAI CHIỀU TỰ NHIÊN NHƯ TRÒ CHUYỆN VỚI QWEN BẢN XỨ:
+   - NẾU HỌC VIÊN HỎI: Bắt buộc trả lời câu hỏi của học viên rõ ràng, chân thật và chi tiết trước tiên (VD: hỏi tên, tuổi, ăn cơm chưa, hỏi món ngon, nơi ở, sở thích...).
+   - Sau khi trả lời, chia sẻ tâm sự ngắn và tự nhiên hỏi ngược lại học viên 1 câu hỏi liên quan để duy trì cuộc trò chuyện.
+   - Trả lời tự nhiên 2-4 câu đầy đủ, không cụt lủn, TUYỆT ĐỐI không mở đầu bằng câu khen sáo rỗng (như "你说得很自然").
+2. PHÂN TÍCH NGỮ PHÁP & GỢI Ý CÂU ĐỐI THOẠI (BẮT BUỘC):
+   - grammarCorrection: Nếu câu của học viên bị sai trật tự từ (như đặt thời gian/nơi chốn sau động từ), thiếu chữ, thiếu lượng từ, hãy chỉ ra cụ thể lỗi và sửa lại câu chuẩn xác. Nếu học viên nói đúng hoàn toàn thì để rỗng "".
+   - grammarTip: Phân tích 1 cấu trúc ngữ pháp tiếng Trung quan trọng hoặc mẹo dùng từ tự nhiên liên quan đến lượt nói này (bằng tiếng Việt ngắn gọn, dễ hiểu).
+   - suggestedReplies: Cung cấp 2-3 câu đối đáp tự nhiên học viên có thể dùng để trả lời câu hỏi mà bạn vừa hỏi ở cuối câu. Mỗi gợi ý BẮT BUỘC kèm theo "grammarStructure" (cấu trúc ngữ pháp áp dụng) và "explanation" (giải thích ngữ cảnh dùng chuẩn bản xứ).
 
 ĐỊNH DẠNG JSON DUY NHẤT:
 {
-  "aiReplyZh": "Câu phản hồi của AI bằng tiếng Trung (ngắn gọn 1-3 câu)",
+  "aiReplyZh": "Câu phản hồi của AI bằng tiếng Trung (tự nhiên 2-4 câu)",
   "aiReplyPinyin": "Phiên âm pinyin có thanh điệu chuẩn xác",
   "aiReplyVi": "Bản dịch nghĩa tiếng Việt tự nhiên",
-  "feedback": "Góp ý nhẹ nếu học viên có lỗi ngữ pháp/từ vựng, nếu đúng thì để rỗng hoặc 1 câu động viên ngắn",
+  "feedback": "Nhận xét ngắn về độ tự nhiên của câu học viên",
+  "grammarCorrection": "Chỉ ra lỗi sai trật tự từ/thiếu chữ và cách sửa đúng (để rỗng nếu học viên nói đúng)",
+  "grammarTip": "Phân tích cấu trúc ngữ pháp quan trọng trong lượt đối thoại này",
   "suggestedReplies": [
-    { "zh": "Câu trả lời gợi ý 1 cho học viên", "pinyin": "pinyin 1", "vi": "nghĩa 1" },
-    { "zh": "Câu trả lời gợi ý 2 cho học viên", "pinyin": "pinyin 2", "vi": "nghĩa 2" }
+    {
+      "zh": "Câu đối đáp gợi ý 1 cho học viên",
+      "pinyin": "pinyin 1",
+      "vi": "nghĩa 1",
+      "grammarStructure": "Cấu trúc: ...",
+      "explanation": "Giải thích ngữ cảnh..."
+    },
+    {
+      "zh": "Câu đối đáp gợi ý 2 cho học viên",
+      "pinyin": "pinyin 2",
+      "vi": "nghĩa 2",
+      "grammarStructure": "Cấu trúc: ...",
+      "explanation": "Giải thích ngữ cảnh..."
+    }
   ]
 }`;
 
@@ -151,6 +166,19 @@ ${history
 
 Học viên vừa nói: "${spokenText}"`;
 
+        const applyParsedResponse = (parsed: any) => {
+          if (!parsed || !parsed.aiReplyZh) return false;
+          aiReplyZh = parsed.aiReplyZh;
+          aiReplyPinyin = parsed.aiReplyPinyin || "";
+          aiReplyVi = parsed.aiReplyVi || "";
+          if (parsed.feedback) feedback = parsed.feedback;
+          if (parsed.grammarCorrection) grammarCorrection = parsed.grammarCorrection;
+          if (parsed.grammarTip) grammarTip = parsed.grammarTip;
+          if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
+          llmSuccess = true;
+          return true;
+        };
+
         // -------------------------------------------------------------
         // 1. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN TRÊN GROQ LPUs (CỰC NHANH ~500ms)
         // HOẶC QWEN DASHSCOPE NẾU CÓ KEY
@@ -175,15 +203,7 @@ Học viên vừa nói: "${spokenText}"`;
               const qwenData = await groqQwenRes.json();
               const raw = qwenData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
               if (raw) {
-                const parsed = JSON.parse(raw);
-                if (parsed.aiReplyZh) {
-                  aiReplyZh = parsed.aiReplyZh;
-                  aiReplyPinyin = parsed.aiReplyPinyin || "";
-                  aiReplyVi = parsed.aiReplyVi || "";
-                  if (parsed.feedback) feedback = parsed.feedback;
-                  if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                  llmSuccess = true;
-                }
+                applyParsedResponse(JSON.parse(raw));
               }
             }
           } catch (gErr) {
@@ -213,16 +233,7 @@ Học viên vừa nói: "${spokenText}"`;
                 const qwenData = await qwenRes.json();
                 const raw = qwenData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
                 if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (parsed.aiReplyZh) {
-                    aiReplyZh = parsed.aiReplyZh;
-                    aiReplyPinyin = parsed.aiReplyPinyin || "";
-                    aiReplyVi = parsed.aiReplyVi || "";
-                    if (parsed.feedback) feedback = parsed.feedback;
-                    if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                    llmSuccess = true;
-                    break;
-                  }
+                  if (applyParsedResponse(JSON.parse(raw))) break;
                 }
               }
             } catch (qErr) {
@@ -256,16 +267,7 @@ Học viên vừa nói: "${spokenText}"`;
                 const data = await res.json();
                 const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.replace(/```json|```/g, "").trim();
                 if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (parsed.aiReplyZh) {
-                    aiReplyZh = parsed.aiReplyZh;
-                    aiReplyPinyin = parsed.aiReplyPinyin || "";
-                    aiReplyVi = parsed.aiReplyVi || "";
-                    if (parsed.feedback) feedback = parsed.feedback;
-                    if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                    llmSuccess = true;
-                    break;
-                  }
+                  if (applyParsedResponse(JSON.parse(raw))) break;
                 }
               }
             } catch (e) {
@@ -295,16 +297,7 @@ Học viên vừa nói: "${spokenText}"`;
                 const data = await res.json();
                 const raw = data.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
                 if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (parsed.aiReplyZh) {
-                    aiReplyZh = parsed.aiReplyZh;
-                    aiReplyPinyin = parsed.aiReplyPinyin || "";
-                    aiReplyVi = parsed.aiReplyVi || "";
-                    if (parsed.feedback) feedback = parsed.feedback;
-                    if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                    llmSuccess = true;
-                    break;
-                  }
+                  if (applyParsedResponse(JSON.parse(raw))) break;
                 }
               }
             } catch (e) {
@@ -332,15 +325,7 @@ Học viên vừa nói: "${spokenText}"`;
               const data = await res.json();
               const raw = data.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
               if (raw) {
-                const parsed = JSON.parse(raw);
-                if (parsed.aiReplyZh) {
-                  aiReplyZh = parsed.aiReplyZh;
-                  aiReplyPinyin = parsed.aiReplyPinyin || "";
-                  aiReplyVi = parsed.aiReplyVi || "";
-                  if (parsed.feedback) feedback = parsed.feedback;
-                  if (Array.isArray(parsed.suggestedReplies)) suggestedReplies = parsed.suggestedReplies;
-                  llmSuccess = true;
-                }
+                applyParsedResponse(JSON.parse(raw));
               }
             }
           } catch (e) {
@@ -591,6 +576,8 @@ Học viên vừa nói: "${spokenText}"`;
       aiReplyZh,
       aiReplyPinyin,
       aiReplyVi,
+      grammarCorrection,
+      grammarTip,
       suggestedReplies,
       xpEarned,
     });
