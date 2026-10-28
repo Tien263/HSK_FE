@@ -38,6 +38,7 @@ import {
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { RichReadingEditor, RichCultureEditor } from "@/components/teacher/LessonRichSections";
 import type { ReadingItem, CulturalNoteItem } from "@/lib/lesson-data";
+import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
 
 interface CurriculumBuilderWorkspaceProps {
   showToast: (msg: string, type?: "success" | "error") => void;
@@ -124,6 +125,7 @@ export default function CurriculumBuilderWorkspace({
   const [newExScrambled, setNewExScrambled] = useState(""); // cho reorder, ngăn cách bằng dấu phẩy
   const [newExWrongSentence, setNewExWrongSentence] = useState(""); // cho correct_mistake
   const [newExAudioUrl, setNewExAudioUrl] = useState(""); // cho listen_dialogue (URL file nghe)
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null); // Quản lý ID câu hỏi đang được chỉnh sửa
 
   // State bộ lọc cho Ngân hàng bài tập ngữ pháp (grammar_hub)
   const [filterLessonNumber, setFilterLessonNumber] = useState<number | "ALL">("ALL");
@@ -641,7 +643,59 @@ export default function CurriculumBuilderWorkspace({
   // CÁC THAO TÁC QUẢN LÝ BÀI TẬP NGỮ PHÁP (GRAMMAR EXERCISES)
   // =========================================================================
 
-  // Thêm câu hỏi bài tập mới vào editingLesson
+  // Bắt đầu chỉnh sửa một câu hỏi bài tập đã có
+  const handleStartEditExercise = (ex: GrammarExerciseItem) => {
+    setEditingExerciseId(ex.id);
+    setNewExMode(ex.mode);
+    setNewExRule(ex.grammarRule || "");
+    setNewExPrompt(ex.prompt || "");
+    setNewExAudioUrl(ex.audioUrl || "");
+    
+    // Tách các options A, B, C, D
+    if (Array.isArray(ex.options) && ex.options.length > 0) {
+      setNewExOptionA(ex.options[0]?.replace(/^[A-D]\.\s*/, "") || "");
+      setNewExOptionB(ex.options[1]?.replace(/^[A-D]\.\s*/, "") || "");
+      setNewExOptionC(ex.options[2]?.replace(/^[A-D]\.\s*/, "") || "");
+      setNewExOptionD(ex.options[3]?.replace(/^[A-D]\.\s*/, "") || "");
+    } else {
+      setNewExOptionA("");
+      setNewExOptionB("");
+      setNewExOptionC("");
+      setNewExOptionD("");
+    }
+
+    setNewExCorrect(ex.correctAnswer || "A");
+    setNewExExplanation(ex.explanation || "");
+    setNewExScrambled(Array.isArray(ex.scrambledWords) ? ex.scrambledWords.join(", ") : "");
+    setNewExWrongSentence(ex.wrongSentence || "");
+
+    // Cuộn mượt mà lên vùng form chỉnh sửa câu hỏi
+    if (typeof document !== "undefined") {
+      const formEl = document.getElementById("grammar-exercise-form-section");
+      if (formEl) {
+        formEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    showToast(`Đang chỉnh sửa câu hỏi: "${ex.prompt.substring(0, 30)}..."`);
+  };
+
+  // Hủy chế độ chỉnh sửa câu hỏi
+  const handleCancelEditExercise = () => {
+    setEditingExerciseId(null);
+    setNewExPrompt("");
+    setNewExOptionA("");
+    setNewExOptionB("");
+    setNewExOptionC("");
+    setNewExOptionD("");
+    setNewExCorrect("A");
+    setNewExExplanation("");
+    setNewExScrambled("");
+    setNewExWrongSentence("");
+    setNewExAudioUrl("");
+  };
+
+  // Thêm mới HOẶC Lưu cập nhật câu hỏi bài tập trong editingLesson
   const handleAddGrammarExerciseToEditingLesson = () => {
     if (!editingLesson) return;
     if (!newExPrompt.trim()) {
@@ -658,14 +712,14 @@ export default function CurriculumBuilderWorkspace({
         return;
       }
       finalOptions = [
-        `A. ${newExOptionA.replace(/^[A-D].s*/, "").trim()}`,
-        `B. ${newExOptionB.replace(/^[A-D].s*/, "").trim()}`,
+        `A. ${newExOptionA.replace(/^[A-D]\.\s*/, "").trim()}`,
+        `B. ${newExOptionB.replace(/^[A-D]\.\s*/, "").trim()}`,
       ];
       if (newExOptionC.trim()) {
-        finalOptions.push(`C. ${newExOptionC.replace(/^[A-D].s*/, "").trim()}`);
+        finalOptions.push(`C. ${newExOptionC.replace(/^[A-D]\.\s*/, "").trim()}`);
       }
       if (newExOptionD.trim()) {
-        finalOptions.push(`D. ${newExOptionD.replace(/^[A-D].s*/, "").trim()}`);
+        finalOptions.push(`D. ${newExOptionD.replace(/^[A-D]\.\s*/, "").trim()}`);
       }
     } else if (newExMode === "reorder") {
       finalScrambled = newExScrambled
@@ -679,37 +733,69 @@ export default function CurriculumBuilderWorkspace({
     } else if (newExMode === "correct_mistake") {
       if (newExOptionA.trim()) {
         finalOptions = [
-          `A. ${newExOptionA.replace(/^[A-D].s*/, "").trim()}`,
-          `B. ${newExOptionB.replace(/^[A-D].s*/, "").trim()}`,
+          `A. ${newExOptionA.replace(/^[A-D]\.\s*/, "").trim()}`,
+          `B. ${newExOptionB.replace(/^[A-D]\.\s*/, "").trim()}`,
         ];
-        if (newExOptionC.trim()) finalOptions.push(`C. ${newExOptionC.replace(/^[A-D].s*/, "").trim()}`);
-        if (newExOptionD.trim()) finalOptions.push(`D. ${newExOptionD.replace(/^[A-D].s*/, "").trim()}`);
+        if (newExOptionC.trim()) finalOptions.push(`C. ${newExOptionC.replace(/^[A-D]\.\s*/, "").trim()}`);
+        if (newExOptionD.trim()) finalOptions.push(`D. ${newExOptionD.replace(/^[A-D]\.\s*/, "").trim()}`);
       }
     }
-
-    const newExItem: GrammarExerciseItem = {
-      id: `hsk${selectedLevel}-${String(editingLesson.number).padStart(2, "0")}-ex-${Date.now()}`,
-      mode: newExMode,
-      grammarRule: newExRule.trim() || (editingLesson.grammarList?.[0]?.title ?? "Ngữ pháp trọng tâm"),
-      prompt: newExPrompt.trim(),
-      audioUrl: newExMode === "listen_dialogue" ? newExAudioUrl.trim() || undefined : undefined,
-      options: finalOptions,
-      scrambledWords: finalScrambled,
-      wrongSentence: newExWrongSentence.trim() || undefined,
-      correctAnswer: newExCorrect.trim(),
-      explanation: newExExplanation.trim() || "Căn cứ theo cấu trúc ngữ pháp chuẩn của bài học.",
-    };
 
     const currentExercises = Array.isArray(editingLesson.grammarExercises)
       ? [...editingLesson.grammarExercises]
       : [];
 
-    setEditingLesson({
-      ...editingLesson,
-      grammarExercises: [...currentExercises, newExItem],
-    });
+    if (editingExerciseId) {
+      // Chế độ CẬP NHẬT câu hỏi đã có
+      const updatedExercises = currentExercises.map((ex) => {
+        if (ex.id === editingExerciseId) {
+          return {
+            ...ex,
+            mode: newExMode,
+            grammarRule: newExRule.trim() || (editingLesson.grammarList?.[0]?.title ?? "Ngữ pháp trọng tâm"),
+            prompt: newExPrompt.trim(),
+            audioUrl: newExMode === "listen_dialogue" ? newExAudioUrl.trim() || undefined : undefined,
+            options: finalOptions,
+            scrambledWords: finalScrambled,
+            wrongSentence: newExWrongSentence.trim() || undefined,
+            correctAnswer: newExCorrect.trim(),
+            explanation: newExExplanation.trim() || "Căn cứ theo cấu trúc ngữ pháp chuẩn của bài học.",
+          };
+        }
+        return ex;
+      });
 
-    // Reset form
+      setEditingLesson({
+        ...editingLesson,
+        grammarExercises: updatedExercises,
+      });
+
+      showToast("🎉 Đã lưu thay đổi câu hỏi bài tập thành công!");
+    } else {
+      // Chế độ THÊM MỚI câu hỏi
+      const newExItem: GrammarExerciseItem = {
+        id: `hsk${selectedLevel}-${String(editingLesson.number).padStart(2, "0")}-ex-${Date.now()}`,
+        mode: newExMode,
+        grammarRule: newExRule.trim() || (editingLesson.grammarList?.[0]?.title ?? "Ngữ pháp trọng tâm"),
+        prompt: newExPrompt.trim(),
+        audioUrl: newExMode === "listen_dialogue" ? newExAudioUrl.trim() || undefined : undefined,
+        options: finalOptions,
+        scrambledWords: finalScrambled,
+        wrongSentence: newExWrongSentence.trim() || undefined,
+        correctAnswer: newExCorrect.trim(),
+        explanation: newExExplanation.trim() || "Căn cứ theo cấu trúc ngữ pháp chuẩn của bài học.",
+      };
+
+      setEditingLesson({
+        ...editingLesson,
+        grammarExercises: [...currentExercises, newExItem],
+      });
+
+      showToast("Đã thêm câu hỏi bài tập ngữ pháp mới thành công!");
+    }
+
+    // Reset form và thoát chế độ sửa
+    setEditingExerciseId(null);
     setNewExPrompt("");
     setNewExOptionA("");
     setNewExOptionB("");
@@ -720,13 +806,14 @@ export default function CurriculumBuilderWorkspace({
     setNewExScrambled("");
     setNewExWrongSentence("");
     setNewExAudioUrl("");
-
-    showToast("Đã thêm câu hỏi bài tập ngữ pháp mới thành công!");
   };
 
   // Xóa câu hỏi trong editingLesson
   const handleDeleteGrammarExercise = (exerciseId: string) => {
     if (!editingLesson || !editingLesson.grammarExercises) return;
+    if (editingExerciseId === exerciseId) {
+      handleCancelEditExercise();
+    }
     setEditingLesson({
       ...editingLesson,
       grammarExercises: editingLesson.grammarExercises.filter((ex) => ex.id !== exerciseId),
@@ -1242,11 +1329,13 @@ export default function CurriculumBuilderWorkspace({
                             if (targetLesson) {
                               setEditingLesson(JSON.parse(JSON.stringify(targetLesson)));
                               setEditorTab("grammar_exercises");
+                              setTimeout(() => handleStartEditExercise(ex), 150);
                             }
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-white border border-[#E5DEC9] hover:bg-[#FAF7F0] text-xs font-semibold text-[#204434] transition cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-xs font-bold text-amber-900 transition cursor-pointer flex items-center gap-1"
                         >
-                          Sửa ở bài
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Sửa câu này</span>
                         </button>
                         <button
                           onClick={() => handleDeleteExerciseFromHub(item.lessonNumber, ex.id)}
@@ -1265,6 +1354,19 @@ export default function CurriculumBuilderWorkspace({
                       </p>
                       {ex.meaningVi && (
                         <p className="text-xs text-[#315E48] italic">{ex.meaningVi}</p>
+                      )}
+
+                      {/* File âm thanh nếu có */}
+                      {ex.audioUrl && (
+                        <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-[11px] text-amber-900 font-mono truncate min-w-0">
+                            <Headphones className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span className="truncate" title={ex.audioUrl}>
+                              File nghe: {ex.audioUrl}
+                            </span>
+                          </div>
+                          <audio controls src={ex.audioUrl} className="h-7 w-48 shrink-0" />
+                        </div>
                       )}
 
                       {/* Các lựa chọn nếu có */}
@@ -2001,11 +2103,45 @@ export default function CurriculumBuilderWorkspace({
                     </button>
                   </div>
 
-                  {/* FORM THÊM CÂU HỎI MỚI */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E5DEC9] space-y-4">
-                    <span className="text-xs font-bold text-[#204434] block border-b border-[#E5DEC9] pb-2">
-                      + Thêm câu hỏi bài tập ngữ pháp mới cho Bài {editingLesson.number}:
-                    </span>
+                  {/* FORM THÊM / SỬA CÂU HỎI */}
+                  <div
+                    id="grammar-exercise-form-section"
+                    className={`p-4 sm:p-5 rounded-2xl bg-white border transition shadow-xs space-y-4 ${
+                      editingExerciseId
+                        ? "border-amber-400 ring-2 ring-amber-200/60 bg-amber-50/20"
+                        : "border-[#E5DEC9]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between border-b border-[#E5DEC9] pb-2">
+                      <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                        {editingExerciseId ? (
+                          <>
+                            <Edit3 className="w-4 h-4 text-amber-600" />
+                            <span className="text-amber-800">
+                              Đang chỉnh sửa câu hỏi bài tập (Bài {editingLesson.number}):
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 text-[#8F6D3B]" />
+                            <span>
+                              + Thêm câu hỏi bài tập ngữ pháp mới cho Bài {editingLesson.number}:
+                            </span>
+                          </>
+                        )}
+                      </span>
+
+                      {editingExerciseId && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditExercise}
+                          className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-[11px] font-bold text-amber-900 transition cursor-pointer flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>Hủy sửa</span>
+                        </button>
+                      )}
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -2069,23 +2205,41 @@ export default function CurriculumBuilderWorkspace({
                       />
                     </div>
 
-                    {/* Ô nhập File nghe âm thanh (cho dạng listen_dialogue) */}
+                    {/* Ô nhập & Upload File nghe âm thanh (cho dạng listen_dialogue) */}
                     {newExMode === "listen_dialogue" && (
-                      <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/70 space-y-1.5">
-                        <label className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
-                          <Headphones className="w-3.5 h-3.5 text-amber-700" />
-                          <span>Đường dẫn file âm thanh bài nghe (Audio URL / Link MP3):</span>
-                        </label>
-                        <input
-                          type="url"
-                          placeholder="VD: https://domain.com/audio/hsk1-bai1-nghe.mp3 (Nếu để trống hệ thống sẽ dùng AI giọng đọc chuẩn)"
+                      <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-300/80 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                            <Headphones className="w-4 h-4 text-amber-700" />
+                            <span>File âm thanh bài nghe (Cloudinary CDN / Audio URL):</span>
+                          </label>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
+                            ☁️ Lưu trữ Cloudinary miễn phí
+                          </span>
+                        </div>
+
+                        {/* Upload trực tiếp lên Cloudinary bằng preset unsigned */}
+                        <CloudinaryUpload
                           value={newExAudioUrl}
-                          onChange={(e) => setNewExAudioUrl(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded-xl border border-amber-300 bg-white text-xs font-mono text-[#204434] focus:outline-hidden focus:border-amber-500"
+                          onChange={(url) => setNewExAudioUrl(url)}
+                          accept="audio/*"
+                          folder="hsk_audio_exercises"
+                          placeholder="Chọn file MP3 từ máy tính để tự động tải lên đám mây Cloudinary..."
                         />
-                        <p className="text-[10px] text-amber-800 italic">
-                          💡 Thầy/Cô có thể dán liên kết file MP3 bài nghe hoặc file âm thanh lưu trữ trên Cloud/CDN.
-                        </p>
+
+                        {/* Hoặc dán link trực tiếp nếu đã có sẵn */}
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-semibold text-slate-600 block">
+                            Hoặc dán liên kết âm thanh trực tiếp (nếu có sẵn):
+                          </span>
+                          <input
+                            type="url"
+                            placeholder="VD: https://res.cloudinary.com/.../audio.mp3"
+                            value={newExAudioUrl}
+                            onChange={(e) => setNewExAudioUrl(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-xl border border-amber-300 bg-white text-xs font-mono text-[#204434] focus:outline-hidden focus:border-amber-500"
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -2240,14 +2394,39 @@ export default function CurriculumBuilderWorkspace({
                       />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleAddGrammarExerciseToEditingLesson}
-                      className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-                    >
-                      <Plus className="w-4 h-4 text-[#BC9B6B]" />
-                      <span>Thêm câu hỏi này vào Bài {editingLesson.number}</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddGrammarExerciseToEditingLesson}
+                        className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs ${
+                          editingExerciseId
+                            ? "bg-amber-600 hover:bg-amber-700"
+                            : "bg-[#204434] hover:bg-[#17382F]"
+                        }`}
+                      >
+                        {editingExerciseId ? (
+                          <>
+                            <Check className="w-4 h-4 text-white" />
+                            <span>💾 Lưu thay đổi câu hỏi</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 text-[#BC9B6B]" />
+                            <span>Thêm câu hỏi này vào Bài {editingLesson.number}</span>
+                          </>
+                        )}
+                      </button>
+
+                      {editingExerciseId && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditExercise}
+                          className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition cursor-pointer"
+                        >
+                          Hủy bỏ
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* DANH SÁCH BÀI TẬP ĐÃ CÓ TRONG BÀI NÀY */}
@@ -2267,10 +2446,15 @@ export default function CurriculumBuilderWorkspace({
                             label: ex.mode,
                             color: "bg-slate-50 text-slate-700 border-slate-200",
                           };
+                          const isBeingEdited = editingExerciseId === ex.id;
                           return (
                             <div
                               key={ex.id || eIdx}
-                              className="p-3.5 rounded-xl bg-white border border-[#E5DEC9] space-y-2 text-xs shadow-2xs"
+                              className={`p-3.5 rounded-xl bg-white border space-y-2 text-xs shadow-2xs transition ${
+                                isBeingEdited
+                                  ? "border-amber-400 ring-2 ring-amber-200 bg-amber-50/20"
+                                  : "border-[#E5DEC9]"
+                              }`}
                             >
                               <div className="flex items-center justify-between border-b border-[#FAF7F0] pb-2">
                                 <div className="flex items-center gap-2">
@@ -2283,20 +2467,49 @@ export default function CurriculumBuilderWorkspace({
                                   <span className="font-bold text-[#8F6D3B]">
                                     {ex.grammarRule}
                                   </span>
+                                  {isBeingEdited && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold border border-amber-300">
+                                      Đang sửa
+                                    </span>
+                                  )}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteGrammarExercise(ex.id)}
-                                  className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                                  title="Xóa câu này"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditExercise(ex)}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                                    title="Chỉnh sửa câu hỏi này"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    <span>Sửa</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteGrammarExercise(ex.id)}
+                                    className="p-1 rounded-lg text-red-500 hover:bg-red-50 transition cursor-pointer"
+                                    title="Xóa câu này"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
 
                               <p className="font-serif font-bold text-[#204434]">
                                 {ex.prompt}
                               </p>
+
+                              {/* Hiển thị File nghe Cloudinary nếu có */}
+                              {ex.audioUrl && (
+                                <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 text-[11px] text-amber-900 font-mono truncate min-w-0">
+                                    <Headphones className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                    <span className="truncate" title={ex.audioUrl}>
+                                      File nghe: {ex.audioUrl}
+                                    </span>
+                                  </div>
+                                  <audio controls src={ex.audioUrl} className="h-7 w-48 shrink-0" />
+                                </div>
+                              )}
 
                               {Array.isArray(ex.options) && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
