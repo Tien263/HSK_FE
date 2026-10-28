@@ -95,6 +95,8 @@ export async function POST(request: Request) {
         // Kiểm tra các API Key AI khả dụng
         const groqKey = process.env.GROQ_API_KEY;
         const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
+        const deepseekKey = process.env.DEEPSEEK_API_KEY;
+        const zhipuKey = process.env.ZHIPU_API_KEY;
         const geminiKey = process.env.GEMINI_API_KEY;
         const openAiKey = process.env.OPENAI_API_KEY;
 
@@ -240,6 +242,65 @@ Học viên vừa nói: "${spokenText}"`;
             } catch (qErr) {
               console.warn(`Qwen DashScope dialogue error on ${qModel}:`, qErr);
             }
+          }
+        }
+
+        // -------------------------------------------------------------
+        // DEEPSEEK AI BẢN XỨ (DEEPSEEK-CHAT / V3)
+        // -------------------------------------------------------------
+        if (!llmSuccess && deepseekKey) {
+          try {
+            const dsRes = await fetch("https://api.deepseek.com/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${deepseekKey}`,
+              },
+              body: JSON.stringify({
+                model: "deepseek-chat",
+                messages: rawChatMessages,
+                temperature: 0.7,
+                response_format: { type: "json_object" },
+              }),
+            });
+            if (dsRes.ok) {
+              const dsData = await dsRes.json();
+              const raw = dsData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+              if (raw) {
+                applyParsedResponse(JSON.parse(raw));
+              }
+            }
+          } catch (dsErr) {
+            console.warn("DeepSeek dialogue call error:", dsErr);
+          }
+        }
+
+        // -------------------------------------------------------------
+        // ZHIPU AI (GLM-4-FLASH - MIỄN PHÍ VĨNH VIỄN)
+        // -------------------------------------------------------------
+        if (!llmSuccess && zhipuKey) {
+          try {
+            const zpRes = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${zhipuKey}`,
+              },
+              body: JSON.stringify({
+                model: "glm-4-flash",
+                messages: rawChatMessages,
+                temperature: 0.7,
+              }),
+            });
+            if (zpRes.ok) {
+              const zpData = await zpRes.json();
+              const raw = zpData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+              if (raw) {
+                applyParsedResponse(JSON.parse(raw));
+              }
+            }
+          } catch (zpErr) {
+            console.warn("Zhipu GLM-4-Flash dialogue call error:", zpErr);
           }
         }
 

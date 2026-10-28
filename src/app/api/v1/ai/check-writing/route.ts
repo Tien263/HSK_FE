@@ -200,6 +200,8 @@ export async function POST(request: Request) {
     let llmScore: number | null = null;
 
     const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
+    const deepseekKey = process.env.DEEPSEEK_API_KEY;
+    const zhipuKey = process.env.ZHIPU_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
     const openAiKey = process.env.OPENAI_API_KEY;
@@ -312,6 +314,83 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
         }
       } catch (gErr) {
         console.warn("Groq Qwen check-writing error:", gErr);
+      }
+    }
+
+    // A3. DEEPSEEK BẢN XỨ (DEEPSEEK-CHAT / V3)
+    if (llmScore === null && deepseekKey) {
+      try {
+        const dsRes = await fetch("https://api.deepseek.com/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${deepseekKey}` },
+          body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [
+              { role: "system", content: "You are an expert native Chinese HSK grading teacher. Output ONLY valid JSON." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.2,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (dsRes.ok) {
+          const dsData = await dsRes.json();
+          const raw = dsData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.score === "number") llmScore = parsed.score;
+            if (parsed.correctedText) correctedText = parsed.correctedText;
+            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              parsed.issues.forEach((iss: any) => {
+                if (!issues.some((ex) => ex.original === iss.original)) {
+                  issues.push(iss);
+                }
+              });
+            }
+          }
+        }
+      } catch (dsErr) {
+        console.warn("DeepSeek check-writing error:", dsErr);
+      }
+    }
+
+    // A4. ZHIPU AI (GLM-4-FLASH - MIỄN PHÍ VĨNH VIỄN)
+    if (llmScore === null && zhipuKey) {
+      try {
+        const zpRes = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${zhipuKey}` },
+          body: JSON.stringify({
+            model: "glm-4-flash",
+            messages: [
+              { role: "system", content: "You are an expert native Chinese HSK grading teacher. Output ONLY valid JSON." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.2,
+          }),
+        });
+        if (zpRes.ok) {
+          const zpData = await zpRes.json();
+          const raw = zpData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.score === "number") llmScore = parsed.score;
+            if (parsed.correctedText) correctedText = parsed.correctedText;
+            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              parsed.issues.forEach((iss: any) => {
+                if (!issues.some((ex) => ex.original === iss.original)) {
+                  issues.push(iss);
+                }
+              });
+            }
+          }
+        }
+      } catch (zpErr) {
+        console.warn("Zhipu GLM-4-Flash check-writing error:", zpErr);
       }
     }
 
