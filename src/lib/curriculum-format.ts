@@ -33,10 +33,73 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
   const row = object(value, path);
   const field = (key: string, required = false) => string(row, key, path, required);
   switch (scope) {
-    case "vocab": return { ...(row.id ? { id: field("id") } : {}), hanzi: field("hanzi", true), pinyin: field("pinyin", true), meaning: field("meaning", true), type: field("type"), exampleZh: field("exampleZh"), examplePy: field("examplePy"), exampleVi: field("exampleVi") };
-    case "grammar": return { title: field("title", true), structure: field("structure", true), example: field("example", true), explanation: field("explanation") };
-    case "dialogue": return { speaker: field("speaker", true), zh: field("zh", true), pinyin: field("pinyin"), vi: field("vi", true) };
-    case "phonetics": return { title: field("title"), rule: field("rule"), examples: array(row.examples, path + ".examples", 200).map((value, index) => { if (typeof value !== "string") throw new CurriculumFormatError(`${path}.examples[${index}]: phải là văn bản.`); return value; }) };
+    case "vocab": {
+      const hanzi = String(row.hanzi || row.word || "").trim();
+      if (!hanzi) throw new CurriculumFormatError(`${path}: thiếu chữ Hán (hanzi).`);
+      const pinyin = String(row.pinyin || row.py || "").trim();
+      const meaning = String(row.meaning || row.meaningVi || row.vi || "").trim();
+      if (!meaning) throw new CurriculumFormatError(`${path}: từ "${hanzi}" thiếu nghĩa tiếng Việt.`);
+      return {
+        ...(row.id ? { id: String(row.id) } : {}),
+        hanzi,
+        pinyin,
+        meaning,
+        meaningVi: String(row.meaningVi || meaning),
+        type: String(row.type || "Từ vựng"),
+        exampleZh: String(row.exampleZh || row.example || ""),
+        examplePy: String(row.examplePy || ""),
+        exampleVi: String(row.exampleVi || ""),
+      };
+    }
+    case "grammar": {
+      const title = String(row.title || row.titleZh || row.name || "").trim();
+      if (!title) throw new CurriculumFormatError(`${path}: điểm ngữ pháp thiếu tiêu đề (title).`);
+      const structure = String(row.structure || row.pattern || title).trim();
+      let example = String(row.example || "").trim();
+      if (!example && Array.isArray(row.examples) && row.examples.length > 0) {
+        example = typeof row.examples[0] === "string" ? row.examples[0] : String(row.examples[0]?.zh || "");
+      }
+      if (!example) example = title;
+      const explanation = String(row.explanation || row.meaningVi || row.summary || row.desc || "").trim();
+      return {
+        ...(row.id ? { id: String(row.id) } : {}),
+        title,
+        titleZh: String(row.titleZh || ""),
+        structure,
+        example,
+        explanation,
+        examples: Array.isArray(row.examples) ? row.examples : [],
+        notes: String(row.notes || ""),
+        memo: String(row.memo || ""),
+        summary: String(row.summary || explanation),
+        usage: String(row.usage || ""),
+        commonMistakes: String(row.commonMistakes || ""),
+      };
+    }
+    case "dialogue": {
+      const zh = String(row.zh || row.content || "").trim();
+      if (!zh) throw new CurriculumFormatError(`${path}: câu hội thoại thiếu tiếng Trung (zh).`);
+      const speaker = String(row.speaker || "Người nói").trim();
+      const pinyin = String(row.pinyin || "").trim();
+      const vi = String(row.vi || row.meaningVi || row.meaning || zh).trim();
+      return {
+        speaker,
+        zh,
+        pinyin,
+        vi,
+      };
+    }
+    case "phonetics": {
+      return {
+        title: String(row.title || ""),
+        rule: String(row.rule || ""),
+        examples: Array.isArray(row.examples)
+          ? row.examples.map(v => typeof v === "string" ? v : JSON.stringify(v))
+          : typeof row.examples === "string"
+            ? (row.examples as string).split("|").map(s => s.trim()).filter(Boolean)
+            : [],
+      };
+    }
     case "culture": return { culture: field("culture") };
   }
 }
@@ -48,17 +111,19 @@ export function normalizeLessons(value: unknown, level: number): Hsk1FullLesson[
     if (!Number.isSafeInteger(number) || number < 1 || number > 9999 || numbers.has(number)) throw new CurriculumFormatError(`${path}: số bài phải từ 1 đến 9999 và không được trùng.`);
     numbers.add(number);
     const base = blankLesson(level, number);
-    const titleZh = string(row, "titleZh", path); const titleVi = string(row, "titleVi", path);
-    if (!titleZh && !titleVi) throw new CurriculumFormatError(`${path}: cần tiêu đề tiếng Trung hoặc tiếng Việt.`);
+    const titleZh = String(row.titleZh || "").trim();
+    const titleVi = String(row.titleVi || "").trim();
+    const finalTitleZh = titleZh || `第${number}课`;
+    const finalTitleVi = titleVi || `Bài ${number}`;
     const id = string(row, "id", path, false, 150) || base.id;
     if (ids.has(id)) throw new CurriculumFormatError(`${path}: mã bài bị trùng.`); ids.add(id);
     const durationMin = Number(row.durationMin ?? 45);
     if (!Number.isInteger(durationMin) || durationMin < 1 || durationMin > 1440) throw new CurriculumFormatError(`${path}.durationMin: cần số phút từ 1 đến 1440.`);
     if (row.isUnlockedDefault !== undefined && typeof row.isUnlockedDefault !== "boolean") throw new CurriculumFormatError(`${path}.isUnlockedDefault: phải là true hoặc false.`);
-    const vocabList = array(row.vocabList, path + ".vocabList").map((v, i) => sectionItem("vocab", v, `${path}.vocabList[${i + 1}]`));
-    const grammarList = array(row.grammarList, path + ".grammarList").map((v, i) => sectionItem("grammar", v, `${path}.grammarList[${i + 1}]`));
-    const dialogue = array(row.dialogue, path + ".dialogue").map((v, i) => sectionItem("dialogue", v, `${path}.dialogue[${i + 1}]`));
-    return { ...base, id, number, titleZh, titleVi, durationMin, pinyin: string(row, "pinyin", path), desc: string(row, "desc", path), vocabList, grammarList, dialogue, vocabCount: vocabList.length, grammarCount: grammarList.length, isUnlockedDefault: row.isUnlockedDefault !== false, unlockedScheduleText: string(row, "unlockedScheduleText", path) || base.unlockedScheduleText, phonetics: sectionItem("phonetics", row.phonetics ?? base.phonetics, path + ".phonetics"), culture: string(row, "culture", path), grammarExercises: Array.isArray(row.grammarExercises) ? row.grammarExercises : [], reading: normalizeReading(row.reading,id), culturalNote: normalizeCulturalNote(row.culturalNote,string(row,"culture",path)) } as unknown as Hsk1FullLesson;
+    const vocabList = array(row.vocabList ?? [], path + ".vocabList").map((v, i) => sectionItem("vocab", v, `${path}.vocabList[${i + 1}]`));
+    const grammarList = array(row.grammarList ?? [], path + ".grammarList").map((v, i) => sectionItem("grammar", v, `${path}.grammarList[${i + 1}]`));
+    const dialogue = array(row.dialogue ?? [], path + ".dialogue").map((v, i) => sectionItem("dialogue", v, `${path}.dialogue[${i + 1}]`));
+    return { ...base, id, number, titleZh: finalTitleZh, titleVi: finalTitleVi, durationMin, pinyin: string(row, "pinyin", path), desc: string(row, "desc", path), vocabList, grammarList, dialogue, vocabCount: vocabList.length, grammarCount: grammarList.length, isUnlockedDefault: row.isUnlockedDefault !== false, unlockedScheduleText: string(row, "unlockedScheduleText", path) || base.unlockedScheduleText, phonetics: sectionItem("phonetics", row.phonetics ?? base.phonetics, path + ".phonetics"), culture: string(row, "culture", path), grammarExercises: Array.isArray(row.grammarExercises) ? row.grammarExercises : [], reading: normalizeReading(row.reading,id), culturalNote: normalizeCulturalNote(row.culturalNote,string(row,"culture",path)) } as unknown as Hsk1FullLesson;
   }).sort((a, b) => a.number - b.number);
 }
 

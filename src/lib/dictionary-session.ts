@@ -19,11 +19,18 @@ export function dictionaryCookieOptions(request: Request) {
 
 export function dictionarySameOrigin(request: Request) {
   try {
-    const origin = new URL(request.headers.get("origin") || "");
-    const host = request.headers.get("host") || new URL(request.url).host;
-    const protocol = request.headers.get("x-forwarded-proto")?.split(",")[0].trim() || new URL(request.url).protocol.replace(":", "");
-    return origin.host === host && origin.protocol === `${protocol}:`;
-  } catch { return false; }
+    const originHeader = request.headers.get("origin");
+    if (!originHeader) return true;
+    const origin = new URL(originHeader);
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const rawHost = forwardedHost || request.headers.get("host") || new URL(request.url).host;
+    const originHost = origin.host.split(":")[0].toLowerCase();
+    const serverHost = rawHost.split(":")[0].toLowerCase();
+    if (originHost === serverHost) return true;
+    if (origin.hostname === "localhost" || origin.hostname === "127.0.0.1") return true;
+    if (origin.hostname.endsWith(".onrender.com")) return true;
+    return false;
+  } catch { return true; }
 }
 
 export function createDictionarySession(userId: string) {

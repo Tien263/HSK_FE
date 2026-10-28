@@ -497,14 +497,85 @@ export default function CurriculumBuilderWorkspace({
   const handleSaveAndPublishAll = async () => {
     setSaving(true);
     try {
+      // Chuẩn hóa và làm sạch dữ liệu bài học trước khi gửi lên máy chủ
+      const sanitizedLessons = lessons.map((l) => {
+        const number = Number(l.number) || 1;
+        const titleZh = (l.titleZh || "").trim() || `第${number}课`;
+        const titleVi = (l.titleVi || "").trim() || `Bài ${number}`;
+
+        const cleanVocab = Array.isArray(l.vocabList)
+          ? l.vocabList.map((v: any) => {
+              const hanzi = String(v.hanzi || v.word || "").trim();
+              const pinyin = String(v.pinyin || v.py || "").trim();
+              const meaning = String(v.meaning || v.meaningVi || v.vi || "Từ vựng").trim();
+              return {
+                ...v,
+                hanzi,
+                pinyin,
+                meaning,
+                meaningVi: String(v.meaningVi || meaning),
+              };
+            })
+          : [];
+
+        const cleanGrammar = Array.isArray(l.grammarList)
+          ? l.grammarList.map((g: any) => {
+              const title = String(g.title || g.titleZh || "Điểm ngữ pháp").trim();
+              const structure = String(g.structure || g.pattern || title).trim();
+              let example = String(g.example || "").trim();
+              if (!example && Array.isArray(g.examples) && g.examples.length > 0) {
+                example = typeof g.examples[0] === "string" ? g.examples[0] : String(g.examples[0]?.zh || "");
+              }
+              if (!example) example = title;
+              const explanation = String(g.explanation || g.meaningVi || g.summary || "Cấu trúc ngữ pháp trọng tâm").trim();
+              return {
+                ...g,
+                title,
+                structure,
+                example,
+                explanation,
+                examples: Array.isArray(g.examples) ? g.examples : [],
+              };
+            })
+          : [];
+
+        const cleanDialogue = Array.isArray(l.dialogue)
+          ? l.dialogue.map((d: any) => {
+              const zh = String(d.zh || d.content || "").trim();
+              const speaker = String(d.speaker || "Người nói").trim();
+              const pinyin = String(d.pinyin || "").trim();
+              const vi = String(d.vi || d.meaning || d.meaningVi || zh).trim();
+              return {
+                ...d,
+                speaker,
+                zh,
+                pinyin,
+                vi,
+              };
+            })
+          : [];
+
+        return {
+          ...l,
+          number,
+          titleZh,
+          titleVi,
+          vocabList: cleanVocab,
+          grammarList: cleanGrammar,
+          dialogue: cleanDialogue,
+          vocabCount: cleanVocab.length,
+          grammarCount: cleanGrammar.length,
+        };
+      });
+
       if (typeof window !== "undefined") {
         localStorage.setItem(
           `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-          JSON.stringify(lessons)
+          JSON.stringify(sanitizedLessons)
         );
       }
 
-      let revision = 1;
+      let revision = 0;
       try {
         const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`);
         const curData = await curRes.json();
@@ -520,18 +591,21 @@ export default function CurriculumBuilderWorkspace({
           level: selectedLevel,
           revision: revision,
           isDeleted: false,
-          lessons: lessons,
+          lessons: sanitizedLessons,
         }),
       });
 
       const resData = await res.json();
       if (res.ok && resData.success) {
-        showToast(`Đã lưu & xuất bản thành công toàn bộ ${lessons.length} bài học HSK ${selectedLevel} vào cơ sở dữ liệu!`);
+        setLessons(sanitizedLessons);
+        showToast(`🎉 Đã lưu & xuất bản thành công toàn bộ ${sanitizedLessons.length} bài học HSK ${selectedLevel} vào cơ sở dữ liệu!`);
       } else {
-        showToast(`Đã lưu cục bộ ${lessons.length} bài học HSK ${selectedLevel}. Hãy kiểm tra kết nối máy chủ.`);
+        const errMsg = resData?.message || `Lỗi máy chủ (${res.status}): Không thể lưu giáo trình.`;
+        showToast(errMsg);
       }
-    } catch {
-      showToast(`Đã lưu cục bộ ${lessons.length} bài học HSK ${selectedLevel}.`);
+    } catch (err: any) {
+      console.error("Save curriculum error:", err);
+      showToast(`Lỗi kết nối máy chủ: ${err?.message || "Không thể gửi dữ liệu"}`);
     } finally {
       setSaving(false);
     }
