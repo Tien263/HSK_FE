@@ -31,6 +31,8 @@ import {
   Award,
   Headphones,
   PenTool,
+  Compass,
+  Unlock,
 } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import {
@@ -94,7 +96,15 @@ export default function StudentPracticeWorkspace({
   activeHskLevel,
   initialPracticeMode = "vocab",
 }: StudentPracticeWorkspaceProps) {
-  // Quản lý lớp học được chọn: Học sinh có thể tham gia nhiều lớp (HSK 1, HSK 2...)
+  // 1. Quản lý Chế độ học: "CLASS" (Theo Lớp của Cô) hoặc "SELF_STUDY" (Lộ trình Tự học HSK độc lập)
+  const [learningTrack, setLearningTrack] = useState<"CLASS" | "SELF_STUDY">(() => {
+    return myClasses.length > 0 ? "CLASS" : "SELF_STUDY";
+  });
+
+  // 2. Cấp độ HSK khi tự học độc lập (HSK 1 đến HSK 7-9)
+  const [selfStudyHskLevel, setSelfStudyHskLevel] = useState<number>(activeHskLevel || 1);
+
+  // 3. Quản lý lớp học được chọn khi ở chế độ CLASS
   const [selectedClassId, setSelectedClassId] = useState<string>(() => {
     return myClasses[0]?.id || "";
   });
@@ -106,12 +116,14 @@ export default function StudentPracticeWorkspace({
   }, [myClasses, selectedClassId]);
 
   const activeClass = useMemo(() => {
+    if (learningTrack === "SELF_STUDY") return null;
     return myClasses.find((c) => c.id === selectedClassId) || myClasses[0] || null;
-  }, [myClasses, selectedClassId]);
+  }, [learningTrack, myClasses, selectedClassId]);
 
   const currentHskLevel = useMemo(() => {
+    if (learningTrack === "SELF_STUDY") return selfStudyHskLevel;
     return activeClass?.level || activeHskLevel || 1;
-  }, [activeClass, activeHskLevel]);
+  }, [learningTrack, selfStudyHskLevel, activeClass, activeHskLevel]);
 
   // Active sub-mode: "vocab" | "grammar" | "game" | "wrong"
   const [activeMode, setActiveMode] = useState<PracticeSubMode>(initialPracticeMode);
@@ -130,6 +142,61 @@ export default function StudentPracticeWorkspace({
   const { lessons: officialLessons } = useCurriculumLessons(currentHskLevel);
 
   const [selectedPracticeLesson, setSelectedPracticeLesson] = useState<number>(1);
+
+  // 4. Tiến trình mở khóa tự học (Self-Study Progression)
+  const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1]);
+
+  // Đọc danh sách bài đã mở khóa từ LocalStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const key = `hsk_self_unlocked_lvl_${currentHskLevel}_${currentUser?.id || "guest"}`;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSelfUnlockedLessons(parsed);
+            return;
+          }
+        }
+        setSelfUnlockedLessons([1]);
+        localStorage.setItem(key, JSON.stringify([1]));
+      } catch (e) {
+        setSelfUnlockedLessons([1]);
+      }
+    }
+  }, [currentHskLevel, currentUser?.id]);
+
+  // Hàm mở khóa bài tiếp theo trong Tự học
+  const handleUnlockNextLesson = (nextLessonNumber: number) => {
+    if (typeof window !== "undefined") {
+      const key = `hsk_self_unlocked_lvl_${currentHskLevel}_${currentUser?.id || "guest"}`;
+      const updated = Array.from(new Set([...selfUnlockedLessons, nextLessonNumber])).sort((a, b) => a - b);
+      setSelfUnlockedLessons(updated);
+      try {
+        localStorage.setItem(key, JSON.stringify(updated));
+      } catch (e) {}
+
+      setCurrentXpVal((prev) => prev + 25);
+      setSelectedPracticeLesson(nextLessonNumber);
+      setActiveCardIndex(0);
+      setShowCardMeaning(false);
+      setQuizSelectedOption(null);
+      setQuizIsAnswered(false);
+    }
+  };
+
+  // Mở toàn bộ bài của cấp HSK này
+  const handleUnlockAllLessons = () => {
+    if (typeof window !== "undefined" && officialLessons.length > 0) {
+      const allNumbers = officialLessons.map((l) => l.number);
+      setSelfUnlockedLessons(allNumbers);
+      const key = `hsk_self_unlocked_lvl_${currentHskLevel}_${currentUser?.id || "guest"}`;
+      try {
+        localStorage.setItem(key, JSON.stringify(allNumbers));
+      } catch (e) {}
+    }
+  };
 
   // State Quản lý Mức độ Ghi nhớ & Thống kê học tập
   const [memoryStats, setMemoryStats] = useState(() => getMemoryStats(currentUser?.id));
@@ -328,12 +395,16 @@ export default function StudentPracticeWorkspace({
     return dbLessons.find((l) => l.lessonNumber === selectedPracticeLesson);
   }, [dbLessons, selectedPracticeLesson]);
 
-  // Quyền truy cập bài học theo lớp:
-  // Nếu học sinh thuộc lớp, chỉ được phép học các bài đã được Giáo viên xuất bản (PUBLISHED).
+  // Quyền truy cập bài học:
+  // - Ở chế độ Tự học: Mở khóa theo tiến trình cuốn chiếu của học sinh
+  // - Ở chế độ Lớp học: Kiểm tra theo danh sách bài Giáo viên đã xuất bản (PUBLISHED)
   const isLessonUnlocked = useMemo(() => {
+    if (learningTrack === "SELF_STUDY") {
+      return selfUnlockedLessons.includes(selectedPracticeLesson);
+    }
     if (!activeClass) return true;
     return dbLessons.some((l) => l.lessonNumber === selectedPracticeLesson);
-  }, [activeClass, dbLessons, selectedPracticeLesson]);
+  }, [learningTrack, selfUnlockedLessons, selectedPracticeLesson, activeClass, dbLessons]);
 
   // Danh sách từ vựng: Ưu tiên từ vựng cô giáo đã tùy biến cho bài học này, nếu chưa có thì lấy từ vựng chuẩn của bài
   const vocabList = useMemo(() => {
@@ -796,48 +867,141 @@ export default function StudentPracticeWorkspace({
         </div>
       </div>
 
-      {/* BỘ CHỌN LỚP HỌC & CẤP ĐỘ HSK (Học sinh có thể ở nhiều lớp HSK 1, HSK 2...) */}
-      {myClasses && myClasses.length > 0 && (
-        <div className="bg-[#FFFCF6] border border-[#BC9B6B]/60 rounded-2xl p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
+      {/* BỘ CHUYỂN ĐỔI CHẾ ĐỘ: HỌC THEO LỚP HOẶC TỰ HỌC ĐỘC LẬP */}
+      <div className="bg-[#FFFCF6] border border-[#BC9B6B]/60 rounded-3xl p-4 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5DEC9]">
+          <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
-              <GraduationCap className="w-4 h-4 text-[#8F6D3B]" />
-              <span>Lớp học đang luyện:</span>
+              <Compass className="w-4 h-4 text-[#8F6D3B]" />
+              <span>Phương thức học tập:</span>
             </span>
-            <select
-              value={selectedClassId}
-              onChange={(e) => {
-                setSelectedClassId(e.target.value);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-white border border-[#BC9B6B] text-xs font-bold text-[#204434] cursor-pointer shadow-2xs focus:outline-hidden"
-            >
-              {myClasses.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name} (HSK {cls.level || 1}) {cls.teacher?.name ? `· GV: ${cls.teacher.name}` : ""}
-                </option>
-              ))}
-            </select>
-            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#204434] text-white font-bold">
-              HSK {currentHskLevel}
-            </span>
+            <div className="inline-flex rounded-xl bg-[#FAF7F0] p-1 border border-[#E5DEC9]">
+              {myClasses && myClasses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setLearningTrack("CLASS")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    learningTrack === "CLASS"
+                      ? "bg-[#204434] text-white shadow-xs"
+                      : "text-[#315E48] hover:text-[#204434]"
+                  }`}
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Học theo Lớp ({myClasses.length})</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setLearningTrack("SELF_STUDY")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  learningTrack === "SELF_STUDY"
+                    ? "bg-[#204434] text-white shadow-xs"
+                    : "text-[#315E48] hover:text-[#204434]"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                <span>🌿 Lộ trình Tự học HSK</span>
+              </button>
+            </div>
           </div>
 
+          {/* Nút hành động phụ */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#315E48]">
-              Đã mở: <strong className="text-[#204434]">{dbLessons.length} bài</strong> / {officialLessons.length} bài
-            </span>
-            {onOpenJoinModal && (
+            {learningTrack === "CLASS" && onOpenJoinModal && (
               <button
                 type="button"
                 onClick={onOpenJoinModal}
-                className="px-2.5 py-1 rounded-xl bg-[#FAF7F0] hover:bg-[#E5DEC9] border border-[#BC9B6B] text-[11px] font-bold text-[#8F6D3B] transition cursor-pointer"
+                className="px-3 py-1 rounded-xl bg-[#FAF7F0] hover:bg-[#E5DEC9] border border-[#BC9B6B] text-[11px] font-bold text-[#8F6D3B] transition cursor-pointer"
               >
                 + Vào lớp mới
               </button>
             )}
+            {learningTrack === "SELF_STUDY" && (
+              <button
+                type="button"
+                onClick={handleUnlockAllLessons}
+                className="px-3 py-1 rounded-xl bg-[#FAF7F0] hover:bg-[#E5DEC9] border border-[#BC9B6B] text-[11px] font-bold text-[#8F6D3B] transition cursor-pointer flex items-center gap-1"
+                title="Bấm nếu bạn đã có nền tảng và muốn tự do mở toàn bộ bài học của cấp HSK này"
+              >
+                <Unlock className="w-3.5 h-3.5" />
+                <span>Mở toàn bộ bài</span>
+              </button>
+            )}
           </div>
         </div>
-      )}
+
+        {/* PHÂN VÙNG 1: KHI Ở CHẾ ĐỘ HỌC THEO LỚP CỦA THẦY CÔ */}
+        {learningTrack === "CLASS" && myClasses.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-[#204434]">Chọn lớp học cần luyện:</span>
+              <select
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-white border border-[#BC9B6B] text-xs font-bold text-[#204434] cursor-pointer shadow-2xs focus:outline-hidden"
+              >
+                {myClasses.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name} (HSK {cls.level || 1}) {cls.teacher?.name ? `· GV: ${cls.teacher.name}` : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#204434] text-white font-bold">
+                HSK {currentHskLevel}
+              </span>
+            </div>
+            <span className="text-slate-500">
+              Tiến độ lớp: <strong className="text-[#204434]">{dbLessons.length} bài đã mở</strong> / {officialLessons.length} bài
+            </span>
+          </div>
+        )}
+
+        {/* PHÂN VÙNG 2: KHI Ở CHẾ ĐỘ TỰ HỌC HSK ĐỘC LẬP (TỰ DO VƯỢT ẢI) */}
+        {learningTrack === "SELF_STUDY" && (
+          <div className="space-y-3 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                <span>Chọn cấp độ HSK muốn tự học:</span>
+              </span>
+              <div className="text-[11px] text-[#8F6D3B] font-bold">
+                Đã chinh phục: {selfUnlockedLessons.length} / {officialLessons.length} bài (
+                {Math.round((selfUnlockedLessons.length / Math.max(officialLessons.length, 1)) * 100)}%)
+              </div>
+            </div>
+
+            {/* 7 Tabs Cấp độ HSK 1 - HSK 7-9 */}
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+              {[
+                { lvl: 1, label: "HSK 1" },
+                { lvl: 2, label: "HSK 2" },
+                { lvl: 3, label: "HSK 3" },
+                { lvl: 4, label: "HSK 4" },
+                { lvl: 5, label: "HSK 5" },
+                { lvl: 6, label: "HSK 6" },
+                { lvl: 7, label: "HSK 7–9" },
+              ].map(({ lvl, label }) => (
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => {
+                    setSelfStudyHskLevel(lvl);
+                    setSelectedPracticeLesson(1);
+                    setActiveCardIndex(0);
+                    setShowCardMeaning(false);
+                  }}
+                  className={`py-2 rounded-xl text-center text-xs font-bold transition cursor-pointer border ${
+                    selfStudyHskLevel === lvl
+                      ? "bg-[#204434] text-white border-[#204434] shadow-xs scale-102"
+                      : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Selector chọn bài học trong lớp & Tab chế độ luyện tập */}
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-2xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -860,10 +1024,13 @@ export default function StudentPracticeWorkspace({
             className="bg-[#FAF7F0] border border-[#BC9B6B]/50 rounded-xl px-3 py-1.5 text-xs font-bold text-[#204434] focus:outline-hidden cursor-pointer"
           >
             {officialLessons.map((ls) => {
-              const isPub = dbLessons.some((dl) => dl.lessonNumber === ls.number);
+              const isPub =
+                learningTrack === "SELF_STUDY"
+                  ? selfUnlockedLessons.includes(ls.number)
+                  : dbLessons.some((dl) => dl.lessonNumber === ls.number);
               return (
                 <option key={ls.number} value={ls.number}>
-                  Bài {String(ls.number).padStart(2, "0")}: {ls.titleZh} ({ls.titleVi}) {isPub ? "✓ Đã mở" : "🔒 Chưa mở quyền"}
+                  Bài {String(ls.number).padStart(2, "0")}: {ls.titleZh} ({ls.titleVi}) {isPub ? "✓ Đã mở" : "🔒 Chưa mở"}
                 </option>
               );
             })}
@@ -954,7 +1121,7 @@ export default function StudentPracticeWorkspace({
       </div>
 
       {/* =================================================================== */}
-      {/* THÔNG BÁO BÀI HỌC CHƯA ĐƯỢC GIÁO VIÊN MỞ QUYỀN                      */}
+      {/* THÔNG BÁO BÀI HỌC CHƯA ĐƯỢC MỞ QUYỀN (THEO LỚP HOẶC TỰ HỌC)         */}
       {/* =================================================================== */}
       {!isLessonUnlocked && (activeMode === "vocab" || activeMode === "grammar" || activeMode === "comprehensive" || activeMode === "game") && (
         <div className="py-14 px-6 text-center bg-[#FFFCF6] rounded-3xl border-2 border-dashed border-[#BC9B6B] max-w-lg mx-auto shadow-sm space-y-4 animate-fadeIn my-6">
@@ -963,36 +1130,41 @@ export default function StudentPracticeWorkspace({
           </div>
           <div className="space-y-2">
             <h3 className="font-serif font-bold text-xl text-[#204434]">
-              Bài {selectedPracticeLesson} chưa được Giáo viên mở quyền
+              Bài {selectedPracticeLesson} chưa được mở khóa
             </h3>
-            <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
-              Lớp <strong>{activeClass?.name}</strong> (HSK {currentHskLevel}) hiện chỉ mở quyền luyện tập cho <strong>{dbLessons.length} bài</strong> đã được Thầy/Cô xuất bản. Các bài còn lại sẽ được Thầy/Cô mở dần theo tiến độ học trên lớp.
-            </p>
+            {learningTrack === "SELF_STUDY" ? (
+              <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
+                Trong lộ trình Tự học HSK, các bài học sẽ tự động mở khóa theo nguyên tắc cuốn chiếu khi bạn hoàn thành bài học trước đó. Hoặc bạn có thể bấm &quot;Mở toàn bộ bài&quot; ở trên để tự do học nhé!
+              </p>
+            ) : (
+              <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
+                Lớp <strong>{activeClass?.name}</strong> (HSK {currentHskLevel}) hiện chỉ mở quyền luyện tập cho <strong>{dbLessons.length} bài</strong> đã được Thầy/Cô xuất bản. Các bài còn lại sẽ được Thầy/Cô mở dần theo tiến độ học trên lớp.
+              </p>
+            )}
           </div>
-          {dbLessons.length > 0 ? (
-            <div className="pt-2 flex flex-col items-center gap-2">
-              <span className="text-xs text-[#8F6D3B] font-bold">Các bài Thầy/Cô đã mở cho bạn luyện tập:</span>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {dbLessons.map((l) => (
-                  <button
-                    key={l.lessonNumber}
-                    onClick={() => {
-                      setSelectedPracticeLesson(l.lessonNumber);
-                      setActiveCardIndex(0);
-                      setShowCardMeaning(false);
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition shadow-2xs cursor-pointer"
-                  >
-                    Bài {l.lessonNumber}
-                  </button>
-                ))}
-              </div>
+
+          {/* Danh sách các bài đã mở để bấm học ngay */}
+          <div className="pt-2 flex flex-col items-center gap-2">
+            <span className="text-xs text-[#8F6D3B] font-bold">Các bài bạn có thể luyện tập ngay:</span>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {(learningTrack === "SELF_STUDY"
+                ? selfUnlockedLessons
+                : dbLessons.map((l) => l.lessonNumber)
+              ).map((num) => (
+                <button
+                  key={num}
+                  onClick={() => {
+                    setSelectedPracticeLesson(num);
+                    setActiveCardIndex(0);
+                    setShowCardMeaning(false);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition shadow-2xs cursor-pointer"
+                >
+                  Bài {num}
+                </button>
+              ))}
             </div>
-          ) : (
-            <p className="text-xs text-amber-700 font-semibold italic">
-              (Thầy/Cô phụ trách lớp chưa mở bài học nào. Bạn vui lòng liên hệ Thầy/Cô để được mở bài nhé!)
-            </p>
-          )}
+          </div>
         </div>
       )}
 
@@ -1906,6 +2078,55 @@ export default function StudentPracticeWorkspace({
       )}
 
       {/* =================================================================== */}
+      {/* BĂNG REWARD VƯỢT ẢI MỞ KHÓA CHO CHẾ ĐỘ TỰ HỌC                       */}
+      {/* =================================================================== */}
+      {learningTrack === "SELF_STUDY" && isLessonUnlocked && (
+        <div className="bg-gradient-to-r from-[#204434] via-[#17382F] to-[#204434] text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-[#BC9B6B]/20 text-[#BC9B6B] flex items-center justify-center text-2xl shrink-0 border border-[#BC9B6B]/40">
+              🏆
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wider text-[#BC9B6B] font-bold">
+                Tiến trình tự học · Bài {selectedPracticeLesson} / {officialLessons.length}
+              </div>
+              <h4 className="font-serif font-bold text-base text-white">
+                {selectedPracticeLesson < officialLessons.length
+                  ? `Chinh phục xong Bài ${selectedPracticeLesson}?`
+                  : `Xuất sắc! Bạn đã hoàn thành toàn bộ ${officialLessons.length} bài của HSK ${currentHskLevel}!`}
+              </h4>
+              <p className="text-xs text-[#FAF7F0]/80">
+                {selectedPracticeLesson < officialLessons.length
+                  ? `Bấm để ghi nhận hoàn thành bài học và mở khóa Bài ${selectedPracticeLesson + 1} tiếp theo (+25 XP).`
+                  : `Bạn có thể thử sức với Đề thi thử HSK ${currentHskLevel} để nhận chứng chỉ mô phỏng nhé!`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {selectedPracticeLesson < officialLessons.length ? (
+              <button
+                type="button"
+                onClick={() => handleUnlockNextLesson(selectedPracticeLesson + 1)}
+                className="px-5 py-2.5 rounded-2xl bg-[#BC9B6B] hover:bg-[#a88755] text-white text-xs font-bold transition shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <span>Mở khóa Bài {selectedPracticeLesson + 1}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <Link
+                href="/s/mock-exam"
+                className="px-5 py-2.5 rounded-2xl bg-[#BC9B6B] hover:bg-[#a88755] text-white text-xs font-bold transition shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <span>Làm đề thi thử HSK {currentHskLevel}</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
       {/* PHẦN 3: CHỨC NĂNG HỖ TRỢ & THEO DÕI NẮM VỮNG KIẾN THỨC             */}
       {/* =================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-4">
@@ -2048,7 +2269,10 @@ export default function StudentPracticeWorkspace({
 
           <div className="grid grid-cols-5 gap-1.5 max-h-28 overflow-y-auto pr-1">
             {officialLessons.slice(0, 15).map((ls) => {
-              const isPub = dbLessons.some((dl) => dl.lessonNumber === ls.number);
+              const isPub =
+                learningTrack === "SELF_STUDY"
+                  ? selfUnlockedLessons.includes(ls.number)
+                  : dbLessons.some((dl) => dl.lessonNumber === ls.number);
               return (
                 <button
                   key={ls.number}
