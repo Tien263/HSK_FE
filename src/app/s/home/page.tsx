@@ -404,10 +404,16 @@ export default function StudentHomePage() {
         localStorage.setItem("hanyu_study_profile", JSON.stringify(fallbackProfile));
       }
 
-      // Check URL query param for tab & practice mode
+      // Check URL query param and hash for tab & practice mode
       if (typeof window !== "undefined") {
         const urlParams = new URLSearchParams(window.location.search);
-        const tab = urlParams.get("tab");
+        let tab = urlParams.get("tab");
+        if (!tab && window.location.hash) {
+          const cleanHash = window.location.hash.replace(/^#/, "");
+          if (["home", "roadmap", "lessons", "classes", "assignments", "practice", "results"].includes(cleanHash)) {
+            tab = cleanHash;
+          }
+        }
         if (tab && ["home", "roadmap", "lessons", "classes", "assignments", "practice", "results"].includes(tab)) {
           setActiveNav(tab);
         }
@@ -934,31 +940,7 @@ export default function StudentHomePage() {
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-2.5 ml-4">
-            {/* Vân Tự Tập Thất Button */}
-            <button
-              type="button"
-              onClick={() => setShowStudyRoomModal(true)}
-              className="px-3 py-1.5 rounded-full bg-[#204434] hover:bg-[#183629] text-[#BC9B6B] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition cursor-pointer border border-[#BC9B6B]/40"
-              title="Vân Tự Tập Thất - Phòng tự học ảo cổ phong Pomodoro 25p"
-            >
-              <Moon className="w-3.5 h-3.5 text-[#BC9B6B]" />
-              <span className="hidden md:inline">🏮 Vân Tự Tập Thất</span>
-              <span className="md:hidden">🏮</span>
-            </button>
-
-            {/* Bút Giấy Cổ Button */}
-            <button
-              type="button"
-              onClick={() => setShowNotesModal(true)}
-              className="px-3 py-1.5 rounded-full bg-[#FAF7F0] hover:bg-white text-[#204434] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition cursor-pointer border border-[#BC9B6B]"
-              title="Thư phòng ghi chú 4 loại giấy & bút lông cổ phong"
-            >
-              <PenTool className="w-3.5 h-3.5 text-[#8F6D3B]" />
-              <span className="hidden md:inline">📜 Bút Giấy Cổ</span>
-              <span className="md:hidden">📜</span>
-            </button>
-
+          <div className="flex items-center gap-3 ml-4">
             {/* Notification Bell */}
             <div className="relative">
               <button

@@ -35,6 +35,8 @@ import {
   Unlock,
 } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import {
   getSavedKnowledge,
   removeSavedVocab,
@@ -56,7 +58,7 @@ import MistakeNotebookModal from "./MistakeNotebookModal";
 import DailyQuestsModal from "./DailyQuestsModal";
 import HskRadarAnalyticsModal from "./HskRadarAnalyticsModal";
 import AncientScrollPathway from "./AncientScrollPathway";
-import AncientStationeryNotesModal from "./AncientStationeryNotesModal";
+import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
 import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
 import {
   getMemoryStats,
@@ -147,8 +149,12 @@ export default function StudentPracticeWorkspace({
   const [dbLessons, setDbLessons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Official fallback curriculum lessons
-  const { lessons: officialLessons } = useCurriculumLessons(currentHskLevel);
+  // Official fallback curriculum lessons (guaranteed non-empty fallback to prevent rendering crashes)
+  const { lessons: apiLessons } = useCurriculumLessons(currentHskLevel);
+  const officialLessons = useMemo<Hsk1FullLesson[]>(() => {
+    if (apiLessons && apiLessons.length > 0) return apiLessons;
+    return getLessonsByHskLevel(currentHskLevel);
+  }, [apiLessons, currentHskLevel]);
 
   const [selectedPracticeLesson, setSelectedPracticeLesson] = useState<number>(1);
 
@@ -2481,13 +2487,14 @@ export default function StudentPracticeWorkspace({
         onOpenMistakes={() => setShowMistakeNotebookModal(true)}
       />
 
-      {/* Modal Thư Phòng Take Note Bút Giấy Cổ Phong Trung Hoa */}
-      <AncientStationeryNotesModal
+      {/* Thư Phòng Take Note Bút Giấy Cổ Phong Trung Hoa - Side Drawer bên cạnh */}
+      <AncientSideDrawerNotes
         isOpen={showStationeryNotesModal}
         onClose={() => setShowStationeryNotesModal(false)}
         lessonNumber={selectedPracticeLesson}
         hskLevel={currentHskLevel}
         studentId={currentUser?.id}
+        lessonTitle={currentOfficialLesson?.titleZh}
       />
 
       {/* Modal Vân Tự Tập Thất - Phòng Tự Học Ảo Cổ Phong (Pomodoro & Tiếng Mưa Trúc) */}

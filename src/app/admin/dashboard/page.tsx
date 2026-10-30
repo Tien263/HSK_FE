@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import CurriculumBuilderWorkspace from "@/components/admin/CurriculumBuilderWorkspace";
+import SelfStudyRoadmapAdminWorkspace from "@/components/admin/SelfStudyRoadmapAdminWorkspace";
 import AvatarUpload from "@/components/common/AvatarUpload";
 import {
   Users,
@@ -41,6 +42,7 @@ import {
   Upload,
   BarChart3,
   BookOpen,
+  Compass,
   FileCheck2,
   Bot,
   Menu,
@@ -91,7 +93,7 @@ export default function AdminDashboardPage() {
   // State
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum" | "profile"
+    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum" | "roadmap" | "profile"
   >("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -115,7 +117,7 @@ export default function AdminDashboardPage() {
     window.history.replaceState(null, "", url);
   }
   useEffect(() => {
-    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum","profile"].includes(tab)) setActiveTab(tab as typeof activeTab); };
+    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum","roadmap","profile"].includes(tab)) setActiveTab(tab as typeof activeTab); };
     const timer = setTimeout(sync, 0); window.addEventListener("hashchange", sync);
     return () => { clearTimeout(timer); window.removeEventListener("hashchange", sync); };
   }, []);
@@ -1059,6 +1061,18 @@ export default function AdminDashboardPage() {
             >
               <BookOpen className="w-4 h-4 text-[#BC9B6B]" />
               <span>Kho bài học & Giáo trình HSK</span>
+            </button>
+
+            <button
+              onClick={() => selectAdminTab("roadmap")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "roadmap"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <Compass className="w-4 h-4 text-[#BC9B6B]" />
+              <span>Lộ trình Tự học</span>
             </button>
 
             <Link
@@ -2480,6 +2494,11 @@ export default function AdminDashboardPage() {
         {/* TAB 4: CURRICULUM & LESSON BUILDER */}
         {activeTab === "curriculum" && (
           <CurriculumBuilderWorkspace showToast={showToast} />
+        )}
+
+        {/* TAB: LỘ TRÌNH TỰ HỌC (SELF-STUDY ROADMAP CONFIG) */}
+        {activeTab === "roadmap" && (
+          <SelfStudyRoadmapAdminWorkspace />
         )}
 
         {/* =================================================================== */}

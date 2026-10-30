@@ -26,7 +26,9 @@ export default function AncientScrollPathway({
   const [scrollExpanded, setScrollExpanded] = useState(true);
 
   // Lấy danh sách 15 bài học đầu tiên (hoặc toàn bộ)
-  const displayLessons = lessons.slice(0, 15);
+  const safeLessons = Array.isArray(lessons) ? lessons : [];
+  const safeUnlocked = Array.isArray(unlockedLessons) ? unlockedLessons : [1];
+  const displayLessons = safeLessons.slice(0, 15);
 
   return (
     <div className="relative my-5 overflow-hidden rounded-3xl border-2 border-[#BC9B6B] shadow-md bg-gradient-to-b from-[#F5EEDC] via-[#FAF6ED] to-[#EFE5CD]">
@@ -50,7 +52,7 @@ export default function AncientScrollPathway({
             <h3 className="font-serif font-bold text-sm text-[#204434] flex items-center gap-2">
               <span>Băng Thư Cuộn Chiếu Chỉ · Sơn Hà HSK {hskLevel}</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-mono font-bold">
-                {unlockedLessons.length} / {lessons.length} Trạm thông quan
+                {safeUnlocked.length} / {safeLessons.length} Trạm thông quan
               </span>
             </h3>
             <p className="text-[11px] text-[#315E48]">
@@ -73,9 +75,9 @@ export default function AncientScrollPathway({
         <div className="p-4 sm:p-6 overflow-x-auto scrollbar-thin scrollbar-thumb-[#BC9B6B] scrollbar-track-transparent">
           <div className="min-w-max flex items-center gap-3 py-2 px-3">
             {displayLessons.map((ls, idx) => {
-              const isUnlocked = unlockedLessons.includes(ls.number);
+              const isUnlocked = safeUnlocked.includes(ls.number);
               const isCurrent = selectedLesson === ls.number;
-              const isPassed = unlockedLessons.includes(ls.number + 1);
+              const isPassed = safeUnlocked.includes(ls.number + 1);
 
               return (
                 <React.Fragment key={ls.number}>

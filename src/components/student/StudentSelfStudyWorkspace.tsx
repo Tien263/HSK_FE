@@ -14,9 +14,14 @@ import {
   Flame,
   CheckCircle2,
   FileCheck2,
+  Compass,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import AncientScrollPathway from "./AncientScrollPathway";
 import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
 import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
@@ -87,7 +92,26 @@ export default function StudentSelfStudyWorkspace({
   }, [currentLevel, currentUser?.id]);
 
   // TẢI GIÁO TRÌNH TỪ KHO ADMIN (useCurriculumLessons -> /api/v1/curriculum?level=X)
-  const { lessons: adminLessons, loading, error } = useCurriculumLessons(currentLevel);
+  const { lessons: apiLessons, loading, error } = useCurriculumLessons(currentLevel);
+  const adminLessons = useMemo<Hsk1FullLesson[]>(() => {
+    if (apiLessons && apiLessons.length > 0) return apiLessons;
+    return getLessonsByHskLevel(currentLevel);
+  }, [apiLessons, currentLevel]);
+
+  // Tải các giai đoạn lộ trình tự học cá nhân hóa do Admin thiết lập
+  const [roadmapStages, setRoadmapStages] = useState<any[]>([]);
+  const [showRoadmapOverview, setShowRoadmapOverview] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/v1/self-study-roadmap")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.stages)) {
+          setRoadmapStages(data.stages);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Bài học đang chọn
   const currentLesson: Hsk1FullLesson | undefined = useMemo(() => {
@@ -217,6 +241,74 @@ export default function StudentSelfStudyWorkspace({
         )}
       </div>
 
+      {/* 2.5 LỘ TRÌNH 4 GIAI ĐOẠN DO ADMIN THIẾT LẬP (Dynamic Self-Study Roadmap) */}
+      {roadmapStages.length > 0 && (
+        <div className="rounded-2xl border border-[#BC9B6B]/40 bg-[#FFFCF6] overflow-hidden shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setShowRoadmapOverview(!showRoadmapOverview)}
+            className="w-full p-3.5 flex items-center justify-between text-left hover:bg-[#FAF7F0] transition cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-7 h-7 rounded-lg bg-[#204434] text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                <Compass className="w-4 h-4 text-[#BC9B6B]" />
+              </span>
+              <div>
+                <h4 className="font-serif font-bold text-xs sm:text-sm text-[#204434] flex items-center gap-2">
+                  <span>Lộ Trình Học Tập Cá Nhân Hóa ({roadmapStages.length} Giai đoạn)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-semibold">
+                    Đồng bộ từ CSDL Admin
+                  </span>
+                </h4>
+                <p className="text-[11px] text-[#315E48]">
+                  Xem toàn bộ 4 giai đoạn tiến trình học tập từ Nhập môn Pinyin đến Luyện đề thực chiến
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs font-bold text-[#8F6D3B]">
+              <span>{showRoadmapOverview ? "Thu gọn" : "Xem chi tiết"}</span>
+              {showRoadmapOverview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </div>
+          </button>
+
+          {showRoadmapOverview && (
+            <div className="p-4 pt-1 border-t border-[#E5DEC9] bg-[#FAF7F0]/60 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {roadmapStages.map((stage: any) => (
+                  <div
+                    key={stage.step}
+                    className="p-3.5 rounded-xl bg-white border border-[#BC9B6B]/30 shadow-2xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-md bg-[#204434] text-white text-[11px] font-bold flex items-center justify-center">
+                          {stage.step}
+                        </span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#8F6D3B]">
+                          GIAI ĐOẠN {stage.step} · {stage.duration}
+                        </span>
+                      </div>
+                      {stage.badge && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF7F0] text-[#204434] border border-[#BC9B6B]/30 font-semibold">
+                          {stage.badge}
+                        </span>
+                      )}
+                    </div>
+                    <h5 className="font-serif font-bold text-xs text-[#204434]">
+                      {stage.title}
+                    </h5>
+                    <p className="text-[11px] text-[#315E48] leading-relaxed">
+                      {stage.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 3. BĂNG THƯ CUỘN CHIẾU CHỈ SƠN HÀ (AncientScrollPathway) */}
       <AncientScrollPathway
         lessons={adminLessons}
@@ -250,13 +342,13 @@ export default function StudentSelfStudyWorkspace({
         <>
           {/* 4. Grid Danh Sách Bài Học */}
           <div ref={listRef} className={styles.grid}>
-            {adminLessons.map((lesson) => {
+            {adminLessons.map((lesson: Hsk1FullLesson) => {
               const isUnlocked = unlockedLessons.includes(lesson.number);
               const isCurrent = currentLesson?.number === lesson.number;
 
               return (
                 <button
-                  key={lesson.id || lesson.number}
+                  key={lesson.number}
                   disabled={!isUnlocked}
                   onClick={() => handleSelectLesson(lesson.number)}
                   className={`${styles.card} ${isCurrent ? styles.cardActive : ""} ${

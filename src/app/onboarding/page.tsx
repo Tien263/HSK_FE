@@ -179,6 +179,19 @@ export default function OnboardingPage() {
 
   // Step 3: Submission Loading
   const [submitting, setSubmitting] = useState(false);
+  const [adminRoadmapStages, setAdminRoadmapStages] = useState<any[]>([]);
+
+  // Tải cấu hình lộ trình do Admin thiết lập trong CSDL
+  useEffect(() => {
+    fetch("/api/v1/self-study-roadmap")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.stages) && data.stages.length > 0) {
+          setAdminRoadmapStages(data.stages);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Khôi phục trạng thái dở dang khi bị mất mạng hoặc tải lại trang
   useEffect(() => {
@@ -425,6 +438,15 @@ export default function OnboardingPage() {
   // Content generation for Step 3 based on selection
   const getRoadmapPhases = () => {
     if (mainTrack === "hsk") {
+      if (adminRoadmapStages.length > 0) {
+        return adminRoadmapStages.map((st) => ({
+          phase: `Giai đoạn ${st.step}`,
+          title: st.title,
+          desc: st.desc,
+          milestone: (st.badge || "").replace(/^🎯\s*/, "") || "Đạt chuẩn năng lực",
+          duration: (st.duration || "").replace(/^Dự kiến\s*/, "") || "2-4 tuần",
+        }));
+      }
       return [
         {
           phase: "Giai đoạn 1",
@@ -1316,7 +1338,7 @@ export default function OnboardingPage() {
                 Lộ trình học tập dành riêng cho bạn
               </h1>
               <p className="text-sm text-[#315E48] mt-2">
-                Dựa trên mục tiêu và thời gian học của bạn, Hanyu đã tối ưu lộ trình 4 giai đoạn toàn diện.
+                Dựa trên mục tiêu và thời gian học của bạn, Hanyu đã tối ưu lộ trình {adminRoadmapStages.length || 4} giai đoạn toàn diện.
               </p>
             </div>
 
@@ -1383,7 +1405,7 @@ export default function OnboardingPage() {
             <div className="bg-[#FFFCF6]/95 backdrop-blur-md border border-[#BC9B6B]/35 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-[#204434]/10 space-y-5">
               <h3 className="font-serif text-xl font-bold text-[#204434] flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#BC9B6B]" />
-                <span>4 Giai đoạn học tập chi tiết</span>
+                <span>{getRoadmapPhases().length} Giai đoạn học tập chi tiết</span>
               </h3>
 
               <div className="space-y-4">
