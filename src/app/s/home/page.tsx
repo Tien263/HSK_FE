@@ -315,12 +315,23 @@ export default function StudentHomePage() {
     const load=async()=>{try{const response=await fetch("/api/v1/auth/session",{cache:"no-store"});const session=await response.json();if(!response.ok||session.user?.role!=="STUDENT"){router.replace("/login");return;}const u=session.user;currentU=u.username;setCurrentUser(u);setUsername(u.username);setStudentName(u.name);localStorage.setItem("currentUser",JSON.stringify(u));await fetchMyClasses(u.id);
       const profileStored = localStorage.getItem("hanyu_study_profile");
       if (profileStored) {
-        const parsed = JSON.parse(profileStored);
-        setStudyProfile(parsed);
-        setEditingTrack(parsed.mainTrack || "hsk");
-        setEditingMajor(parsed.major || "Kinh tế & Quản trị");
-        setEditingLevel(parsed.currentLevel || "beginner");
-        setEditingDailyTime(parsed.dailyTime || 30);
+        try {
+          const parsed = JSON.parse(profileStored);
+          setStudyProfile(parsed);
+          setEditingTrack(parsed.mainTrack || "hsk");
+          setEditingMajor(parsed.major || "Kinh tế & Quản trị");
+          setEditingLevel(parsed.currentLevel || "beginner");
+          setEditingDailyTime(parsed.dailyTime || 30);
+        } catch {}
+      } else {
+        const fallbackProfile: StudyProfile = {
+          learningMode: "SELF",
+          mainTrack: "hsk",
+          currentLevel: "beginner",
+          dailyTime: 30,
+        };
+        setStudyProfile(fallbackProfile);
+        localStorage.setItem("hanyu_study_profile", JSON.stringify(fallbackProfile));
       }
 
       // Check URL query param for tab & practice mode
@@ -1067,14 +1078,24 @@ export default function StudentHomePage() {
                   {/* Action Buttons */}
                   <div className="mt-4 flex items-center gap-3 flex-wrap">
                     {myClasses.length === 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowJoinModal(true)}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-                        <span>Tham gia lớp học bằng mã ngay</span>
-                      </button>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("practice")}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
+                        >
+                          <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                          <span>Vào Lộ trình Tự học HSK 1 ngay</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowJoinModal(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FAF7F0] hover:bg-[#F0EBE1] text-[#204434] border border-[#BC9B6B]/40 text-xs font-semibold transition cursor-pointer"
+                        >
+                          <Users className="w-4 h-4 text-[#8F6D3B]" />
+                          <span>Tôi có mã lớp của Giáo viên</span>
+                        </button>
+                      </div>
                     ) : (
                       <>
                         <button
@@ -1731,17 +1752,26 @@ export default function StudentHomePage() {
                     <div className="p-5 text-center bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]/60 space-y-2">
                       <p className="text-xs text-[#315E48]">
                         {myClasses.length === 0
-                          ? "Bạn chưa tham gia lớp học nào nên chưa có bài tập."
+                          ? "Bạn đang ở Chế độ Tự học HSK độc lập. Hãy vào phòng Luyện tập hàng ngày hoặc nhập mã lớp nếu có giáo viên."
                           : "Tuyệt vời! Bạn không có bài tập nào sắp đến hạn."}
                       </p>
                       {myClasses.length === 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowJoinModal(true)}
-                          className="px-3 py-1.5 rounded-xl bg-[#204434] text-white text-[11px] font-semibold hover:bg-[#183629] transition cursor-pointer"
-                        >
-                          Tham gia lớp học ngay
-                        </button>
+                        <div className="flex items-center justify-center gap-2 flex-wrap pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setActiveNav("practice")}
+                            className="px-3.5 py-1.5 rounded-xl bg-[#204434] text-white text-[11px] font-semibold hover:bg-[#183629] transition cursor-pointer"
+                          >
+                            Luyện tập Tự học hôm nay &rarr;
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowJoinModal(true)}
+                            className="px-3 py-1.5 rounded-xl bg-white border border-[#BC9B6B]/40 text-[#204434] text-[11px] font-semibold hover:bg-[#F8F5ED] transition cursor-pointer"
+                          >
+                            Nhập mã lớp nếu có
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"
@@ -1859,6 +1889,12 @@ export default function StudentHomePage() {
                       </div>
                     );
                   })
+                )}
+
+                {myClasses.length === 0 && (
+                  <p className="text-[11px] text-[#315E48] px-1 text-center">
+                    Bạn đang ở Chế độ Tự học HSK độc lập. Nếu được giáo viên cấp mã lớp, bạn có thể tham gia bất cứ lúc nào bên dưới:
+                  </p>
                 )}
 
                 {/* Join new class button */}

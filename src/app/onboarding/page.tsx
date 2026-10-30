@@ -380,13 +380,38 @@ export default function OnboardingPage() {
           </div>
         </Link>
 
-        {/* Step Indicator */}
-        <div className="flex items-center gap-2 bg-[#FFFCF6]/85 backdrop-blur-md px-3.5 2xl:px-4 py-1.5 rounded-full border border-[#BC9B6B]/40 text-[11px] 2xl:text-xs font-semibold text-[#204434] shadow-xs">
-          <span className="w-2 h-2 rounded-full bg-[#BC9B6B]" />
-          <span>Bước {step} / 3:</span>
-          <span className="text-[#315E48]">
-            {step === 1 ? "Hình thức học" : step === 2 ? "Mục tiêu & Trình độ" : "Lộ trình đề xuất"}
-          </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              const defaultProfile = {
+                learningMode: "SELF",
+                mainTrack: "hsk",
+                currentLevel: "beginner",
+                dailyTime: 30,
+                currentHskLevel: 1,
+                completedAt: new Date().toISOString(),
+              };
+              localStorage.setItem("hanyu_study_profile", JSON.stringify(defaultProfile));
+              localStorage.setItem("hanyu_onboarding_completed", "true");
+              if (currentUser?.id) {
+                localStorage.setItem(`hanyu_onboarding_${currentUser.id}`, "true");
+              }
+              router.push("/s/home");
+            }}
+            className="text-xs font-semibold text-[#8F6D3B] hover:text-[#204434] px-3 py-1.5 rounded-full hover:bg-[#FFFCF6]/80 transition cursor-pointer"
+          >
+            Bỏ qua & Vào Tự học ngay &rarr;
+          </button>
+
+          {/* Step Indicator */}
+          <div className="flex items-center gap-2 bg-[#FFFCF6]/85 backdrop-blur-md px-3.5 2xl:px-4 py-1.5 rounded-full border border-[#BC9B6B]/40 text-[11px] 2xl:text-xs font-semibold text-[#204434] shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-[#BC9B6B]" />
+            <span>Bước {step} / 3:</span>
+            <span className="text-[#315E48]">
+              {step === 1 ? "Hình thức học" : step === 2 ? "Mục tiêu & Trình độ" : "Lộ trình đề xuất"}
+            </span>
+          </div>
         </div>
       </header>
 

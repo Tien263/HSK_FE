@@ -82,11 +82,47 @@ export default function RegisterPage() {
       }
 
       // Lưu thông tin người dùng vào session / localStorage
-      localStorage.setItem("currentUser", JSON.stringify(data.user));
+      const userWithMode = {
+        ...data.user,
+        learningMode: "SELF",
+        currentHskLevel: 1,
+        hasEnrolledClasses: false,
+      };
+      localStorage.setItem("currentUser", JSON.stringify(userWithMode));
       localStorage.setItem("hanyu_email_verified", "true");
       sessionStorage.setItem("registeredEmail", cleanEmail);
 
-      // Chuyển thẳng sang Màn hình Thiết lập mục tiêu học tập (Onboarding)
+      // CÀI ĐẶT MẶC ĐỊNH NGAY CHẾ ĐỘ TỰ HỌC HSK:
+      // Phòng trường hợp người dùng mất mạng, reload, hoặc bỏ qua trang onboarding:
+      // Hệ thống luôn mặc định là Tự học HSK, tuyệt đối không bị rơi vào trạng thái bắt nhập mã lớp!
+      const defaultProfile = {
+        learningMode: "SELF",
+        mainTrack: "hsk",
+        currentLevel: "beginner",
+        dailyTime: 30,
+        currentHskLevel: 1,
+        completedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("hanyu_study_profile", JSON.stringify(defaultProfile));
+      localStorage.setItem("hanyu_onboarding_completed", "true");
+      if (data.user?.id) {
+        localStorage.setItem(`hanyu_onboarding_${data.user.id}`, "true");
+      }
+
+      // Đăng ký ngầm với server (nếu mất mạng cũng không lỗi vì đã lưu local)
+      fetch("/api/v1/auth/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: data.user.username || cleanEmail,
+          learningMode: "SELF",
+          mainTrack: "hsk",
+          currentLevel: "beginner",
+          dailyTime: 30,
+        }),
+      }).catch(() => {});
+
+      // Chuyển sang Màn hình Thiết lập mục tiêu học tập (Onboarding)
       router.push("/onboarding");
     } catch {
       setError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.");
