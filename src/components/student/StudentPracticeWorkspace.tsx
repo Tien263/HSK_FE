@@ -107,6 +107,12 @@ export default function StudentPracticeWorkspace({
   // 2. Cấp độ HSK khi tự học độc lập (HSK 1 đến HSK 7-9)
   const [selfStudyHskLevel, setSelfStudyHskLevel] = useState<number>(activeHskLevel || 1);
 
+  useEffect(() => {
+    if (activeHskLevel) {
+      setSelfStudyHskLevel(activeHskLevel);
+    }
+  }, [activeHskLevel]);
+
   // 3. Quản lý lớp học được chọn khi ở chế độ CLASS
   const [selectedClassId, setSelectedClassId] = useState<string>(() => {
     return myClasses[0]?.id || "";

@@ -42,6 +42,112 @@ interface ClassInfo {
   studentCount: number;
 }
 
+interface PlacementQuestion {
+  id: number;
+  questionZh: string;
+  pinyin: string;
+  questionVi: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
+const HSK1_3_QUESTIONS: PlacementQuestion[] = [
+  {
+    id: 1,
+    questionZh: "请问，这本词典是______的？",
+    pinyin: "Qǐngwèn, zhè běn cídiǎn shì ______ de?",
+    questionVi: "Xin hỏi, cuốn từ điển này là của ______?",
+    options: ["谁 (Ai)", "哪 (Nào)", "什么 (Cái gì)", "怎么 (Thế nào)"],
+    correctIndex: 0,
+    explanation: "'谁' (shéi/shuí) là đại từ nghi vấn chỉ người, '是谁的' có nghĩa là 'của ai'."
+  },
+  {
+    id: 2,
+    questionZh: "外面下大雨了，你______带一把伞吧。",
+    pinyin: "Wàimiàn xià dàyǔ le, nǐ ______ dài yì bǎ sǎn ba.",
+    questionVi: "Ngoài trời mưa to rồi, bạn ______ mang theo một chiếc ô đi.",
+    options: ["最好 (Tốt nhất nên)", "常常 (Thường xuyên)", "正在 (Đang)", "已经 (Đã)"],
+    correctIndex: 0,
+    explanation: "'最好' dùng để đưa ra lời khuyên nhủ, đề xuất tích cực."
+  },
+  {
+    id: 3,
+    questionZh: "今天的天气比昨天______得多。",
+    pinyin: "Jīntiān de tiānqì bǐ zuótiān ______ de duō.",
+    questionVi: "Thời tiết hôm nay so với hôm qua ______ hơn nhiều.",
+    options: ["冷 (Lạnh)", "很冷 (Rất lạnh)", "太冷 (Quá lạnh)", "非常冷 (Cực kỳ lạnh)"],
+    correctIndex: 0,
+    explanation: "Trong câu so sánh chữ 比 (A + 比 + B + Tính từ + 得多), tính từ không đi kèm phó từ chỉ mức độ."
+  },
+  {
+    id: 4,
+    questionZh: "老师走进教室，把书包______桌子上。",
+    pinyin: "Lǎoshī zǒujìn jiàoshì, bǎ shūbāo ______ zhuōzi shang.",
+    questionVi: "Thầy giáo bước vào lớp, ______ cặp sách lên bàn.",
+    options: ["放在 (Đặt lên)", "坐在 (Ngồi ở)", "看着 (Nhìn)", "听见 (Nghe thấy)"],
+    correctIndex: 0,
+    explanation: "Cấu trúc câu chữ 把: 把 + Tân ngữ + Động từ + 在 + Nơi chốn."
+  },
+  {
+    id: 5,
+    questionZh: "他______汉语说得流利，______汉字也写得很漂亮。",
+    pinyin: "Tā ______ hànyǔ shuō de liúlì, ______ hànzì yě xiě de hěn piàoliang.",
+    questionVi: "Anh ấy ______ tiếng Hán nói lưu loát, ______ chữ Hán viết cũng rất đẹp.",
+    options: ["不但……而且…… (Không những... mà còn...)", "虽然……但是…… (Mặc dù... nhưng...)", "因为……所以…… (Bởi vì... cho nên...)", "如果……就…… (Nếu... thì...)"],
+    correctIndex: 0,
+    explanation: "Cặp liên từ tăng tiến '不但……而且……' (Không những... mà còn...)."
+  }
+];
+
+const HSK4_6_QUESTIONS: PlacementQuestion[] = [
+  {
+    id: 1,
+    questionZh: "请大家抓紧时间，在会议开始前把这些材料______好。",
+    pinyin: "Qǐng dàjiā zhuājǐn shíjiān, zài huìyì kāishǐ qián bǎ zhèxiē cáiliào ______ hǎo.",
+    questionVi: "Xin mọi người tranh thủ thời gian, trước khi cuộc họp bắt đầu hãy ______ tài liệu này thật tốt.",
+    options: ["准备 (Chuẩn bị)", "考虑 (Cân nhắc)", "安排 (Sắp xếp)", "打印 (In ấn)"],
+    correctIndex: 0,
+    explanation: "'准备好材料' (Chuẩn bị xong tài liệu), '好' làm bổ ngữ kết quả biểu thị hoàn thành mỹ mãn."
+  },
+  {
+    id: 2,
+    questionZh: "______工作有多忙，他每天晚上______坚持读书半小时。",
+    pinyin: "______ gōngzuò yǒu duō máng, tā měitiān wǎnshang ______ jiānchí dúshū bàn xiǎoshí.",
+    questionVi: "______ công việc có bận thế nào, anh ấy mỗi tối ______ kiên trì đọc sách nửa tiếng.",
+    options: ["不管……都…… (Cho dù... đều...)", "尽管……还是…… (Dẫu rằng... vẫn...)", "只有……才…… (Chỉ có... mới...)", "既然……就…… (Đã... thì...)"],
+    correctIndex: 0,
+    explanation: "'不管 + đại từ nghi vấn (有多忙) + 都...' biểu thị điều kiện vô điều kiện."
+  },
+  {
+    id: 3,
+    questionZh: "为了按时完成重点项目，两家公司进行了极其______的合作。",
+    pinyin: "Wèile ànshí wánchéng zhòngdiǎn xiàngmù, liǎng jiā gōngsī jìnxíng le jíqí ______ de hézuò.",
+    questionVi: "Để hoàn thành dự án trọng điểm đúng hạn, hai công ty đã tiến hành hợp tác vô cùng ______.",
+    options: ["密切 (Chặt chẽ/Mật thiết)", "亲密 (Thân mật)", "亲切 (Thân thiết/Gần gũi)", "热情 (Nhiệt tình)"],
+    correctIndex: 0,
+    explanation: "'密切合作' là cụm cố định trong văn phong công việc/kinh tế, mang nghĩa hợp tác chặt chẽ."
+  },
+  {
+    id: 4,
+    questionZh: "随着科技的飞速发展，人工智能在医疗领域发挥着______重要的作用。",
+    pinyin: "Suízhe kējì de fēisù fāzhǎn, réngōng zhìnéng zài yīliáo lǐngyù fāhuī zhe ______ zhòngyào de zuòyòng.",
+    questionVi: "Cùng với sự phát triển nhanh chóng của công nghệ, AI trong y tế phát huy vai trò ______ quan trọng.",
+    options: ["日益 (Ngày một / Ngày càng)", "常常 (Thường)", "稍微 (Hơi/Một chút)", "偶尔 (Thỉnh thoảng)"],
+    correctIndex: 0,
+    explanation: "'日益' (rìyì) là phó từ văn viết trang trọng, biểu thị mức độ gia tăng theo từng ngày."
+  },
+  {
+    id: 5,
+    questionZh: "大家集思广益，困扰团队多日的难题终于______。",
+    pinyin: "Dàjiā jísīguǎngyì, kùnrǎo tuánduì duō rì de nántí zhōngyú ______.",
+    questionVi: "Mọi người cùng nhau góp trí tuệ, câu hỏi khó làm đau đầu nhóm nhiều ngày cuối cùng cũng ______.",
+    options: ["迎刃而解 (Được giải quyết êm xuôi)", "莫名其妙 (Kỳ lạ khó hiểu)", "画蛇添足 (Vẽ rắn thêm chân)", "半途而废 (Bỏ dở giữa chừng)"],
+    correctIndex: 0,
+    explanation: "'迎刃而解' là thành ngữ 4 chữ biểu thị vấn đề nan giải được tháo gỡ dứt điểm và dễ dàng."
+  }
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
 
@@ -64,17 +170,114 @@ export default function OnboardingPage() {
   const [currentLevel, setCurrentLevel] = useState<CurrentLevel>("beginner");
   const [dailyTime, setDailyTime] = useState<DailyTime>(30);
 
+  // Placement Test State
+  const [placementAnswers, setPlacementAnswers] = useState<Record<number, number>>({});
+  const [placementSubmitted, setPlacementSubmitted] = useState(false);
+  const [placementScore, setPlacementScore] = useState(0);
+  const [determinedHskLevel, setDeterminedHskLevel] = useState(1);
+  const [trackNotice, setTrackNotice] = useState<string | null>(null);
+
   // Step 3: Submission Loading
   const [submitting, setSubmitting] = useState(false);
 
+  // Khôi phục trạng thái dở dang khi bị mất mạng hoặc tải lại trang
   useEffect(() => {
     try {
       const stored = localStorage.getItem("currentUser");
       if (stored) {
         setCurrentUser(JSON.parse(stored));
       }
+
+      const savedStep = localStorage.getItem("hanyu_onboarding_step");
+      if (savedStep && ["1", "2", "3"].includes(savedStep)) {
+        setStep(Number(savedStep) as 1 | 2 | 3);
+      }
+
+      const draftRaw = localStorage.getItem("hanyu_onboarding_draft");
+      if (draftRaw) {
+        const draft = JSON.parse(draftRaw);
+        if (draft.learningMode) setLearningMode(draft.learningMode);
+        if (draft.mainTrack) setMainTrack(draft.mainTrack);
+        if (draft.currentLevel) setCurrentLevel(draft.currentLevel);
+        if (draft.dailyTime) setDailyTime(draft.dailyTime);
+        if (draft.placementAnswers) setPlacementAnswers(draft.placementAnswers);
+        if (draft.placementSubmitted) setPlacementSubmitted(draft.placementSubmitted);
+        if (draft.placementScore !== undefined) setPlacementScore(draft.placementScore);
+        if (draft.determinedHskLevel) setDeterminedHskLevel(draft.determinedHskLevel);
+      }
     } catch {}
   }, []);
+
+  // Tự động lưu tiến trình dở dang để bảo vệ học viên khi bị rớt mạng
+  const saveDraft = (overrides: Record<string, any> = {}) => {
+    try {
+      const currentDraft = {
+        step,
+        learningMode,
+        mainTrack,
+        currentLevel,
+        dailyTime,
+        placementAnswers,
+        placementSubmitted,
+        placementScore,
+        determinedHskLevel,
+        ...overrides,
+      };
+      localStorage.setItem("hanyu_onboarding_draft", JSON.stringify(currentDraft));
+      localStorage.setItem("hanyu_onboarding_step", String(overrides.step || step));
+    } catch {}
+  };
+
+  // Chọn cấp độ
+  const handleSelectLevel = (level: CurrentLevel) => {
+    setCurrentLevel(level);
+    setPlacementAnswers({});
+    setPlacementSubmitted(false);
+
+    let defaultHsk = 1;
+    if (level === "intermediate") defaultHsk = 2;
+    if (level === "advanced") defaultHsk = 4;
+    setDeterminedHskLevel(defaultHsk);
+
+    saveDraft({
+      currentLevel: level,
+      placementAnswers: {},
+      placementSubmitted: false,
+      determinedHskLevel: defaultHsk,
+    });
+  };
+
+  // Nộp bài kiểm tra năng lực
+  const handleSubmitPlacementTest = () => {
+    const questions = currentLevel === "intermediate" ? HSK1_3_QUESTIONS : HSK4_6_QUESTIONS;
+    let correct = 0;
+    questions.forEach((q, idx) => {
+      if (placementAnswers[idx] === q.correctIndex) {
+        correct++;
+      }
+    });
+
+    setPlacementScore(correct);
+    setPlacementSubmitted(true);
+
+    let assignedLevel = 1;
+    if (currentLevel === "intermediate") {
+      if (correct >= 4) assignedLevel = 3;
+      else if (correct >= 2) assignedLevel = 2;
+      else assignedLevel = 1;
+    } else if (currentLevel === "advanced") {
+      if (correct >= 4) assignedLevel = 5;
+      else if (correct >= 2) assignedLevel = 4;
+      else assignedLevel = 3;
+    }
+
+    setDeterminedHskLevel(assignedLevel);
+    saveDraft({
+      placementSubmitted: true,
+      placementScore: correct,
+      determinedHskLevel: assignedLevel,
+    });
+  };
 
   // Check Class Code
   const handleVerifyClassCode = async () => {
@@ -112,28 +315,22 @@ export default function OnboardingPage() {
 
     const payload = {
       username: currentUser?.username || "student",
-      learningMode,
-      classCode: learningMode === "CLASS" && verifiedClass ? verifiedClass.code : "",
-      classId: learningMode === "CLASS" && verifiedClass ? verifiedClass.id : undefined,
-      mainTrack,
-      major: mainTrack === "major" ? major : null,
+      learningMode: "SELF",
+      mainTrack: "hsk",
       currentLevel,
+      currentHskLevel: determinedHskLevel,
       dailyTime,
     };
 
     try {
-      const res = await fetch("/api/v1/auth/onboarding", {
+      await fetch("/api/v1/auth/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
+      }).catch(() => {});
       
-      // Lưu thông tin lộ trình đã chọn vào localStorage
       const profileData = {
         ...payload,
-        classInfo: verifiedClass,
         completedAt: new Date().toISOString(),
       };
       
@@ -143,28 +340,33 @@ export default function OnboardingPage() {
       }
       localStorage.setItem("hanyu_onboarding_completed", "true");
 
-      // Cập nhật currentUser trong localStorage
+      // Xóa draft trạng thái dở dang vì đã hoàn thành
+      localStorage.removeItem("hanyu_onboarding_step");
+      localStorage.removeItem("hanyu_onboarding_draft");
+
       if (currentUser) {
         const updated = {
           ...currentUser,
-          currentHskLevel: data.profile?.hskLevel || (currentLevel === "intermediate" ? 2 : currentLevel === "advanced" ? 4 : 1),
-          hasEnrolledClasses: learningMode === "CLASS" && !!verifiedClass,
+          currentHskLevel: determinedHskLevel,
+          learningMode: "SELF",
+          hasEnrolledClasses: false,
         };
         localStorage.setItem("currentUser", JSON.stringify(updated));
       }
 
-      router.push("/s/home");
+      // ĐIỀU HƯỚNG TRỰC TIẾP VÀO PHÒNG TỰ HỌC VÀ LỘ TRÌNH VƯỢT ẢI ĐÃ LÀM
+      router.push(`/s/home?tab=practice&hsk=${determinedHskLevel}`);
     } catch (err) {
-      console.error(err);
-      // Vẫn chuyển hướng để trải nghiệm người dùng không bị gián đoạn
-      router.push("/s/home");
+      router.push("/s/home?tab=practice");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Xác nhận tham gia lớp trực tiếp và chuyển ngay vào Dashboard chứa thông tin lớp học (không qua bước tự học)
+  // Xác nhận tham gia lớp: BẮT BUỘC PHẢI CÓ MÃ LỚP ĐƯỢC XÁC THỰC
   const handleConfirmClassDirectly = async () => {
     if (!verifiedClass) {
-      setClassCodeError("Vui lòng nhập và kiểm tra mã lớp trước khi xác nhận.");
+      setClassCodeError("Vui lòng nhập mã lớp và bấm 'Kiểm tra mã lớp' trước khi xác nhận.");
       return;
     }
 
@@ -183,13 +385,11 @@ export default function OnboardingPage() {
     };
 
     try {
-      const res = await fetch("/api/v1/auth/onboarding", {
+      await fetch("/api/v1/auth/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
+      }).catch(() => {});
 
       const profileData = {
         ...payload,
@@ -202,20 +402,20 @@ export default function OnboardingPage() {
         localStorage.setItem(`hanyu_onboarding_${currentUser.id}`, "true");
       }
       localStorage.setItem("hanyu_onboarding_completed", "true");
+      localStorage.removeItem("hanyu_onboarding_step");
+      localStorage.removeItem("hanyu_onboarding_draft");
 
       if (currentUser) {
         const updated = {
           ...currentUser,
-          currentHskLevel: verifiedClass.level || data.profile?.hskLevel || 1,
+          currentHskLevel: verifiedClass.level || 1,
           hasEnrolledClasses: true,
         };
         localStorage.setItem("currentUser", JSON.stringify(updated));
       }
 
-      // Điều hướng trực tiếp vào Student Dashboard có thông tin lớp học
-      router.push("/s/home");
+      router.push("/s/home?tab=classes");
     } catch (err) {
-      console.error("Lỗi xác nhận tham gia lớp:", err);
       router.push("/s/home");
     } finally {
       setSubmitting(false);
@@ -619,21 +819,31 @@ export default function OnboardingPage() {
                 <div className="mt-6 pt-4 border-t border-[#BC9B6B]/20">
                   <button
                     type="button"
-                    disabled={submitting}
+                    disabled={submitting || !verifiedClass}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (!verifiedClass) {
+                        setClassCodeError("Bạn phải nhập mã lớp hợp lệ và bấm 'Kiểm tra mã lớp' trước khi xác nhận vào lớp.");
+                        return;
+                      }
                       handleConfirmClassDirectly();
                     }}
-                    className="w-full bg-[#9D493E] hover:bg-[#833d34] disabled:opacity-50 text-[#FFFCF6] font-semibold py-3 rounded-xl transition duration-200 shadow-md shadow-[#9D493E]/20 flex items-center justify-center gap-2 cursor-pointer"
+                    className={`w-full font-semibold py-3 rounded-xl transition duration-200 shadow-md flex items-center justify-center gap-2 ${
+                      verifiedClass && !submitting
+                        ? "bg-[#9D493E] hover:bg-[#833d34] text-[#FFFCF6] shadow-[#9D493E]/20 cursor-pointer"
+                        : "bg-[#BC9B6B]/25 text-[#204434]/40 cursor-not-allowed border border-[#BC9B6B]/30"
+                    }`}
                   >
                     {submitting ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         <span>Đang ghi danh và vào lớp học...</span>
                       </>
+                    ) : !verifiedClass ? (
+                      <span>Nhập mã lớp hợp lệ để xác nhận &rarr;</span>
                     ) : (
                       <>
-                        <span>Xác nhận tham gia lớp</span>
+                        <span>Xác nhận vào lớp: {verifiedClass.name}</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -668,6 +878,14 @@ export default function OnboardingPage() {
               </p>
             </div>
 
+            {/* Thông báo cập nhật chuyên mục */}
+            {trackNotice && (
+              <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 text-xs text-[#8F6D3B] font-medium flex items-center gap-2 animate-fadeIn">
+                <Sparkles className="w-4 h-4 shrink-0 text-[#8F6D3B]" />
+                <span>{trackNotice}</span>
+              </div>
+            )}
+
             {/* 1. Chọn hướng học chính */}
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -680,15 +898,21 @@ export default function OnboardingPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                {/* Track: HSK 3.0 */}
+                {/* Track: HSK 3.0 (Active) */}
                 <div
-                  onClick={() => setMainTrack("hsk")}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                  onClick={() => {
+                    setMainTrack("hsk");
+                    saveDraft({ mainTrack: "hsk" });
+                  }}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
                     mainTrack === "hsk"
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
+                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20 shadow-xs"
                       : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
                   }`}
                 >
+                  <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#204434] text-white text-[10px] font-bold">
+                    Tiêu chuẩn
+                  </span>
                   <div className="font-serif font-bold text-base text-[#204434] mb-1">
                     HSK 3.0
                   </div>
@@ -697,15 +921,17 @@ export default function OnboardingPage() {
                   </p>
                 </div>
 
-                {/* Track: Tiếng Trung theo chủ đề */}
+                {/* Track: Tiếng Trung theo chủ đề (Cập nhật sau) */}
                 <div
-                  onClick={() => setMainTrack("topic")}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                    mainTrack === "topic"
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
-                      : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
-                  }`}
+                  onClick={() => {
+                    setTrackNotice("Chuyên mục 'Tiếng Trung theo chủ đề' đang được cập nhật sau. Bạn hãy bắt đầu với HSK 3.0 trước nhé!");
+                    setTimeout(() => setTrackNotice(null), 4500);
+                  }}
+                  className="p-4 rounded-2xl border border-[#BC9B6B]/25 bg-[#F8F5ED]/40 opacity-75 hover:opacity-100 transition-all cursor-pointer relative"
                 >
+                  <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] text-[10px] font-bold border border-[#BC9B6B]/30">
+                    Cập nhật sau
+                  </span>
                   <div className="font-serif font-bold text-base text-[#204434] mb-1">
                     Tiếng Trung theo chủ đề
                   </div>
@@ -714,15 +940,17 @@ export default function OnboardingPage() {
                   </p>
                 </div>
 
-                {/* Track: Tiếng Trung đại học & Chuyên ngành */}
+                {/* Track: Tiếng Trung đại học & Chuyên ngành (Cập nhật sau) */}
                 <div
-                  onClick={() => setMainTrack("major")}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                    mainTrack === "major"
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
-                      : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
-                  }`}
+                  onClick={() => {
+                    setTrackNotice("Chuyên mục 'Đại học & Chuyên ngành' đang được hoàn thiện. Bạn hãy bắt đầu với HSK 3.0 trước nhé!");
+                    setTimeout(() => setTrackNotice(null), 4500);
+                  }}
+                  className="p-4 rounded-2xl border border-[#BC9B6B]/25 bg-[#F8F5ED]/40 opacity-75 hover:opacity-100 transition-all cursor-pointer relative"
                 >
+                  <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] text-[10px] font-bold border border-[#BC9B6B]/30">
+                    Cập nhật sau
+                  </span>
                   <div className="font-serif font-bold text-base text-[#204434] mb-1">
                     Đại học & Chuyên ngành
                   </div>
@@ -731,25 +959,6 @@ export default function OnboardingPage() {
                   </p>
                 </div>
               </div>
-
-              {/* Major dropdown (if major selected) */}
-              {mainTrack === "major" && (
-                <div className="mt-4 p-4 rounded-2xl bg-[#F8F5ED] border border-[#BC9B6B]/35">
-                  <label className="block text-xs font-bold text-[#204434] mb-2">
-                    Chọn ngành đào tạo cụ thể của bạn:
-                  </label>
-                  <select
-                    value={major}
-                    onChange={(e) => setMajor(e.target.value as MajorType)}
-                    className="w-full bg-[#FFFCF6] border border-[#BC9B6B]/40 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#204434] outline-none focus:border-[#204434]"
-                  >
-                    <option value="kinhte">Kinh tế & Thương mại quốc tế (经济与国际贸易)</option>
-                    <option value="ketoan">Kế toán & Tài chính doanh nghiệp (会计与企业财务)</option>
-                    <option value="cntt">Công nghệ thông tin & Khoa học máy tính (信息技术与计算机)</option>
-                    <option value="khac">Ngành học khác / Nghiên cứu học thuật (其他专业)</option>
-                  </select>
-                </div>
-              )}
             </div>
 
             {/* 2. Chọn trình độ hiện tại */}
@@ -766,55 +975,226 @@ export default function OnboardingPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Mới bắt đầu */}
                 <div
-                  onClick={() => setCurrentLevel("beginner")}
+                  onClick={() => handleSelectLevel("beginner")}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                     currentLevel === "beginner"
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
+                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20 shadow-xs"
                       : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
                   }`}
                 >
-                  <div className="font-semibold text-sm text-[#204434] mb-1">
-                    Mới bắt đầu
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-sm text-[#204434]">Mới bắt đầu</span>
+                    {currentLevel === "beginner" && <Check className="w-4 h-4 text-[#204434]" />}
                   </div>
                   <p className="text-xs text-[#315E48] leading-relaxed">
                     Chưa biết tiếng Trung hoặc mới bắt đầu làm quen với hệ thống phát âm Pinyin.
                   </p>
+                  <div className="mt-3 text-[11px] font-bold text-[#8F6D3B]">
+                    → Xếp lớp trực tiếp: HSK 1
+                  </div>
                 </div>
 
                 {/* Đã học cơ bản */}
                 <div
-                  onClick={() => setCurrentLevel("intermediate")}
+                  onClick={() => handleSelectLevel("intermediate")}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                     currentLevel === "intermediate"
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
+                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20 shadow-xs"
                       : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
                   }`}
                 >
-                  <div className="font-semibold text-sm text-[#204434] mb-1">
-                    Đã học cơ bản
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-sm text-[#204434]">Đã học cơ bản</span>
+                    {currentLevel === "intermediate" && <Check className="w-4 h-4 text-[#204434]" />}
                   </div>
                   <p className="text-xs text-[#315E48] leading-relaxed">
                     Tương đương trình độ HSK 1 – HSK 3, biết các từ vựng và câu giao tiếp đơn giản.
                   </p>
+                  <div className="mt-3 text-[11px] font-bold text-[#8F6D3B]">
+                    → Kiểm tra nhanh HSK 1 – HSK 3
+                  </div>
                 </div>
 
                 {/* Đã có nền tảng tốt */}
                 <div
-                  onClick={() => setCurrentLevel("advanced")}
+                  onClick={() => handleSelectLevel("advanced")}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                     currentLevel === "advanced"
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
+                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20 shadow-xs"
                       : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
                   }`}
                 >
-                  <div className="font-semibold text-sm text-[#204434] mb-1">
-                    Đã có nền tảng tốt
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-sm text-[#204434]">Đã có nền tảng tốt</span>
+                    {currentLevel === "advanced" && <Check className="w-4 h-4 text-[#204434]" />}
                   </div>
                   <p className="text-xs text-[#315E48] leading-relaxed">
                     Tương đương trình độ HSK 4 trở lên, muốn tăng tốc phản xạ và luyện đề chuyên sâu.
                   </p>
+                  <div className="mt-3 text-[11px] font-bold text-[#8F6D3B]">
+                    → Kiểm tra nhanh HSK 4 – HSK 6
+                  </div>
                 </div>
               </div>
+
+              {/* KHUNG BÀI KIỂM TRA NĂNG LỰC ĐẦU VÀO CHO 2 TRÌNH ĐỘ CÓ NỀN TẢNG */}
+              {(currentLevel === "intermediate" || currentLevel === "advanced") && (
+                <div className="mt-6 p-5 sm:p-6 rounded-3xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-5 animate-fadeIn">
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#BC9B6B]/30">
+                    <div>
+                      <span className="px-3 py-1 rounded-full bg-[#204434]/10 text-[#204434] text-[11px] font-bold inline-block mb-1">
+                        Khảo sát năng lực thực tế
+                      </span>
+                      <h3 className="font-serif font-bold text-base text-[#204434]">
+                        {currentLevel === "intermediate"
+                          ? "Bài kiểm tra nhanh trình độ HSK 1 – HSK 3 (5 câu)"
+                          : "Bài kiểm tra nhanh trình độ HSK 4 – HSK 6 (5 câu)"}
+                      </h3>
+                      <p className="text-xs text-[#315E48]">
+                        Chọn đáp án đúng nhất để hệ thống xếp bạn vào đúng cấp độ HSK tương ứng:
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-xs font-semibold text-[#8F6D3B]">
+                        Đã chọn: {Object.keys(placementAnswers).length} / 5 câu
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Danh sách 5 câu hỏi trắc nghiệm */}
+                  <div className="space-y-4">
+                    {(currentLevel === "intermediate" ? HSK1_3_QUESTIONS : HSK4_6_QUESTIONS).map((q, qIdx) => (
+                      <div
+                        key={q.id}
+                        className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/30 space-y-3 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#204434] text-white text-[11px] font-bold">
+                            Câu {qIdx + 1} / 5
+                          </span>
+                          {placementSubmitted && (
+                            <span
+                              className={`text-xs font-bold ${
+                                placementAnswers[qIdx] === q.correctIndex
+                                  ? "text-[#315E48]"
+                                  : "text-[#9D493E]"
+                              }`}
+                            >
+                              {placementAnswers[qIdx] === q.correctIndex
+                                ? "✓ Chính xác"
+                                : `✗ Đáp án đúng: ${q.options[q.correctIndex]}`}
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="font-serif text-base font-bold text-[#204434]">
+                            {q.questionZh}
+                          </div>
+                          <div className="text-xs text-[#8F6D3B] font-mono mt-0.5">
+                            {q.pinyin}
+                          </div>
+                          <div className="text-xs text-[#315E48] italic mt-0.5">
+                            {q.questionVi}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          {q.options.map((opt, optIdx) => {
+                            const isSelected = placementAnswers[qIdx] === optIdx;
+                            return (
+                              <button
+                                key={optIdx}
+                                type="button"
+                                disabled={placementSubmitted}
+                                onClick={() => {
+                                  const next = { ...placementAnswers, [qIdx]: optIdx };
+                                  setPlacementAnswers(next);
+                                  saveDraft({ placementAnswers: next });
+                                }}
+                                className={`p-2.5 rounded-xl border text-left text-xs font-medium transition cursor-pointer flex items-center justify-between ${
+                                  isSelected
+                                    ? "bg-[#204434] text-[#FFFCF6] border-[#204434] shadow-xs"
+                                    : "bg-[#F8F5ED] text-[#204434] border-[#BC9B6B]/30 hover:border-[#204434]/50"
+                                }`}
+                              >
+                                <span>{opt}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {placementSubmitted && (
+                          <div className="text-[11px] text-[#315E48] bg-[#FAF7F0] p-2.5 rounded-xl border border-[#BC9B6B]/20">
+                            💡 <strong>Giải thích:</strong> {q.explanation}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Nút nộp bài / Kết quả */}
+                  {!placementSubmitted ? (
+                    <div className="flex items-center justify-between gap-3 flex-wrap pt-2">
+                      <button
+                        type="button"
+                        onClick={handleSubmitPlacementTest}
+                        className="px-6 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-semibold shadow-md transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-[#BC9B6B]" />
+                        <span>Nộp bài & Đánh giá cấp độ HSK</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fallback = currentLevel === "intermediate" ? 2 : 4;
+                          setDeterminedHskLevel(fallback);
+                          setPlacementSubmitted(true);
+                          saveDraft({ determinedHskLevel: fallback, placementSubmitted: true });
+                        }}
+                        className="text-xs text-[#8F6D3B] hover:text-[#204434] underline cursor-pointer"
+                      >
+                        Bỏ qua bài test, tôi tự chọn HSK {currentLevel === "intermediate" ? 2 : 4}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/40 space-y-2 shadow-xs">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-[#8F6D3B]" />
+                          <h4 className="font-serif font-bold text-sm text-[#204434]">
+                            Kết quả: {placementScore} / 5 câu đúng ({Math.round((placementScore / 5) * 100)}%)
+                          </h4>
+                        </div>
+                        <span className="px-3 py-1 rounded-full bg-[#204434] text-white text-xs font-bold">
+                          Đề xuất bắt đầu: HSK {determinedHskLevel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#315E48]">
+                        {determinedHskLevel >= 3
+                          ? `Năng lực của bạn rất tốt! Hệ thống đã định tuyến để bạn bắt đầu ngay tại HSK ${determinedHskLevel} trên Lộ trình Chiếu chỉ hoàng gia.`
+                          : `Hệ thống đề xuất bạn học từ HSK ${determinedHskLevel} để củng cố nền tảng vững chắc nhất.`}
+                      </p>
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPlacementAnswers({});
+                            setPlacementSubmitted(false);
+                            saveDraft({ placementAnswers: {}, placementSubmitted: false });
+                          }}
+                          className="text-xs text-[#204434] font-semibold hover:underline cursor-pointer"
+                        >
+                          ↺ Làm lại bài test
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 3. Chọn thời gian học mỗi ngày */}
@@ -831,10 +1211,13 @@ export default function OnboardingPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* 15 phút */}
                 <div
-                  onClick={() => setDailyTime(15)}
+                  onClick={() => {
+                    setDailyTime(15);
+                    saveDraft({ dailyTime: 15 });
+                  }}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${
                     dailyTime === 15
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
+                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20 shadow-xs"
                       : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
                   }`}
                 >
@@ -847,10 +1230,13 @@ export default function OnboardingPage() {
 
                 {/* 30 phút (Khuyên dùng) */}
                 <div
-                  onClick={() => setDailyTime(30)}
+                  onClick={() => {
+                    setDailyTime(30);
+                    saveDraft({ dailyTime: 30 });
+                  }}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer text-center relative ${
                     dailyTime === 30
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
+                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20 shadow-xs"
                       : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
                   }`}
                 >
@@ -866,10 +1252,13 @@ export default function OnboardingPage() {
 
                 {/* 60 phút */}
                 <div
-                  onClick={() => setDailyTime(60)}
+                  onClick={() => {
+                    setDailyTime(60);
+                    saveDraft({ dailyTime: 60 });
+                  }}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${
                     dailyTime === 60
-                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20"
+                      ? "bg-[#204434]/5 border-[#204434] ring-2 ring-[#204434]/20 shadow-xs"
                       : "bg-[#F8F5ED]/60 border-[#BC9B6B]/30 hover:border-[#204434]/40"
                   }`}
                 >
@@ -886,7 +1275,10 @@ export default function OnboardingPage() {
             <div className="pt-6 border-t border-[#BC9B6B]/20 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => {
+                  setStep(1);
+                  saveDraft({ step: 1 });
+                }}
                 className="px-4 py-2.5 rounded-xl border border-[#BC9B6B]/30 text-xs font-semibold text-[#315E48] hover:text-[#204434] transition flex items-center gap-1.5 cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -895,7 +1287,10 @@ export default function OnboardingPage() {
 
               <button
                 type="button"
-                onClick={() => setStep(3)}
+                onClick={() => {
+                  setStep(3);
+                  saveDraft({ step: 3 });
+                }}
                 className="bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-semibold px-6 py-3 rounded-xl transition duration-200 shadow-md shadow-[#204434]/20 flex items-center gap-2 cursor-pointer"
               >
                 <span>Xem lộ trình đề xuất</span>
@@ -961,14 +1356,15 @@ export default function OnboardingPage() {
 
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-[#315E48] font-bold block mb-1">
-                  Trình độ khởi đầu
+                  Cấp độ bắt đầu
                 </span>
-                <div className="font-serif font-bold text-sm text-[#204434]">
-                  {currentLevel === "beginner"
-                    ? "Mới bắt đầu (Pinyin)"
-                    : currentLevel === "intermediate"
-                    ? "Cơ bản (HSK 1 - 3)"
-                    : "Nền tảng tốt (HSK 4+)"}
+                <div className="font-serif font-bold text-sm text-[#204434] flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md bg-[#204434] text-white text-xs font-bold">
+                    HSK {determinedHskLevel}
+                  </span>
+                  <span className="text-xs text-[#315E48]">
+                    {currentLevel === "beginner" ? "(Nhập môn)" : `(Đạt ${placementScore}/5 điểm test)`}
+                  </span>
                 </div>
               </div>
 
@@ -1069,7 +1465,8 @@ export default function OnboardingPage() {
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
-                    <span>Vào không gian học tập</span>
+                    <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
+                    <span>Bắt đầu Lộ trình Tự học HSK {determinedHskLevel} ngay</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

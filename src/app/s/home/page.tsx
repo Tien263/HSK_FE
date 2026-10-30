@@ -59,6 +59,7 @@ import HskRadarAnalyticsModal from "@/components/student/HskRadarAnalyticsModal"
 import { getClassArtwork } from "@/lib/class-helper";
 import {
   getWeeklyStudySeconds,
+  getTodayStudyMinutes,
   getWeeklyStudyBarStats,
   formatStudyTimeVi,
 } from "@/lib/memory-review-service";
@@ -102,6 +103,7 @@ interface StudyProfile {
   mainTrack: "hsk" | "topic" | "major";
   major?: string;
   currentLevel: "beginner" | "intermediate" | "advanced";
+  currentHskLevel?: number;
   dailyTime: 15 | 30 | 60;
 }
 
@@ -160,7 +162,11 @@ export default function StudentHomePage() {
   const activeClass = useMemo(() => {
     return myClasses.find((c) => c.id === selectedClassId) || myClasses[0] || null;
   }, [myClasses, selectedClassId]);
-  const activeHskLevel = activeClass ? (activeClass.level || 1) : 1;
+  const activeHskLevel = activeClass
+    ? activeClass.level || 1
+    : studyProfile?.currentHskLevel || currentUser?.currentHskLevel || 1;
+
+  const [todayStudyMins, setTodayStudyMins] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -345,6 +351,14 @@ export default function StudentHomePage() {
         if (mode && ["vocab", "grammar", "game", "saved", "wrong"].includes(mode)) {
           setPracticeSubMode(mode as any);
         }
+        const hskParam = urlParams.get("hsk");
+        if (hskParam) {
+          const lvl = parseInt(hskParam, 10);
+          if (lvl >= 1 && lvl <= 6) {
+            setStudyProfile((prev) => (prev ? { ...prev, currentHskLevel: lvl } : null));
+          }
+        }
+        setTodayStudyMins(getTodayStudyMinutes(currentU));
       }
     } catch {}
 
@@ -1132,7 +1146,7 @@ export default function StudentHomePage() {
                     <div className="text-sm font-bold text-[#204434]">
                       {myClasses.length > 0
                         ? `${myClasses[0]?.track || "HSK"} ${myClasses[0]?.level || 1}`
-                        : "Chưa vào lớp"}
+                        : `Tự học HSK ${activeHskLevel}`}
                     </div>
                   </div>
                 </div>
@@ -1145,7 +1159,7 @@ export default function StudentHomePage() {
                   <div>
                     <div className="text-[11px] text-[#315E48]">Mục tiêu học tập</div>
                     <div className="text-sm font-bold text-[#204434] truncate">
-                      {myClasses.length > 0 ? `Lớp ${myClasses[0]?.name}` : "Chờ ghi danh lớp"}
+                      {myClasses.length > 0 ? `Lớp ${myClasses[0]?.name}` : `Chinh phục HSK ${activeHskLevel}`}
                     </div>
                   </div>
                 </div>
@@ -1158,9 +1172,7 @@ export default function StudentHomePage() {
                   <div>
                     <div className="text-[11px] text-[#315E48]">Thời gian học mỗi ngày</div>
                     <div className="text-sm font-bold text-[#204434]">
-                      {myClasses.length > 0
-                        ? `${studyProfile?.dailyTime || 30} phút`
-                        : "Chưa thiết lập"}
+                      {studyProfile?.dailyTime || 30} phút / ngày
                     </div>
                   </div>
                 </div>
@@ -1182,6 +1194,75 @@ export default function StudentHomePage() {
                   </div>
                 </div>
               </section>
+
+              {/* ĐÁNH GIÁ, KHEN NGỢI & CẢNH BÁO THỜI GIAN HỌC MỖI NGÀY */}
+              {(() => {
+                const targetMins = studyProfile?.dailyTime || 30;
+                const isGoalMet = todayStudyMins >= targetMins;
+                const remaining = Math.max(0, targetMins - todayStudyMins);
+
+                return isGoalMet ? (
+                  <section className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#204434]/10 via-[#BC9B6B]/15 to-[#204434]/10 border border-[#BC9B6B]/45 shadow-xs flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-bold text-xl shadow-sm shrink-0">
+                        🌟
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-serif font-bold text-sm text-[#204434]">
+                            Vinh danh: Đã hoàn thành xuất sắc mục tiêu hôm nay!
+                          </h4>
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#204434] text-[#FFFCF6] text-[10px] font-bold">
+                            {todayStudyMins} / {targetMins} phút · +50 XP
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                          Tuyệt vời! Bạn đã giữ trọn kỷ luật học tập hôm nay, kiến thức được củng cố vào trí nhớ dài hạn.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav("practice")}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-xs transition cursor-pointer"
+                    >
+                      <span>Vào phòng luyện tập thêm</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </section>
+                ) : (
+                  <section className="p-4 sm:p-5 rounded-3xl bg-[#FAF7F0] border border-[#BC9B6B]/35 shadow-xs flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-[#9D493E]/10 text-[#9D493E] flex items-center justify-center font-bold text-xl shrink-0">
+                        ⏰
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-serif font-bold text-sm text-[#204434]">
+                            Nhắc nhở học tập: Bạn đã học {todayStudyMins} / {targetMins} phút hôm nay
+                          </h4>
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#9D493E]/15 text-[#9D493E] text-[10px] font-bold">
+                            Còn thiếu {remaining} phút
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
+                          Hãy dành thêm {remaining} phút nữa để đạt chỉ tiêu chuyên cần ngày hôm nay và bảo toàn ngọn lửa chuỗi học tập nhé!
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav("practice")}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-xs transition cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                      <span>Học ngay để đạt mục tiêu &rarr;</span>
+                    </button>
+                  </section>
+                );
+              })()}
 
               {/* QUICK ACTIONS BAR: NHIỆM VỤ, SỔ TỪ VỰNG SRS, SỔ CÂU SAI, RADAR NĂNG LỰC */}
               <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">

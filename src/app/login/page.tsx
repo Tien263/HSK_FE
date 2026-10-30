@@ -74,23 +74,16 @@ export default function LoginPage() {
       } else if (data.user.role === "TEACHER") {
         router.push("/t/dashboard");
       } else {
-        // Luôn đảm bảo tài khoản học viên có sẵn cấu hình Tự học mặc định nếu chưa có
-        if (!localStorage.getItem("hanyu_study_profile")) {
-          const defaultProfile = {
-            learningMode: "SELF",
-            mainTrack: "hsk",
-            currentLevel: "beginner",
-            dailyTime: 30,
-            currentHskLevel: data.user.currentHskLevel || 1,
-            completedAt: new Date().toISOString(),
-          };
-          localStorage.setItem("hanyu_study_profile", JSON.stringify(defaultProfile));
-          localStorage.setItem("hanyu_onboarding_completed", "true");
-          if (data.user?.id) {
-            localStorage.setItem(`hanyu_onboarding_${data.user.id}`, "true");
-          }
+        const onboardingDone =
+          localStorage.getItem(`hanyu_onboarding_${data.user.id}`) ||
+          localStorage.getItem("hanyu_onboarding_completed");
+
+        if (onboardingDone) {
+          router.push("/s/home");
+        } else {
+          // Chưa hoàn thành -> chuyển đến onboarding để làm tiếp đúng bước dở
+          router.push("/onboarding");
         }
-        router.push("/s/home");
       }
     } catch (err) {
       setError("Mất kết nối internet hoặc máy chủ không phản hồi. Vui lòng thử lại.");

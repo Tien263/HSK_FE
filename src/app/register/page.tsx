@@ -92,35 +92,22 @@ export default function RegisterPage() {
       localStorage.setItem("hanyu_email_verified", "true");
       sessionStorage.setItem("registeredEmail", cleanEmail);
 
-      // CÀI ĐẶT MẶC ĐỊNH NGAY CHẾ ĐỘ TỰ HỌC HSK:
-      // Phòng trường hợp người dùng mất mạng, reload, hoặc bỏ qua trang onboarding:
-      // Hệ thống luôn mặc định là Tự học HSK, tuyệt đối không bị rơi vào trạng thái bắt nhập mã lớp!
-      const defaultProfile = {
-        learningMode: "SELF",
-        mainTrack: "hsk",
-        currentLevel: "beginner",
-        dailyTime: 30,
-        currentHskLevel: 1,
-        completedAt: new Date().toISOString(),
-      };
-      localStorage.setItem("hanyu_study_profile", JSON.stringify(defaultProfile));
-      localStorage.setItem("hanyu_onboarding_completed", "true");
-      if (data.user?.id) {
-        localStorage.setItem(`hanyu_onboarding_${data.user.id}`, "true");
-      }
-
-      // Đăng ký ngầm với server (nếu mất mạng cũng không lỗi vì đã lưu local)
-      fetch("/api/v1/auth/onboarding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: data.user.username || cleanEmail,
+      // Khởi tạo trạng thái onboarding bước 1 (chưa hoàn thành) để người dùng chọn hình thức
+      localStorage.setItem("hanyu_onboarding_step", "1");
+      localStorage.setItem(
+        "hanyu_onboarding_draft",
+        JSON.stringify({
+          step: 1,
           learningMode: "SELF",
           mainTrack: "hsk",
           currentLevel: "beginner",
           dailyTime: 30,
-        }),
-      }).catch(() => {});
+        })
+      );
+      localStorage.removeItem("hanyu_onboarding_completed");
+      if (data.user?.id) {
+        localStorage.removeItem(`hanyu_onboarding_${data.user.id}`);
+      }
 
       // Chuyển sang Màn hình Thiết lập mục tiêu học tập (Onboarding)
       router.push("/onboarding");
