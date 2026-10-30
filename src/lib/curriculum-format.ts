@@ -37,6 +37,7 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
       const hanzi = String(row.hanzi || row.word || "").trim();
       if (!hanzi) throw new CurriculumFormatError(`${path}: thiếu chữ Hán (hanzi).`);
       const pinyin = String(row.pinyin || row.py || "").trim();
+      if (!pinyin) throw new CurriculumFormatError(`${path}: từ "${hanzi}" thiếu phiên âm pinyin.`);
       const meaning = String(row.meaning || row.meaningVi || row.vi || "").trim();
       if (!meaning) throw new CurriculumFormatError(`${path}: từ "${hanzi}" thiếu nghĩa tiếng Việt.`);
       return {
