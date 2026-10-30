@@ -44,6 +44,7 @@ import {
   PenTool,
   Camera,
   Moon,
+  Lock,
 } from "lucide-react";
 import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
 import AvatarUpload from "@/components/common/AvatarUpload";
@@ -58,8 +59,10 @@ import VocabNotebookModal from "@/components/student/VocabNotebookModal";
 import MistakeNotebookModal from "@/components/student/MistakeNotebookModal";
 import HskRadarAnalyticsModal from "@/components/student/HskRadarAnalyticsModal";
 import AncientScrollPathway from "@/components/student/AncientScrollPathway";
-import AncientStationeryNotesModal from "@/components/student/AncientStationeryNotesModal";
+import AncientSideDrawerNotes from "@/components/student/AncientSideDrawerNotes";
 import VirtualStudyRoomModal from "@/components/student/VirtualStudyRoomModal";
+import StudentSelfStudyWorkspace from "@/components/student/StudentSelfStudyWorkspace";
+import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { getClassArtwork } from "@/lib/class-helper";
 import {
@@ -177,6 +180,13 @@ export default function StudentHomePage() {
   const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1, 2]);
   const [showNotesModal, setShowNotesModal] = useState<boolean>(false);
   const [showStudyRoomModal, setShowStudyRoomModal] = useState<boolean>(false);
+  const [lockedLevelNotice, setLockedLevelNotice] = useState<string | null>(null);
+
+  // Cấp HSK mở khóa tối đa dựa vào kết quả bài Test năng lực Onboarding
+  const maxUnlockedLevel = useMemo(() => {
+    const tested = Number(studyProfile?.currentHskLevel || currentUser?.currentHskLevel || 1);
+    return Math.max(tested, 1);
+  }, [studyProfile?.currentHskLevel, currentUser?.currentHskLevel]);
 
   // Đồng bộ cấp độ HSK tự học từ profile hoặc activeHskLevel
   useEffect(() => {
@@ -199,9 +209,13 @@ export default function StudentHomePage() {
     }
   }, [selfStudyHskLevel, currentUser?.id]);
 
+  // TẢI BÀI HỌC TRỰC TIẾP TỪ KHO GIÁO TRÌNH ADMIN
+  const { lessons: adminSelfLessons } = useCurriculumLessons(selfStudyHskLevel);
+
   const selfStudyLessons = useMemo(() => {
+    if (adminSelfLessons && adminSelfLessons.length > 0) return adminSelfLessons;
     return getLessonsByHskLevel(selfStudyHskLevel);
-  }, [selfStudyHskLevel]);
+  }, [adminSelfLessons, selfStudyHskLevel]);
 
   const currentSelfStudyLesson = useMemo(() => {
     return (
@@ -684,42 +698,55 @@ export default function StudentHomePage() {
               <span>Kho bài học & Khám phá</span>
             </button>
 
-            {/* 4. Lớp học của tôi */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveNav("classes");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
-                activeNav === "classes"
-                  ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
-                  : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
-              }`}
-            >
-              <Users className="w-4 h-4 stroke-[1.8]" />
-              <span>Lớp học của tôi</span>
-            </button>
-
-            {/* 5. Bài tập & Phòng thi */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveNav("assignments");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer text-left ${
-                activeNav === "assignments"
-                  ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
-                  : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
-              }`}
-            >
-              <div className="flex items-center gap-3">
+            {/* 4. Lớp học của tôi (Chỉ hiển thị khi có lớp) vs Phòng thi thử HSK (Tự học) */}
+            {myClasses.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("classes");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                  activeNav === "classes"
+                    ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                    : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+                }`}
+              >
+                <Users className="w-4 h-4 stroke-[1.8]" />
+                <span>Lớp học của tôi</span>
+              </button>
+            ) : (
+              <Link
+                href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+              >
                 <FileCheck2 className="w-4 h-4 stroke-[1.8]" />
-                <span>Bài tập & Phòng thi</span>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-[#9D493E]" />
-            </button>
+                <span>Phòng thi thử HSK</span>
+              </Link>
+            )}
+
+            {/* 5. Bài tập & Kiểm tra (Chỉ cho học sinh theo lớp) */}
+            {myClasses.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("assignments");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                  activeNav === "assignments"
+                    ? "bg-[#204434] text-[#FFFCF6] font-semibold shadow-xs"
+                    : "text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <FileCheck2 className="w-4 h-4 stroke-[1.8]" />
+                  <span>Bài tập & Phòng thi</span>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-[#9D493E]" />
+              </button>
+            )}
 
             {/* 6. Phòng luyện tập (Dropdown menu) */}
             <div className="pt-0.5">
@@ -1084,23 +1111,41 @@ export default function StudentHomePage() {
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
           ) : activeNav === "roadmap" ? (
-            <StudentRoadmapWorkspace
-              currentUser={currentUser}
-              onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length}
-              myClasses={myClasses}
-              onOpenJoinModal={() => setShowJoinModal(true)}
-              activeHskLevel={activeHskLevel}
-            />
+            myClasses.length > 0 ? (
+              <StudentRoadmapWorkspace
+                currentUser={currentUser}
+                onNavigateToTab={(tab) => setActiveNav(tab)}
+                classesCount={myClasses.length}
+                myClasses={myClasses}
+                onOpenJoinModal={() => setShowJoinModal(true)}
+                activeHskLevel={activeHskLevel}
+              />
+            ) : (
+              <StudentSelfStudyWorkspace
+                currentUser={currentUser}
+                activeHskLevel={activeHskLevel}
+                onNavigateToTab={(tab) => setActiveNav(tab)}
+                onOpenJoinModal={() => setShowJoinModal(true)}
+              />
+            )
           ) : activeNav === "lessons" ? (
-            <StudentLessonsWorkspace
-              currentUser={currentUser}
-              onNavigateToTab={(tab) => setActiveNav(tab)}
-              classesCount={myClasses.length}
-              myClasses={myClasses}
-              onOpenJoinModal={() => setShowJoinModal(true)}
-              activeHskLevel={activeHskLevel}
-            />
+            myClasses.length > 0 ? (
+              <StudentLessonsWorkspace
+                currentUser={currentUser}
+                onNavigateToTab={(tab) => setActiveNav(tab)}
+                classesCount={myClasses.length}
+                myClasses={myClasses}
+                onOpenJoinModal={() => setShowJoinModal(true)}
+                activeHskLevel={activeHskLevel}
+              />
+            ) : (
+              <StudentSelfStudyWorkspace
+                currentUser={currentUser}
+                activeHskLevel={activeHskLevel}
+                onNavigateToTab={(tab) => setActiveNav(tab)}
+                onOpenJoinModal={() => setShowJoinModal(true)}
+              />
+            )
           ) : activeNav === "practice" ? (
             <StudentPracticeWorkspace
               currentUser={currentUser}
@@ -1410,37 +1455,69 @@ export default function StudentHomePage() {
                 /* LỘ TRÌNH TỰ HỌC CHỦ ĐỘNG HSK 3.0 CỔ PHONG (100% MỞ TỰ DO, KHÔNG CẦN LỚP) */
                 /* ========================================================================= */
                 <div className="space-y-6 animate-fadeIn">
-                  {/* 1. THANH CHỌN CẤP ĐỘ HSK 1 - 6 */}
-                  <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
-                        <Compass className="w-4 h-4 text-[#8F6D3B]" />
-                        <span>Cấp độ HSK tự học:</span>
-                      </span>
-                      {[1, 2, 3, 4, 5, 6].map((lvl) => (
-                        <button
-                          key={lvl}
-                          type="button"
-                          onClick={() => {
-                            setSelfStudyHskLevel(lvl);
-                            setSelectedScrollLesson(1);
-                          }}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                            selfStudyHskLevel === lvl
-                              ? "bg-[#204434] text-white shadow-xs"
-                              : "bg-[#FAF7F0] hover:bg-[#F0EBE1] text-[#315E48]"
-                          }`}
+                  {/* 1. THANH CHỌN CẤP ĐỘ HSK 1 - 6 (GATING THEO BÀI TEST NĂNG LỰC ĐẦU VÀO) */}
+                  <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-4 shadow-2xs space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                          <Compass className="w-4 h-4 text-[#8F6D3B]" />
+                          <span>Cấp độ HSK tự học:</span>
+                        </span>
+                        {[1, 2, 3, 4, 5, 6].map((lvl) => {
+                          const isLocked = lvl > maxUnlockedLevel;
+                          const isSelected = selfStudyHskLevel === lvl;
+
+                          return (
+                            <button
+                              key={lvl}
+                              type="button"
+                              onClick={() => {
+                                if (isLocked) {
+                                  setLockedLevelNotice(
+                                    `Cấp độ HSK ${lvl} đang bị khóa. Bạn cần vượt qua HSK ${lvl - 1} hoặc đạt điểm bài kiểm tra đầu vào để mở khóa cấp này!`
+                                  );
+                                  setTimeout(() => setLockedLevelNotice(null), 4000);
+                                  return;
+                                }
+                                setSelfStudyHskLevel(lvl);
+                                setSelectedScrollLesson(1);
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                                isSelected
+                                  ? "bg-[#204434] text-white shadow-xs"
+                                  : isLocked
+                                  ? "bg-[#EAE4D3]/60 text-slate-400 opacity-60 border border-dashed border-[#BC9B6B]/40 cursor-not-allowed"
+                                  : "bg-[#FAF7F0] hover:bg-[#F0EBE1] text-[#315E48]"
+                              }`}
+                            >
+                              <span>HSK {lvl}</span>
+                              {isLocked && <Lock className="w-3 h-3 text-slate-400" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                          className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs flex items-center gap-1.5 transition"
                         >
-                          HSK {lvl}
-                        </button>
-                      ))}
+                          <FileCheck2 className="w-3.5 h-3.5 text-amber-700" />
+                          <span>🏛️ Thi Thử HSK {selfStudyHskLevel}</span>
+                        </Link>
+                        <span className="text-xs font-semibold text-[#8F6D3B] bg-[#BC9B6B]/15 px-3 py-1 rounded-full">
+                          {selfStudyLessons.length} bài học Admin
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-[#8F6D3B] bg-[#BC9B6B]/15 px-3 py-1 rounded-full">
-                        {selfStudyLessons.length} bài học chuẩn Hanban CTI
-                      </span>
-                    </div>
+                    {/* Cảnh báo khóa cấp độ */}
+                    {lockedLevelNotice && (
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium animate-fadeIn flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+                        <span>{lockedLevelNotice}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* 2. BĂNG THƯ CUỘN CHIẾU CHỈ SƠN HÀ (IMPERIAL SCROLL PATHWAY) */}
@@ -2099,39 +2176,28 @@ export default function StudentHomePage() {
                 </div>
               </section>
 
-              {/* CARD 3: LỚP HỌC CỦA TÔI */}
-              <section
-                id="classes"
-                className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs space-y-3"
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/60">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[#204434]" />
-                    <h3 className="font-bold text-sm text-[#204434]">Lớp học của tôi</h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveNav("classes")}
-                    className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
-                  >
-                    <span>Xem tất cả ({myClasses.length})</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Danh sách lớp học thực tế từ Neon PostgreSQL */}
-                {myClasses.length === 0 ? (
-                  <div className="p-5 rounded-2xl bg-[#F8F5ED] border border-[#E5DEC9]/60 text-center space-y-2">
-                    <div className="w-10 h-10 rounded-xl bg-[#204434]/10 text-[#204434] flex items-center justify-center mx-auto">
-                      <Users className="w-5 h-5 opacity-75" />
+              {/* CARD 3: LỚP HỌC CỦA TÔI (Nếu có lớp) VS PHÒNG THI THỬ HSK (Nếu tự học) */}
+              {myClasses.length > 0 ? (
+                <section
+                  id="classes"
+                  className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs space-y-3"
+                >
+                  <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/60">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#204434]" />
+                      <h3 className="font-bold text-sm text-[#204434]">Lớp học của tôi</h3>
                     </div>
-                    <h4 className="font-bold text-xs text-[#204434]">Bạn chưa tham gia lớp học nào</h4>
-                    <p className="text-[11px] text-[#315E48] max-w-xs mx-auto">
-                      Nhập mã lớp từ giáo viên để cùng tham gia làm bài tập và theo dõi tiến độ học tập.
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav("classes")}
+                      className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
+                    >
+                      <span>Xem tất cả ({myClasses.length})</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                ) : (
-                  myClasses.slice(0, 2).map((cl) => {
+
+                  {myClasses.slice(0, 2).map((cl) => {
                     const isUpcoming = cl.status === "UPCOMING";
                     const isPaused = cl.status === "PAUSED";
                     const isEnded = cl.status === "ENDED";
@@ -2151,7 +2217,6 @@ export default function StudentHomePage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3 min-w-0">
-                            {/* Artwork icon */}
                             <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 border border-[#BC9B6B]/30 relative shadow-2xs">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
@@ -2171,7 +2236,6 @@ export default function StudentHomePage() {
                               </div>
                               <h4 className="font-bold text-xs text-[#204434] truncate mt-0.5">{cl.name}</h4>
                               <div className="text-[10px] text-[#315E48]">GV: {cl.teacherName}</div>
-                              {/* CLASS-003: Full dates DD/MM/YYYY – DD/MM/YYYY */}
                               <div className="text-[10px] text-[#315E48]/80 whitespace-nowrap">
                                 {cl.startDate} – {cl.endDate}
                               </div>
@@ -2190,7 +2254,6 @@ export default function StudentHomePage() {
                           </button>
                         </div>
 
-                        {/* CLASS-002: Tiến độ bài tập */}
                         <div className="pt-2 border-t border-[#E5DEC9]/50 flex items-center justify-between text-[10px]">
                           <span className="text-[#315E48]">Tiến độ bài tập:</span>
                           <span className={`font-bold ${cl.progressPercent === null ? "text-[#315E48]/70 italic" : "text-[#204434]"}`}>
@@ -2201,24 +2264,53 @@ export default function StudentHomePage() {
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
 
-                {myClasses.length === 0 && (
-                  <p className="text-[11px] text-[#315E48] px-1 text-center">
-                    Bạn đang ở Chế độ Tự học HSK độc lập. Nếu được giáo viên cấp mã lớp, bạn có thể tham gia bất cứ lúc nào bên dưới:
-                  </p>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setShowJoinModal(true)}
+                    className="w-full py-2.5 rounded-2xl border border-dashed border-[#BC9B6B]/40 hover:border-[#204434] text-xs font-semibold text-[#315E48] hover:text-[#204434] bg-[#FFFCF6] hover:bg-[#204434]/5 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>+ Nhập mã lớp / Tham gia lớp học mới</span>
+                  </button>
+                </section>
+              ) : (
+                /* Card dành riêng cho Tự học: Phòng thi thử HSK */
+                <section className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]/60">
+                    <div className="flex items-center gap-2">
+                      <FileCheck2 className="w-4 h-4 text-[#204434]" />
+                      <h3 className="font-bold text-sm text-[#204434]">Phòng thi thử HSK 3.0</h3>
+                    </div>
+                    <Link
+                      href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                      className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
+                    >
+                      <span>Vào phòng thi</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
 
-                {/* Join new class button */}
-                <button
-                  type="button"
-                  onClick={() => setShowJoinModal(true)}
-                  className="w-full py-2.5 rounded-2xl border border-dashed border-[#BC9B6B]/40 hover:border-[#204434] text-xs font-semibold text-[#315E48] hover:text-[#204434] bg-[#FFFCF6] hover:bg-[#204434]/5 transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>+ Nhập mã lớp / Tham gia lớp học mới</span>
-                </button>
-              </section>
+                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#204434]">Đề thi thử chuẩn quốc tế</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#204434] text-[#BC9B6B] font-bold font-mono">
+                        HSK {selfStudyHskLevel}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#315E48] leading-relaxed">
+                      Làm quen với áp lực phòng thi thật gồm 3 phần: Nghe hiểu, Đọc hiểu và Viết theo cấu trúc Hanban CTI mới nhất.
+                    </p>
+                    <Link
+                      href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                      className="w-full py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                      <span>Làm đề thi thử HSK {selfStudyHskLevel} ngay</span>
+                    </Link>
+                  </div>
+                </section>
+              )}
 
               {/* CARD 4: KẾT QUẢ HỌC TẬP */}
               <section
@@ -3012,13 +3104,14 @@ export default function StudentHomePage() {
         onOpenMistakes={() => setShowMistakeNotebookModal(true)}
       />
 
-      {/* Modal Bút Giấy Cổ Phong */}
-      <AncientStationeryNotesModal
+      {/* Bút Ký Cổ Phong Side Drawer (Mở bên cạnh để vừa học vừa ghi chép) */}
+      <AncientSideDrawerNotes
         isOpen={showNotesModal}
         onClose={() => setShowNotesModal(false)}
         lessonNumber={selectedScrollLesson || 1}
         hskLevel={selfStudyHskLevel || 1}
         studentId={currentUser?.id}
+        lessonTitle={currentSelfStudyLesson?.titleVi || currentSelfStudyLesson?.titleZh}
       />
 
       {/* Modal Vân Tự Tập Thất */}
