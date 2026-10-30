@@ -638,8 +638,8 @@ export default function StudentPracticeWorkspace({
     }
   };
 
-  // 1. Trạng thái rỗng: Học sinh chưa tham gia lớp nào
-  if (!activeClass || myClasses.length === 0) {
+  // 1. Trạng thái rỗng: Chỉ hiển thị khi học sinh chủ động chọn chế độ Lớp học ("CLASS") mà chưa có lớp
+  if (learningTrack === "CLASS" && (!activeClass || myClasses.length === 0)) {
     return (
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-10 sm:p-14 text-center shadow-2xs space-y-4 max-w-2xl mx-auto my-8 animate-fadeIn">
         <div className="w-16 h-16 rounded-full bg-[#FAF7F0] text-[#315E48] border border-[#E5DEC9] flex items-center justify-center mx-auto shadow-2xs">
@@ -647,30 +647,39 @@ export default function StudentPracticeWorkspace({
         </div>
         <div className="space-y-2">
           <h3 className="font-serif font-bold text-xl text-[#204434]">
-            Phòng luyện tập phản xạ chưa mở khóa
+            Bạn đang chọn Chế độ Theo Lớp nhưng chưa tham gia lớp nào
           </h3>
           <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
-            Phòng luyện tập phản xạ HSK sẽ tự động kích hoạt dựa trên các bài học được giáo viên phân phối cho lớp của bạn. Hãy tham gia lớp học để bắt đầu!
+            Bạn có thể chuyển sang <strong>Lộ trình Tự học HSK</strong> để luyện tập ngay lập tức với đầy đủ 15 bài học, hoặc nhập mã lớp từ Thầy/Cô.
           </p>
         </div>
-        <div className="pt-2">
+        <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
           <button
-            onClick={() => (onOpenJoinModal ? onOpenJoinModal() : onNavigateToTab?.("classes"))}
+            type="button"
+            onClick={() => setLearningTrack("SELF_STUDY")}
             className="px-6 py-3 rounded-2xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-md shadow-[#204434]/15 inline-flex items-center gap-2 transition cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-            <span>Tham gia lớp học ngay</span>
+            <span>Luyện tập Tự học HSK ngay</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => (onOpenJoinModal ? onOpenJoinModal() : onNavigateToTab?.("classes"))}
+            className="px-5 py-3 rounded-2xl bg-[#FAF7F0] hover:bg-white text-[#204434] border border-[#BC9B6B]/60 text-xs font-bold transition cursor-pointer"
+          >
+            <span>Nhập mã lớp</span>
           </button>
         </div>
       </div>
     );
   }
 
-  // 2. Trạng thái chờ duyệt
+  // 2. Trạng thái chờ duyệt (Chỉ áp dụng khi chọn CLASS)
   const isPendingApproval =
-    activeClass?.isPendingApproval === true ||
-    activeClass?.enrollmentStatus === "PENDING" ||
-    activeClass?.statusText === "Chờ duyệt";
+    learningTrack === "CLASS" &&
+    (activeClass?.isPendingApproval === true ||
+      activeClass?.enrollmentStatus === "PENDING" ||
+      activeClass?.statusText === "Chờ duyệt");
 
   if (isPendingApproval) {
     return (

@@ -43,6 +43,7 @@ import {
   Menu,
   PenTool,
   Camera,
+  Moon,
 } from "lucide-react";
 import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
 import AvatarUpload from "@/components/common/AvatarUpload";
@@ -56,6 +57,10 @@ import DailyQuestsModal from "@/components/student/DailyQuestsModal";
 import VocabNotebookModal from "@/components/student/VocabNotebookModal";
 import MistakeNotebookModal from "@/components/student/MistakeNotebookModal";
 import HskRadarAnalyticsModal from "@/components/student/HskRadarAnalyticsModal";
+import AncientScrollPathway from "@/components/student/AncientScrollPathway";
+import AncientStationeryNotesModal from "@/components/student/AncientStationeryNotesModal";
+import VirtualStudyRoomModal from "@/components/student/VirtualStudyRoomModal";
+import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { getClassArtwork } from "@/lib/class-helper";
 import {
   getWeeklyStudySeconds,
@@ -165,6 +170,51 @@ export default function StudentHomePage() {
   const activeHskLevel = activeClass
     ? activeClass.level || 1
     : studyProfile?.currentHskLevel || currentUser?.currentHskLevel || 1;
+
+  // Trạng thái Lộ trình Tự học Cổ Phong & Modals
+  const [selfStudyHskLevel, setSelfStudyHskLevel] = useState<number>(1);
+  const [selectedScrollLesson, setSelectedScrollLesson] = useState<number>(1);
+  const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1, 2]);
+  const [showNotesModal, setShowNotesModal] = useState<boolean>(false);
+  const [showStudyRoomModal, setShowStudyRoomModal] = useState<boolean>(false);
+
+  // Đồng bộ cấp độ HSK tự học từ profile hoặc activeHskLevel
+  useEffect(() => {
+    if (activeHskLevel) {
+      setSelfStudyHskLevel(activeHskLevel);
+    }
+  }, [activeHskLevel]);
+
+  // Load danh sách bài tự học đã mở khóa từ storage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(`hsk_self_unlocked_lvl_${selfStudyHskLevel}_${currentUser?.id || "guest"}`);
+        if (stored) {
+          setSelfUnlockedLessons(JSON.parse(stored));
+        } else {
+          setSelfUnlockedLessons([1, 2]);
+        }
+      } catch {}
+    }
+  }, [selfStudyHskLevel, currentUser?.id]);
+
+  const selfStudyLessons = useMemo(() => {
+    return getLessonsByHskLevel(selfStudyHskLevel);
+  }, [selfStudyHskLevel]);
+
+  const currentSelfStudyLesson = useMemo(() => {
+    return (
+      selfStudyLessons.find((l) => l.number === selectedScrollLesson) ||
+      selfStudyLessons[0] || {
+        id: "hsk1-l1",
+        number: 1,
+        titleZh: "你好",
+        pinyin: "nǐ hǎo",
+        titleVi: "Xin chào",
+      }
+    );
+  }, [selfStudyLessons, selectedScrollLesson]);
 
   const [todayStudyMins, setTodayStudyMins] = useState(0);
 
@@ -857,7 +907,31 @@ export default function StudentHomePage() {
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-3 ml-4">
+          <div className="flex items-center gap-2.5 ml-4">
+            {/* Vân Tự Tập Thất Button */}
+            <button
+              type="button"
+              onClick={() => setShowStudyRoomModal(true)}
+              className="px-3 py-1.5 rounded-full bg-[#204434] hover:bg-[#183629] text-[#BC9B6B] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition cursor-pointer border border-[#BC9B6B]/40"
+              title="Vân Tự Tập Thất - Phòng tự học ảo cổ phong Pomodoro 25p"
+            >
+              <Moon className="w-3.5 h-3.5 text-[#BC9B6B]" />
+              <span className="hidden md:inline">🏮 Vân Tự Tập Thất</span>
+              <span className="md:hidden">🏮</span>
+            </button>
+
+            {/* Bút Giấy Cổ Button */}
+            <button
+              type="button"
+              onClick={() => setShowNotesModal(true)}
+              className="px-3 py-1.5 rounded-full bg-[#FAF7F0] hover:bg-white text-[#204434] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition cursor-pointer border border-[#BC9B6B]"
+              title="Thư phòng ghi chú 4 loại giấy & bút lông cổ phong"
+            >
+              <PenTool className="w-3.5 h-3.5 text-[#8F6D3B]" />
+              <span className="hidden md:inline">📜 Bút Giấy Cổ</span>
+              <span className="md:hidden">📜</span>
+            </button>
+
             {/* Notification Bell */}
             <div className="relative">
               <button
@@ -1095,19 +1169,26 @@ export default function StudentHomePage() {
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => setActiveNav("practice")}
+                          onClick={() => setActiveNav("lessons")}
                           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
                         >
-                          <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-                          <span>Vào Lộ trình Tự học HSK 1 ngay</span>
+                          <BookOpen className="w-4 h-4 text-[#BC9B6B]" />
+                          <span>Vào học ngay Bài {selectedScrollLesson} →</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("practice")}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FAF7F0] hover:bg-white text-[#204434] border border-[#BC9B6B]/60 text-xs font-semibold shadow-2xs transition cursor-pointer"
+                        >
+                          <Sparkles className="w-4 h-4 text-[#8F6D3B]" />
+                          <span>Luyện phản xạ HSK</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowJoinModal(true)}
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FAF7F0] hover:bg-[#F0EBE1] text-[#204434] border border-[#BC9B6B]/40 text-xs font-semibold transition cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-[#315E48] hover:text-[#204434] hover:underline text-xs font-medium cursor-pointer"
                         >
-                          <Users className="w-4 h-4 text-[#8F6D3B]" />
-                          <span>Tôi có mã lớp của Giáo viên</span>
+                          <span>+ Nhập mã lớp (nếu có)</span>
                         </button>
                       </div>
                     ) : (
@@ -1323,125 +1404,276 @@ export default function StudentHomePage() {
                 </button>
               </section>
 
-              {/* PHÂN NHÁNH GIAO DIỆN CHÍNH: CHƯA VÀO LỚP VS ĐÃ VÀO LỚP */}
+              {/* PHÂN NHÁNH GIAO DIỆN CHÍNH: TỰ HỌC CHỦ ĐỘNG (CHƯA VÀO LỚP) VS ĐÃ VÀO LỚP */}
               {myClasses.length === 0 ? (
                 /* ========================================================================= */
-                /* TRẠNG THÁI CHƯA VÀO LỚP: HƯỚNG DẪN GHI DANH & MỞ KHÓA TOÀN BỘ CHỨC NĂNG  */
+                /* LỘ TRÌNH TỰ HỌC CHỦ ĐỘNG HSK 3.0 CỔ PHONG (100% MỞ TỰ DO, KHÔNG CẦN LỚP) */
                 /* ========================================================================= */
                 <div className="space-y-6 animate-fadeIn">
-                  {/* Hero Box: Kích hoạt hệ sinh thái học tập */}
-                  <div className="bg-[#FFFCF6] border-2 border-[#BC9B6B]/60 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#BC9B6B]/20 pb-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-[#204434] text-[#BC9B6B] flex items-center justify-center shrink-0 shadow-xs">
-                          <Users className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h2 className="text-xl font-serif font-bold text-[#204434]">
-                            Bạn hiện chưa tham gia lớp học nào
-                          </h2>
-                          <p className="text-xs text-[#315E48] mt-0.5">
-                            Nhập mã lớp từ giáo viên hoặc trung tâm để mở khóa lộ trình học tập, kho bài học và bài tập.
-                          </p>
-                        </div>
-                      </div>
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                        Chờ ghi danh lớp
+                  {/* 1. THANH CHỌN CẤP ĐỘ HSK 1 - 6 */}
+                  <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-3xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                        <Compass className="w-4 h-4 text-[#8F6D3B]" />
+                        <span>Cấp độ HSK tự học:</span>
+                      </span>
+                      {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => {
+                            setSelfStudyHskLevel(lvl);
+                            setSelectedScrollLesson(1);
+                          }}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            selfStudyHskLevel === lvl
+                              ? "bg-[#204434] text-white shadow-xs"
+                              : "bg-[#FAF7F0] hover:bg-[#F0EBE1] text-[#315E48]"
+                          }`}
+                        >
+                          HSK {lvl}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-[#8F6D3B] bg-[#BC9B6B]/15 px-3 py-1 rounded-full">
+                        {selfStudyLessons.length} bài học chuẩn Hanban CTI
                       </span>
                     </div>
+                  </div>
 
-                    {/* Quick Join Class Input */}
-                    <div className="p-5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] space-y-3">
-                      <label className="block text-xs font-bold text-[#204434]">
-                        Ghi danh nhanh bằng mã lớp học (Class Code):
-                      </label>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                        <div className="relative flex-1">
-                          <input
-                            type="text"
-                            value={joinClassCode}
-                            onChange={(e) => setJoinClassCode(e.target.value.toUpperCase())}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleVerifyJoinCode();
-                            }}
-                            placeholder="Nhập mã lớp học (VD: HSK1A-2026, HSK2-EXP...)"
-                            className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#BC9B6B]/60 text-xs font-mono uppercase tracking-wider text-[#204434] focus:outline-none focus:ring-2 focus:ring-[#204434]"
-                          />
+                  {/* 2. BĂNG THƯ CUỘN CHIẾU CHỈ SƠN HÀ (IMPERIAL SCROLL PATHWAY) */}
+                  <AncientScrollPathway
+                    lessons={selfStudyLessons}
+                    selectedLesson={selectedScrollLesson}
+                    unlockedLessons={selfUnlockedLessons}
+                    onSelectLesson={(num) => {
+                      setSelectedScrollLesson(num);
+                    }}
+                    hskLevel={selfStudyHskLevel}
+                  />
+
+                  {/* 3. CARD SONG SONG: BÀI HỌC ĐANG HỌC + KẾ HOẠCH TỰ HỌC HÔM NAY */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* CARD 1: BÀI HỌC TỰ HỌC HIỆN TẠI */}
+                    <section className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#BC9B6B]/60 shadow-2xs flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#204434] text-[#BC9B6B]">
+                            HSK {selfStudyHskLevel} · Bài {currentSelfStudyLesson.number}
+                          </span>
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                            Mở tự do
+                          </span>
                         </div>
+
+                        <div>
+                          <h3 className="text-xl font-serif font-bold text-[#204434]">
+                            {currentSelfStudyLesson.titleVi || currentSelfStudyLesson.titleZh}
+                          </h3>
+                          <p className="text-xs font-mono text-[#8F6D3B] mt-0.5 font-semibold">
+                            {currentSelfStudyLesson.pinyin}
+                          </p>
+                          <p className="text-xs text-[#315E48] mt-2 leading-relaxed">
+                            Bao gồm: Từ vựng chuẩn Hanban CTI, cấu trúc ngữ pháp trọng điểm, audio hội thoại Bắc Kinh, ngữ âm và văn hóa.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 mt-4 border-t border-[#E5DEC9] flex items-center justify-between gap-2 flex-wrap">
                         <button
                           type="button"
-                          onClick={handleVerifyJoinCode}
-                          disabled={checkingJoinCode || !joinClassCode.trim()}
-                          className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] disabled:opacity-50 text-white text-xs font-bold shadow-xs transition flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                          onClick={() => setActiveNav("lessons")}
+                          className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs transition flex items-center gap-2 cursor-pointer"
                         >
-                          {checkingJoinCode ? (
-                            <>
-                              <RotateCw className="w-4 h-4 animate-spin" />
-                              <span>Đang kiểm tra...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-                              <span>Tham gia lớp ngay</span>
-                            </>
-                          )}
+                          <BookOpen className="w-4 h-4 text-[#BC9B6B]" />
+                          <span>Vào học ngay bài này →</span>
+                        </button>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowNotesModal(true)}
+                            className="p-2 rounded-xl bg-[#FAF7F0] hover:bg-white text-[#204434] border border-[#BC9B6B] text-xs font-semibold shadow-2xs transition cursor-pointer"
+                            title="Ghi chú bài học"
+                          >
+                            <PenTool className="w-4 h-4 text-[#8F6D3B]" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveNav("practice")}
+                            className="p-2 rounded-xl bg-[#FAF7F0] hover:bg-white text-[#204434] border border-[#BC9B6B] text-xs font-semibold shadow-2xs transition cursor-pointer"
+                            title="Luyện phản xạ bài này"
+                          >
+                            <Sparkles className="w-4 h-4 text-[#204434]" />
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* CARD 2: KẾ HOẠCH HÔM NAY */}
+                    <section className="bg-[#FFFCF6] rounded-3xl p-5 border border-[#E5DEC9] shadow-2xs flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-[#204434]" />
+                            <h3 className="font-bold text-sm text-[#204434]">Kế hoạch tự học hôm nay</h3>
+                          </div>
+                          <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                            Mục tiêu: {studyProfile?.dailyTime || 30} phút / ngày
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] text-xs">
+                            <span className="text-[#315E48]">Thời gian đã học hôm nay:</span>
+                            <span className="font-bold text-[#204434]">{todayStudyMins} phút</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] text-xs">
+                            <span className="text-[#315E48]">Chuỗi ngày chăm chỉ (Streak):</span>
+                            <span className="font-bold text-amber-700">🔥 {currentUser?.streakDays || 1} ngày liên tục</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9] text-xs">
+                            <span className="text-[#315E48]">Trạng thái mục tiêu:</span>
+                            <span className="font-semibold text-emerald-700">
+                              {todayStudyMins >= (studyProfile?.dailyTime || 30) ? "Đã đạt chỉ tiêu ngày 🎉" : `Cần thêm ${Math.max(0, (studyProfile?.dailyTime || 30) - todayStudyMins)} phút`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 mt-4 border-t border-[#E5DEC9] flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav("practice")}
+                          className="text-xs text-[#204434] font-bold hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          <span>Vào phòng luyện phản xạ &rarr;</span>
                         </button>
                       </div>
-                      {joinClassError && (
-                        <p className="text-xs text-red-600 font-medium flex items-center gap-1.5">
-                          <AlertCircle className="w-4 h-4 shrink-0" />
-                          <span>{joinClassError}</span>
-                        </p>
-                      )}
+                    </section>
+                  </div>
+
+                  {/* 4. KHÁM PHÁ BÀI HỌC & HỆ SINH THÁI TỰ HỌC */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-[#204434]" />
+                        <h3 className="font-bold text-sm text-[#204434]">Kho tài nguyên học tập HSK</h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveNav("lessons")}
+                        className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
+                      >
+                        <span>Xem toàn bộ 15 bài</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
-                    {/* 4 Trụ Cột Sẽ Tự Động Kích Hoạt */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#315E48]">
-                        Các tính năng sẽ tự động mở khóa sau khi vào lớp:
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
-                          <div className="flex items-center gap-2 text-[#204434]">
-                            <Compass className="w-4 h-4 text-[#8F6D3B]" />
-                            <h5 className="font-bold text-xs">1. Lộ trình của tôi</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                      <div
+                        onClick={() => setActiveNav("lessons")}
+                        className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6] cursor-pointer"
+                        style={{
+                          backgroundImage: `url('/theme/dashboard/card-hsk.webp')`,
+                          backgroundPosition: "right bottom",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      >
+                        <div className="relative z-10 max-w-[65%]">
+                          <h4 className="font-serif font-bold text-base text-[#204434]">
+                            HSK 3.0
+                          </h4>
+                          <div className="text-xs font-semibold text-[#315E48] mt-0.5">
+                            Cấp độ {selfStudyHskLevel}
                           </div>
-                          <p className="text-[11px] text-[#315E48] leading-relaxed">
-                            Cây tiến trình bám sát theo giáo trình chuẩn HSK 3.0 và mục tiêu của lớp.
+                          <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
+                            15 bài học chuẩn Hanban CTI với audio giọng đọc Bắc Kinh
                           </p>
                         </div>
-
-                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
-                          <div className="flex items-center gap-2 text-[#204434]">
-                            <BookOpen className="w-4 h-4 text-[#8F6D3B]" />
-                            <h5 className="font-bold text-xs">2. Kho bài học & Khám phá</h5>
+                        <div className="relative z-10 pt-3">
+                          <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
+                            <ChevronRight className="w-4 h-4" />
                           </div>
-                          <p className="text-[11px] text-[#315E48] leading-relaxed">
-                            Từ vựng, ngữ pháp, audio hội thoại Bắc Kinh và slide bài giảng của từng buổi.
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => setActiveNav("practice")}
+                        className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6] cursor-pointer"
+                        style={{
+                          backgroundImage: `url('/theme/dashboard/card-topic.webp')`,
+                          backgroundPosition: "right bottom",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      >
+                        <div className="relative z-10 max-w-[65%]">
+                          <h4 className="font-serif font-bold text-base text-[#204434]">
+                            Phòng luyện tập
+                          </h4>
+                          <div className="text-xs font-semibold text-[#315E48] mt-0.5">
+                            AI Spaced Repetition
+                          </div>
+                          <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
+                            Ôn từ vựng, flashcard, sắp xếp câu và điểm yếu
                           </p>
                         </div>
-
-                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
-                          <div className="flex items-center gap-2 text-[#204434]">
-                            <FileCheck2 className="w-4 h-4 text-[#8F6D3B]" />
-                            <h5 className="font-bold text-xs">3. Bài tập & Phòng thi</h5>
+                        <div className="relative z-10 pt-3">
+                          <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
+                            <ChevronRight className="w-4 h-4" />
                           </div>
-                          <p className="text-[11px] text-[#315E48] leading-relaxed">
-                            Bài tập về nhà, đề kiểm tra định kỳ và phòng thi trực tuyến do giáo viên giao.
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => setActiveNav("roadmap")}
+                        className="p-5 rounded-3xl border border-[#E5DEC9] shadow-2xs relative overflow-hidden flex flex-col justify-between min-h-[145px] group hover:border-[#204434]/50 transition bg-[#FFFCF6] cursor-pointer"
+                        style={{
+                          backgroundImage: `url('/theme/dashboard/card-major.webp')`,
+                          backgroundPosition: "right bottom",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      >
+                        <div className="relative z-10 max-w-[65%]">
+                          <h4 className="font-serif font-bold text-base text-[#204434]">
+                            Lộ trình của tôi
+                          </h4>
+                          <div className="text-xs font-semibold text-[#315E48] mt-0.5">
+                            Cây kỹ năng HSK {selfStudyHskLevel}
+                          </div>
+                          <p className="text-[11px] text-[#315E48]/80 mt-1 leading-snug">
+                            Hành trình từng bài học vượt ải thông quan
                           </p>
                         </div>
-
-                        <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-1.5">
-                          <div className="flex items-center gap-2 text-[#204434]">
-                            <Dumbbell className="w-4 h-4 text-[#8F6D3B]" />
-                            <h5 className="font-bold text-xs">4. Phòng luyện & Sổ lỗi sai</h5>
+                        <div className="relative z-10 pt-3">
+                          <div className="w-7 h-7 rounded-full bg-white/90 border border-[#E5DEC9] flex items-center justify-center text-[#204434] group-hover:bg-[#204434] group-hover:text-white transition shadow-2xs">
+                            <ChevronRight className="w-4 h-4" />
                           </div>
-                          <p className="text-[11px] text-[#315E48] leading-relaxed">
-                            Thuật toán Spaced Repetition tự động gom các câu bạn làm sai để luyện lại.
-                          </p>
                         </div>
                       </div>
                     </div>
+                  </section>
+
+                  {/* 5. GHI DANH LỚP HỌC (TÙY CHỌN, KHÔNG BẮT BUỘC) */}
+                  <div className="p-4 rounded-2xl bg-[#FAF7F0] border border-[#BC9B6B]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <Users className="w-4 h-4 text-[#8F6D3B] shrink-0" />
+                      <span className="text-[#315E48]">
+                        Bạn có mã lớp từ Thầy/Cô hoặc trung tâm? Nhập mã để đồng bộ bài tập và theo dõi điểm số cùng lớp học.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowJoinModal(true)}
+                      className="px-4 py-2 rounded-xl bg-white hover:bg-[#F0EBE1] text-[#204434] border border-[#BC9B6B] font-bold shrink-0 transition cursor-pointer shadow-2xs"
+                    >
+                      + Nhập mã tham gia lớp
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -2778,6 +3010,22 @@ export default function StudentHomePage() {
         }}
         onOpenVocab={() => setShowVocabNotebookModal(true)}
         onOpenMistakes={() => setShowMistakeNotebookModal(true)}
+      />
+
+      {/* Modal Bút Giấy Cổ Phong */}
+      <AncientStationeryNotesModal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        lessonNumber={selectedScrollLesson || 1}
+        hskLevel={selfStudyHskLevel || 1}
+        studentId={currentUser?.id}
+      />
+
+      {/* Modal Vân Tự Tập Thất */}
+      <VirtualStudyRoomModal
+        isOpen={showStudyRoomModal}
+        onClose={() => setShowStudyRoomModal(false)}
+        studentName={studentName || currentUser?.name || "Bạn"}
       />
     </div>
   );
