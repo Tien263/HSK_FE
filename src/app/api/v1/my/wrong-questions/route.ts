@@ -35,11 +35,27 @@ export async function GET(request: Request) {
     });
 
     const items = wrongList.map((w) => {
-      let parsedOptions = [];
+      let rawOptions: any = [];
       try {
-        parsedOptions = typeof w.question.options === "string" ? JSON.parse(w.question.options) : w.question.options;
+        rawOptions = typeof w.question.options === "string" ? JSON.parse(w.question.options) : w.question.options;
       } catch {
-        parsedOptions = [];
+        rawOptions = [];
+      }
+
+      let parsedOptions: Array<{ id: string; text: string }> = [];
+      if (Array.isArray(rawOptions)) {
+        parsedOptions = rawOptions.map((item: any, idx: number) => {
+          if (typeof item === "string") {
+            return {
+              id: String.fromCharCode(65 + idx),
+              text: item,
+            };
+          }
+          return {
+            id: String(item?.id || item?.label || String.fromCharCode(65 + idx)),
+            text: String(item?.text ?? item?.content ?? item?.value ?? ""),
+          };
+        });
       }
 
       return {

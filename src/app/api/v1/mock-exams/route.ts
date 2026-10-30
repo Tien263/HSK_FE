@@ -10,10 +10,13 @@ export async function GET(request: Request) {
     const level = parseInt(levelStr, 10) || 1;
     const studentId = searchParams.get("studentId") || undefined;
 
+    // HSK 7, 8, 9 gộp chung thành HSK 7–9 (level >= 7)
+    const levelCondition = level >= 7 ? { in: [7, 8, 9] } : level;
+
     // 1. Lấy danh sách các đề thi thử do Giáo viên hoặc Admin biên soạn từ CSDL (mode: MOCK_EXAM hoặc EXAM với status READY)
     const officialSets = await prisma.quizSet.findMany({
       where: {
-        hskLevel: level,
+        hskLevel: levelCondition,
         mode: { in: ["MOCK_EXAM", "EXAM"] },
         status: "READY",
       },

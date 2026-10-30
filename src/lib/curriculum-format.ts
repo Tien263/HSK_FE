@@ -77,13 +77,62 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
       };
     }
     case "dialogue": {
-      const zh = String(row.zh || row.content || "").trim();
-      if (!zh) throw new CurriculumFormatError(`${path}: câu hội thoại thiếu tiếng Trung (zh).`);
-      const speaker = String(row.speaker || "Người nói").trim();
-      const pinyin = String(row.pinyin || "").trim();
-      const vi = String(row.vi || row.meaningVi || row.meaning || zh).trim();
+      // Hỗ trợ cả trường hợp câu thoại là string đơn thuần (vd: "A: 你好 (nǐ hǎo) - Xin chào")
+      if (typeof row === "string") {
+        const text = (row as string).trim();
+        const colonIdx = text.search(/[:：]/);
+        let spk = "Người nói";
+        let rest = text;
+        if (colonIdx > 0 && colonIdx < 15) {
+          spk = text.slice(0, colonIdx).trim();
+          rest = text.slice(colonIdx + 1).trim();
+        }
+        return {
+          speaker: spk || "A",
+          zh: rest || text,
+          pinyin: "",
+          vi: rest || text,
+        };
+      }
+
+      // Hỗ trợ các trường tên đa dạng: zh, content, text, chinese, hanzi, sentence, cn
+      const zh = String(
+        row.zh ||
+        row.content ||
+        row.text ||
+        row.chinese ||
+        row.hanzi ||
+        row.sentence ||
+        row.cn ||
+        row.original ||
+        ""
+      ).trim();
+
+      if (!zh) throw new CurriculumFormatError(`${path}: câu hội thoại thiếu nội dung tiếng Trung (zh / text / content).`);
+
+      const speaker = String(
+        row.speaker ||
+        row.role ||
+        row.name ||
+        row.person ||
+        row.author ||
+        "A"
+      ).trim();
+
+      const pinyin = String(row.pinyin || row.py || "").trim();
+
+      const vi = String(
+        row.vi ||
+        row.meaningVi ||
+        row.meaning ||
+        row.translation ||
+        row.vietnamese ||
+        row.dich ||
+        zh
+      ).trim();
+
       return {
-        speaker,
+        speaker: speaker || "A",
         zh,
         pinyin,
         vi,

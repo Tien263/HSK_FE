@@ -94,8 +94,24 @@ export default function StudentPracticeWorkspace({
   activeHskLevel,
   initialPracticeMode = "vocab",
 }: StudentPracticeWorkspaceProps) {
-  const activeClass = myClasses[0] || null;
-  const currentHskLevel = activeHskLevel || activeClass?.level || 1;
+  // Quản lý lớp học được chọn: Học sinh có thể tham gia nhiều lớp (HSK 1, HSK 2...)
+  const [selectedClassId, setSelectedClassId] = useState<string>(() => {
+    return myClasses[0]?.id || "";
+  });
+
+  useEffect(() => {
+    if (myClasses.length > 0 && (!selectedClassId || !myClasses.some((c) => c.id === selectedClassId))) {
+      setSelectedClassId(myClasses[0].id);
+    }
+  }, [myClasses, selectedClassId]);
+
+  const activeClass = useMemo(() => {
+    return myClasses.find((c) => c.id === selectedClassId) || myClasses[0] || null;
+  }, [myClasses, selectedClassId]);
+
+  const currentHskLevel = useMemo(() => {
+    return activeClass?.level || activeHskLevel || 1;
+  }, [activeClass, activeHskLevel]);
 
   // Active sub-mode: "vocab" | "grammar" | "game" | "wrong"
   const [activeMode, setActiveMode] = useState<PracticeSubMode>(initialPracticeMode);
@@ -311,6 +327,13 @@ export default function StudentPracticeWorkspace({
   const currentDbLesson = useMemo(() => {
     return dbLessons.find((l) => l.lessonNumber === selectedPracticeLesson);
   }, [dbLessons, selectedPracticeLesson]);
+
+  // Quyền truy cập bài học theo lớp:
+  // Nếu học sinh thuộc lớp, chỉ được phép học các bài đã được Giáo viên xuất bản (PUBLISHED).
+  const isLessonUnlocked = useMemo(() => {
+    if (!activeClass) return true;
+    return dbLessons.some((l) => l.lessonNumber === selectedPracticeLesson);
+  }, [activeClass, dbLessons, selectedPracticeLesson]);
 
   // Danh sách từ vựng: Ưu tiên từ vựng cô giáo đã tùy biến cho bài học này, nếu chưa có thì lấy từ vựng chuẩn của bài
   const vocabList = useMemo(() => {
@@ -773,6 +796,49 @@ export default function StudentPracticeWorkspace({
         </div>
       </div>
 
+      {/* BỘ CHỌN LỚP HỌC & CẤP ĐỘ HSK (Học sinh có thể ở nhiều lớp HSK 1, HSK 2...) */}
+      {myClasses && myClasses.length > 0 && (
+        <div className="bg-[#FFFCF6] border border-[#BC9B6B]/60 rounded-2xl p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+              <GraduationCap className="w-4 h-4 text-[#8F6D3B]" />
+              <span>Lớp học đang luyện:</span>
+            </span>
+            <select
+              value={selectedClassId}
+              onChange={(e) => {
+                setSelectedClassId(e.target.value);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-white border border-[#BC9B6B] text-xs font-bold text-[#204434] cursor-pointer shadow-2xs focus:outline-hidden"
+            >
+              {myClasses.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name} (HSK {cls.level || 1}) {cls.teacher?.name ? `· GV: ${cls.teacher.name}` : ""}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#204434] text-white font-bold">
+              HSK {currentHskLevel}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#315E48]">
+              Đã mở: <strong className="text-[#204434]">{dbLessons.length} bài</strong> / {officialLessons.length} bài
+            </span>
+            {onOpenJoinModal && (
+              <button
+                type="button"
+                onClick={onOpenJoinModal}
+                className="px-2.5 py-1 rounded-xl bg-[#FAF7F0] hover:bg-[#E5DEC9] border border-[#BC9B6B] text-[11px] font-bold text-[#8F6D3B] transition cursor-pointer"
+              >
+                + Vào lớp mới
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Selector chọn bài học trong lớp & Tab chế độ luyện tập */}
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-2xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Bộ chọn bài học (Lesson Selector) */}
@@ -797,7 +863,7 @@ export default function StudentPracticeWorkspace({
               const isPub = dbLessons.some((dl) => dl.lessonNumber === ls.number);
               return (
                 <option key={ls.number} value={ls.number}>
-                  Bài {String(ls.number).padStart(2, "0")}: {ls.titleZh} ({ls.titleVi}) {isPub ? "✓ Đã mở" : ""}
+                  Bài {String(ls.number).padStart(2, "0")}: {ls.titleZh} ({ls.titleVi}) {isPub ? "✓ Đã mở" : "🔒 Chưa mở quyền"}
                 </option>
               );
             })}
@@ -888,9 +954,52 @@ export default function StudentPracticeWorkspace({
       </div>
 
       {/* =================================================================== */}
+      {/* THÔNG BÁO BÀI HỌC CHƯA ĐƯỢC GIÁO VIÊN MỞ QUYỀN                      */}
+      {/* =================================================================== */}
+      {!isLessonUnlocked && (activeMode === "vocab" || activeMode === "grammar" || activeMode === "comprehensive" || activeMode === "game") && (
+        <div className="py-14 px-6 text-center bg-[#FFFCF6] rounded-3xl border-2 border-dashed border-[#BC9B6B] max-w-lg mx-auto shadow-sm space-y-4 animate-fadeIn my-6">
+          <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto text-3xl border border-amber-200 shadow-inner">
+            🔒
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-serif font-bold text-xl text-[#204434]">
+              Bài {selectedPracticeLesson} chưa được Giáo viên mở quyền
+            </h3>
+            <p className="text-xs text-[#315E48] leading-relaxed max-w-md mx-auto">
+              Lớp <strong>{activeClass?.name}</strong> (HSK {currentHskLevel}) hiện chỉ mở quyền luyện tập cho <strong>{dbLessons.length} bài</strong> đã được Thầy/Cô xuất bản. Các bài còn lại sẽ được Thầy/Cô mở dần theo tiến độ học trên lớp.
+            </p>
+          </div>
+          {dbLessons.length > 0 ? (
+            <div className="pt-2 flex flex-col items-center gap-2">
+              <span className="text-xs text-[#8F6D3B] font-bold">Các bài Thầy/Cô đã mở cho bạn luyện tập:</span>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {dbLessons.map((l) => (
+                  <button
+                    key={l.lessonNumber}
+                    onClick={() => {
+                      setSelectedPracticeLesson(l.lessonNumber);
+                      setActiveCardIndex(0);
+                      setShowCardMeaning(false);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition shadow-2xs cursor-pointer"
+                  >
+                    Bài {l.lessonNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-700 font-semibold italic">
+              (Thầy/Cô phụ trách lớp chưa mở bài học nào. Bạn vui lòng liên hệ Thầy/Cô để được mở bài nhé!)
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* =================================================================== */}
       {/* 1. CHẾ ĐỘ 1: LUYỆN TỪ VỰNG CHUYÊN SÂU (6 DẠNG BÀI TẬP TƯƠNG TÁC)   */}
       {/* =================================================================== */}
-      {activeMode === "vocab" && (
+      {isLessonUnlocked && activeMode === "vocab" && (
         <VocabPracticeSuite
           vocabList={vocabList}
           lessonTitleZh={currentOfficialLesson?.titleZh}
@@ -906,7 +1015,7 @@ export default function StudentPracticeWorkspace({
       {/* =================================================================== */}
       {/* 3. CHẾ ĐỘ 3: ÔN TẬP TỔNG HỢP (TRỘN TỪ VỰNG & NGỮ PHÁP)             */}
       {/* =================================================================== */}
-      {activeMode === "comprehensive" && (
+      {isLessonUnlocked && activeMode === "comprehensive" && (
         <ComprehensivePracticeSuite
           vocabList={vocabList}
           grammarList={grammarList}
@@ -920,7 +1029,7 @@ export default function StudentPracticeWorkspace({
       {/* =================================================================== */}
       {/* 2. CHẾ ĐỘ 2: LUYỆN NGỮ PHÁP (LÝ THUYẾT + BÀI TẬP 5 DẠNG TƯƠNG TÁC)   */}
       {/* =================================================================== */}
-      {activeMode === "grammar" && (
+      {isLessonUnlocked && activeMode === "grammar" && (
         <GrammarPracticeSuite
           grammarList={grammarList}
           vocabList={vocabList}
@@ -937,7 +1046,7 @@ export default function StudentPracticeWorkspace({
       {/* =================================================================== */}
       {/* 3. CHẾ ĐỘ 3: GAME PHẢN XẠ HSK (SPEED REFLEX CHALLENGE)             */}
       {/* =================================================================== */}
-      {activeMode === "game" && (
+      {isLessonUnlocked && activeMode === "game" && (
         <div className="p-6 sm:p-10 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/50 shadow-sm space-y-6 max-w-2xl mx-auto text-center">
           {gameState === "READY" && (
             <div className="space-y-4 py-6 animate-fadeIn">
@@ -1938,23 +2047,30 @@ export default function StudentPracticeWorkspace({
           </div>
 
           <div className="grid grid-cols-5 gap-1.5 max-h-28 overflow-y-auto pr-1">
-            {officialLessons.slice(0, 15).map((ls) => (
-              <button
-                key={ls.number}
-                onClick={() => {
-                  setSelectedPracticeLesson(ls.number);
-                  setActiveCardIndex(0);
-                  setShowCardMeaning(false);
-                }}
-                className={`p-1.5 rounded-xl border text-center transition cursor-pointer text-xs font-bold ${
-                  selectedPracticeLesson === ls.number
-                    ? "bg-[#204434] text-white border-[#204434] shadow-xs"
-                    : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#FAF7F0]"
-                }`}
-              >
-                B{ls.number}
-              </button>
-            ))}
+            {officialLessons.slice(0, 15).map((ls) => {
+              const isPub = dbLessons.some((dl) => dl.lessonNumber === ls.number);
+              return (
+                <button
+                  key={ls.number}
+                  onClick={() => {
+                    setSelectedPracticeLesson(ls.number);
+                    setActiveCardIndex(0);
+                    setShowCardMeaning(false);
+                  }}
+                  className={`p-1.5 rounded-xl border text-center transition cursor-pointer text-xs font-bold flex items-center justify-center gap-0.5 ${
+                    selectedPracticeLesson === ls.number
+                      ? "bg-[#204434] text-white border-[#204434] shadow-xs"
+                      : isPub
+                      ? "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                      : "bg-slate-50 text-slate-400 border-dashed border-slate-200"
+                  }`}
+                  title={isPub ? `Bài ${ls.number} (Đã mở)` : `Bài ${ls.number} (Chưa mở quyền)`}
+                >
+                  <span>B{ls.number}</span>
+                  {!isPub && <span className="text-[9px]">🔒</span>}
+                </button>
+              );
+            })}
           </div>
 
           <div className="text-[10px] text-[#8F6D3B] text-center font-semibold">

@@ -478,24 +478,32 @@ export default function MockExamPage() {
                 </p>
               </div>
 
-              {/* Bộ chọn cấp độ HSK 1 - 6 */}
-              <div className="space-y-2 max-w-md mx-auto pt-2">
+              {/* Bộ chọn cấp độ HSK 1 - 6 và HSK 7-9 */}
+              <div className="space-y-2 max-w-lg mx-auto pt-2">
                 <span className="text-xs font-bold text-[#204434] block">
                   Chọn cấp độ HSK bạn muốn làm đề thi thử:
                 </span>
-                <div className="grid grid-cols-6 gap-2">
-                  {[1, 2, 3, 4, 5, 6].map((lvl) => (
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                  {[
+                    { lvl: 1, label: "HSK 1" },
+                    { lvl: 2, label: "HSK 2" },
+                    { lvl: 3, label: "HSK 3" },
+                    { lvl: 4, label: "HSK 4" },
+                    { lvl: 5, label: "HSK 5" },
+                    { lvl: 6, label: "HSK 6" },
+                    { lvl: 7, label: "HSK 7–9" },
+                  ].map(({ lvl, label }) => (
                     <button
                       key={lvl}
                       type="button"
                       onClick={() => setSelectedLevel(lvl)}
-                      className={`py-2.5 rounded-2xl border text-center transition cursor-pointer font-serif font-bold text-sm ${
-                        selectedLevel === lvl
+                      className={`py-2.5 rounded-2xl border text-center transition cursor-pointer font-serif font-bold text-xs sm:text-sm ${
+                        (lvl === 7 && selectedLevel >= 7) || selectedLevel === lvl
                           ? "bg-[#204434] text-white border-[#204434] shadow-xs scale-105"
                           : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#FAF7F0]"
                       }`}
                     >
-                      HSK {lvl}
+                      {label}
                     </button>
                   ))}
                 </div>

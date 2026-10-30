@@ -111,6 +111,8 @@ export default function CurriculumBuilderWorkspace({
   const [newDialZh, setNewDialZh] = useState("");
   const [newDialPinyin, setNewDialPinyin] = useState("");
   const [newDialVi, setNewDialVi] = useState("");
+  const [quickDialogueText, setQuickDialogueText] = useState("");
+  const [isQuickDialogueOpen, setIsQuickDialogueOpen] = useState(false);
 
   // State thêm câu hỏi bài tập ngữ pháp mới trong editor
   const [newExMode, setNewExMode] = useState<GrammarExerciseMode>("choose_correct");
@@ -166,29 +168,166 @@ export default function CurriculumBuilderWorkspace({
     }
   };
 
-  // 1. TẢI VỀ FILE TEMPLATE MẪU (.JSON)
+  // 1. TẢI VỀ FILE TEMPLATE MẪU (.JSON) DÀNH CHO MỌI CẤP ĐỘ HSK (HSK 1 ĐẾN HSK 6 & 7-9)
   const handleDownloadTemplate = () => {
+    const defaultSampleLessons = [
+      {
+        id: `hsk${selectedLevel}-l1`,
+        number: 1,
+        titleZh: `第1课：你好`,
+        pinyin: "Dì yī kè: Nǐ hǎo",
+        titleVi: `Bài 1: Lời chào mở đầu HSK ${selectedLevel}`,
+        desc: `Bài học nền tảng cung cấp từ vựng, ngữ pháp và đoạn hội thoại giao tiếp chuẩn HSK ${selectedLevel}.`,
+        vocabList: [
+          {
+            hanzi: "你好",
+            pinyin: "nǐ hǎo",
+            meaningVi: "Xin chào",
+            wordType: "Chào hỏi",
+            exampleZh: "你好，很高兴认识你。",
+            examplePy: "Nǐ hǎo, hěn gāoxìng rènshí nǐ.",
+            exampleVi: "Xin chào, rất vui được làm quen với bạn.",
+          },
+          {
+            hanzi: "谢谢",
+            pinyin: "xièxie",
+            meaningVi: "Cảm ơn",
+            wordType: "Động từ",
+            exampleZh: "太谢谢你了！",
+            examplePy: "Tài xièxie nǐ le!",
+            exampleVi: "Cảm ơn bạn rất nhiều!",
+          },
+        ],
+        grammarList: [
+          {
+            title: "Đại từ nhân xưng và kính ngữ 您 (Nín)",
+            titleZh: "人称代词与尊称“您”",
+            structure: "Chủ ngữ (您) + Động từ / Tính từ",
+            example: "王老师，您好！",
+            explanation: "Dùng '您' khi giao tiếp với người lớn tuổi, thầy cô giáo hoặc cấp trên để thể hiện sự lịch sự và tôn kính.",
+          },
+        ],
+        dialogue: [
+          {
+            speaker: "A",
+            zh: "你好！你是新来的同学吗？",
+            pinyin: "Nǐ hǎo! Nǐ shì xīn lái de tóngxué ma?",
+            vi: "Xin chào! Bạn là bạn học mới đến à?",
+          },
+          {
+            speaker: "B",
+            zh: "你好！是的，我叫李明，请多关照。",
+            pinyin: "Nǐ hǎo! Shì de, wǒ jiào Lǐ Míng, qǐng duō guānzhào.",
+            vi: "Xin chào! Đúng vậy, mình tên là Lý Minh, mong được giúp đỡ nhiều.",
+          },
+          {
+            speaker: "A",
+            zh: "很高兴认识你！今天天气真好，我们一起去教室吧。",
+            pinyin: "Hěn gāoxìng rènshí nǐ! Jīntiān tiānqì zhēn hǎo, wǒmen yìqǐ qù jiàoshì ba.",
+            vi: "Rất vui được làm quen với bạn! Hôm nay thời tiết thật đẹp, chúng mình cùng vào lớp nhé.",
+          },
+          {
+            speaker: "B",
+            zh: "好的，太谢谢你了！",
+            pinyin: "Hǎo de, tài xièxie nǐ le!",
+            vi: "Được thôi, cảm ơn bạn nhiều nhé!",
+          },
+        ],
+        phonetics: {
+          title: "Quy tắc thanh điệu và biến âm",
+          rule: "Hai thanh 3 đi liền nhau thì thanh đầu đọc thành thanh 2 (Ví dụ: Nǐ hǎo -> Ní hǎo).",
+          examples: ["nǐ hǎo", "kěyǐ", "měihǎo"],
+        },
+        culture: "Nghệ thuật xưng hô lịch sự và văn hóa trà đạo trong giao tiếp Trung Hoa.",
+        grammarExercises: [
+          {
+            lessonNumber: 1,
+            mode: "choose_correct",
+            grammarRule: "Kính ngữ 您",
+            prompt: "Chọn câu chào hỏi giáo viên đúng mực và lịch sự nhất:",
+            options: ["A. 好王老师！", "B. 王老师，您好！", "C. 你好王老师！", "D. 老师你！"],
+            correctAnswer: "B",
+            explanation: "Chào hỏi thầy cô cần dùng chức danh + 您好 (王老师，您好！).",
+          },
+        ],
+      },
+      {
+        id: `hsk${selectedLevel}-l2`,
+        number: 2,
+        titleZh: `第2课：谢谢你`,
+        pinyin: "Dì èr kè: Xièxie nǐ",
+        titleVi: `Bài 2: Cảm ơn và lời đáp từ`,
+        desc: `Học cách nói lời cảm ơn, xin lỗi và cách hồi đáp trang nhã.`,
+        vocabList: [
+          {
+            hanzi: "不客气",
+            pinyin: "bú kèqi",
+            meaningVi: "Đừng khách sáo / Không có chi",
+            wordType: "Thành ngữ",
+            exampleZh: "不用客气，这是我应该做的。",
+            examplePy: "Búyòng kèqi, zhè shì wǒ yīnggāi zuò de.",
+            exampleVi: "Đừng khách sáo, đây là việc tôi nên làm mà.",
+          },
+        ],
+        grammarList: [
+          {
+            title: "Trợ từ ngữ khí 吧 (ba) biểu thị đề xuất hoặc thúc giục",
+            titleZh: "语气助词“吧”表示提议",
+            structure: "Câu trần thuật + 吧！",
+            example: "我们一起走吧！",
+            explanation: "Đặt '吧' ở cuối câu để đưa ra lời mời, gợi ý hoặc đề xuất cùng làm việc gì đó một cách nhẹ nhàng.",
+          },
+        ],
+        dialogue: [
+          {
+            speaker: "A",
+            zh: "这本书送给你，祝你学习进步！",
+            pinyin: "Zhè běn shū sòng gěi nǐ, zhù nǐ xuéxí jìnbù!",
+            vi: "Cuốn sách này tặng bạn, chúc bạn học tập tiến bộ!",
+          },
+          {
+            speaker: "B",
+            zh: "哇，太感谢你了！不客气，我们一起加油吧！",
+            pinyin: "Wa, tài gǎnxiè nǐ le! Bú kèqi, wǒmen yìqǐ jiāyóu ba!",
+            vi: "Oa, cảm ơn bạn nhiều lắm! Không có chi, chúng mình cùng cố gắng nhé!",
+          },
+        ],
+        phonetics: {
+          title: "Vần uốn lưỡi Erhua",
+          rule: "Thêm âm r vào cuối chữ Hán để thể hiện sắc thái thân mật hoặc chỉ đồ vật nhỏ.",
+          examples: ["zhèr", "nàr", "yìdiǎnr"],
+        },
+        culture: "Ý nghĩa của việc tặng quà và cách nhận quà bằng hai tay trong văn hóa Á Đông.",
+        grammarExercises: [],
+      },
+    ];
+
+    const lessonsData = lessons && lessons.length > 0
+      ? lessons.slice(0, 2).map((l) => ({
+          id: l.id,
+          number: l.number,
+          titleZh: l.titleZh,
+          pinyin: l.pinyin,
+          titleVi: l.titleVi || "Tiêu đề tiếng Việt",
+          desc: l.desc || "Mô tả bài học",
+          vocabList: l.vocabList || [],
+          grammarList: l.grammarList || [],
+          dialogue: (l.dialogue && l.dialogue.length > 0) ? l.dialogue : defaultSampleLessons[0].dialogue,
+          phonetics: l.phonetics || {
+            title: "Luyện phát âm",
+            rule: "Quy tắc phát âm",
+            examples: ["a", "o", "e"],
+          },
+          culture: l.culture || "Nét đẹp văn hóa",
+          grammarExercises: l.grammarExercises || [],
+        }))
+      : defaultSampleLessons;
+
     const templateSample = {
       level: selectedLevel,
-      description: `Template mẫu cấu trúc giáo trình HSK ${selectedLevel} chuẩn`,
-      lessons: lessons.slice(0, 2).map((l) => ({
-        id: l.id,
-        number: l.number,
-        titleZh: l.titleZh,
-        pinyin: l.pinyin,
-        titleVi: l.titleVi || "Tiêu đề tiếng Việt",
-        desc: l.desc || "Mô tả bài học",
-        vocabList: l.vocabList || [],
-        grammarList: l.grammarList || [],
-        dialogue: l.dialogue || [],
-        phonetics: l.phonetics || {
-          title: "Luyện phát âm",
-          rule: "Quy tắc phát âm",
-          examples: ["a", "o", "e"],
-        },
-        culture: l.culture || "Nét đẹp văn hóa",
-        grammarExercises: l.grammarExercises || [],
-      })),
+      description: `Template mẫu cấu trúc giáo trình HSK ${selectedLevel} chuẩn quốc tế`,
+      instructions: "Thầy/Cô có thể nhân bản bài học trong mảng 'lessons'. Mỗi bài học gồm: vocabList (từ vựng), grammarList (ngữ pháp), dialogue (đoạn hội thoại có speaker, zh, pinyin, vi), phonetics (ngữ âm), culture (văn hóa), grammarExercises (bài tập).",
+      lessons: lessonsData,
     };
 
     const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateSample, null, 2));
@@ -199,7 +338,7 @@ export default function CurriculumBuilderWorkspace({
     downloadAnchor.click();
     downloadAnchor.remove();
 
-    showToast(`Đã xuất template mẫu HSK ${selectedLevel} thành công!`);
+    showToast(`Đã xuất template mẫu HSK ${selectedLevel} hoàn chỉnh thành công!`);
   };
 
     // 1B. TẢI VỀ FILE TEMPLATE CÂU HỎI BÀI TẬP NGỮ PHÁP (.JSON)
@@ -1861,12 +2000,112 @@ export default function CurriculumBuilderWorkspace({
                 </div>
               )}
 
-              {/* TAB 4: ĐOẠN HỘI THOẠI */}
+              {/* TAB 4: ĐOẠN HỘI THOẠI & BÀI KHÓA */}
               {editorTab === "dialogue" && (
                 <div className="space-y-5">
+                  {/* Thanh công cụ: Nhập nhanh và Thêm thủ công */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-[#8F6D3B]" />
+                      <span>Đoạn hội thoại & Bài khóa giao tiếp ({editingLesson.dialogue?.length || 0} câu thoại)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsQuickDialogueOpen(!isQuickDialogueOpen)}
+                      className="px-3 py-1.5 rounded-xl border border-[#BC9B6B] bg-[#FAF7F0] hover:bg-[#E5DEC9]/40 text-[#8F6D3B] text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{isQuickDialogueOpen ? "Đóng nhập nhanh" : "⚡ Nhập nhanh văn bản"}</span>
+                    </button>
+                  </div>
+
+                  {/* Panel nhập nhanh bằng văn bản nhiều dòng */}
+                  {isQuickDialogueOpen && (
+                    <div className="p-4 rounded-2xl bg-[#FAF7F0] border-2 border-dashed border-[#BC9B6B] space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#204434]">
+                          Dán văn bản đoạn hội thoại (mỗi câu 1 dòng dạng: &quot;A: Chữ Hán (pinyin) - Nghĩa tiếng Việt&quot; hoặc &quot;A: Chữ Hán&quot;):
+                        </span>
+                      </div>
+                      <textarea
+                        rows={4}
+                        placeholder={`A: 你好！(nǐ hǎo) - Xin chào!\nB: 你好，很高兴认识你。(nǐ hǎo, hěn gāoxìng rènshí nǐ) - Xin chào, rất vui được làm quen với bạn.\nA: 今天天气真好，我们一起去吃饭吧！ - Hôm nay thời tiết đẹp quá, chúng mình cùng đi ăn nhé!`}
+                        value={quickDialogueText}
+                        onChange={(e) => setQuickDialogueText(e.target.value)}
+                        className="w-full p-3 rounded-xl border border-[#E5DEC9] bg-white text-xs font-sans focus:outline-hidden leading-relaxed"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!quickDialogueText.trim()) return;
+                            const lines = quickDialogueText.split("\n").map((l) => l.trim()).filter(Boolean);
+                            const parsedLines: Array<{ speaker: string; zh: string; pinyin: string; vi: string }> = [];
+
+                            for (const line of lines) {
+                              const colonMatch = line.match(/^([^:：]{1,15})[:：](.*)$/);
+                              let spk = "A";
+                              let rest = line;
+                              if (colonMatch) {
+                                spk = colonMatch[1].trim();
+                                rest = colonMatch[2].trim();
+                              } else {
+                                spk = parsedLines.length % 2 === 0 ? "A" : "B";
+                              }
+
+                              // Thử tách phiên âm trong ngoặc (...) và nghĩa sau dấu gạch ngang -
+                              let py = "";
+                              let vi = "";
+                              let zh = rest;
+
+                              const dashIdx = zh.lastIndexOf(" - ");
+                              if (dashIdx > 0) {
+                                vi = zh.slice(dashIdx + 3).trim();
+                                zh = zh.slice(0, dashIdx).trim();
+                              }
+
+                              const pyMatch = zh.match(/\(([^)]+)\)/);
+                              if (pyMatch) {
+                                py = pyMatch[1].trim();
+                                zh = zh.replace(/\(([^)]+)\)/, "").trim();
+                              }
+
+                              if (zh) {
+                                parsedLines.push({
+                                  speaker: spk,
+                                  zh,
+                                  pinyin: py,
+                                  vi: vi || zh,
+                                });
+                              }
+                            }
+
+                            if (parsedLines.length === 0) {
+                              showToast("Không tìm thấy dòng hội thoại hợp lệ!", "error");
+                              return;
+                            }
+
+                            const currentList = editingLesson.dialogue || [];
+                            setEditingLesson({
+                              ...editingLesson,
+                              dialogue: [...currentList, ...parsedLines],
+                            });
+                            setQuickDialogueText("");
+                            setIsQuickDialogueOpen(false);
+                            showToast(`Đã thêm nhanh ${parsedLines.length} câu thoại thành công!`);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition cursor-pointer shadow-xs"
+                        >
+                          Phân tích & Thêm vào bài
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Form thêm câu thoại thủ công */}
                   <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
                     <span className="text-xs font-bold text-[#204434] block">
-                      + Thêm câu thoại mới:
+                      + Thêm từng câu thoại thủ công:
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <input
@@ -1878,7 +2117,7 @@ export default function CurriculumBuilderWorkspace({
                       />
                       <input
                         type="text"
-                        placeholder="Hán tự câu nói"
+                        placeholder="Hán tự câu nói (Bắt buộc)"
                         value={newDialZh}
                         onChange={(e) => setNewDialZh(e.target.value)}
                         className="px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-bold col-span-1 sm:col-span-3"
@@ -1930,33 +2169,85 @@ export default function CurriculumBuilderWorkspace({
                     </button>
                   </div>
 
-                  {/* Danh sách câu thoại */}
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {editingLesson.dialogue?.map((d, i) => (
-                      <div
-                        key={i}
-                        className="p-3 rounded-xl bg-white border border-[#E5DEC9] flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div>
-                          <span className="font-bold text-[#8F6D3B] mr-2">{d.speaker}:</span>
-                          <span className="font-serif font-bold text-sm text-[#204434] mr-2">
-                            {d.zh}
-                          </span>
-                          <span className="text-[#315E48] italic">({d.vi})</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setEditingLesson({
-                              ...editingLesson,
-                              dialogue: editingLesson.dialogue?.filter((_, idx) => idx !== i),
-                            });
-                          }}
-                          className="text-red-500 hover:text-red-700 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                  {/* Danh sách câu thoại hiển thị dạng Bong bóng Đối thoại Thủy Mặc */}
+                  <div className="space-y-3 max-h-96 overflow-y-auto p-2 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]">
+                    {(!editingLesson.dialogue || editingLesson.dialogue.length === 0) ? (
+                      <div className="py-8 text-center text-xs text-slate-400">
+                        Chưa có câu thoại nào. Thầy/Cô hãy thêm câu thoại hoặc dùng nút &quot;Nhập nhanh&quot; ở trên nhé.
                       </div>
-                    ))}
+                    ) : (
+                      editingLesson.dialogue.map((d, i) => {
+                        const isEven = i % 2 === 0;
+                        return (
+                          <div
+                            key={i}
+                            className={`flex flex-col ${isEven ? "items-start" : "items-end"} gap-1`}
+                          >
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#8F6D3B] px-1">
+                              <span>{d.speaker}</span>
+                            </div>
+
+                            <div
+                              className={`p-3.5 rounded-2xl max-w-[85%] border shadow-xs transition ${
+                                isEven
+                                  ? "bg-white border-[#E5DEC9] text-[#204434] rounded-tl-xs"
+                                  : "bg-[#204434] border-[#204434] text-white rounded-tr-xs"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className={`font-serif font-bold text-base ${isEven ? "text-[#204434]" : "text-amber-100"}`}>
+                                    {d.zh}
+                                  </div>
+                                  {d.pinyin && (
+                                    <div className={`text-[11px] font-mono mt-0.5 ${isEven ? "text-[#8F6D3B]" : "text-amber-200/90"}`}>
+                                      {d.pinyin}
+                                    </div>
+                                  )}
+                                  {d.vi && (
+                                    <div className={`text-xs mt-1 ${isEven ? "text-[#315E48]" : "text-white/80"}`}>
+                                      {d.vi}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSpeak(d.zh)}
+                                    className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                      isEven
+                                        ? "text-[#8F6D3B] hover:bg-[#FAF7F0]"
+                                        : "text-amber-200 hover:bg-white/10"
+                                    }`}
+                                    title="Nghe phát âm câu thoại"
+                                  >
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingLesson({
+                                        ...editingLesson,
+                                        dialogue: editingLesson.dialogue?.filter((_, idx) => idx !== i),
+                                      });
+                                    }}
+                                    className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                      isEven
+                                        ? "text-rose-500 hover:bg-rose-50"
+                                        : "text-rose-200 hover:bg-rose-900/40"
+                                    }`}
+                                    title="Xóa câu thoại này"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}

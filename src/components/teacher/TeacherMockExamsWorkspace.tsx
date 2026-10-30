@@ -81,12 +81,13 @@ export default function TeacherMockExamsWorkspace({
 
   // 1. TẢI VỀ FILE TEMPLATE ĐỀ THI HSK CHUẨN CỦA GIÁO VIÊN (.JSON)
   const handleDownloadExamTemplate = () => {
+    const levelLabel = selectedLevel >= 7 ? "HSK 7–9" : `HSK ${selectedLevel}`;
     const sampleTemplate = {
-      title: `Đề thi thử HSK ${selectedLevel} Chuẩn Quốc Tế - Đề của Thầy/Cô`,
+      title: `Đề thi thử ${levelLabel} Chuẩn Quốc Tế - Đề của Thầy/Cô`,
       description: `Đề thi thử mô phỏng do Thầy/Cô tự biên soạn gồm đầy đủ 3 kỹ năng Nghe hiểu, Đọc hiểu và Viết.`,
       hskLevel: selectedLevel,
       totalScore: selectedLevel <= 2 ? 200 : 300,
-      durationMin: selectedLevel === 1 ? 35 : selectedLevel === 2 ? 50 : selectedLevel === 3 ? 85 : selectedLevel === 4 ? 100 : 120,
+      durationMin: selectedLevel === 1 ? 35 : selectedLevel === 2 ? 50 : selectedLevel === 3 ? 85 : selectedLevel === 4 ? 100 : selectedLevel >= 7 ? 150 : 120,
       instructions: "Thầy/Cô có thể chỉnh sửa các câu hỏi trong mảng 'questions'. Mỗi câu hỏi gồm: content (đề bài), pinyinPrompt (chữ Hán/phiên âm/audioUrl), options (danh sách lựa chọn), correctAnswer (đáp án đúng), explanation (giải thích chi tiết), skill (LISTENING | READING | WRITING).",
       questions: [
         {
@@ -140,12 +141,15 @@ export default function TeacherMockExamsWorkspace({
     const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sampleTemplate, null, 2));
     const downloadAnchor = document.createElement("a");
     downloadAnchor.setAttribute("href", jsonStr);
-    downloadAnchor.setAttribute("download", `HSK${selectedLevel}_Mock_Exam_Template.json`);
+    downloadAnchor.setAttribute(
+      "download",
+      selectedLevel >= 7 ? "HSK7-9_Mock_Exam_Template.json" : `HSK${selectedLevel}_Mock_Exam_Template.json`
+    );
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
 
-    if (showToast) showToast(`Đã tải file template đề thi HSK ${selectedLevel} (.JSON)`);
+    if (showToast) showToast(`Đã tải file template đề thi ${levelLabel} (.JSON)`);
   };
 
   // 2. KÍCH HOẠT CHỌN FILE ĐỀ THI
@@ -637,18 +641,26 @@ export default function TeacherMockExamsWorkspace({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-2">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => (
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+          {[
+            { lvl: 1, label: "HSK 1" },
+            { lvl: 2, label: "HSK 2" },
+            { lvl: 3, label: "HSK 3" },
+            { lvl: 4, label: "HSK 4" },
+            { lvl: 5, label: "HSK 5" },
+            { lvl: 6, label: "HSK 6" },
+            { lvl: 7, label: "HSK 7–9" },
+          ].map(({ lvl, label }) => (
             <button
               key={lvl}
               onClick={() => setSelectedLevel(lvl)}
               className={`py-2 rounded-2xl border text-center font-bold text-xs transition cursor-pointer ${
-                selectedLevel === lvl
+                (lvl === 7 && selectedLevel >= 7) || selectedLevel === lvl
                   ? "bg-[#204434] text-white border-[#204434] shadow-xs scale-105"
                   : "bg-white text-[#204434] border-[#E5DEC9] hover:bg-[#FAF7F0]"
               }`}
             >
-              HSK {lvl}
+              {label}
             </button>
           ))}
         </div>
@@ -658,7 +670,7 @@ export default function TeacherMockExamsWorkspace({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-serif font-bold text-lg text-[#204434] flex items-center gap-2">
-            <span>Danh sách đề thi HSK {selectedLevel} đang mở</span>
+            <span>Danh sách đề thi {selectedLevel >= 7 ? "HSK 7–9" : `HSK ${selectedLevel}`} đang mở</span>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-mono font-bold">
               {filteredExams.length} bộ đề
             </span>
@@ -686,13 +698,13 @@ export default function TeacherMockExamsWorkspace({
         {loading ? (
           <div className="py-20 text-center text-slate-500 bg-white rounded-3xl border border-[#E5DEC9]">
             <div className="animate-spin text-3xl mb-2">⏳</div>
-            <p className="text-xs font-medium">Đang tải danh sách đề thi HSK {selectedLevel}...</p>
+            <p className="text-xs font-medium">Đang tải danh sách đề thi {selectedLevel >= 7 ? "HSK 7–9" : `HSK ${selectedLevel}`}...</p>
           </div>
         ) : filteredExams.length === 0 ? (
           <div className="py-16 text-center bg-white rounded-3xl border border-[#E5DEC9] p-8 space-y-4 max-w-lg mx-auto shadow-xs">
             <div className="text-5xl">📄</div>
             <h3 className="text-base font-bold text-[#204434]">
-              Chưa có đề thi mô phỏng nào cho HSK {selectedLevel}
+              Chưa có đề thi mô phỏng nào cho {selectedLevel >= 7 ? "HSK 7–9" : `HSK ${selectedLevel}`}
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
               Thầy/Cô có thể tải lên đề thi riêng (.JSON) do mình soạn hoặc bấm tạo đề tự động để xuất bản vào Phòng thi cho học sinh nhé!
@@ -710,7 +722,7 @@ export default function TeacherMockExamsWorkspace({
                 disabled={isPublishing}
                 className="px-5 py-2.5 bg-[#204434] hover:bg-[#183629] text-white rounded-2xl text-xs font-bold transition shadow-sm cursor-pointer"
               >
-                {isPublishing ? "Đang tạo..." : `+ Tạo đề HSK ${selectedLevel} tự động`}
+                {isPublishing ? "Đang tạo..." : `+ Tạo đề ${selectedLevel >= 7 ? "HSK 7–9" : `HSK ${selectedLevel}`} tự động`}
               </button>
             </div>
           </div>
@@ -724,7 +736,7 @@ export default function TeacherMockExamsWorkspace({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B]">
-                      HSK {exam.hskLevel} · {exam.durationMin} phút
+                      HSK {exam.hskLevel >= 7 ? "7–9" : exam.hskLevel} · {exam.durationMin} phút
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium">
                       Người tạo: <strong>{exam.teacherName}</strong>
