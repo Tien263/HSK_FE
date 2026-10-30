@@ -98,10 +98,17 @@ export default function MistakeNotebookModal({
 
   useEffect(() => {
     if (isOpen) {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
       fetchWrongQuestions();
       setSelectedOption(null);
       setIsAnswered(false);
       setFeedback(null);
+    } else {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     }
   }, [isOpen, fetchWrongQuestions]);
 
@@ -348,13 +355,6 @@ export default function MistakeNotebookModal({
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleSpeak(currentQ.content)}
-                    className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white flex items-center justify-center transition flex-shrink-0"
-                    title="Nghe phát âm"
-                  >
-                    <Volume2 className="w-5 h-5" />
-                  </button>
                 </div>
 
                 {/* Khu vực trả lời: Phân biệt dạng Sắp xếp câu (Reorder) hoặc Trắc nghiệm */}
