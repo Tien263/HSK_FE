@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_SELF_STUDY_ROADMAP_STAGES } from "@/app/api/v1/self-study-roadmap/route";
+import { DEFAULT_SELF_STUDY_ROADMAP_STAGES } from "@/lib/self-study-roadmap-constants";
 
 export async function GET() {
   try {

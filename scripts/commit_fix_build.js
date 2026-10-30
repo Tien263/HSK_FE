@@ -9,7 +9,7 @@ execSync('git read-tree HEAD', { env });
 execSync('git add -A', { env });
 const treeHash = execSync('git write-tree', { env, encoding: 'utf8' }).trim();
 const headCommit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
-const commitMsg = 'feat: integrate 4 Grand Master antique calligraphy styles with authentic paper textures, dynamic brush physics & imperial seal animation';
+const commitMsg = 'fix(build): isolate self-study roadmap constants from api routes to fix client bundle fs error';
 const newCommit = execSync(`git commit-tree ${treeHash} -p ${headCommit} -m "${commitMsg}"`, { env, encoding: 'utf8' }).trim();
 
 fs.writeFileSync('.git/refs/heads/main', newCommit + '\n');

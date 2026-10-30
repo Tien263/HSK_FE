@@ -14,15 +14,10 @@ import {
   Layers,
   Eye,
 } from "lucide-react";
-import { DEFAULT_SELF_STUDY_ROADMAP_STAGES } from "@/app/api/v1/self-study-roadmap/route";
-
-export interface RoadmapStage {
-  step: number;
-  title: string;
-  duration: string;
-  desc: string;
-  badge: string;
-}
+import {
+  DEFAULT_SELF_STUDY_ROADMAP_STAGES,
+  type RoadmapStage,
+} from "@/lib/self-study-roadmap-constants";
 
 export default function SelfStudyRoadmapAdminWorkspace() {
   const [stages, setStages] = useState<RoadmapStage[]>(DEFAULT_SELF_STUDY_ROADMAP_STAGES);
