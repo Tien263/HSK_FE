@@ -7,7 +7,6 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
-  Volume2,
   BookOpen,
   Sparkles,
   ChevronRight,
@@ -56,24 +55,6 @@ export default function MistakeNotebookModal({
   } | null>(null);
   const [viewMode, setViewMode] = useState<"practice" | "list">("practice");
 
-  // State hỗ trợ dạng câu hỏi Sắp xếp từ thành câu (Reorder / Sentence Scramble)
-  const [availableTokens, setAvailableTokens] = useState<string[]>([]);
-  const [assembledTokens, setAssembledTokens] = useState<string[]>([]);
-
-  const extractScrambledTokens = useCallback((content: string): string[] => {
-    // 1. Tìm các từ trong ngoặc đơn: (大家好) (一起) (吃) (我们) (吧) (饭)
-    const matches = content.match(/\(([^)]+)\)/g);
-    if (matches && matches.length >= 2) {
-      return matches.map((m) => m.replace(/[()（）]/g, "").trim()).filter(Boolean);
-    }
-    // 2. Tìm phân cách bởi dấu gạch chéo: 大家好 / 一起 / 吃 / 我们 / 吧 / 饭
-    if (content.includes(" / ") || content.includes("/")) {
-      const parts = content.split(/\s*\/\s*/).map((p) => p.trim()).filter(Boolean);
-      if (parts.length >= 2) return parts;
-    }
-    return [];
-  }, []);
-
   const fetchWrongQuestions = useCallback(async () => {
     setLoading(true);
     try {
@@ -112,56 +93,30 @@ export default function MistakeNotebookModal({
     }
   }, [isOpen, fetchWrongQuestions]);
 
-  const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
   const currentQ = items[currentIndex];
 
-  // Khởi tạo các tokens sắp xếp khi chuyển câu hỏi
-  useEffect(() => {
-    if (currentQ) {
-      const extracted = extractScrambledTokens(currentQ.content);
-      if (extracted.length >= 2) {
-        setAvailableTokens([...extracted]);
-      } else {
-        setAvailableTokens([]);
-      }
-      setAssembledTokens([]);
-    }
-  }, [currentIndex, currentQ, extractScrambledTokens]);
-
-  const handlePickToken = (word: string, index: number) => {
-    if (isAnswered) return;
-    setAssembledTokens((prev) => [...prev, word]);
-    setAvailableTokens((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleRemoveToken = (word: string, index: number) => {
-    if (isAnswered) return;
-    setAvailableTokens((prev) => [...prev, word]);
-    setAssembledTokens((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleResetTokens = () => {
+  const handleSelectAnswer = async (optIdOrText: string) => {
     if (isAnswered || !currentQ) return;
-    const extracted = extractScrambledTokens(currentQ.content);
-    setAvailableTokens([...extracted]);
-    setAssembledTokens([]);
-  };
-
-  const handleSelectAnswer = async (optId: string, forcedIsCorrect?: boolean) => {
-    if (isAnswered || !currentQ) return;
-    setSelectedOption(optId);
+    setSelectedOption(optIdOrText);
     setIsAnswered(true);
 
-    const isCorrect = typeof forcedIsCorrect === "boolean" ? forcedIsCorrect : optId === currentQ.correctAnswer;
+    // Kiểm tra đúng/sai: so khớp với opt.id hoặc opt.text hoặc correctAnswer
+    const cleanStr = (s: string) => String(s || "").trim().toLowerCase();
+    const correctClean = cleanStr(currentQ.correctAnswer);
+    const selectedClean = cleanStr(optIdOrText);
+
+    let isCorrect = selectedClean === correctClean;
+    if (!isCorrect) {
+      // Thử so khớp nếu correctAnswer là chữ cái A, B, C, D hoặc ngược lại
+      const matchedOpt = currentQ.options.find(
+        (o) => cleanStr(o.id) === selectedClean || cleanStr(o.text) === selectedClean
+      );
+      if (matchedOpt) {
+        if (cleanStr(matchedOpt.id) === correctClean || cleanStr(matchedOpt.text) === correctClean) {
+          isCorrect = true;
+        }
+      }
+    }
 
     try {
       const res = await fetch("/api/v1/my/wrong-questions", {
@@ -204,31 +159,10 @@ export default function MistakeNotebookModal({
     }
   };
 
-  const handleCheckReorder = () => {
-    if (isAnswered || !currentQ || assembledTokens.length === 0) return;
-    const cleanStr = (s: string) => s.replace(/[\s\t\r\n,，.。!?！？'’"”]/g, "").trim();
-    const assembledRaw = assembledTokens.join("");
-    const assembledClean = cleanStr(assembledRaw);
-    const targetClean = cleanStr(currentQ.correctAnswer || "");
-    const explanationClean = cleanStr(currentQ.explanation || "");
-
-    let isMatch = false;
-    if (targetClean && assembledClean === targetClean) {
-      isMatch = true;
-    } else if (explanationClean.includes(assembledClean) && assembledClean.length >= 4) {
-      isMatch = true;
-    } else if (assembledClean.includes(targetClean) && targetClean.length >= 4) {
-      isMatch = true;
-    }
-
-    handleSelectAnswer(assembledRaw, isMatch);
-  };
-
   const handleNext = () => {
     setSelectedOption(null);
     setIsAnswered(false);
     setFeedback(null);
-    setAssembledTokens([]);
     if (currentIndex < items.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
@@ -357,126 +291,59 @@ export default function MistakeNotebookModal({
                   </div>
                 </div>
 
-                {/* Khu vực trả lời: Phân biệt dạng Sắp xếp câu (Reorder) hoặc Trắc nghiệm */}
-                {(() => {
-                  const extracted = extractScrambledTokens(currentQ.content);
-                  const validOptions = currentQ.options.filter((o) => o.text && o.text.trim());
-                  const isReorder = extracted.length >= 2 || (validOptions.length === 0 && currentQ.content.includes("Sắp xếp"));
+                {/* Danh sách các lựa chọn trắc nghiệm y hệt phòng thi và bài tập */}
+                <div className="mt-5 space-y-2.5">
+                  {currentQ.options && currentQ.options.length > 0 ? (
+                    currentQ.options.map((opt, idx) => {
+                      const optLabel = opt.id || String.fromCharCode(65 + idx);
+                      const optText = opt.text || "";
+                      const isSelected = selectedOption === optLabel || selectedOption === optText;
+                      const isCorrectAnswer =
+                        currentQ.correctAnswer === optLabel ||
+                        currentQ.correctAnswer === optText ||
+                        (optText && currentQ.correctAnswer.trim().toLowerCase() === optText.trim().toLowerCase());
 
-                  if (isReorder) {
-                    return (
-                      <div className="mt-5 space-y-4">
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <span className="font-bold text-[#204434]">
-                            👉 Bấm chọn các từ bên dưới để ghép thành câu hoàn chỉnh:
-                          </span>
-                          {!isAnswered && (
-                            <button
-                              type="button"
-                              onClick={handleResetTokens}
-                              className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
-                            >
-                              Làm lại
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Ô chứa các từ đã ghép */}
-                        <div className="min-h-[58px] p-3 rounded-2xl bg-[#FAF7F0] border-2 border-dashed border-[#BC9B6B] flex flex-wrap gap-2 items-center justify-center">
-                          {assembledTokens.length === 0 ? (
-                            <span className="text-xs text-slate-400 italic">
-                              (Chưa có từ nào được chọn. Bấm các từ bên dưới để ghép câu)
-                            </span>
-                          ) : (
-                            assembledTokens.map((tok, i) => (
-                              <button
-                                key={i}
-                                disabled={isAnswered}
-                                onClick={() => handleRemoveToken(tok, i)}
-                                className="px-3.5 py-1.5 rounded-xl bg-[#204434] text-white text-sm font-serif font-bold shadow-xs cursor-pointer hover:bg-rose-700 transition"
-                                title="Bấm để gỡ từ này"
-                              >
-                                {tok}
-                              </button>
-                            ))
-                          )}
-                        </div>
-
-                        {/* Danh sách các từ có sẵn */}
-                        <div className="flex flex-wrap gap-2 justify-center py-2">
-                          {availableTokens.map((tok, i) => (
-                            <button
-                              key={i}
-                              disabled={isAnswered}
-                              onClick={() => handlePickToken(tok, i)}
-                              className="px-3.5 py-2 rounded-xl bg-white border-2 border-[#E5DEC9] text-[#204434] text-sm font-serif font-bold shadow-xs hover:border-[#204434] hover:bg-[#FAF7F0] transition cursor-pointer"
-                            >
-                              {tok}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Nút kiểm tra câu sắp xếp */}
-                        {!isAnswered && (
-                          <div className="flex justify-end pt-1">
-                            <button
-                              disabled={assembledTokens.length === 0}
-                              onClick={handleCheckReorder}
-                              className="px-6 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                              Kiểm tra câu ghép
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  // Dạng trắc nghiệm nhiều lựa chọn
-                  return (
-                    <div className="mt-5 space-y-2.5">
-                      {validOptions.map((opt) => {
-                        const isSelected = selectedOption === opt.id || selectedOption === opt.text;
-                        const isCorrectAnswer = opt.id === currentQ.correctAnswer || opt.text === currentQ.correctAnswer;
-
-                        let btnStyle = "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700";
-                        if (isAnswered) {
-                          if (isCorrectAnswer) {
-                            btnStyle = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-2 ring-emerald-300";
-                          } else if (isSelected) {
-                            btnStyle = "bg-rose-50 border-rose-400 text-rose-800 font-bold ring-2 ring-rose-300";
-                          } else {
-                            btnStyle = "bg-slate-50/50 border-slate-200 text-slate-400 opacity-60";
-                          }
+                      let btnStyle = "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700";
+                      if (isAnswered) {
+                        if (isCorrectAnswer) {
+                          btnStyle = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-2 ring-emerald-300";
                         } else if (isSelected) {
-                          btnStyle = "bg-rose-50 border-rose-400 text-rose-800 font-bold";
+                          btnStyle = "bg-rose-50 border-rose-400 text-rose-800 font-bold ring-2 ring-rose-300";
+                        } else {
+                          btnStyle = "bg-slate-50/50 border-slate-200 text-slate-400 opacity-60";
                         }
+                      } else if (isSelected) {
+                        btnStyle = "bg-rose-50 border-rose-400 text-rose-800 font-bold";
+                      }
 
-                        return (
-                          <button
-                            key={opt.id}
-                            disabled={isAnswered}
-                            onClick={() => handleSelectAnswer(opt.id)}
-                            className={`w-full p-3.5 rounded-2xl border-2 text-left flex items-center justify-between transition-all ${btnStyle}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="w-7 h-7 rounded-xl bg-white border border-slate-300 flex items-center justify-center text-xs font-bold shadow-sm">
-                                {opt.id}
-                              </span>
-                              <span className="text-sm font-medium">{opt.text}</span>
+                      return (
+                        <button
+                          key={opt.id || idx}
+                          disabled={isAnswered}
+                          onClick={() => handleSelectAnswer(optText || optLabel)}
+                          className={`w-full p-3.5 rounded-2xl border-2 text-left flex items-center justify-between transition-all cursor-pointer ${btnStyle}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-7 h-7 rounded-xl bg-white border border-slate-300 flex items-center justify-center text-xs font-bold shadow-sm shrink-0">
+                              {optLabel}
+                            </span>
+                            <span className="text-sm font-medium">{optText || `Phương án ${optLabel}`}</span>
+                          </div>
+                          {isAnswered && (
+                            <div className="shrink-0">
+                              {isCorrectAnswer && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                              {isSelected && !isCorrectAnswer && <XCircle className="w-5 h-5 text-rose-600" />}
                             </div>
-                            {isAnswered && (
-                              <div>
-                                {isCorrectAnswer && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-                                {isSelected && !isCorrectAnswer && <XCircle className="w-5 h-5 text-rose-600" />}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
+                          )}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                      Câu hỏi dạng tự luận / kiểm tra. Đáp án chuẩn là: <strong>{currentQ.correctAnswer}</strong>
                     </div>
-                  );
-                })()}
+                  )}
+                </div>
 
                 {/* Explanation feedback */}
                 {isAnswered && (

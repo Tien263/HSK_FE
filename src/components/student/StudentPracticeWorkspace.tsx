@@ -55,6 +55,9 @@ import VocabNotebookModal from "./VocabNotebookModal";
 import MistakeNotebookModal from "./MistakeNotebookModal";
 import DailyQuestsModal from "./DailyQuestsModal";
 import HskRadarAnalyticsModal from "./HskRadarAnalyticsModal";
+import AncientScrollPathway from "./AncientScrollPathway";
+import AncientStationeryNotesModal from "./AncientStationeryNotesModal";
+import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
 import {
   getMemoryStats,
   getWeeklyStudyMinutes,
@@ -313,6 +316,8 @@ export default function StudentPracticeWorkspace({
   const [showMistakeNotebookModal, setShowMistakeNotebookModal] = useState<boolean>(false);
   const [showDailyQuestsModal, setShowDailyQuestsModal] = useState<boolean>(false);
   const [showHskRadarModal, setShowHskRadarModal] = useState<boolean>(false);
+  const [showStationeryNotesModal, setShowStationeryNotesModal] = useState<boolean>(false);
+  const [showVirtualStudyRoomModal, setShowVirtualStudyRoomModal] = useState<boolean>(false);
 
   // Fetch Class Lessons
   const fetchLessons = useCallback(async () => {
@@ -765,6 +770,24 @@ export default function StudentPracticeWorkspace({
               <TrendingUp className="w-3.5 h-3.5 text-[#315E48]" />
               <span>Radar HSK</span>
             </button>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <button
+              onClick={() => setShowStationeryNotesModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#8F6D3B] text-xs font-semibold transition cursor-pointer"
+              title="Mở Thư phòng Take Note: Viết bằng 4 loại giấy cổ & mực thư pháp"
+            >
+              <PenTool className="w-3.5 h-3.5 text-[#8F6D3B]" />
+              <span>Bút giấy Cổ</span>
+            </button>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <button
+              onClick={() => setShowVirtualStudyRoomModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
+              title="Vào Vân Tự Tập Thất: Phòng tự học ảo cổ phong Pomodoro 25p cùng đồng môn"
+            >
+              <span className="text-sm">🏮</span>
+              <span>Vân Tự Tập Thất</span>
+            </button>
           </div>
 
           {/* Nhóm 3: Chuỗi Streak & Bảng vàng */}
@@ -999,6 +1022,19 @@ export default function StudentPracticeWorkspace({
                 </button>
               ))}
             </div>
+
+            {/* BĂNG THƯ CUỘN CHIẾU CHỈ VƯỢT ẢI (IMPERIAL SCROLL PATHWAY) */}
+            <AncientScrollPathway
+              lessons={officialLessons}
+              selectedLesson={selectedPracticeLesson}
+              unlockedLessons={selfUnlockedLessons}
+              onSelectLesson={(num) => {
+                setSelectedPracticeLesson(num);
+                setActiveCardIndex(0);
+                setShowCardMeaning(false);
+              }}
+              hskLevel={currentHskLevel}
+            />
           </div>
         )}
       </div>
@@ -2428,6 +2464,22 @@ export default function StudentPracticeWorkspace({
         onOpenWriting={() => setShowAiWritingModal(true)}
         onOpenVocab={() => setShowVocabNotebookModal(true)}
         onOpenMistakes={() => setShowMistakeNotebookModal(true)}
+      />
+
+      {/* Modal Thư Phòng Take Note Bút Giấy Cổ Phong Trung Hoa */}
+      <AncientStationeryNotesModal
+        isOpen={showStationeryNotesModal}
+        onClose={() => setShowStationeryNotesModal(false)}
+        lessonNumber={selectedPracticeLesson}
+        hskLevel={currentHskLevel}
+        studentId={currentUser?.id}
+      />
+
+      {/* Modal Vân Tự Tập Thất - Phòng Tự Học Ảo Cổ Phong (Pomodoro & Tiếng Mưa Trúc) */}
+      <VirtualStudyRoomModal
+        isOpen={showVirtualStudyRoomModal}
+        onClose={() => setShowVirtualStudyRoomModal(false)}
+        studentName={currentUser?.name || "Bạn"}
       />
     </div>
   );
