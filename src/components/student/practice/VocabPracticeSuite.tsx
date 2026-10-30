@@ -599,7 +599,7 @@ export default function VocabPracticeSuite({
     }
   };
 
-  if (!vocabList || vocabList.length === 0) {
+  if (!vocabList || vocabList.length === 0 || !currentVocab) {
     return (
       <div className="py-12 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#E5DEC9]">
         <p className="text-xs text-[#315E48]">Bài học này chưa có danh sách từ vựng.</p>

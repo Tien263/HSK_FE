@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isMockAnswerCorrect } from "@/lib/mock-exam-matcher";
 
 export async function POST(request: Request) {
   try {
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
     if (Array.isArray(questions) && questions.length > 0) {
       for (const q of questions) {
         const userAns = answers[q.id];
-        const isCorrect = userAns === q.correctAnswer;
+        const isCorrect = isMockAnswerCorrect(userAns, q.correctAnswer, q.options);
         const qPoints = q.points || 10;
 
         let validQuestionId = q.id;

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { normalizeGrammarList } from "@/lib/chinese-grammar-helper";
+import { isMockAnswerCorrect } from "@/lib/mock-exam-matcher";
 
 interface MockQuestion {
   id: string;
@@ -192,10 +193,13 @@ export default function MockExamPage() {
     });
 
     const shuffledVocabs = [...allVocabs].sort(() => 0.5 - Math.random());
+    const totalVocabs = Math.max(shuffledVocabs.length, 1);
 
     // 1. PHẦN THI 1: NGHE HIỂU (10 CÂU)
-    shuffledVocabs.slice(0, 10).forEach((v, idx) => {
-      const meaning = v.meaningVi || v.meaning || "";
+    const listeningCount = Math.min(10, totalVocabs);
+    for (let idx = 0; idx < listeningCount; idx++) {
+      const v = shuffledVocabs[idx % totalVocabs];
+      const meaning = v.meaningVi || v.meaning || "xin chào";
       const others = shuffledVocabs
         .filter((item) => (item.meaningVi || item.meaning) !== meaning)
         .map((item) => item.meaningVi || item.meaning);
@@ -213,11 +217,13 @@ export default function MockExamPage() {
         explanation: `Phát âm: "${v.hanzi}" (${v.pinyin}) có nghĩa là: "${meaning}".`,
         points: 10,
       });
-    });
+    }
 
     // 2. PHẦN THI 2: ĐỌC HIỂU (10 CÂU)
-    shuffledVocabs.slice(10, 20).forEach((v, idx) => {
-      const correctPinyin = v.pinyin || "";
+    const readingCount = Math.min(10, totalVocabs);
+    for (let idx = 0; idx < readingCount; idx++) {
+      const v = shuffledVocabs[(idx + 10) % totalVocabs];
+      const correctPinyin = v.pinyin || "nǐ hǎo";
       const others = shuffledVocabs
         .filter((item) => item.pinyin !== correctPinyin)
         .map((item) => item.pinyin);
@@ -235,7 +241,7 @@ export default function MockExamPage() {
         explanation: `Chữ Hán "${v.hanzi}" đọc là "${correctPinyin}", nghĩa là "${v.meaningVi || v.meaning}".`,
         points: 10,
       });
-    });
+    }
 
     // 3. PHẦN THI 3: VIẾT & NGỮ PHÁP (5 CÂU)
     const normalizedG = normalizeGrammarList(allGrammars.slice(0, 10), level);
@@ -325,7 +331,7 @@ export default function MockExamPage() {
 
     questions.forEach((q) => {
       const userAns = userAnswers[q.id];
-      const isRight = userAns && userAns.trim() === q.correctAnswer.trim();
+      const isRight = isMockAnswerCorrect(userAns, q.correctAnswer, q.options);
       if (isRight) {
         if (q.section === "LISTENING") listeningCorrect += 1;
         else if (q.section === "READING") readingCorrect += 1;
@@ -910,7 +916,7 @@ export default function MockExamPage() {
               <div className="space-y-3 pt-2">
                 {questions.map((q, idx) => {
                   const userAns = userAnswers[q.id];
-                  const isRight = userAns && userAns.trim() === q.correctAnswer.trim();
+                  const isRight = isMockAnswerCorrect(userAns, q.correctAnswer, q.options);
                   return (
                     <div
                       key={q.id}

@@ -429,6 +429,18 @@ export default function GrammarPracticeSuite({
   const accuracyPercentage =
     currentQuestionIdx > 0 ? Math.round((correctCount / (currentQuestionIdx + 1)) * 100) : 80;
 
+  if (!grammarList || grammarList.length === 0 || !normalizedGrammars || normalizedGrammars.length === 0 || !currentGrammar) {
+    return (
+      <div className="py-16 px-6 text-center bg-[#FFFCF6] rounded-3xl border border-[#E5DEC9] max-w-lg mx-auto shadow-sm space-y-4 my-6">
+        <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto text-3xl border border-amber-200">
+          📖
+        </div>
+        <h3 className="font-serif font-bold text-lg text-[#204434]">Chưa có dữ liệu ngữ pháp cho bài học này</h3>
+        <p className="text-xs text-[#315E48]">Vui lòng chọn bài học khác hoặc bổ sung điểm ngữ pháp trong phần biên soạn giáo trình.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* =================================================================== */}
