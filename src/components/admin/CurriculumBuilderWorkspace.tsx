@@ -183,60 +183,168 @@ export default function CurriculumBuilderWorkspace({
             hanzi: "你好",
             pinyin: "nǐ hǎo",
             meaningVi: "Xin chào",
+            usageExplanation: "Dùng để chào hỏi thông thường giữa bạn bè, người cùng trang lứa hoặc người mới quen lần đầu.",
+            usagePatterns: ["Chào + Đại từ: 你好！", "Chào số nhiều: 你们好！", "Chào danh xưng: 老师，你好！"],
+            examples: [
+              {
+                zh: "你好，很高兴认识你！",
+                pinyin: "Nǐ hǎo, hěn gāoxìng rènshí nǐ!",
+                vi: "Xin chào, rất vui được làm quen với bạn!"
+              },
+              {
+                zh: "王老师，你好！",
+                pinyin: "Wáng lǎoshī, nǐ hǎo!",
+                vi: "Em chào thầy Vương ạ!"
+              }
+            ],
+            commonMistakes: [
+              {
+                incorrect: "你好吗？ (khi gặp người lạ lần đầu để chào)",
+                correct: "你好！",
+                explanation: "'你好吗？' mang nghĩa 'Bạn có khỏe không?', chỉ dùng cho người đã quen biết từ trước, không dùng chào người mới gặp."
+              },
+              {
+                incorrect: "您好 (dùng cho bạn bè cùng trang lứa thân thiết)",
+                correct: "你好",
+                explanation: "'您好' là kính ngữ trang trọng dành cho bề trên hoặc khách hàng; dùng với bạn bè thân sẽ tạo cảm giác xa lạ, khách sáo."
+              }
+            ],
             wordType: "Chào hỏi",
             exampleZh: "你好，很高兴认识你。",
             examplePy: "Nǐ hǎo, hěn gāoxìng rènshí nǐ.",
-            exampleVi: "Xin chào, rất vui được làm quen với bạn.",
+            exampleVi: "Xin chào, rất vui được làm quen với bạn."
           },
           {
             hanzi: "谢谢",
             pinyin: "xièxie",
             meaningVi: "Cảm ơn",
+            usageExplanation: "Động từ biểu thị sự biết ơn khi nhận được sự giúp đỡ, quà tặng hoặc lời khen ngợi.",
+            usagePatterns: ["谢谢 + Người: 谢谢你！", "Rất cảm ơn: 太谢谢你了！", "Không cần cảm ơn: 不用谢 / 别客气"],
+            examples: [
+              {
+                zh: "太谢谢你了，今天帮了我大忙！",
+                pinyin: "Tài xièxie nǐ le, jīntiān bāng le wǒ dà máng!",
+                vi: "Cảm ơn bạn rất nhiều, hôm nay đã giúp mình việc lớn!"
+              },
+              {
+                zh: "谢谢老师的关心！",
+                pinyin: "Xièxie lǎoshī de guānxīn!",
+                vi: "Em cảm ơn sự quan tâm của thầy cô ạ!"
+              }
+            ],
+            commonMistakes: [
+              {
+                incorrect: "我谢谢你 (dùng dư thừa đại từ chủ ngữ trong khẩu ngữ thông thường)",
+                correct: "谢谢你！",
+                explanation: "Trong giao tiếp tự nhiên chỉ cần nói '谢谢你！' hoặc '多谢！', không cần thêm chủ ngữ '我' phía trước trừ khi muốn nhấn mạnh đặc biệt."
+              },
+              {
+                incorrect: "谢谢 = 不客气 (nhầm lẫn giữa lời cảm ơn và lời đáp từ)",
+                correct: "A: 谢谢你！ -> B: 不客气！",
+                explanation: "Khi người khác nói '谢谢', câu đáp lại phải là '不客气' (Không có chi) hoặc '不用谢', không được đáp lại bằng '谢谢'."
+              }
+            ],
             wordType: "Động từ",
             exampleZh: "太谢谢你了！",
             examplePy: "Tài xièxie nǐ le!",
-            exampleVi: "Cảm ơn bạn rất nhiều!",
-          },
+            exampleVi: "Cảm ơn bạn rất nhiều!"
+          }
         ],
         grammarList: [
           {
             title: "Đại từ nhân xưng và kính ngữ 您 (Nín)",
             titleZh: "人称代词与尊称“您”",
-            structure: "Chủ ngữ (您) + Động từ / Tính từ",
+            summary: "Cách sử dụng đại từ '您' để thể hiện sự lễ độ, tôn kính đối với người lớn tuổi, thầy cô giáo hoặc cấp trên.",
+            structure: "Chủ ngữ (您) + Động từ / Tính từ / Câu trần thuật",
+            usageExplanation: "Chữ '您' có bộ Tâm (心) ở dưới chữ '你', biểu thị lòng kính trọng xuất phát từ tận đáy lòng khi chào hỏi bề trên.",
+            usageSteps: [
+              "Bước 1: Xác định đối tượng giao tiếp là người lớn tuổi, thầy cô hoặc đối tác quan trọng.",
+              "Bước 2: Thay thế ngôi thứ hai '你' (nǐ) bằng đại từ kính ngữ '您' (nín).",
+              "Bước 3: Kết hợp cùng các từ lễ phép như '好', '请' để tạo câu nói chuẩn mực."
+            ],
+            examples: [
+              {
+                zh: "王老师，您好！请问这是您的书吗？",
+                pinyin: "Wáng lǎoshī, nín hǎo! Qǐngwèn zhè shì nín de shū ma?",
+                vi: "Em chào thầy Vương ạ! Xin hỏi đây có phải là sách của thầy không ạ?",
+                explanationVi: "Dùng '您' và '您的' để biểu thị thái độ lễ độ với thầy giáo."
+              },
+              {
+                zh: "奶奶，您身体好吗？",
+                pinyin: "Nǎinai, nín shēntǐ hǎo ma?",
+                vi: "Bà ơi, dạo này sức khỏe bà có tốt không ạ?",
+                explanationVi: "Dùng '您' khi trò chuyện quan tâm người cao tuổi trong gia đình."
+              }
+            ],
+            usageContexts: [
+              "Gặp gỡ và chào hỏi thầy cô giáo tại trường học.",
+              "Giao tiếp trong môi trường công sở trang trọng với đối tác hoặc cấp trên.",
+              "Thăm hỏi người lớn tuổi trong gia đình và xã hội."
+            ],
+            comparison: "Phân biệt '你' (bình đẳng, thân mật, cùng trang lứa) và '您' (kính trọng, cấp trên, người lớn). Lưu ý: '您' không kết hợp với hậu tố số nhiều '们' thành '您们' trong văn viết chuẩn mực; khi muốn kính trọng số nhiều dùng '各位' hoặc '您几位'.",
+            commonMistakes: [
+              {
+                incorrect: "老师们，您们好！",
+                correct: "老师们，大家好！ / 各位老师好！",
+                explanation: "Trong tiếng Hán chuẩn, '您' không đi với '们'. Khi chào nhiều thầy cô cần dùng '各位老师好！'."
+              }
+            ],
             example: "王老师，您好！",
-            explanation: "Dùng '您' khi giao tiếp với người lớn tuổi, thầy cô giáo hoặc cấp trên để thể hiện sự lịch sự và tôn kính.",
-          },
+            explanation: "Dùng '您' khi giao tiếp với người lớn tuổi, thầy cô giáo hoặc cấp trên để thể hiện sự lịch sự và tôn kính."
+          }
         ],
+        reading: {
+          id: `hsk${selectedLevel}-l1-reading`,
+          titleZh: "我的中文老师",
+          titleVi: "Thầy giáo tiếng Trung của tôi",
+          originalText: "王老师是我们的中文老师。他今年三十岁，个子很高，总是微笑着对我们说话。王老师上课非常生动有趣，常常给我们讲中国历史和文化故事。下课以后，如果有同学不懂的问题，王老师总是耐心地一一解答。大家都非常喜欢王老师，我们觉得学中文是一件很快乐的事。",
+          translation: "Thầy Vương là giáo viên dạy tiếng Trung của chúng tôi. Thầy năm nay ba mươi tuổi, dáng người rất cao và luôn mỉm cười khi nói chuyện với chúng tôi. Các tiết học của thầy Vương vô cùng sinh động và thú vị, thầy thường kể cho chúng tôi nghe về lịch sử và những câu chuyện văn hóa Trung Quốc. Sau giờ học, nếu có học sinh nào còn câu hỏi chưa hiểu, thầy Vương luôn kiên nhẫn giải đáp từng li từng tí. Mọi người đều rất yêu quý thầy Vương, chúng tôi cảm thấy việc học tiếng Trung là một điều vô cùng hạnh phúc.",
+          analysisExplanation: "Đoạn văn ngắn miêu tả chân dung và tính cách của người thầy giáo dạy tiếng Trung, kết hợp giữa miêu tả ngoại hình (三十岁, 个子很高), tác phong giảng dạy (生动有趣) và phẩm chất sư phạm tận tâm (耐心解答).",
+          mainEvent: "Quá trình thầy Vương giảng dạy môn tiếng Trung và sự tận tâm giúp đỡ học sinh sau giờ học.",
+          keywords: ["中文老师 (giáo viên tiếng Trung)", "生动有趣 (sinh động thú vị)", "文化故事 (câu chuyện văn hóa)", "耐心解答 (kiên nhẫn giải đáp)", "快乐 (hạnh phúc)"],
+          keySentence: "大家都非常喜欢王老师，我们觉得学中文是一件很快乐的事。",
+          evidenceExplanation: "Nhờ phong cách giảng dạy nhiệt tình, sinh động và sự kiên nhẫn giải đáp bài vở của thầy Vương nên cả lớp đều say mê học tập.",
+          mainIdea: "Tình cảm kính trọng, yêu mến sâu sắc của học sinh dành cho người thầy dạy tiếng Trung tận tụy.",
+          mainIdeaExplanation: "Bài đọc truyền tải thông điệp về vai trò truyền cảm hứng của người thầy, biến việc tiếp cận ngôn ngữ mới trở thành niềm vui.",
+          secondaryDetails: [
+            "Thầy Vương năm nay 30 tuổi và có vóc dáng cao ráo.",
+            "Thầy luôn nở nụ cười hiền hậu khi trò chuyện với học sinh.",
+            "Thầy thường lồng ghép kiến thức văn hóa và lịch sử Trung Quốc vào bài giảng.",
+            "Thầy dành thêm thời gian sau tiết học để kiên nhẫn giảng lại cho những học sinh chưa hiểu bài."
+          ],
+          commonTrap: "Bẫy câu hỏi suy luận: Đề thi có thể hỏi 'Học sinh thích học tiếng Trung vì lý do gì?', thí sinh cần chú ý cả hai vế (thầy dạy thú vị + thầy tận tâm kiên nhẫn) thay vì chỉ chọn yếu tố ngoại hình.",
+          readingTip: "Gạch chân các tính từ miêu tả tính cách (生动, 有趣, 耐心) để nắm bắt nhanh thái độ và cảm xúc của tác giả đối với nhân vật."
+        },
         dialogue: [
           {
             speaker: "A",
             zh: "你好！你是新来的同学吗？",
             pinyin: "Nǐ hǎo! Nǐ shì xīn lái de tóngxué ma?",
-            vi: "Xin chào! Bạn là bạn học mới đến à?",
+            vi: "Xin chào! Bạn là bạn học mới đến à?"
           },
           {
             speaker: "B",
             zh: "你好！是的，我叫李明，请多关照。",
             pinyin: "Nǐ hǎo! Shì de, wǒ jiào Lǐ Míng, qǐng duō guānzhào.",
-            vi: "Xin chào! Đúng vậy, mình tên là Lý Minh, mong được giúp đỡ nhiều.",
+            vi: "Xin chào! Đúng vậy, mình tên là Lý Minh, mong được giúp đỡ nhiều."
           },
           {
             speaker: "A",
             zh: "很高兴认识你！今天天气真好，我们一起去教室吧。",
             pinyin: "Hěn gāoxìng rènshí nǐ! Jīntiān tiānqì zhēn hǎo, wǒmen yìqǐ qù jiàoshì ba.",
-            vi: "Rất vui được làm quen với bạn! Hôm nay thời tiết thật đẹp, chúng mình cùng vào lớp nhé.",
+            vi: "Rất vui được làm quen với bạn! Hôm nay thời tiết thật đẹp, chúng mình cùng vào lớp nhé."
           },
           {
             speaker: "B",
             zh: "好的，太谢谢你了！",
             pinyin: "Hǎo de, tài xièxie nǐ le!",
-            vi: "Được thôi, cảm ơn bạn nhiều nhé!",
-          },
+            vi: "Được thôi, cảm ơn bạn nhiều nhé!"
+          }
         ],
         phonetics: {
           title: "Quy tắc thanh điệu và biến âm",
           rule: "Hai thanh 3 đi liền nhau thì thanh đầu đọc thành thanh 2 (Ví dụ: Nǐ hǎo -> Ní hǎo).",
-          examples: ["nǐ hǎo", "kěyǐ", "měihǎo"],
+          examples: ["nǐ hǎo", "kěyǐ", "měihǎo"]
         },
         culture: "Nghệ thuật xưng hô lịch sự và văn hóa trà đạo trong giao tiếp Trung Hoa.",
         grammarExercises: [
@@ -247,9 +355,9 @@ export default function CurriculumBuilderWorkspace({
             prompt: "Chọn câu chào hỏi giáo viên đúng mực và lịch sự nhất:",
             options: ["A. 好王老师！", "B. 王老师，您好！", "C. 你好王老师！", "D. 老师你！"],
             correctAnswer: "B",
-            explanation: "Chào hỏi thầy cô cần dùng chức danh + 您好 (王老师，您好！).",
-          },
-        ],
+            explanation: "Chào hỏi thầy cô cần dùng chức danh + 您好 (王老师，您好！)."
+          }
+        ]
       },
       {
         id: `hsk${selectedLevel}-l2`,
@@ -263,43 +371,87 @@ export default function CurriculumBuilderWorkspace({
             hanzi: "不客气",
             pinyin: "bú kèqi",
             meaningVi: "Đừng khách sáo / Không có chi",
+            usageExplanation: "Lời đáp lịch sự thông dụng nhất khi được người khác cảm ơn.",
+            usagePatterns: ["Đáp lại 谢谢: 不客气！", "Không cần khách khí: 不用客气"],
+            examples: [
+              {
+                zh: "A: 谢谢你的帮助！ B: 不客气！",
+                pinyin: "A: Xièxie nǐ de bāngzhù! B: Bú kèqi!",
+                vi: "A: Cảm ơn sự giúp đỡ của bạn! B: Không có chi!"
+              }
+            ],
+            commonMistakes: [
+              {
+                incorrect: "A: 谢谢你！ B: 谢谢你！ (đáp lại lời cảm ơn bằng lời cảm ơn)",
+                correct: "A: 谢谢你！ B: 不客气！",
+                explanation: "Khi người khác cảm ơn, cần dùng '不客气' hoặc '不用谢' để đáp lại."
+              },
+              {
+                incorrect: "不客气 (nói với giọng cộc lốc hoặc dùng khi người khác xin lỗi)",
+                correct: "没关系 (khi người khác xin lỗi)",
+                explanation: "Khi người khác xin lỗi (对不起), phải đáp là '没关系' chứ không dùng '不客气'."
+              }
+            ],
             wordType: "Thành ngữ",
             exampleZh: "不用客气，这是我应该做的。",
             examplePy: "Búyòng kèqi, zhè shì wǒ yīnggāi zuò de.",
-            exampleVi: "Đừng khách sáo, đây là việc tôi nên làm mà.",
-          },
+            exampleVi: "Đừng khách sáo, đây là việc tôi nên làm mà."
+          }
         ],
         grammarList: [
           {
             title: "Trợ từ ngữ khí 吧 (ba) biểu thị đề xuất hoặc thúc giục",
             titleZh: "语气助词“吧”表示提议",
+            summary: "Đặt '吧' ở cuối câu để đưa ra lời mời, gợi ý hoặc đề xuất cùng làm việc gì đó một cách nhẹ nhàng.",
             structure: "Câu trần thuật + 吧！",
+            usageExplanation: "Dùng để giảm nhẹ ngữ khí, tạo cảm giác thân mật, tôn trọng ý kiến đối phương.",
+            usageSteps: [
+              "Bước 1: Nêu hành động hoặc dự định (Ví dụ: 我们走 - Chúng ta đi).",
+              "Bước 2: Thêm trợ từ '吧' vào cuối câu để chuyển thành lời đề nghị hòa nhã."
+            ],
+            examples: [
+              {
+                zh: "时间不早了，我们一起走吧！",
+                pinyin: "Shíjiān bù zǎo le, wǒmen yìqǐ zǒu ba!",
+                vi: "Thời gian không còn sớm nữa, chúng mình cùng đi thôi nào!",
+                explanationVi: "Dùng '吧' để rủ cùng đi một cách nhẹ nhàng."
+              }
+            ],
+            usageContexts: ["Rủ bạn bè đi ăn cơm, đi học, làm bài tập chung."],
+            comparison: "Khác với câu mệnh lệnh dứt khoát không có '吧', thêm '吧' tạo sắc thái thương lượng và tôn trọng đối phương.",
+            commonMistakes: [
+              {
+                incorrect: "你走吧！ (với người lớn tuổi khi muốn mời đi)",
+                correct: "您请走！ / 我们走吧！",
+                explanation: "Nói '你走吧！' với người lớn có thể bị hiểu nhầm là đuổi khéo, cần dùng kính ngữ."
+              }
+            ],
             example: "我们一起走吧！",
-            explanation: "Đặt '吧' ở cuối câu để đưa ra lời mời, gợi ý hoặc đề xuất cùng làm việc gì đó một cách nhẹ nhàng.",
-          },
+            explanation: "Đặt '吧' ở cuối câu để đưa ra lời mời, gợi ý hoặc đề xuất cùng làm việc gì đó một cách nhẹ nhàng."
+          }
         ],
         dialogue: [
           {
             speaker: "A",
             zh: "这本书送给你，祝你学习进步！",
             pinyin: "Zhè běn shū sòng gěi nǐ, zhù nǐ xuéxí jìnbù!",
-            vi: "Cuốn sách này tặng bạn, chúc bạn học tập tiến bộ!",
+            vi: "Cuốn sách này tặng bạn, chúc bạn học tập tiến bộ!"
           },
           {
             speaker: "B",
             zh: "哇，太感谢你了！不客气，我们一起加油吧！",
             pinyin: "Wa, tài gǎnxiè nǐ le! Bú kèqi, wǒmen yìqǐ jiāyóu ba!",
-            vi: "Oa, cảm ơn bạn nhiều lắm! Không có chi, chúng mình cùng cố gắng nhé!",
-          },
+            vi: "Oa, cảm ơn bạn nhiều lắm! Không có chi, chúng mình cùng cố gắng nhé!"
+          }
         ],
         phonetics: {
           title: "Vần uốn lưỡi Erhua",
           rule: "Thêm âm r vào cuối chữ Hán để thể hiện sắc thái thân mật hoặc chỉ đồ vật nhỏ.",
-          examples: ["zhèr", "nàr", "yìdiǎnr"],
+          examples: ["zhèr", "nàr", "yìdiǎnr"]
         },
         culture: "Ý nghĩa của việc tặng quà và cách nhận quà bằng hai tay trong văn hóa Á Đông.",
-        grammarExercises: [],
-      },
+        grammarExercises: []
+      }
     ];
 
     const lessonsData = lessons && lessons.length > 0
@@ -312,6 +464,7 @@ export default function CurriculumBuilderWorkspace({
           desc: l.desc || "Mô tả bài học",
           vocabList: l.vocabList || [],
           grammarList: l.grammarList || [],
+          reading: l.reading || defaultSampleLessons[0].reading,
           dialogue: (l.dialogue && l.dialogue.length > 0) ? l.dialogue : defaultSampleLessons[0].dialogue,
           phonetics: l.phonetics || {
             title: "Luyện phát âm",

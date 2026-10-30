@@ -38,43 +38,136 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
       if (!hanzi) throw new CurriculumFormatError(`${path}: thiếu chữ Hán (hanzi).`);
       const pinyin = String(row.pinyin || row.py || "").trim();
       if (!pinyin) throw new CurriculumFormatError(`${path}: từ "${hanzi}" thiếu phiên âm pinyin.`);
-      const meaning = String(row.meaning || row.meaningVi || row.vi || "").trim();
+      const meaning = String(row.meaningVi || row.meaning || row.vi || "").trim();
       if (!meaning) throw new CurriculumFormatError(`${path}: từ "${hanzi}" thiếu nghĩa tiếng Việt.`);
+
+      let examples: { zh: string; pinyin: string; vi: string }[] = [];
+      if (Array.isArray(row.examples)) {
+        examples = row.examples.map((ex: any) => ({
+          zh: String(ex?.zh || ex?.exampleZh || "").trim(),
+          pinyin: String(ex?.pinyin || ex?.py || ex?.examplePy || "").trim(),
+          vi: String(ex?.vi || ex?.meaningVi || ex?.exampleVi || "").trim(),
+        })).filter((ex: any) => ex.zh);
+      }
+      if (examples.length === 0 && (row.exampleZh || row.example)) {
+        examples.push({
+          zh: String(row.exampleZh || row.example || "").trim(),
+          pinyin: String(row.examplePy || "").trim(),
+          vi: String(row.exampleVi || "").trim(),
+        });
+      }
+
+      let usagePatterns: string[] = [];
+      if (Array.isArray(row.usagePatterns)) {
+        usagePatterns = row.usagePatterns.map(p => String(p).trim()).filter(Boolean);
+      } else if (typeof row.usagePatterns === "string" && row.usagePatterns.trim()) {
+        usagePatterns = row.usagePatterns.split(/[,;|]/).map(p => p.trim()).filter(Boolean);
+      }
+
+      let commonMistakes: { incorrect: string; correct: string; explanation: string }[] = [];
+      if (Array.isArray(row.commonMistakes)) {
+        commonMistakes = row.commonMistakes.map((m: any) => {
+          if (typeof m === "string") return { incorrect: m, correct: "", explanation: "" };
+          return {
+            incorrect: String(m?.incorrect || m?.wrong || m?.zhWrong || "").trim(),
+            correct: String(m?.correct || m?.right || m?.zhCorrect || "").trim(),
+            explanation: String(m?.explanation || m?.explanationVi || m?.reason || "").trim(),
+          };
+        }).filter(m => m.incorrect || m.correct || m.explanation);
+      } else if (typeof row.commonMistakes === "string" && row.commonMistakes.trim()) {
+        commonMistakes = [{ incorrect: row.commonMistakes.trim(), correct: "", explanation: "" }];
+      }
+
       return {
         ...(row.id ? { id: String(row.id) } : {}),
         hanzi,
         pinyin,
         meaning,
         meaningVi: String(row.meaningVi || meaning),
-        type: String(row.type || "Từ vựng"),
-        exampleZh: String(row.exampleZh || row.example || ""),
-        examplePy: String(row.examplePy || ""),
-        exampleVi: String(row.exampleVi || ""),
+        usageExplanation: String(row.usageExplanation || row.usage || row.usageNote || "").trim(),
+        usagePatterns,
+        examples,
+        commonMistakes,
+        type: String(row.type || row.wordType || "Từ vựng"),
+        exampleZh: examples[0]?.zh || String(row.exampleZh || row.example || ""),
+        examplePy: examples[0]?.pinyin || String(row.examplePy || ""),
+        exampleVi: examples[0]?.vi || String(row.exampleVi || ""),
       };
     }
     case "grammar": {
       const title = String(row.title || row.titleZh || row.name || "").trim();
       if (!title) throw new CurriculumFormatError(`${path}: điểm ngữ pháp thiếu tiêu đề (title).`);
+      const titleZh = String(row.titleZh || "").trim();
       const structure = String(row.structure || row.pattern || title).trim();
-      let example = String(row.example || "").trim();
-      if (!example && Array.isArray(row.examples) && row.examples.length > 0) {
-        example = typeof row.examples[0] === "string" ? row.examples[0] : String(row.examples[0]?.zh || "");
+      const summary = String(row.summary || row.desc || "").trim();
+      const usageExplanation = String(row.usageExplanation || row.explanation || row.meaningVi || summary).trim();
+
+      let examples: { zh: string; pinyin: string; vi: string; explanationVi?: string }[] = [];
+      if (Array.isArray(row.examples)) {
+        examples = row.examples.map((ex: any) => {
+          if (typeof ex === "string") return { zh: ex, pinyin: "", vi: "", explanationVi: "" };
+          return {
+            zh: String(ex?.zh || ex?.example || "").trim(),
+            pinyin: String(ex?.pinyin || ex?.py || "").trim(),
+            vi: String(ex?.vi || ex?.meaningVi || "").trim(),
+            explanationVi: String(ex?.explanationVi || ex?.explanation || "").trim(),
+          };
+        }).filter((ex: any) => ex.zh);
       }
-      if (!example) example = title;
-      const explanation = String(row.explanation || row.meaningVi || row.summary || row.desc || "").trim();
+      if (examples.length === 0 && row.example) {
+        examples.push({
+          zh: String(row.example).trim(),
+          pinyin: "",
+          vi: "",
+          explanationVi: "",
+        });
+      }
+
+      let usageSteps: string[] = [];
+      if (Array.isArray(row.usageSteps)) {
+        usageSteps = row.usageSteps.map(s => String(s).trim()).filter(Boolean);
+      } else if (typeof row.usageSteps === "string" && row.usageSteps.trim()) {
+        usageSteps = row.usageSteps.split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
+      }
+
+      let usageContexts: string[] = [];
+      if (Array.isArray(row.usageContexts)) {
+        usageContexts = row.usageContexts.map(c => String(c).trim()).filter(Boolean);
+      } else if (typeof row.usageContexts === "string" && row.usageContexts.trim()) {
+        usageContexts = row.usageContexts.split(/\r?\n|;/).map(c => c.trim()).filter(Boolean);
+      }
+
+      let commonMistakes: any[] = [];
+      if (Array.isArray(row.commonMistakes)) {
+        commonMistakes = row.commonMistakes.map((m: any) => {
+          if (typeof m === "string") return { incorrect: m, correct: "", explanation: "" };
+          return {
+            incorrect: String(m?.incorrect || m?.wrong || "").trim(),
+            correct: String(m?.correct || m?.right || "").trim(),
+            explanation: String(m?.explanation || m?.explanationVi || "").trim(),
+          };
+        });
+      } else if (typeof row.commonMistakes === "string" && row.commonMistakes.trim()) {
+        commonMistakes = [{ incorrect: row.commonMistakes.trim(), correct: "", explanation: "" }];
+      }
+
       return {
         ...(row.id ? { id: String(row.id) } : {}),
         title,
-        titleZh: String(row.titleZh || ""),
+        titleZh,
+        summary: summary || usageExplanation,
         structure,
-        example,
-        explanation,
-        examples: Array.isArray(row.examples) ? row.examples : [],
+        usageExplanation,
+        usageSteps,
+        examples,
+        usageContexts,
+        comparison: String(row.comparison || "").trim(),
+        commonMistakes,
+        example: examples[0]?.zh || String(row.example || title),
+        explanation: usageExplanation,
         notes: String(row.notes || ""),
         memo: String(row.memo || ""),
-        summary: String(row.summary || explanation),
-        usage: String(row.usage || ""),
-        commonMistakes: String(row.commonMistakes || ""),
+        usage: String(row.usage || usageExplanation),
       };
     }
     case "dialogue": {
@@ -243,8 +336,165 @@ export function applyCurriculumImport(current: Hsk1FullLesson[], input: unknown,
 }
 
 export function curriculumTemplate(scope: CurriculumScope, level: number, number = 1) {
-  if (scope === "lessons") return { level, scope, lessons: [{ ...blankLesson(level, number), titleZh: "你好", titleVi: "Xin chào", pinyin: "nǐ hǎo" }] };
-  const samples: Record<string, Row> = { vocab: { hanzi: "你好", pinyin: "nǐ hǎo", meaning: "xin chào", type: "Lời chào", exampleZh: "你好，老师！", examplePy: "Nǐ hǎo, lǎoshī!", exampleVi: "Em chào cô!" }, grammar: { title: "Câu với 是", structure: "S + 是 + N", example: "我是学生。", explanation: "Giới thiệu người hoặc sự vật." }, dialogue: { speaker: "A", zh: "你好！", pinyin: "Nǐ hǎo!", vi: "Xin chào!" }, phonetics: { title: "Thanh điệu", rule: "Đọc đúng bốn thanh.", examples: ["mā", "má", "mǎ", "mà"] }, culture: { culture: "Chào hỏi lịch sự với thầy cô." } };
+  if (scope === "lessons") {
+    return {
+      level,
+      scope,
+      lessons: [{
+        ...blankLesson(level, number),
+        titleZh: "你好",
+        titleVi: "Xin chào",
+        pinyin: "nǐ hǎo",
+        vocabList: [{
+          hanzi: "你好",
+          pinyin: "nǐ hǎo",
+          meaningVi: "Xin chào",
+          meaning: "Xin chào",
+          usageExplanation: "Dùng để chào hỏi thông thường giữa bạn bè, người cùng trang lứa.",
+          usagePatterns: ["Chào + Người: 你好！", "Chào số nhiều: 你们好！"],
+          examples: [
+            { zh: "你好，很高兴认识你！", pinyin: "Nǐ hǎo, hěn gāoxìng rènshí nǐ!", vi: "Xin chào, rất vui được làm quen với bạn!" },
+            { zh: "老师，你好！", pinyin: "Lǎoshī, nǐ hǎo!", vi: "Em chào thầy/cô ạ!" }
+          ],
+          commonMistakes: [
+            {
+              incorrect: "你好吗？ (dùng làm lời chào khi mới gặp lần đầu)",
+              correct: "你好！",
+              explanation: "'你好吗？' có nghĩa là 'Bạn có khỏe không?', chỉ dùng với người quen đã lâu không gặp chứ không dùng như lời chào mở đầu."
+            },
+            {
+              incorrect: "您好 (dùng cho bạn bè cùng trang lứa)",
+              correct: "你好",
+              explanation: "'您好' là kính ngữ dành cho người lớn tuổi, thầy cô hoặc cấp trên; không dùng với bạn bè cùng lứa."
+            }
+          ]
+        }],
+        grammarList: [{
+          titleZh: "判断句“是”",
+          title: "Câu khẳng định phán đoán với 是 (shì)",
+          summary: "Dùng '是' nối giữa chủ ngữ và tân ngữ để biểu thị sự phán đoán hoặc khẳng định danh tính/tính chất.",
+          structure: "Chủ ngữ (S) + 是 (shì) + Tân ngữ (O)",
+          usageExplanation: "Từ '是' tương đương với từ 'là' trong tiếng Việt, dùng để xác định người hoặc sự vật thuộc về một định danh nào đó.",
+          usageSteps: [
+            "Bước 1: Xác định chủ ngữ (người hoặc vật cần giới thiệu).",
+            "Bước 2: Thêm động từ phán đoán '是'.",
+            "Bước 3: Đặt danh từ hoặc ngữ danh từ làm vị ngữ/tân ngữ phía sau."
+          ],
+          examples: [
+            {
+              zh: "我是学生。",
+              pinyin: "Wǒ shì xuésheng.",
+              vi: "Tôi là học sinh.",
+              explanationVi: "Xác định danh tính của người nói là học sinh."
+            },
+            {
+              zh: "他是中国人。",
+              pinyin: "Tā shì Zhōngguó rén.",
+              vi: "Anh ấy là người Trung Quốc.",
+              explanationVi: "Khẳng định quốc tịch của chủ ngữ 'anh ấy'."
+            }
+          ],
+          usageContexts: [
+            "Giới thiệu nghề nghiệp, thân phận khi làm quen.",
+            "Xác nhận đồ vật thuộc chủng loại nào trong cuộc sống."
+          ],
+          comparison: "Phân biệt với tiếng Việt: Trong tiếng Trung, trước tính từ không dùng '是' (Ví dụ: 'Tôi rất bận' là '我很忙', KHÔNG nói '我是很忙').",
+          commonMistakes: [
+            {
+              incorrect: "我是很高兴。",
+              correct: "我很高兴。",
+              explanation: "Trước tính từ chỉ trạng thái biểu cảm không dùng động từ '是', mà dùng phó từ chỉ mức độ như '很'."
+            }
+          ]
+        }],
+        reading: {
+          id: `hsk${level}-01-reading`,
+          titleZh: "我的新同学",
+          titleVi: "Bạn học mới của tôi",
+          originalText: "今天班里来了一位新同学。他叫大卫，来自美国。大卫很热情，也很喜欢学中文。老师请他坐在我旁边。下课后，我们一起去食堂吃饭。我帮他点了中国菜，他说中国菜非常好吃。我们很快成为了好朋友。",
+          translation: "Hôm nay lớp có một bạn học mới đến. Cậu ấy tên là David, đến từ nước Mỹ. David rất nhiệt tình và cũng rất thích học tiếng Trung. Cô giáo mời cậu ấy ngồi cạnh tôi. Sau giờ học, chúng tôi cùng nhau đến căng tin ăn cơm. Tôi giúp cậu ấy gọi món ăn Trung Quốc, cậu ấy khen đồ ăn Trung Quốc rất ngon. Chúng tôi nhanh chóng trở thành bạn tốt của nhau.",
+          analysisExplanation: "Đoạn văn kể về trải nghiệm làm quen với bạn học quốc tế mới trong ngày đầu tiên đến lớp, sử dụng cấu trúc câu miêu tả tính cách, sở thích và các hoạt động thường ngày.",
+          mainEvent: "Làm quen, giúp đỡ và kết bạn với bạn học mới người Mỹ (David) trong buổi học.",
+          keywords: ["新同学 (bạn mới)", "热情 (nhiệt tình)", "学中文 (học tiếng Trung)", "食堂 (căng tin)", "好朋友 (bạn tốt)"],
+          keySentence: "我们很快成为了好朋友。",
+          evidenceExplanation: "Sau khi cùng nhau đi ăn cơm ở căng tin và hỗ trợ gọi món, sự gắn kết giúp hai bạn nhanh chóng trở thành bạn thân thiết.",
+          mainIdea: "Tình bạn chân thành và sự giúp đỡ nhiệt tình giữa những người bạn học mới gặp.",
+          mainIdeaExplanation: "Đoạn văn nhấn mạnh sự cởi mở, lòng hiếu khách và niềm vui khi cùng nhau học tập và chia sẻ văn hóa.",
+          secondaryDetails: [
+            "David là học sinh đến từ nước Mỹ.",
+            "David ngồi cạnh nhân vật 'tôi' trong lớp học.",
+            "Nhân vật 'tôi' đã giúp David gọi các món ăn Trung Quốc tại nhà ăn."
+          ],
+          commonTrap: "Bẫy câu hỏi chi tiết: Đề thi có thể hỏi 'David tự gọi món hay có người giúp?', thí sinh cần chú ý từ '帮' (tôi giúp cậu ấy) để không chọn nhầm.",
+          readingTip: "Định vị nhanh các mốc thời gian (今天, 下课后) và hành động chính của từng nhân vật để nắm bắt mạch truyện một cách chính xác."
+        }
+      }]
+    };
+  }
+  const samples: Record<string, Row> = {
+    vocab: {
+      hanzi: "你好",
+      pinyin: "nǐ hǎo",
+      meaningVi: "xin chào",
+      meaning: "xin chào",
+      usageExplanation: "Dùng để chào hỏi thông thường giữa bạn bè, người cùng trang lứa.",
+      usagePatterns: ["Chào + Người: 你好！", "Chào số nhiều: 你们好！"],
+      examples: [
+        { zh: "你好，很高兴认识你！", pinyin: "Nǐ hǎo, hěn gāoxìng rènshí nǐ!", vi: "Xin chào, rất vui được làm quen với bạn!" },
+        { zh: "老师，你好！", pinyin: "Lǎoshī, nǐ hǎo!", vi: "Em chào thầy/cô ạ!" }
+      ],
+      commonMistakes: [
+        {
+          incorrect: "你好吗？ (dùng làm câu chào lần đầu gặp)",
+          correct: "你好！",
+          explanation: "'你好吗？' mang nghĩa 'Bạn có khỏe không?', chỉ dùng với người quen đã lâu không gặp chứ không dùng như câu chào mở đầu."
+        },
+        {
+          incorrect: "您好 (dùng cho bạn bè cùng trang lứa)",
+          correct: "你好",
+          explanation: "'您好' là kính ngữ dành cho người lớn tuổi, thầy cô hoặc cấp trên; không dùng với bạn bè thân thiết."
+        }
+      ],
+      type: "Lời chào",
+      exampleZh: "你好，很高兴认识你！",
+      examplePy: "Nǐ hǎo, hěn gāoxìng rènshí nǐ!",
+      exampleVi: "Xin chào, rất vui được làm quen với bạn!"
+    },
+    grammar: {
+      titleZh: "判断句“是”",
+      title: "Câu với 是",
+      summary: "Dùng '是' nối giữa chủ ngữ và tân ngữ để biểu thị sự phán đoán hoặc khẳng định.",
+      structure: "S + 是 + N",
+      usageExplanation: "Giới thiệu người hoặc sự vật, tương đương với 'là' trong tiếng Việt.",
+      usageSteps: [
+        "Bước 1: Xác định chủ ngữ (người hoặc vật).",
+        "Bước 2: Thêm động từ '是'.",
+        "Bước 3: Đặt danh từ vị ngữ phía sau."
+      ],
+      examples: [
+        {
+          zh: "我是学生。",
+          pinyin: "Wǒ shì xuésheng.",
+          vi: "Tôi là học sinh.",
+          explanationVi: "Khẳng định danh tính người nói là học sinh."
+        }
+      ],
+      usageContexts: ["Giới thiệu bản thân", "Xác nhận danh tính đồ vật"],
+      comparison: "Không dùng '是' trước tính từ biểu cảm (dùng '我很忙', không dùng '我是很忙').",
+      commonMistakes: [
+        {
+          incorrect: "我是很高兴。",
+          correct: "我很高兴。",
+          explanation: "Trước tính từ không dùng '是', mà dùng phó từ chỉ mức độ như '很'."
+        }
+      ],
+      example: "我是学生。",
+      explanation: "Giới thiệu người hoặc sự vật."
+    },
+    dialogue: { speaker: "A", zh: "你好！", pinyin: "Nǐ hǎo!", vi: "Xin chào!" },
+    phonetics: { title: "Thanh điệu", rule: "Đọc đúng bốn thanh.", examples: ["mā", "má", "mǎ", "mà"] },
+    culture: { culture: "Chào hỏi lịch sự với thầy cô." }
+  };
   return { level, scope, items: [{ lessonNumber: number, ...samples[scope] }] };
 }
 export function curriculumTemplateCsv(scope: CurriculumScope, level: number, number = 1) {

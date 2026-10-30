@@ -52,6 +52,18 @@ export interface ReadingItem {
   contentZh: string;
   contentPy: string;
   contentVi: string;
+  originalText?: string;
+  translation?: string;
+  analysisExplanation?: string;
+  mainEvent?: string;
+  keywords?: string[];
+  keySentence?: string;
+  evidenceExplanation?: string;
+  mainIdea?: string;
+  mainIdeaExplanation?: string;
+  secondaryDetails?: string[];
+  commonTrap?: string;
+  readingTip?: string;
   wordCount: number;
   extraVocabs?: {
     id?: string;

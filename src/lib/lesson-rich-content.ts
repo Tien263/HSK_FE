@@ -17,14 +17,40 @@ function record(value: unknown): Record<string, unknown> {
 export function normalizeReading(value: unknown, lessonId: string): ReadingItem | undefined {
   if (value == null) return undefined;
   const row = record(value);
+  const contentZh = text(row.originalText ?? row.contentZh, "Bài đọc");
+  const contentVi = text(row.translation ?? row.contentVi, "Bản dịch");
   return {
     id: text(row.id, "Mã bài đọc") || `${lessonId}-reading`,
-    titleZh: text(row.titleZh, "Tên Trung"), titleVi: text(row.titleVi, "Tên Việt"),
-    contentZh: text(row.contentZh, "Bài đọc"), contentPy: text(row.contentPy, "Pinyin"), contentVi: text(row.contentVi, "Bản dịch"),
-    wordCount: [...text(row.contentZh, "Bài đọc").matchAll(/\p{Script=Han}/gu)].length,
+    titleZh: text(row.titleZh, "Tên Trung"),
+    titleVi: text(row.titleVi, "Tên Việt"),
+    originalText: contentZh,
+    translation: contentVi,
+    contentZh,
+    contentPy: text(row.contentPy, "Pinyin"),
+    contentVi,
+    analysisExplanation: text(row.analysisExplanation, "Phân tích bài đọc"),
+    mainEvent: text(row.mainEvent, "Sự kiện chính"),
+    keywords: list(row.keywords).map(k => String(k).trim()).filter(Boolean),
+    keySentence: text(row.keySentence, "Câu then chốt"),
+    evidenceExplanation: text(row.evidenceExplanation, "Dẫn chứng giải thích"),
+    mainIdea: text(row.mainIdea, "Ý chính"),
+    mainIdeaExplanation: text(row.mainIdeaExplanation, "Giải thích ý chính"),
+    secondaryDetails: list(row.secondaryDetails).map(d => String(d).trim()).filter(Boolean),
+    commonTrap: text(row.commonTrap, "Bẫy thường gặp"),
+    readingTip: text(row.readingTip, "Mẹo đọc"),
+    wordCount: [...contentZh.matchAll(/\p{Script=Han}/gu)].length,
     extraVocabs: list(row.extraVocabs).map((value, index) => {
       const word = record(value);
-      return {id: text(word.id, "Mã từ") || `${lessonId}-reading-word-${index}`, hanzi: text(word.hanzi, "Chữ Hán"), pinyin: text(word.pinyin, "Pinyin"), meaningVi: text(word.meaningVi ?? word.meaning, "Nghĩa Việt"), exampleZh: text(word.exampleZh, "Ví dụ"), examplePy: text(word.examplePy, "Pinyin ví dụ"), exampleVi: text(word.exampleVi, "Dịch ví dụ"), tag: text(word.tag, "Nhãn")};
+      return {
+        id: text(word.id, "Mã từ") || `${lessonId}-reading-word-${index}`,
+        hanzi: text(word.hanzi, "Chữ Hán"),
+        pinyin: text(word.pinyin, "Pinyin"),
+        meaningVi: text(word.meaningVi ?? word.meaning, "Nghĩa Việt"),
+        exampleZh: text(word.exampleZh, "Ví dụ"),
+        examplePy: text(word.examplePy, "Pinyin ví dụ"),
+        exampleVi: text(word.exampleVi, "Dịch ví dụ"),
+        tag: text(word.tag, "Nhãn")
+      };
     }),
   };
 }

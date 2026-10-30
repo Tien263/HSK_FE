@@ -14,7 +14,123 @@ export default function LessonRichSections({lesson,readingSelected,onReadingChan
  const groups=[{title:"1. Bối cảnh sử dụng",types:["CONTEXT","SCENARIO"]},{title:"2. Mẫu câu vàng khuyên dùng",types:["PHRASE"]},{title:"3. Cách nói lịch sự & Tôn trọng",types:["POLITE"]},{title:"4. Lưu ý & Cấm kỵ văn hóa",types:["CAUTION"]},{title:"5. Đối tượng phù hợp",types:["TARGET_AUDIENCE"]}];
  return <div className="space-y-6 text-[#204434]" data-rich-lesson>
   <section className={`${card} space-y-5`}><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-serif text-lg font-bold">04 · Luyện đọc hiểu & Ngữ cảnh</h3>{reading&&select(reading.id,"Chọn toàn bộ bài đọc",!!readingSelected, onReadingChange?()=>onReadingChange(!readingSelected):undefined)}</div>
-   {reading?.contentZh?<article className="space-y-4 rounded-2xl border border-[#E5DEC9] bg-[#FAF7F0] p-5 sm:p-7"><h4 className="font-serif text-xl font-bold">{reading.titleZh}</h4><p>{reading.titleVi}</p><Audio text={reading.contentZh}/><p className="whitespace-pre-wrap font-serif text-xl leading-loose">{reading.contentZh}</p><p className="whitespace-pre-wrap text-sm leading-7 text-[#8F6D3B]">{reading.contentPy||pinyin(reading.contentZh)}</p><p className="whitespace-pre-wrap text-sm leading-7">{reading.contentVi||"Bài đọc chưa có bản dịch tiếng Việt."}</p></article>:<p className="text-sm text-[#6B766D]">Chưa có bài đọc riêng. Thêm nội dung ở mục Chỉnh sửa học liệu; phần văn hóa không được dùng thay bài đọc.</p>}
+   {reading?.contentZh ? (
+      <div className="space-y-5">
+        <article className="space-y-4 rounded-2xl border border-[#E5DEC9] bg-[#FAF7F0] p-5 sm:p-7">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="font-serif text-xl font-bold">{reading.titleZh}</h4>
+              <p className="text-sm text-[#8F6D3B]">{reading.titleVi}</p>
+            </div>
+            <Audio text={reading.contentZh} />
+          </div>
+          <p className="whitespace-pre-wrap font-serif text-xl leading-loose">{reading.originalText || reading.contentZh}</p>
+          <p className="whitespace-pre-wrap text-sm leading-7 text-[#8F6D3B]">{reading.contentPy || pinyin(reading.contentZh)}</p>
+          <p className="whitespace-pre-wrap text-sm leading-7 text-[#2A4B3A] border-t border-[#E5DEC9] pt-3">{reading.translation || reading.contentVi || "Bài đọc chưa có bản dịch tiếng Việt."}</p>
+        </article>
+
+        {(reading.mainIdea || reading.analysisExplanation || (reading.keywords && reading.keywords.length > 0) || reading.commonTrap || reading.readingTip) && (
+          <div className="space-y-4 rounded-2xl border border-[#D5CBB2] bg-[#FAF8F3] p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center gap-2 border-b border-[#E5DEC9] pb-3">
+              <span className="text-lg">📊</span>
+              <h4 className="font-serif text-lg font-bold text-[#2A4B3A]">Phân tích bài đọc chuyên sâu</h4>
+            </div>
+
+            {reading.analysisExplanation && (
+              <div className="rounded-xl bg-white p-4 border border-[#EBE3D3] space-y-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#8F6D3B]">📖 Phân tích tổng quan:</span>
+                <p className="text-xs leading-relaxed text-[#3E4D42]">{reading.analysisExplanation}</p>
+              </div>
+            )}
+
+            {reading.mainIdea && (
+              <div className="rounded-xl bg-white p-4 border border-[#EBE3D3] space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#8F6D3B]">
+                  <span>📌</span> Ý chính toàn bài (Main Idea)
+                </div>
+                <p className="text-sm font-semibold text-[#204434]">{reading.mainIdea}</p>
+                {reading.mainIdeaExplanation && (
+                  <p className="text-xs text-[#5D6B60] leading-relaxed italic border-t border-dashed border-[#E5DEC9] pt-1.5">
+                    <strong>Giải thích ý chính: </strong>{reading.mainIdeaExplanation}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {reading.mainEvent && (
+              <div className="rounded-xl bg-white p-4 border border-[#EBE3D3] space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#8F6D3B]">
+                  <span>🎯</span> Sự kiện / Diễn biến chính (Main Event)
+                </div>
+                <p className="text-xs text-[#204434] leading-relaxed font-medium">{reading.mainEvent}</p>
+              </div>
+            )}
+
+            {reading.keySentence && (
+              <div className="rounded-xl bg-emerald-50/70 p-4 border border-emerald-200 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800">
+                  <span>🔑</span> Câu then chốt (Key Sentence)
+                </div>
+                <p className="font-serif text-base font-bold text-emerald-950">{reading.keySentence}</p>
+                {reading.evidenceExplanation && (
+                  <p className="text-xs text-emerald-800 leading-relaxed pt-1 border-t border-dashed border-emerald-200">
+                    <strong className="font-semibold">Dẫn chứng & Cơ sở: </strong>{reading.evidenceExplanation}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {reading.keywords && reading.keywords.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#8F6D3B]">
+                  <span>🏷️</span> Từ khóa quan trọng (Keywords)
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {reading.keywords.map((kw, i) => (
+                    <span key={i} className="rounded-lg bg-[#EAE5D8] px-3 py-1 text-xs font-semibold text-[#204434] border border-[#DDD6C5]">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {reading.secondaryDetails && reading.secondaryDetails.length > 0 && (
+              <div className="rounded-xl bg-white p-4 border border-[#EBE3D3] space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#8F6D3B]">
+                  <span>📝</span> Chi tiết bổ trợ (Secondary Details)
+                </div>
+                <ul className="list-disc pl-5 text-xs text-[#3E4D42] space-y-1 leading-relaxed">
+                  {reading.secondaryDetails.map((detail, i) => (
+                    <li key={i}>{detail}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {reading.commonTrap && (
+              <div className="rounded-xl bg-amber-50 p-4 border border-amber-200 text-xs space-y-1">
+                <div className="flex items-center gap-2 font-bold text-amber-900 uppercase tracking-wider">
+                  <span>⚠️</span> Bẫy đề thi cần tránh (Common Trap)
+                </div>
+                <p className="text-amber-950 leading-relaxed">{reading.commonTrap}</p>
+              </div>
+            )}
+
+            {reading.readingTip && (
+              <div className="rounded-xl bg-sky-50 p-4 border border-sky-200 text-xs space-y-1">
+                <div className="flex items-center gap-2 font-bold text-sky-900 uppercase tracking-wider">
+                  <span>💡</span> Mẹo đọc hiểu & Định vị thông tin (Reading Tip)
+                </div>
+                <p className="text-sky-950 leading-relaxed">{reading.readingTip}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    ) : (
+      <p className="text-sm text-[#6B766D]">Chưa có bài đọc riêng. Thêm nội dung ở mục Chỉnh sửa học liệu; phần văn hóa không được dùng thay bài đọc.</p>
+    )}
    {!!words.length&&<div className="space-y-4"><div className="flex flex-wrap justify-between gap-3"><h4 className="font-bold">Từ vựng mở rộng ({words.length})</h4>{onWordsChange&&<button type="button" className="text-xs underline" onClick={()=>onWordsChange(wordIds.length===words.length?[]:words.map((word,index)=>word.id||`${reading!.id}-word-${index}`))}>{wordIds.length===words.length?"Bỏ chọn từ mở rộng":"Chọn tất cả từ mở rộng"}</button>}</div><div className="grid gap-4 md:grid-cols-2">{words.map((word,index)=>{const id=word.id||`${reading!.id}-word-${index}`;return <article key={id} className={card}>{select(id,`Chọn từ ${word.hanzi}`,wordIds.includes(id),onWordsChange?()=>onWordsChange(wordIds.includes(id)?wordIds.filter(value=>value!==id):[...wordIds,id]):undefined)}<h5 className="font-serif text-2xl font-bold">{word.hanzi}</h5><p className="text-[#8F6D3B]">{word.pinyin||pinyin(word.hanzi)}</p><p className="text-sm">{word.meaningVi}</p><Audio text={word.hanzi}/>{word.exampleZh&&<div className="space-y-1 border-t border-[#E5DEC9] pt-3 text-sm"><p>{word.exampleZh}</p><p className="text-[#8F6D3B]">{word.examplePy||pinyin(word.exampleZh)}</p><p>{word.exampleVi}</p></div>}</article>;})}</div></div>}
   </section>
   <section className={`${card} space-y-6`}><h3 className="font-serif text-lg font-bold">05 · Văn hóa giao tiếp & Cách sử dụng thực tế</h3>{groups.map(group=>{const rows=items.filter(item=>group.types.includes(item.type));if(!rows.length)return null;return <div key={group.title} className="space-y-3"><h4 className="font-bold">{group.title}</h4><div className="grid gap-4 md:grid-cols-2">{rows.map(item=><article key={item.id} className={`${card} ${["CONTEXT","SCENARIO"].includes(item.type)||((item.content?.length||0)>280)?"md:col-span-2":""} ${item.type==="CAUTION"?"border-[#DDBDB4]":""}`}>{select(item.id,`Chọn ${item.categoryLabel}`,cultureIds.includes(item.id),onCultureChange?()=>onCultureChange(item.id):undefined)}{item.zh?<><p className="font-serif text-xl font-bold">{item.zh}</p><p className="text-sm text-[#8F6D3B]">{item.py||pinyin(item.zh)}</p><p className="text-sm">{item.vi||"Chưa có bản dịch tiếng Việt."}</p>{item.note&&<p className="text-sm leading-7">{item.note}</p>}<Audio text={item.zh}/></>:<p className="whitespace-pre-wrap text-sm leading-7">{item.content}</p>}</article>)}</div></div>;})}{!items.length&&<p className="text-sm text-[#6B766D]">Chưa có thông tin văn hóa giao tiếp.</p>}</section>

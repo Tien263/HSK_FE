@@ -1,20 +1,87 @@
 import type {ReadingItem, CulturalNoteItem} from "./lesson-data";
+export interface VocabExample {
+  zh: string;
+  pinyin?: string;
+  vi: string;
+}
+
+export interface VocabCommonMistake {
+  incorrect: string;
+  correct: string;
+  explanation: string;
+}
+
+export interface VocabExample {
+  zh: string;
+  pinyin?: string;
+  vi: string;
+}
+
+export interface VocabCommonMistake {
+  incorrect: string;
+  correct: string;
+  explanation: string;
+}
+
+export interface VocabExample {
+  zh: string;
+  pinyin?: string;
+  vi: string;
+}
+
+export interface VocabCommonMistake {
+  incorrect: string;
+  correct: string;
+  explanation: string;
+}
+
 export interface LessonVocabItem {
   id?: string;
   hanzi: string;
   pinyin: string;
   meaning: string;
+  meaningVi?: string;
+  usageExplanation?: string;
+  usagePatterns?: string[];
+  examples?: VocabExample[];
+  commonMistakes?: VocabCommonMistake[];
   type?: string;
+  wordType?: string;
   exampleZh?: string;
   examplePy?: string;
   exampleVi?: string;
 }
 
+export interface GrammarExample {
+  zh: string;
+  pinyin?: string;
+  vi: string;
+  explanationVi?: string;
+}
+
+export interface GrammarCommonMistake {
+  incorrect: string;
+  correct: string;
+  explanation: string;
+}
+
 export interface LessonGrammarItem {
+  id?: string;
   title: string;
+  titleZh?: string;
+  summary?: string;
   structure: string;
+  usageExplanation?: string;
+  usageSteps?: string[];
+  examples?: GrammarExample[];
+  usageContexts?: string[];
+  comparison?: string;
+  commonMistakes?: GrammarCommonMistake[] | string[];
   example: string;
   explanation?: string;
+  notes?: string;
+  memo?: string;
+  usage?: string;
 }
 
 export interface LessonDialogueLine {
