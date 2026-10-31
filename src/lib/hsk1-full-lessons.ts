@@ -45,6 +45,7 @@ export interface LessonVocabItem {
   usagePatterns?: string[];
   examples?: VocabExample[];
   commonMistakes?: VocabCommonMistake[];
+  comparison?: string;
   type?: string;
   wordType?: string;
   exampleZh?: string;
@@ -55,6 +56,7 @@ export interface LessonVocabItem {
 export interface GrammarExample {
   zh: string;
   pinyin?: string;
+  py?: string;
   vi: string;
   explanationVi?: string;
 }
@@ -163,6 +165,19 @@ export const OFFICIAL_HSK1_15_LESSONS: Hsk1FullLesson[] = [
         hanzi: "你好",
         pinyin: "nǐ hǎo",
         meaning: "Xin chào",
+        meaningVi: "Xin chào",
+        usageExplanation: "Dùng để chào hỏi thông thường giữa bạn bè, người cùng trang lứa hoặc người mới quen lần đầu.",
+        usagePatterns: ["Chào + Đại từ: 你好！", "Chào số nhiều: 你们好！", "Chào danh xưng: 老师，你好！"],
+        examples: [
+          { zh: "你好，很高兴认识你！", pinyin: "Nǐ hǎo, hěn gāoxìng rènshí nǐ!", vi: "Xin chào, rất vui được làm quen với bạn!" },
+          { zh: "你好，小语！", pinyin: "Nǐ hǎo, Xiǎoyǔ!", vi: "Chào Tiểu Ngữ! (Lưu ý: Hai thanh 3 đứng liền nhau, phát âm thành ní hǎo)" },
+          { zh: "王老师，你好！", pinyin: "Wáng lǎoshī, nǐ hǎo!", vi: "Em chào thầy Vương ạ!" }
+        ],
+        commonMistakes: [
+          { incorrect: "你好吗？ (khi gặp người lạ lần đầu để chào)", correct: "你好！", explanation: "'你好吗？' mang nghĩa 'Bạn có khỏe không?', chỉ dùng cho người đã quen biết." },
+          { incorrect: "您好 (dùng cho bạn bè thân thiết cùng lứa)", correct: "你好", explanation: "'您好' tạo cảm giác khách sáo, xa cách với bạn bè thân thiết." }
+        ],
+        comparison: "Phân biệt với 您好 (kính ngữ trang trọng dành cho người lớn tuổi, thầy cô giáo hoặc cấp trên).",
         exampleZh: "你好，小语！",
         examplePy: "Nǐ hǎo, Xiǎoyǔ!",
         exampleVi: "Chào Tiểu Ngữ! (Lưu ý: Hai thanh 3 đứng liền nhau, 你好 thường được phát âm thành ní hǎo)",
@@ -259,23 +274,102 @@ export const OFFICIAL_HSK1_15_LESSONS: Hsk1FullLesson[] = [
     grammarList: [
       {
         title: "Ngữ pháp 1: Cấu trúc chào hỏi với 好",
+        titleZh: "问候语结构：……+ 好",
+        summary: "Cấu trúc chào hỏi cơ bản và chuẩn mực nhất trong tiếng Trung.",
         structure: "Đối tượng được chào + 好！",
-        example: "你好！(Xin chào!) · 您好！(Xin chào ạ!) · 大家好！(Chào mọi người!) · 你们好！(Chào các bạn!) · 老师好！(Chào thầy/cô ạ!)",
-        explanation: "Trong tiếng Trung, có thể kết hợp đại từ nhân xưng hoặc danh xưng với 好 để hình thành câu chào. Lưu ý phát âm: 你好 viết nǐ hǎo nhưng khi đọc thông thường biến điệu thành ní hǎo.",
+        usageExplanation: "Trong tiếng Trung, có thể kết hợp đại từ nhân xưng hoặc danh xưng với 好 để hình thành câu chào. Lưu ý phát âm: 你好 viết nǐ hǎo nhưng khi đọc thông thường biến điệu thành ní hǎo.",
+        usageSteps: [
+          "Bước 1: Xác định đối tượng cần chào (thầy cô, bạn bè, nhiều người).",
+          "Bước 2: Đặt tên danh xưng lên trước (老师, 大家, 同学们).",
+          "Bước 3: Thêm '好' vào sau cùng."
+        ],
+        examples: [
+          { zh: "王老师，您好！", pinyin: "Wáng lǎoshī, nín hǎo!", vi: "Em chào thầy Vương ạ!", explanationVi: "Chào thầy cô bằng kính ngữ." },
+          { zh: "同学们好！", pinyin: "Tóngxuémen hǎo!", vi: "Chào các em học sinh!", explanationVi: "Giáo viên chào cả lớp." },
+          { zh: "大家好！", pinyin: "Dàjiā hǎo!", vi: "Chào mọi người!", explanationVi: "Lời chào thân thiện trước đám đông." }
+        ],
+        usageContexts: [
+          "Gặp mặt bạn bè hoặc người cùng lứa tuổi.",
+          "Gặp gỡ thầy cô giáo tại trường học hoặc người lớn tuổi.",
+          "Chào cả lớp hoặc tập thể."
+        ],
+        comparison: "Bạn (你) dùng cho quan hệ bình đẳng; Ngài/Thầy/Cô (您) dùng cho người lớn tuổi, cấp trên.",
+        commonMistakes: [
+          { incorrect: "好王老师！", correct: "王老师好！ / 王老师，您好！", explanation: "Danh xưng phải đứng trước chữ '好'." }
+        ],
+        example: "王老师，您好！",
+        explanation: "Trong tiếng Trung, có thể kết hợp đại từ nhân xưng hoặc danh xưng với 好 để hình thành câu chào.",
       },
       {
         title: "Ngữ pháp 2: Phân biệt 你 và 您",
-        structure: "你 (giao tiếp thông thường) vs 您 (đại từ kính trọng)",
-        example: "小语，你好！ (Chào Tiểu Ngữ!) · 王老师，您好！ (Em chào thầy/cô Vương ạ!)",
-        explanation: "你 (nǐ): Bạn, sử dụng trong giao tiếp thông thường. 您 (nín): Đại từ kính trọng, sử dụng khi giao tiếp lịch sự với thầy cô, người lớn tuổi hoặc người cần thể hiện sự tôn trọng. Sự khác biệt nằm ở mức độ trang trọng và quan hệ giữa người nói với người nghe.",
+        titleZh: "人称代词与尊称“您”",
+        summary: "Phân biệt sắc thái giữa ngôi thứ hai thông thường và kính ngữ trang trọng.",
+        structure: "你 (thân mật, cùng lứa) vs 您 (kính trọng, bề trên)",
+        usageExplanation: "你 (nǐ): Bạn, sử dụng trong giao tiếp thông thường. 您 (nín): Đại từ kính trọng, sử dụng khi giao tiếp lịch sự với thầy cô, người lớn tuổi hoặc người cần thể hiện sự tôn trọng.",
+        usageSteps: [
+          "Bước 1: Nhận diện đối tượng là người lớn tuổi, thầy cô hay khách hàng.",
+          "Bước 2: Thay '你' bằng '您'.",
+          "Bước 3: Tuyệt đối không dùng '您' kèm '们'."
+        ],
+        examples: [
+          { zh: "小语，你好！", pinyin: "Xiǎoyǔ, nǐ hǎo!", vi: "Chào Tiểu Ngữ!", explanationVi: "Chào bạn bè cùng trang lứa." },
+          { zh: "王老师，您好！", pinyin: "Wáng lǎoshī, nín hǎo!", vi: "Em chào thầy Vương ạ!", explanationVi: "Kính chào giáo viên bề trên." }
+        ],
+        comparison: "Bạn (你) dùng cho quan hệ bình đẳng; Ngài/Thầy/Cô (您) dùng cho người lớn tuổi, cấp trên.",
+        commonMistakes: [
+          { incorrect: "老师们，您们好！", correct: "老师们，大家好！ / 各位老师好！", explanation: "Trong tiếng Hán chuẩn, '您' không đi với '们'." }
+        ],
+        example: "王老师，您好！",
+        explanation: "您 (nín): Đại từ kính trọng, sử dụng khi giao tiếp lịch sự với thầy cô, người lớn tuổi.",
       },
       {
         title: "Ngữ pháp 3: Hậu tố số nhiều 们",
+        titleZh: "复数词缀“们”的用法",
+        summary: "Quy tắc thêm hậu tố số nhiều sau danh từ chỉ người và đại từ.",
         structure: "Đại từ nhân xưng / danh từ chỉ người + 们",
-        example: "你 + 们 = 你们 (Các bạn) · 我 + 们 = 我们 (Chúng tôi) · 同学 + 们 = 同学们 (Các bạn học) · 你们好！ · 同学们，再见！",
-        explanation: "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều. Lưu ý: Không thêm 们 ngay sau một danh từ đã có số lượng cụ thể như 三个学生.",
+        usageExplanation: "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều. Lưu ý: Không thêm 们 ngay sau một danh từ đã có số lượng cụ thể như 三个学生.",
+        examples: [
+          { zh: "我们都是学生。", pinyin: "Wǒmen dōu shì xuésheng.", vi: "Chúng tôi đều là học sinh.", explanationVi: "我 + 们 = Chúng tôi." },
+          { zh: "同学们，再见！", pinyin: "Tóngxuémen, zàijiàn!", vi: "Tạm biệt các bạn học!", explanationVi: "同学 + 们 = Các bạn học." }
+        ],
+        commonMistakes: [
+          { incorrect: "五个学生们", correct: "五个学生", explanation: "Khi đã có số lượng từ xác định thì KHÔNG được thêm '们'." }
+        ],
+        example: "同学们好！",
+        explanation: "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều.",
       },
     ],
+    reading: {
+      id: "hsk1-01-reading",
+      titleZh: "第一天上课",
+      titleVi: "Buổi học đầu tiên",
+      originalText: "今天是第一天上课。王老师走进教室，对大家说：“同学们好！”学生们很高兴，一起说：“老师好！”小语也说：“王老师，您好！”王老师微笑着点点头。下课了，老师说：“同学们，再见！”大家高兴地说：“老师，再见！谢谢老师！”",
+      translation: "Hôm nay là ngày học đầu tiên. Thầy Vương bước vào lớp học và nói với mọi người: “Chào các em học sinh!” Các bạn học sinh rất vui, đồng thanh nói: “Chúng em chào thầy ạ!” Tiểu Ngữ cũng lễ phép nói: “Em chào thầy Vương ạ!” Thầy Vương mỉm cười gật đầu. Tan học rồi, thầy nói: “Tạm biệt các em học sinh!” Mọi người vui vẻ đáp: “Chúng em chào thầy, hẹn gặp lại thầy! Cảm ơn thầy ạ!”",
+      contentZh: "今天是第一天上课。王老师走进教室，对大家说：“同学们好！”学生们很高兴，一起说：“老师好！”小语也说：“王老师，您好！”王老师微笑着点点头。下课了，老师说：“同学们，再见！”大家高兴地说：“老师，再见！谢谢老师！”",
+      contentPy: "Jīntiān shì dì-yī tiān shàngkè. Wáng lǎoshī zǒujìn jiàoshì, duì dàjiā shuō: “Tóngxuémen hǎo!” Xuéshengmen hěn gāoxìng, yìqǐ shuō: “Lǎoshī hǎo!” Xiǎoyǔ yě shuō: “Wáng lǎoshī, nín hǎo!” Wáng lǎoshī wēixiàozhe diǎndiǎn tóu. Xiàkè le, lǎoshī shuō: “Tóngxuémen, zàijiàn!” Dàjiā gāoxìng de shuō: “Lǎoshī, zàijiàn! Xièxie lǎoshī!”",
+      contentVi: "Hôm nay là ngày học đầu tiên. Thầy Vương bước vào lớp học và nói với mọi người: “Chào các em học sinh!” Các bạn học sinh rất vui, đồng thanh nói: “Chúng em chào thầy ạ!” Tiểu Ngữ cũng lễ phép nói: “Em chào thầy Vương ạ!” Thầy Vương mỉm cười gật đầu. Tan học rồi, thầy nói: “Tạm biệt các em học sinh!” Mọi người vui vẻ đáp: “Chúng em chào thầy, hẹn gặp lại thầy! Cảm ơn thầy ạ!”",
+      analysisExplanation: "Bài đọc ngắn mô tả không khí buổi học đầu tiên tại lớp tiếng Trung, qua đó rèn luyện phản xạ chào hỏi tự nhiên, cách xưng hô kính trọng với thầy cô giáo (您好) và lời chào tạm biệt kết thúc buổi học (再见).",
+      mainEvent: "Thầy Vương cùng cả lớp chào hỏi nhau trong tiết học tiếng Trung đầu tiên và chào tạm biệt khi tan học.",
+      keywords: ["第一天 (ngày đầu tiên)", "上课 (vào học)", "同学们好 (chào các bạn)", "老师好 (chào thầy)", "您好 (chào kính ngữ)", "再见 (tạm biệt)", "谢谢 (cảm ơn)"],
+      keySentence: "小语也说：“王老师，您好！”",
+      evidenceExplanation: "Tiểu Ngữ dùng đại từ '您' để biểu thị sự lễ phép và tôn kính với thầy giáo trong lớp học.",
+      mainIdea: "Tạo dựng văn hóa chào hỏi lễ phép, thân thiện và ấm áp trong môi trường lớp học tiếng Trung.",
+      mainIdeaExplanation: "Thông qua các câu chào hỏi tương tác giữa thầy và trò, người học nắm vững các mẫu câu giao tiếp cơ bản nhất của chuẩn HSK 1.",
+      secondaryDetails: [
+        "Tiết học diễn ra vào ngày đầu tiên khai giảng.",
+        "Cả lớp đều rất hào hứng và vui vẻ khi gặp thầy giáo mới.",
+        "Thầy Vương mỉm cười thân thiện khi nghe Tiểu Ngữ chào bằng kính ngữ.",
+        "Cuối giờ, học sinh không quên nói lời cảm ơn và tạm biệt thầy giáo."
+      ],
+      commonTrap: "Bẫy câu hỏi suy luận: Đề thi có thể hỏi 'Tại sao Tiểu Ngữ dùng 您好 thay vì 你好?', đáp án chính xác là vì đối phương là giáo viên (bề trên), cần thể hiện sự lễ độ.",
+      readingTip: "Chú ý phân biệt đối tượng người nói trong ngoặc kép: Thầy giáo chào '同学们好', học sinh đáp '老师好', Tiểu Ngữ kính chào '您好'.",
+      wordCount: 78,
+      extraVocabs: [
+        { hanzi: "今天", pinyin: "jīntiān", meaningVi: "Hôm nay", exampleZh: "今天天气很好。", examplePy: "Jīntiān tiānqì hěn hǎo.", exampleVi: "Hôm nay thời tiết rất đẹp." },
+        { hanzi: "上课", pinyin: "shàngkè", meaningVi: "Vào học, đi học", exampleZh: "我们八点上课。", examplePy: "Wǒmen bā diǎn shàngkè.", exampleVi: "Chúng tôi vào học lúc 8 giờ." },
+        { hanzi: "下课", pinyin: "xiàkè", meaningVi: "Tan học", exampleZh: "下课了，大家去休息。", examplePy: "Xiàkè le, dàjiā qù xiūxi.", exampleVi: "Tan học rồi, mọi người đi nghỉ ngơi." }
+      ]
+    },
     dialogue: [
       { speaker: "王老师", zh: "同学们好！", pinyin: "Tóngxuémen hǎo!", vi: "Chào các em học sinh!" },
       { speaker: "学生们", zh: "老师好！", pinyin: "Lǎoshī hǎo!", vi: "Chúng em chào thầy ạ!" },

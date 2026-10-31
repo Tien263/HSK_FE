@@ -102,24 +102,47 @@ export function normalizeGrammarList(
     const rawStructure = g.structure || g.formula || g.pattern || "Cấu trúc ngữ pháp trọng tâm";
     const rawMeaning = g.meaningVi || g.meaning || g.explanation || g.usage || "Ý nghĩa và cách dùng trong câu";
 
-    let exList: { zh: string; pinyin: string; vi: string }[] = [];
+    let exList: { zh: string; pinyin: string; vi: string; explanationVi?: string }[] = [];
+    const seenZh = new Set<string>();
+
     if (Array.isArray(g.examples) && g.examples.length > 0) {
-      exList = g.examples.map((ex: any) => ({
-        zh: typeof ex === "string" ? ex : ex.zh || ex.sentence || "",
-        pinyin: typeof ex === "string" ? "" : ex.pinyin || "",
-        vi: typeof ex === "string" ? "" : ex.vi || ex.meaning || "",
-      }));
-    } else if (g.exampleZh) {
-      exList.push({
-        zh: g.exampleZh,
-        pinyin: g.examplePinyin || "",
-        vi: g.exampleVi || "",
-      });
+      for (const ex of g.examples) {
+        const zh = String(typeof ex === "string" ? ex : ex?.zh || ex?.example || ex?.sentence || "").trim();
+        if (!zh || seenZh.has(zh)) continue;
+        seenZh.add(zh);
+        exList.push({
+          zh,
+          pinyin: String(typeof ex === "string" ? "" : ex?.pinyin || ex?.py || "").trim(),
+          vi: String(typeof ex === "string" ? "" : ex?.vi || ex?.meaningVi || ex?.meaning || "").trim(),
+          explanationVi: String(typeof ex === "string" ? "" : ex?.explanationVi || ex?.explanation || "").trim(),
+        });
+      }
+    } else if (g.example || g.exampleZh) {
+      const zh = String(g.example || g.exampleZh).trim();
+      if (zh && !seenZh.has(zh)) {
+        seenZh.add(zh);
+        exList.push({
+          zh,
+          pinyin: String(g.examplePy || g.examplePinyin || "").trim(),
+          vi: String(g.exampleVi || "").trim(),
+          explanationVi: String(g.explanation || "").trim(),
+        });
+      }
     } else {
       exList = [
         { zh: "你好！", pinyin: "Nǐ hǎo!", vi: "Xin chào!" },
         { zh: "老师好！", pinyin: "Lǎoshī hǎo!", vi: "Em chào thầy cô!" },
       ];
+    }
+
+    let formattedMistakes = "Tránh dịch từng từ theo ngữ pháp tiếng Việt mà cần tuân theo kết cấu ngữ pháp tiếng Trung.";
+    if (Array.isArray(g.commonMistakes) && g.commonMistakes.length > 0) {
+      formattedMistakes = g.commonMistakes.map((m: any) => {
+        if (typeof m === "string") return m;
+        return `❌ ${m.incorrect || ""} ➔  ${m.correct || ""}${m.explanation ? ` (${m.explanation})` : ""}`;
+      }).join("\n");
+    } else if (typeof g.commonMistakes === "string" && g.commonMistakes.trim()) {
+      formattedMistakes = g.commonMistakes.trim();
     }
 
     return {
@@ -132,7 +155,7 @@ export function normalizeGrammarList(
       usage: g.usage || rawMeaning,
       examples: exList,
       notes: g.notes || g.warning || "Chú ý trật tự từ và hư từ tương ứng trong câu.",
-      commonMistakes: g.commonMistakes || "Tránh dịch từng từ theo ngữ pháp tiếng Việt mà cần tuân theo kết cấu ngữ pháp tiếng Trung.",
+      commonMistakes: formattedMistakes,
       memo: g.memo || `Nắm chắc cấu trúc "${rawStructure}" để vận dụng chính xác khi làm bài tập và giao tiếp.`,
       status: idx === 0 ? "MASTERED" : idx === 1 ? "REVIEW_NEEDED" : "NOT_LEARNED",
     };

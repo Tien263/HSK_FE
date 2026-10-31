@@ -1154,11 +1154,21 @@ export default function GrammarPracticeSuite({
                   <span className="text-[#315E48]">{currentGrammar.meaningVi}</span>
                 </p>
                 <div className="pt-1 space-y-1">
-                  <strong className="text-[#17382F] block">Ví dụ:</strong>
-                  {currentGrammar.examples.slice(0, 3).map((ex, i) => (
-                    <p key={i} className="text-[11px] text-[#315E48]">
-                      <span className="font-serif font-bold text-[#17382F]">{ex.zh}</span> ({ex.vi})
-                    </p>
+                  <strong className="text-[#17382F] block">Ví dụ ({currentGrammar.examples.length}):</strong>
+                  {currentGrammar.examples.map((ex, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 text-[11px] text-[#315E48] py-0.5">
+                      <div>
+                        <span className="font-serif font-bold text-[#17382F]">{ex.zh}</span> ({ex.vi})
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSpeak(ex.zh)}
+                        className="p-1 rounded text-[#8F6D3B] hover:text-[#17382F]"
+                        title="Nghe phát âm"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>

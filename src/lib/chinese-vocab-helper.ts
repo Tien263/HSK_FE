@@ -272,39 +272,62 @@ export function getExamplesForVocab(
   if (!currentVocab) return [];
 
   const results: { zh: string; pinyin: string; vi: string }[] = [];
+  const seenZh = new Set<string>();
 
-  if (currentVocab.exampleZh) {
-    results.push({
-      zh: currentVocab.exampleZh,
-      pinyin: currentVocab.examplePinyin || currentVocab.pinyin || "",
-      vi: currentVocab.exampleVi || "",
-    });
+  // 1. Ưu tiên đọc mảng vocabList[].examples và lấy TẤT CẢ câu ví dụ
+  if (Array.isArray(currentVocab.examples) && currentVocab.examples.length > 0) {
+    for (const ex of currentVocab.examples) {
+      const zh = String(ex?.zh || ex?.exampleZh || "").trim();
+      if (!zh || seenZh.has(zh)) continue;
+      seenZh.add(zh);
+      results.push({
+        zh,
+        pinyin: String(ex?.pinyin || ex?.py || ex?.examplePy || "").trim(),
+        vi: String(ex?.vi || ex?.meaningVi || ex?.exampleVi || "").trim(),
+      });
+    }
   }
 
-  // Bổ sung ví dụ thứ 2 thông dụng
-  const hz = currentVocab.hanzi;
-  if (hz === "你好") {
-    results.push({ zh: "大家好！", pinyin: "Dàjiā hǎo!", vi: "Chào mọi người!" });
-  } else if (hz === "我") {
-    results.push({ zh: "我是学生。", pinyin: "Wǒ shì xuésheng.", vi: "Tôi là học sinh." });
-  } else if (hz === "是") {
-    results.push({ zh: "他是老师。", pinyin: "Tā shì lǎoshī.", vi: "Thầy ấy là giáo viên." });
-  } else if (hz === "学生") {
-    results.push({ zh: "我们都是学生。", pinyin: "Wǒmen dōu shì xuésheng.", vi: "Chúng tôi đều là học sinh." });
-  } else if (hz === "老师") {
-    results.push({ zh: "老师好！", pinyin: "Lǎoshī hǎo!", vi: "Em chào thầy/cô!" });
-  } else if (hz === "谢谢") {
-    results.push({ zh: "太谢谢你了！", pinyin: "Tài xièxie nǐ le!", vi: "Vô cùng cảm ơn bạn!" });
-  } else if (hz === "不客气") {
-    results.push({ zh: "别客气，请坐！", pinyin: "Bié kèqi, qǐng zuò!", vi: "Đừng khách sáo, mời ngồi!" });
-  } else if (hz === "再见") {
-    results.push({ zh: "老师，再见！", pinyin: "Lǎoshī, zàijiàn!", vi: "Thưa thầy/cô, em chào tạm biệt ạ!" });
-  } else if (results.length === 1) {
-    results.push({
-      zh: `这是${hz}。`,
-      pinyin: `Zhè shì ${currentVocab.pinyin || hz}.`,
-      vi: `Đây là ${currentVocab.meaningVi || currentVocab.meaning || hz}.`,
-    });
+  // 2. Fallback: Nếu không có mảng examples hoặc mảng rỗng, dùng dữ liệu cũ exampleZh, examplePy, exampleVi
+  if (results.length === 0 && currentVocab.exampleZh) {
+    const zh = String(currentVocab.exampleZh).trim();
+    if (zh && !seenZh.has(zh)) {
+      seenZh.add(zh);
+      results.push({
+        zh,
+        pinyin: String(currentVocab.examplePy || currentVocab.examplePinyin || currentVocab.pinyin || "").trim(),
+        vi: String(currentVocab.exampleVi || "").trim(),
+      });
+    }
+  }
+
+  // 3. Nếu vẫn chưa có ví dụ nào, bổ sung ví dụ thông dụng chuẩn HSK
+  if (results.length === 0) {
+    const hz = currentVocab.hanzi;
+    if (hz === "你好") {
+      results.push({ zh: "你好，很高兴认识你！", pinyin: "Nǐ hǎo, hěn gāoxìng rènshí nǐ!", vi: "Xin chào, rất vui được làm quen với bạn!" });
+      results.push({ zh: "大家好！", pinyin: "Dàjiā hǎo!", vi: "Chào mọi người!" });
+    } else if (hz === "我") {
+      results.push({ zh: "我是学生。", pinyin: "Wǒ shì xuésheng.", vi: "Tôi là học sinh." });
+    } else if (hz === "是") {
+      results.push({ zh: "他是老师。", pinyin: "Tā shì lǎoshī.", vi: "Thầy ấy là giáo viên." });
+    } else if (hz === "学生") {
+      results.push({ zh: "我们都是学生。", pinyin: "Wǒmen dōu shì xuésheng.", vi: "Chúng tôi đều là học sinh." });
+    } else if (hz === "老师") {
+      results.push({ zh: "老师好！", pinyin: "Lǎoshī hǎo!", vi: "Em chào thầy/cô!" });
+    } else if (hz === "谢谢") {
+      results.push({ zh: "太谢谢你了！", pinyin: "Tài xièxie nǐ le!", vi: "Vô cùng cảm ơn bạn!" });
+    } else if (hz === "不客气") {
+      results.push({ zh: "别客气，请坐！", pinyin: "Bié kèqi, qǐng zuò!", vi: "Đừng khách sáo, mời ngồi!" });
+    } else if (hz === "再见") {
+      results.push({ zh: "老师，再见！", pinyin: "Lǎoshī, zàijiàn!", vi: "Thưa thầy/cô, em chào tạm biệt ạ!" });
+    } else {
+      results.push({
+        zh: `这是${hz}。`,
+        pinyin: `Zhè shì ${currentVocab.pinyin || hz}.`,
+        vi: `Đây là ${currentVocab.meaningVi || currentVocab.meaning || hz}.`,
+      });
+    }
   }
 
   return results;

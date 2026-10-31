@@ -13,17 +13,44 @@ export interface VocabularyItem {
   examplePy: string;
   exampleVi: string;
   usageNote?: string;
+  usageExplanation?: string;
+  usagePatterns?: string[];
+  examples?: {
+    zh: string;
+    pinyin?: string;
+    py?: string;
+    vi: string;
+  }[];
+  commonMistakes?: {
+    incorrect: string;
+    correct: string;
+    explanation: string;
+  }[] | string[];
+  comparison?: string;
 }
 
 export interface GrammarItem {
   id: string;
   title: string;
+  titleZh?: string;
+  summary?: string;
   structure: string;
   explanation: string;
+  usageExplanation?: string;
+  usageSteps?: string[];
+  usageContexts?: string[];
+  comparison?: string;
+  commonMistakes?: {
+    incorrect: string;
+    correct: string;
+    explanation: string;
+  }[] | string[];
   examples: {
     zh: string;
-    py: string;
+    py?: string;
+    pinyin?: string;
     vi: string;
+    explanationVi?: string;
   }[];
 }
 

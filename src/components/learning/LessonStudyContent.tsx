@@ -59,25 +59,35 @@ export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk
 
         {word.examples&&word.examples.length>0?(
           <div className="mt-4 border-t border-[#E5DEC9] pt-3 space-y-2.5">
-            <span className="text-xs font-bold text-[#8F6D3B] uppercase tracking-wider">Ví dụ minh họa:</span>
+            <span className="text-xs font-bold text-[#8F6D3B] uppercase tracking-wider">Ví dụ minh họa ({word.examples.length}):</span>
             {word.examples.map((ex,exIdx)=>(
-              <div key={exIdx} className="rounded-lg bg-[#FAF8F3] p-2.5 border border-[#EFE8DA] space-y-1">
+              <div key={exIdx} className="rounded-xl bg-[#FAF8F3] p-3 border border-[#EFE8DA] space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-serif text-sm font-semibold text-[#204434]" lang="zh-CN">{ex.zh}</p>
-                  <button className="text-[#8F6D3B] hover:text-[#204434]" aria-label={`Nghe ${ex.zh}`} onClick={()=>speak(ex.zh)}><Volume2 size={13}/></button>
+                  <p className="font-serif text-base font-semibold text-[#204434]" lang="zh-CN">{ex.zh}</p>
+                  <button className="p-1 rounded text-[#8F6D3B] hover:text-[#204434] hover:bg-[#EAE4D2] transition" aria-label={`Nghe ${ex.zh}`} onClick={()=>speak(ex.zh)}><Volume2 size={13}/></button>
                 </div>
                 {ex.pinyin&&<p className={styles.pinyin}>{ex.pinyin}</p>}
-                <p className="text-xs text-[#5D6B60]">{ex.vi}</p>
+                <p className="text-xs text-[#5D6B60] leading-relaxed">{ex.vi}</p>
               </div>
             ))}
           </div>
         ):(word.exampleZh&&(
-          <div className="mt-4 border-t border-[#E5DEC9] pt-3">
-            <p className="text-sm leading-7" lang="zh-CN">{word.exampleZh}</p>
+          <div className="mt-4 border-t border-[#E5DEC9] pt-3 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-serif text-base font-semibold text-[#204434]" lang="zh-CN">{word.exampleZh}</p>
+              <button className="p-1 rounded text-[#8F6D3B] hover:text-[#204434] hover:bg-[#EAE4D2] transition" aria-label={`Nghe ${word.exampleZh}`} onClick={()=>word.exampleZh&&speak(word.exampleZh)}><Volume2 size={13}/></button>
+            </div>
             {word.examplePy&&<p className={styles.pinyin}>{word.examplePy}</p>}
             {word.exampleVi&&<p className={styles.muted}>{word.exampleVi}</p>}
           </div>
         ))}
+
+        {word.comparison&&(
+          <div className="mt-3 rounded-xl bg-blue-50/70 border border-blue-200 p-3 text-xs text-blue-950 space-y-1">
+            <strong className="font-semibold text-blue-900">🔍 So sánh & Phân biệt: </strong>
+            <p className="leading-relaxed">{word.comparison}</p>
+          </div>
+        )}
 
         {word.commonMistakes&&word.commonMistakes.length>0&&(
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs space-y-2">
@@ -124,22 +134,26 @@ export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk
 
         {grammar.examples&&grammar.examples.length>0?(
           <div className="mt-4 border-t border-[#E5DEC9] pt-3 space-y-2.5">
-            <span className="text-xs font-bold text-[#8F6D3B] uppercase tracking-wider">Ví dụ ứng dụng:</span>
+            <span className="text-xs font-bold text-[#8F6D3B] uppercase tracking-wider">Ví dụ ứng dụng ({grammar.examples.length}):</span>
             {grammar.examples.map((ex,exIdx)=>(
-              <div key={exIdx} className="rounded-lg bg-[#FAF8F3] p-3 border border-[#EFE8DA] space-y-1">
+              <div key={exIdx} className="rounded-xl bg-[#FAF8F3] p-3.5 border border-[#EFE8DA] space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-serif text-base font-semibold text-[#204434]" lang="zh-CN">{ex.zh}</p>
-                  <button className="text-[#8F6D3B] hover:text-[#204434]" aria-label={`Nghe ${ex.zh}`} onClick={()=>speak(ex.zh)}><Volume2 size={13}/></button>
+                  <button className="p-1 rounded text-[#8F6D3B] hover:text-[#204434] hover:bg-[#EAE4D2] transition" aria-label={`Nghe ${ex.zh}`} onClick={()=>speak(ex.zh)}><Volume2 size={13}/></button>
                 </div>
                 {ex.pinyin&&<p className={styles.pinyin}>{ex.pinyin}</p>}
-                <p className="text-xs text-[#3E4D42]">{ex.vi}</p>
-                {ex.explanationVi&&<p className="text-[11px] text-[#8F6D3B] italic pt-1 border-t border-dashed border-[#E5DEC9]">{ex.explanationVi}</p>}
+                <p className="text-xs text-[#3E4D42] leading-relaxed">{ex.vi}</p>
+                {ex.explanationVi&&<p className="text-[11px] text-[#8F6D3B] italic pt-1.5 border-t border-dashed border-[#E5DEC9] leading-relaxed">💡 {ex.explanationVi}</p>}
               </div>
             ))}
           </div>
         ):(grammar.example&&(
-          <div className="mt-4 border-t border-[#E5DEC9] pt-3">
-            <p className={styles.chinese} lang="zh-CN">{grammar.example}</p>
+          <div className="mt-4 border-t border-[#E5DEC9] pt-3 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className={styles.chinese} lang="zh-CN">{grammar.example}</p>
+              <button className="p-1 rounded text-[#8F6D3B] hover:text-[#204434] hover:bg-[#EAE4D2] transition" aria-label={`Nghe ${grammar.example}`} onClick={()=>speak(grammar.example)}><Volume2 size={13}/></button>
+            </div>
+            {grammar.explanation&&<p className="text-xs text-[#5D6B60] mt-1">{grammar.explanation}</p>}
           </div>
         ))}
 
@@ -190,7 +204,7 @@ export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk
 </>}
       {tab==="dialogue"&&<><h3 className={styles.panelTitle}>Hội thoại theo ngữ cảnh</h3><div className={styles.stack}>{lesson.dialogue.map((line,index)=><article key={`${index}:${line.speaker}`} className={styles.dialogue}><div className={styles.row}><strong className="text-xs text-[#8f6d3b]">{line.speaker}</strong><button className={`${styles.button} ${styles.secondary}`} aria-label={`Nghe hội thoại ${index+1}`} onClick={()=>speak(line.zh)}><Volume2 size={14}/></button></div><p className={styles.chinese} lang="zh-CN">{line.zh}</p>{line.pinyin&&<p className={styles.pinyin}>{line.pinyin}</p>}<p className={styles.meaning}>{line.vi}</p></article>)}</div>{!lesson.dialogue.length&&<p className={styles.empty}>Phần hội thoại chưa có nội dung.</p>}</>}
       {tab==="reading"&&(
-        lesson.reading?.contentZh
+        (lesson.reading?.contentZh || lesson.reading?.originalText)
           ? <LessonRichSections lesson={{...fullLesson,culturalNote:undefined}} />
           : <p className={styles.empty}>Bài này chưa có bài đọc hiểu. Giáo viên có thể bổ sung trong phần soạn bài.</p>
       )}

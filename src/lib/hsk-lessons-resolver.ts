@@ -182,6 +182,21 @@ export function getLessonByNumber(level: number = 1, num: number): Hsk1FullLesso
   return lessons.find((l) => l.number === num) || lessons[0];
 }
 
+export function resetCustomCurriculum(level?: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (level !== undefined) {
+      localStorage.removeItem(`hsk_admin_custom_curriculum_level_${level}`);
+    } else {
+      for (let i = 1; i <= 9; i++) {
+        localStorage.removeItem(`hsk_admin_custom_curriculum_level_${i}`);
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to clear custom curriculum from storage:", e);
+  }
+}
+
 export function getDefaultLessons(level: number): Hsk1FullLesson[] {
   return getLessonsByHskLevel(level);
 }

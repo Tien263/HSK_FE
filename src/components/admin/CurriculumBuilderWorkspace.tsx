@@ -35,7 +35,7 @@ import {
   GrammarExerciseItem,
   GrammarExerciseMode,
 } from "@/lib/hsk1-full-lessons";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
+import { getLessonsByHskLevel, getDefaultLessons, resetCustomCurriculum } from "@/lib/hsk-lessons-resolver";
 import { RichReadingEditor, RichCultureEditor } from "@/components/teacher/LessonRichSections";
 import type { ReadingItem, CulturalNoteItem } from "@/lib/lesson-data";
 import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
@@ -802,12 +802,30 @@ export default function CurriculumBuilderWorkspace({
               const hanzi = String(v.hanzi || v.word || "").trim();
               const pinyin = String(v.pinyin || v.py || "").trim();
               const meaning = String(v.meaning || v.meaningVi || v.vi || "Từ vựng").trim();
+              let examples: any[] = [];
+              if (Array.isArray(v.examples) && v.examples.length > 0) {
+                examples = v.examples.map((ex: any) => ({
+                  zh: String(ex.zh || ex.exampleZh || "").trim(),
+                  pinyin: String(ex.pinyin || ex.py || ex.examplePy || "").trim(),
+                  vi: String(ex.vi || ex.exampleVi || "").trim(),
+                })).filter((ex: any) => ex.zh);
+              } else if (v.exampleZh) {
+                examples = [{ zh: v.exampleZh, pinyin: v.examplePy || "", vi: v.exampleVi || "" }];
+              }
               return {
                 ...v,
                 hanzi,
                 pinyin,
                 meaning,
                 meaningVi: String(v.meaningVi || meaning),
+                examples,
+                usageExplanation: String(v.usageExplanation || v.usage || "").trim(),
+                usagePatterns: Array.isArray(v.usagePatterns) ? v.usagePatterns : [],
+                commonMistakes: Array.isArray(v.commonMistakes) ? v.commonMistakes : [],
+                comparison: String(v.comparison || "").trim(),
+                exampleZh: examples[0]?.zh || String(v.exampleZh || ""),
+                examplePy: examples[0]?.pinyin || String(v.examplePy || ""),
+                exampleVi: examples[0]?.vi || String(v.exampleVi || ""),
               };
             })
           : [];
@@ -816,19 +834,33 @@ export default function CurriculumBuilderWorkspace({
           ? l.grammarList.map((g: any) => {
               const title = String(g.title || g.titleZh || "Điểm ngữ pháp").trim();
               const structure = String(g.structure || g.pattern || title).trim();
-              let example = String(g.example || "").trim();
-              if (!example && Array.isArray(g.examples) && g.examples.length > 0) {
-                example = typeof g.examples[0] === "string" ? g.examples[0] : String(g.examples[0]?.zh || "");
+              let examples: any[] = [];
+              if (Array.isArray(g.examples) && g.examples.length > 0) {
+                examples = g.examples.map((ex: any) => ({
+                  zh: String(ex.zh || ex.example || "").trim(),
+                  pinyin: String(ex.pinyin || ex.py || "").trim(),
+                  vi: String(ex.vi || ex.meaningVi || "").trim(),
+                  explanationVi: String(ex.explanationVi || ex.explanation || "").trim(),
+                })).filter((ex: any) => ex.zh);
+              } else if (g.example) {
+                examples = [{ zh: g.example, pinyin: "", vi: "", explanationVi: "" }];
               }
-              if (!example) example = title;
-              const explanation = String(g.explanation || g.meaningVi || g.summary || "Cấu trúc ngữ pháp trọng tâm").trim();
+              let example = examples[0]?.zh || String(g.example || title).trim();
+              const explanation = String(g.explanation || g.usageExplanation || g.meaningVi || g.summary || "Cấu trúc ngữ pháp trọng tâm").trim();
               return {
                 ...g,
                 title,
+                titleZh: String(g.titleZh || "").trim(),
+                summary: String(g.summary || "").trim(),
                 structure,
                 example,
                 explanation,
-                examples: Array.isArray(g.examples) ? g.examples : [],
+                examples,
+                usageExplanation: String(g.usageExplanation || explanation).trim(),
+                usageSteps: Array.isArray(g.usageSteps) ? g.usageSteps : [],
+                usageContexts: Array.isArray(g.usageContexts) ? g.usageContexts : [],
+                comparison: String(g.comparison || "").trim(),
+                commonMistakes: Array.isArray(g.commonMistakes) ? g.commonMistakes : [],
               };
             })
           : [];
@@ -929,6 +961,17 @@ export default function CurriculumBuilderWorkspace({
 
     setEditingLesson(null);
     showToast(`Đã cập nhật xong nội dung Bài ${editingLesson.number}!`);
+  };
+
+  const handleResetToOfficial = () => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(`Bạn có chắc chắn muốn khôi phục lại dữ liệu gốc chuẩn HSK ${selectedLevel}? Toàn bộ bài học sẽ được đưa về dữ liệu chuẩn chính thức.`);
+      if (!ok) return;
+    }
+    resetCustomCurriculum(selectedLevel);
+    const defaults = getDefaultLessons(selectedLevel);
+    setLessons(defaults);
+    showToast(`🎉 Đã khôi phục dữ liệu gốc chuẩn HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản kho chung" nếu muốn đồng bộ lên máy chủ.`);
   };
 
   // =========================================================================
@@ -1313,6 +1356,16 @@ export default function CurriculumBuilderWorkspace({
                 onChange={handleImportReplaceLessonsFile}
               />
             </label>
+
+            {/* Khôi phục dữ liệu gốc HSK */}
+            <button
+              onClick={handleResetToOfficial}
+              title={`Khôi phục dữ liệu gốc chuẩn HSK ${selectedLevel}`}
+              className="px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] hover:bg-[#FAF7F0] text-[#8F6D3B] hover:text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Khôi phục gốc HSK {selectedLevel}</span>
+            </button>
 
             {/* Thêm bài mới */}
             <button

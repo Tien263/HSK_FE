@@ -1432,18 +1432,54 @@ export function LessonLibraryWorkspace({
                                         </button>
                                       </div>
 
-                                      <div className="pt-1 border-t border-[#E5DEC9]/60 space-y-1.5">
+                                      <div className="pt-1 border-t border-[#E5DEC9]/60 space-y-2">
                                         <p className="text-xs font-bold text-[#204434]">{v.meaningVi}</p>
-                                        {v.usageNote && (
-                                          <div className="text-[11px] text-[#8F6D3B] bg-[#FAF7F0] p-2 rounded-xl border border-[#E5DEC9]/50 leading-relaxed">
-                                            <span className="font-semibold text-[#204434]">Giải thích: </span>
-                                            <span>{v.usageNote}</span>
+                                        {(v.usageExplanation || v.usageNote) && (
+                                          <div className="text-[11px] text-[#8F6D3B] bg-[#FAF7F0] p-2.5 rounded-xl border border-[#E5DEC9]/50 leading-relaxed">
+                                            <span className="font-semibold text-[#204434]">💡 Cách dùng: </span>
+                                            <span>{v.usageExplanation || v.usageNote}</span>
                                           </div>
                                         )}
-                                        <div className="text-[11px] bg-white/70 p-2 rounded-xl border border-[#E5DEC9]/60 space-y-0.5">
-                                          <div className="flex items-center justify-between">
-                                            <p className="font-medium text-[#204434]">{v.exampleZh}</p>
-                                            {v.exampleZh && (
+                                        {v.usagePatterns && v.usagePatterns.length > 0 && (
+                                          <div className="flex flex-wrap gap-1">
+                                            {v.usagePatterns.map((pat: string, pIdx: number) => (
+                                              <span key={pIdx} className="rounded-md bg-[#FAF7F0] px-2 py-0.5 text-[10px] text-[#204434] border border-[#E5DEC9]/60">
+                                                {pat}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {v.examples && v.examples.length > 0 ? (
+                                          <div className="space-y-1.5">
+                                            <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wider block">
+                                              Ví dụ minh họa ({v.examples.length}):
+                                            </span>
+                                            {v.examples.map((ex: any, exIdx: number) => (
+                                              <div key={exIdx} className="text-[11px] bg-white/80 p-2.5 rounded-xl border border-[#E5DEC9]/60 space-y-0.5">
+                                                <div className="flex items-center justify-between gap-1.5">
+                                                  <p className="font-medium text-[#204434]">{ex.zh}</p>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      speakChinese(ex.zh);
+                                                    }}
+                                                    className="p-1 rounded text-gray-400 hover:text-[#204434] shrink-0"
+                                                    title="Nghe câu ví dụ"
+                                                  >
+                                                    <Volume2 className="w-3 h-3" />
+                                                  </button>
+                                                </div>
+                                                {ex.pinyin && <p className="text-[10px] text-[#8F6D3B]">{ex.pinyin}</p>}
+                                                <p className="text-[10px] text-[#315E48]">{ex.vi}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (v.exampleZh && (
+                                          <div className="text-[11px] bg-white/70 p-2 rounded-xl border border-[#E5DEC9]/60 space-y-0.5">
+                                            <div className="flex items-center justify-between">
+                                              <p className="font-medium text-[#204434]">{v.exampleZh}</p>
                                               <button
                                                 type="button"
                                                 onClick={(e) => {
@@ -1455,11 +1491,32 @@ export function LessonLibraryWorkspace({
                                               >
                                                 <Volume2 className="w-3 h-3" />
                                               </button>
+                                            </div>
+                                            <p className="text-[10px] text-[#8F6D3B]">{v.examplePy}</p>
+                                            <p className="text-[10px] text-[#315E48]">{v.exampleVi}</p>
+                                          </div>
+                                        ))}
+
+                                        {v.comparison && (
+                                          <div className="text-[10px] bg-blue-50/70 p-2 rounded-xl border border-blue-200/60 text-blue-950">
+                                            <span className="font-semibold text-blue-900">🔍 Phân biệt: </span>{v.comparison}
+                                          </div>
+                                        )}
+
+                                        {v.commonMistakes && ((Array.isArray(v.commonMistakes) ? v.commonMistakes.length > 0 : Boolean(v.commonMistakes))) && (
+                                          <div className="text-[10px] bg-amber-50/70 p-2 rounded-xl border border-amber-200/60 text-amber-950 space-y-1">
+                                            <span className="font-semibold text-amber-900 block">⚠️ Lưu ý tránh lỗi:</span>
+                                            {Array.isArray(v.commonMistakes) ? (
+                                              v.commonMistakes.map((m: any, mIdx: number) => (
+                                                <div key={mIdx}>
+                                                  {typeof m === "string" ? m : `❌ ${m.incorrect} ➔  ${m.correct}${m.explanation ? ` (${m.explanation})` : ""}`}
+                                                </div>
+                                              ))
+                                            ) : (
+                                              <div>{String(v.commonMistakes)}</div>
                                             )}
                                           </div>
-                                          <p className="text-[10px] text-[#8F6D3B]">{v.examplePy}</p>
-                                          <p className="text-[10px] text-[#315E48]">{v.exampleVi}</p>
-                                        </div>
+                                        )}
                                       </div>
                                     </div>
                                   );
@@ -1537,11 +1594,21 @@ export function LessonLibraryWorkspace({
                                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                                         </div>
                                         <div>
-                                          <h4 className="font-serif font-bold text-sm text-[#204434]">
-                                            {idx + 1}. {g.title}
-                                          </h4>
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <h4 className="font-serif font-bold text-sm text-[#204434]">
+                                              {idx + 1}. {g.title}
+                                            </h4>
+                                            {g.titleZh && (
+                                              <span className="font-serif text-xs font-semibold text-[#8F6D3B]">
+                                                {g.titleZh}
+                                              </span>
+                                            )}
+                                          </div>
+                                          {g.summary && (
+                                            <p className="text-[11px] text-[#5D6B60] italic mt-0.5">{g.summary}</p>
+                                          )}
                                           <p className="text-xs text-[#315E48] mt-1 leading-relaxed">
-                                            {g.explanation}
+                                            {g.usageExplanation || g.explanation}
                                           </p>
                                         </div>
                                       </div>
@@ -1556,10 +1623,19 @@ export function LessonLibraryWorkspace({
                                       </code>
                                     </div>
 
+                                    {g.usageSteps && g.usageSteps.length > 0 && (
+                                      <div className="p-2.5 rounded-xl bg-[#FAF8F3] border border-[#E8DFC9] space-y-1 text-xs">
+                                        <span className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wider block">Các bước áp dụng:</span>
+                                        <ol className="list-decimal pl-4 text-[11px] text-[#3E4D42] space-y-0.5">
+                                          {g.usageSteps.map((step: string, sIdx: number) => <li key={sIdx}>{step}</li>)}
+                                        </ol>
+                                      </div>
+                                    )}
+
                                     {g.examples && g.examples.length > 0 && (
                                       <div className="space-y-1.5 pt-2 border-t border-[#E5DEC9]/60">
                                         <p className="text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wide">
-                                          Ví dụ & Câu mẫu giao tiếp:
+                                          Ví dụ & Câu mẫu giao tiếp ({g.examples.length}):
                                         </p>
                                         <div className="grid grid-cols-1 gap-1.5">
                                           {g.examples.map((ex, exIdx) => (
@@ -1569,8 +1645,11 @@ export function LessonLibraryWorkspace({
                                             >
                                               <div className="space-y-0.5">
                                                 <span className="font-serif font-bold text-sm text-[#204434]">{ex.zh}</span>
-                                                <span className="text-xs text-[#8F6D3B] ml-2 italic">{ex.py}</span>
+                                                <span className="text-xs text-[#8F6D3B] ml-2 italic">{ex.py || ex.pinyin}</span>
                                                 <span className="text-xs text-[#315E48] ml-2 font-medium">— {ex.vi}</span>
+                                                {ex.explanationVi && (
+                                                  <p className="text-[10px] text-[#8F6D3B] italic pt-0.5">{ex.explanationVi}</p>
+                                                )}
                                               </div>
                                               <button
                                                 type="button"
@@ -1586,6 +1665,41 @@ export function LessonLibraryWorkspace({
                                             </div>
                                           ))}
                                         </div>
+                                      </div>
+                                    )}
+
+                                    {g.usageContexts && g.usageContexts.length > 0 && (
+                                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                        <span className="font-bold text-[#8F6D3B]">Ngữ cảnh:</span>
+                                        {g.usageContexts.map((ctx: string, cIdx: number) => (
+                                          <span key={cIdx} className="rounded-md bg-[#FAF7F0] px-2 py-0.5 text-[#2A4B3A] border border-[#DDD6C5]">
+                                            {ctx}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {g.comparison && (
+                                      <div className="rounded-xl bg-blue-50/70 border border-blue-200 p-2.5 text-xs text-blue-950">
+                                        <strong className="font-semibold text-blue-900">🔍 Phân biệt: </strong>
+                                        <span>{g.comparison}</span>
+                                      </div>
+                                    )}
+
+                                    {g.commonMistakes && ((Array.isArray(g.commonMistakes) ? g.commonMistakes.length > 0 : Boolean(g.commonMistakes))) && (
+                                      <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-950 space-y-1">
+                                        <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                                          <span>⚠️</span> Lỗi ngữ pháp cần tránh:
+                                        </div>
+                                        {Array.isArray(g.commonMistakes) ? (
+                                          g.commonMistakes.map((m: any, mIdx: number) => (
+                                            <div key={mIdx} className="text-[11px]">
+                                              {typeof m === "string" ? m : `❌ ${m.incorrect} ➔  ${m.correct}${m.explanation ? ` (${m.explanation})` : ""}`}
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <div className="text-[11px]">{String(g.commonMistakes)}</div>
+                                        )}
                                       </div>
                                     )}
                                   </div>
