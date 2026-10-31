@@ -14,6 +14,9 @@ import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
 import ImperialPassSealModal from "./ImperialPassSealModal";
 import AncientHanziEtymologyModal from "./AncientHanziEtymologyModal";
 import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
+import VocabNotebookModal from "./VocabNotebookModal";
+import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
+import MistakeNotebookModal from "./MistakeNotebookModal";
 import LessonStudyContent from "../learning/LessonStudyContent";
 import styles from "./SelfStudyWorkspace.module.css";
 
@@ -43,6 +46,9 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [passedLessonInfo, setPassedLessonInfo] = useState<{ completed: number; next: number }>({ completed: 1, next: 2 });
   const [showEtymologyModal, setShowEtymologyModal] = useState(false);
+  const [showVocabModal, setShowVocabModal] = useState(false);
+  const [showDialogueModal, setShowDialogueModal] = useState(false);
+  const [showMistakesModal, setShowMistakesModal] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
   const { lessons: apiLessons, loading, error } = useCurriculumLessons(level);
   const lessons = useMemo(() => apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level]);
@@ -148,7 +154,12 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   return <div ref={topRef} className={styles.workspace} data-self-study-view={view}>
     <header className={styles.header}>
       <div><p className={styles.eyebrow}>HANYU · TỰ HỌC HSK {level}</p><h1>{reading ? "Một bài học, một bước tiến." : view === "roadmap" ? "Hành trình của riêng bạn." : "Mở kho sách, tìm điều muốn học."}</h1><p>{view === "roadmap" ? "Tiếp tục bài đang học và nhìn lại những chặng phía trước." : "Tìm bài theo tên, chữ Hán hoặc Pinyin. Học và luyện theo cùng một bài."}</p></div>
-      <button className={styles.secondary} onClick={() => setRoomOpen(true)}><Moon size={16}/>Phòng tập trung</button>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+        <button className={styles.secondary} onClick={() => setShowVocabModal(true)} title="Sổ từ vựng cá nhân & Flashcard SRS 5 hộp Leitner Thất Nhật Ôn Tập"><BookOpen size={16}/>Thất Nhật Ôn Tập</button>
+        <button className={styles.secondary} onClick={() => setShowDialogueModal(true)} title="Trợ lý Hán ngữ AI Nhập vai Tình huống"><Sparkles size={16}/>AI Đối Thoại</button>
+        <button className={styles.secondary} onClick={() => setShowMistakesModal(true)} title="Bản đồ nhiệt điểm yếu & Bộ đề giải độc ngữ pháp"><FileCheck2 size={16}/>Giải Độc Ngữ Pháp</button>
+        <button className={styles.secondary} onClick={() => setRoomOpen(true)}><Moon size={16}/>Phòng tập trung</button>
+      </div>
     </header>
 
     <div className={styles.levels} aria-label="Chọn cấp độ HSK"><span>Cấp độ của bạn</span><div>{[1, 2, 3, 4, 5, 6].map(n => <button key={n} aria-pressed={level === n} onClick={() => changeLevel(n)}>HSK {n}{n > maxLevel && <Lock size={12}/>}</button>)}</div><Link href={`/s/mock-exam?level=${level}`}><FileCheck2 size={15}/>Thi thử HSK {level}</Link></div>
@@ -187,6 +198,24 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       isOpen={showEtymologyModal}
       onClose={() => setShowEtymologyModal(false)}
       initialCharacter={current?.vocabList?.[0]?.hanzi || "你"}
+    />
+    <VocabNotebookModal
+      isOpen={showVocabModal}
+      onClose={() => setShowVocabModal(false)}
+      studentId={currentUser?.id}
+    />
+    <AiDialogueRoleplayModal
+      isOpen={showDialogueModal}
+      onClose={() => setShowDialogueModal(false)}
+      studentId={currentUser?.id}
+      hskLevel={level}
+      lessonNumber={current?.number || 1}
+      lessonTitle={current?.titleVi || current?.titleZh || `Bài học HSK ${level}`}
+    />
+    <MistakeNotebookModal
+      isOpen={showMistakesModal}
+      onClose={() => setShowMistakesModal(false)}
+      studentId={currentUser?.id}
     />
   </div>;
 }

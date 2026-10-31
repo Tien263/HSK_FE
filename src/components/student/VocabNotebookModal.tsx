@@ -259,20 +259,20 @@ export default function VocabNotebookModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-700 text-white shadow">
+        <div className="flex items-center justify-between px-6 py-4 bg-[#204434] text-[#FAF4E6] shadow border-b border-[#BC9B6B]/30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-xl shadow-inner">
-              📖
+            <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center font-bold text-xl shadow-inner text-[#D4AF37]">
+              🎴
             </div>
             <div>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                Sổ tay Từ vựng Cá nhân & Thẻ Flashcard SRS
-                <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">
+              <h2 className="text-base font-serif font-bold flex items-center gap-2">
+                <span>Thất Nhật Ôn Tập · Sổ Từ Vựng SRS Leitner</span>
+                <span className="text-[11px] bg-white/20 text-white px-2 py-0.5 rounded-full font-mono">
                   {stats.total} từ
                 </span>
               </h2>
-              <p className="text-xs text-teal-100">
-                Thuật toán Lặp lại ngắt quãng (Leitner SRS 5 Hộp) — Học sâu nhớ lâu, không lo quên chữ
+              <p className="text-xs text-[#EADBC3]">
+                Lặp lại ngắt quãng: Hộp 1 (Hàng ngày) → Hộp 2 (3 ngày) → Hộp 3 (7 ngày) → Khắc cốt ghi tâm
               </p>
             </div>
           </div>
