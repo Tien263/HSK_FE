@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent, type CSSProperties } fr
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Download, Eraser, Feather, FolderOpen, Grid2X2, Maximize2, PanelsTopLeft, Plus, RotateCcw, Save, Search, Stamp, Trash2, X } from "lucide-react";
 import LessonStudyContent from "../learning/LessonStudyContent";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import { saveCloudNote, syncCloudNotes } from "@/lib/self-study-cloud-service";
 import s from "./CalligraphyStudio.module.css";
 
 const papers = [
@@ -55,7 +56,14 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
       setNotes(stored.filter((n): n is Note => !!n && typeof n.id === "string" && typeof n.content === "string")); setReadyFor(key);
       setTitle(""); setPages([blank()]); setIndex(0); setEditingId(null); setDirty(false); setRevision(r => r + 1);
     } catch { setReadyFor(""); setStatus("Chưa đọc được sổ đã lưu. Hãy mở lại để tránh ghi đè ghi chú cũ."); }
-  }, [key]);
+
+    // Đồng bộ bút ký đám mây (Cloud Sync)
+    syncCloudNotes(studentId).then(cloudNotes => {
+      if (Array.isArray(cloudNotes) && cloudNotes.length > 0) {
+        setNotes(cloudNotes);
+      }
+    });
+  }, [key, studentId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   /* eslint-disable react-hooks/set-state-in-effect -- Bind drafts to their lesson and preserve unsaved work when reopening from another lesson. */
@@ -109,7 +117,12 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
     if (!hasContent) { setStatus("Hãy viết vài dòng hoặc thêm nét bút trước khi đóng ấn."); return; }
     const old = notes.find(n => n.id === editingId);
     const note: Note = { ...old, id: editingId || crypto.randomUUID(), title: title.trim() || `Bút ký · Bài ${context.number}`, content: pages.map(p => p.content).join("\n\n"), lessonNumber: old?.lessonNumber ?? context.number, hskLevel: old?.hskLevel ?? context.level, createdAt: old?.createdAt || new Date().toLocaleString("vi-VN"), paperType: paper, brushType: "langhao", drawingDataUrl: pages[0].drawingDataUrl, pages, layout, vertical };
-    if (persist([note, ...notes.filter(n => n.id !== note.id)])) { setEditingId(note.id); setDirty(false); setStatus("Đã đóng ấn và lưu bút ký trên trình duyệt này."); }
+    if (persist([note, ...notes.filter(n => n.id !== note.id)])) {
+      setEditingId(note.id);
+      setDirty(false);
+      setStatus("Đã đóng ấn và lưu bút ký (Đã đồng bộ Đám mây).");
+      saveCloudNote(note);
+    }
   }
   function open(note?: Note) {
     if (dirty && hasContent) { setStatus("Hãy lưu bút ký đang viết trước khi mở tác phẩm khác hoặc tạo bút ký mới."); return; }
@@ -129,7 +142,155 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
   function capture() { const el = canvas.current; if (!el) return; const pixels = el.getContext("2d")!.getImageData(0, 0, 800, 640).data; update({ drawingDataUrl: pixels.some((v, i) => i % 4 === 3 && v > 0) ? el.toDataURL() : undefined }); }
   function finish() { if (drawing.current) { drawing.current = null; capture(); } }
   function undo() { const snapshot = history.at(-1); if (!snapshot) return; const img = new Image(); img.onload = () => { const ctx = canvas.current?.getContext("2d"); if (ctx) { ctx.clearRect(0, 0, 800, 640); ctx.globalCompositeOperation = "source-over"; ctx.drawImage(img, 0, 0); capture(); } }; img.src = snapshot; setHistory(h => h.slice(0, -1)); }
-  function downloadDrawing() { if (!page.drawingDataUrl) return; const link = document.createElement("a"); link.href = page.drawingDataUrl; link.download = `but-ky-hsk${hskLevel}-bai${lessonNumber}-trang${index + 1}.png`; link.click(); }
+  async function exportArtwork() {
+    if (!hasContent) {
+      setStatus("Chưa có nội dung để xuất tác phẩm.");
+      return;
+    }
+    const offscreen = document.createElement("canvas");
+    offscreen.width = 1200;
+    offscreen.height = 960;
+    const ctx = offscreen.getContext("2d");
+    if (!ctx) return;
+
+    // 1. Paper Background & Texture
+    ctx.fillStyle = material.color || "#f4ecd9";
+    ctx.fillRect(0, 0, 1200, 960);
+
+    const grad = ctx.createRadialGradient(600, 480, 200, 600, 480, 700);
+    grad.addColorStop(0, "rgba(255, 255, 255, 0.2)");
+    grad.addColorStop(1, "rgba(0, 0, 0, 0.08)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1200, 960);
+
+    // Decorative Royal Border
+    ctx.strokeStyle = "#8C7247";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(30, 30, 1140, 900);
+    ctx.strokeStyle = "#C4A470";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(40, 40, 1120, 880);
+
+    // 2. Header
+    ctx.fillStyle = "#8C7247";
+    ctx.font = "bold 18px serif";
+    ctx.fillText(`HSK ${context.level} · BÀI ${context.number}`, 60, 80);
+
+    ctx.fillStyle = "#273f35";
+    ctx.font = "bold 28px serif";
+    ctx.fillText(title.trim() || context.title || "Thư Họa Bút Ký", 60, 120);
+
+    // Red Imperial Header Seal Stamp
+    ctx.strokeStyle = "#943e30";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(1080, 60, 60, 60);
+    ctx.fillStyle = "rgba(148, 62, 48, 0.08)";
+    ctx.fillRect(1080, 60, 60, 60);
+    ctx.fillStyle = "#943e30";
+    ctx.font = "bold 20px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("宁记", 1110, 90);
+
+    // 3. Grid if enabled
+    if (grid) {
+      ctx.strokeStyle = "rgba(188, 155, 107, 0.2)";
+      ctx.lineWidth = 1;
+      const startX = 60, startY = 160, endX = 1140, endY = 860;
+      const step = 60;
+      for (let x = startX; x <= endX; x += step) {
+        ctx.beginPath(); ctx.moveTo(x, startY); ctx.lineTo(x, endY); ctx.stroke();
+      }
+      for (let y = startY; y <= endY; y += step) {
+        ctx.beginPath(); ctx.moveTo(startX, y); ctx.lineTo(endX, y); ctx.stroke();
+      }
+    }
+
+    // 4. Text Content (horizontal or vertical)
+    if (page.content) {
+      ctx.fillStyle = ink;
+      if (vertical) {
+        ctx.font = "26px serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const lines = page.content.split("\n");
+        let colX = 1050;
+        const colWidth = 50;
+        const startY = 200;
+        const rowHeight = 36;
+        for (const line of lines) {
+          const chars = Array.from(line);
+          chars.forEach((ch, idx) => {
+            const charY = startY + idx * rowHeight;
+            if (charY < 840) {
+              ctx.fillText(ch, colX, charY);
+            }
+          });
+          colX -= colWidth;
+          if (colX < 100) break;
+        }
+      } else {
+        ctx.font = "24px serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        const lines = page.content.split("\n");
+        let lineY = 200;
+        const lineHeight = 38;
+        for (const line of lines) {
+          ctx.fillText(line, 80, lineY);
+          lineY += lineHeight;
+          if (lineY > 840) break;
+        }
+      }
+    }
+
+    // 5. Canvas Drawing Strokes
+    if (page.drawingDataUrl) {
+      await new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 60, 160, 1080, 700);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = page.drawingDataUrl!;
+      });
+    }
+
+    // 6. Red Stamps
+    for (const st of page.stamps) {
+      const stampX = 60 + (st.x / 100) * 1080;
+      const stampY = 160 + (st.y / 100) * 700;
+      const size = 52;
+      ctx.strokeStyle = "#943e30";
+      ctx.lineWidth = 2.5;
+      ctx.fillStyle = "rgba(148, 62, 48, 0.1)";
+      ctx.strokeRect(stampX - size / 2, stampY - size / 2, size, size);
+      ctx.fillRect(stampX - size / 2, stampY - size / 2, size, size);
+      ctx.fillStyle = "#943e30";
+      ctx.font = "bold 24px serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(st.symbol, stampX, stampY);
+    }
+
+    // 7. Footer
+    ctx.fillStyle = "#8C7247";
+    ctx.font = "14px serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("HANYU · 笔墨之间，皆是成长 · THƯ HỌA TRUNG HOA", 60, 915);
+    ctx.textAlign = "right";
+    ctx.fillText(`Trang ${index + 1} / ${pages.length} · ${new Date().toLocaleDateString("vi-VN")}`, 1140, 915);
+
+    // Trigger download
+    const dataUrl = offscreen.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `thu-hoa-hsk${context.level}-bai${context.number}-trang${index + 1}.png`;
+    link.click();
+    setStatus("Đã xuất tác phẩm thư họa hoàn chỉnh thành công!");
+  }
   function move(id: string, x: number, y: number) { update({ stamps: page.stamps.map(st => st.id === id ? { ...st, x: Math.max(5, Math.min(95, x)), y: Math.max(8, Math.min(92, y)) } : st) }); }
   if (!isOpen) return null;
   const results = notes.filter(n => `${n.title} ${n.content}`.toLocaleLowerCase("vi").includes(query.toLocaleLowerCase("vi")));
@@ -164,7 +325,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
               {page.stamps.map(st => <button key={st.id} className={s.decoration} style={{ left: `${st.x}%`, top: `${st.y}%` }} aria-label={`Ấn ${st.symbol}, dùng mũi tên di chuyển hoặc Delete để bỏ`} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { id: st.id, x: st.x, y: st.y, startX: e.clientX, startY: e.clientY }; }} onPointerMove={e => { const d = drag.current, rect = sheet.current?.getBoundingClientRect(); if (d?.id === st.id && rect) move(st.id, d.x + (e.clientX - d.startX) * 100 / rect.width, d.y + (e.clientY - d.startY) * 100 / rect.height); }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { const offsets: Record<string, [number, number]> = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] }; if (offsets[e.key]) { e.preventDefault(); move(st.id, st.x + offsets[e.key][0], st.y + offsets[e.key][1]); } else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); update({ stamps: page.stamps.filter(p => p.id !== st.id) }); } }}>{st.symbol}</button>)}
             </div><div className={s.sheetFoot}><span>笔墨之间，皆是成长</span><span>{String(index + 1).padStart(2, "0")}</span></div>
           </div></div></div>
-          <div className={s.pagination}><button aria-label="Trang trước" disabled={index === 0} onClick={() => setIndex(i => i - 1)}><ChevronLeft size={17}/></button><span aria-live="polite">Trang {index + 1} / {pages.length}</span><button aria-label="Trang sau" disabled={index === pages.length - 1} onClick={() => setIndex(i => i + 1)}><ChevronRight size={17}/></button><button onClick={() => { setPages(ps => [...ps, blank()]); setIndex(pages.length); setDirty(true); }}><Plus size={14}/> Thêm trang</button><button aria-label="Tải nét bút PNG" disabled={!page.drawingDataUrl} onClick={downloadDrawing}><Download size={14}/></button></div>
+          <div className={s.pagination}><button aria-label="Trang trước" disabled={index === 0} onClick={() => setIndex(i => i - 1)}><ChevronLeft size={17}/></button><span aria-live="polite">Trang {index + 1} / {pages.length}</span><button aria-label="Trang sau" disabled={index === pages.length - 1} onClick={() => setIndex(i => i + 1)}><ChevronRight size={17}/></button><button onClick={() => { setPages(ps => [...ps, blank()]); setIndex(pages.length); setDirty(true); }}><Plus size={14}/> Thêm trang</button><button aria-label="Xuất tác phẩm thư họa PNG" title="Xuất toàn bộ tác phẩm thư họa (Giấy, chữ, nét bút & ấn triện)" disabled={!hasContent} onClick={exportArtwork}><Download size={14}/> Xuất tác phẩm</button></div>
           <footer className={s.deskFooter}><div><span className={s.saveDot} data-dirty={dirty}/>{dirty ? "Có thay đổi chưa lưu" : editingId ? "Bút ký đã lưu" : "Sẵn sàng hạ bút"}</div><button className={s.primary} disabled={readyFor !== key} onClick={save}><Save size={16}/> Đóng ấn & lưu</button></footer><button className={s.backToLesson} onClick={onClose}><ArrowLeft size={14}/> Trở về bài học</button>
         </section>
       </div>}

@@ -7,9 +7,11 @@ import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Dumbbell, FileCheck2, Lo
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
+import { fetchCloudProgress, saveCloudPass } from "@/lib/self-study-cloud-service";
 import type { RoadmapStage } from "@/lib/self-study-roadmap-constants";
 import AncientScrollPathway from "./AncientScrollPathway";
 import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
+import ImperialPassSealModal from "./ImperialPassSealModal";
 import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
 import LessonStudyContent from "../learning/LessonStudyContent";
 import styles from "./SelfStudyWorkspace.module.css";
@@ -37,6 +39,8 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const [notice, setNotice] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
+  const [passModalOpen, setPassModalOpen] = useState(false);
+  const [passedLessonInfo, setPassedLessonInfo] = useState<{ completed: number; next: number }>({ completed: 1, next: 2 });
   const topRef = useRef<HTMLDivElement>(null);
   const { lessons: apiLessons, loading, error } = useCurriculumLessons(level);
   const lessons = useMemo(() => apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level]);
@@ -55,7 +59,24 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   }, [currentUser?.currentHskLevel, activeHskLevel]);
   useEffect(() => {
     try { const stored = JSON.parse(localStorage.getItem(`hsk_self_unlocked_lvl_${level}_${currentUser?.id || "guest"}`) || "null"); setUnlocked(Array.isArray(stored) ? stored : [1, 2]); } catch { setUnlocked([1, 2]); }
+    // Đồng bộ từ đám mây (Cloud Sync)
+    fetchCloudProgress(level, currentUser?.id).then(cloudUnlocked => {
+      if (Array.isArray(cloudUnlocked) && cloudUnlocked.length) {
+        setUnlocked(cloudUnlocked);
+      }
+    });
   }, [level, currentUser?.id]);
+
+  useEffect(() => {
+    function handleProgressUpdate(e: Event) {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.level === level && Array.isArray(customEvent.detail.unlockedLessons)) {
+        setUnlocked(customEvent.detail.unlockedLessons);
+      }
+    }
+    window.addEventListener("self-study-progress-updated", handleProgressUpdate);
+    return () => window.removeEventListener("self-study-progress-updated", handleProgressUpdate);
+  }, [level]);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     const controller = new AbortController();
@@ -80,11 +101,25 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     selection.select({ level: next, lessonNumber: 1 }); onScreenChange?.("catalog"); setQuery(""); setNotice("");
   }
   function practice() { if (!canStudy) return; rememberOpenLessons(); selection.select({ level, lessonNumber: current.number }); navigate("practice"); }
-  function complete() {
+  async function complete() {
     if (!current || !canStudy) return;
-    const next = [...new Set([...unlocked, current.number + 1])];
-    try { localStorage.setItem(`hsk_self_unlocked_lvl_${level}_${currentUser?.id || "guest"}`, JSON.stringify(next)); setUnlocked(next); setNotice(`Đã đánh dấu hoàn thành bài ${current.number}. Bạn có thể tiếp tục luyện tập hoặc chọn bài tiếp theo.`); }
-    catch { setNotice("Chưa lưu được tiến trình trên trình duyệt. Vui lòng thử lại."); }
+    const completedNum = current.number;
+    const nextNum = completedNum + 1;
+    const nextUnlocked = [...new Set([...unlocked, nextNum])].sort((a, b) => a - b);
+    
+    setUnlocked(nextUnlocked);
+    setPassedLessonInfo({ completed: completedNum, next: nextNum });
+    setPassModalOpen(true);
+    setNotice(`Đã thông quan Bài ${completedNum}! Đã mở khóa Bài ${nextNum} (+50 XP).`);
+
+    await saveCloudPass({
+      level,
+      completedLessonNumber: completedNum,
+      nextLessonNumber: nextNum,
+      currentUnlocked: unlocked,
+      studentId: currentUser?.id,
+      xpReward: 50,
+    });
   }
   function openNotes() { if (canStudy) { selection.select({ level, lessonNumber: current.number }); setNotesOpen(true); } }
   const actions = <div className={styles.actions} aria-label="Thao tác với bài đang chọn">
@@ -119,5 +154,16 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     </>}
     <AncientSideDrawerNotes isOpen={notesOpen} onClose={() => setNotesOpen(false)} lessonNumber={current?.number || selection.lessonNumber} hskLevel={level} studentId={currentUser?.id} lessonTitle={current?.titleVi || current?.titleZh} lesson={canStudy ? current : undefined}/>
     <VirtualStudyRoomModal isOpen={roomOpen} onClose={() => setRoomOpen(false)} studentName={currentUser?.name || "Bạn"}/>
+    <ImperialPassSealModal
+      isOpen={passModalOpen}
+      onClose={() => setPassModalOpen(false)}
+      hskLevel={level}
+      completedLessonNumber={passedLessonInfo.completed}
+      nextLessonNumber={passedLessonInfo.next}
+      xpReward={50}
+      onNextLesson={(nextNum) => openLesson(nextNum)}
+      onPractice={practice}
+      onWriteNotes={openNotes}
+    />
   </div>;
 }

@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
+import { fetchCloudProgress, saveCloudPass } from "@/lib/self-study-cloud-service";
+import ImperialPassSealModal from "./ImperialPassSealModal";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import {
@@ -162,8 +164,10 @@ export default function StudentPracticeWorkspace({
 
   // 4. Tiến trình mở khóa tự học (Self-Study Progression)
   const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1, 2]);
+  const [passModalOpen, setPassModalOpen] = useState(false);
+  const [passedLessonInfo, setPassedLessonInfo] = useState<{ completed: number; next: number }>({ completed: 1, next: 2 });
 
-  // Đọc danh sách bài đã mở khóa từ LocalStorage
+  // Đọc danh sách bài đã mở khóa từ LocalStorage và Cloud
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -173,33 +177,56 @@ export default function StudentPracticeWorkspace({
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setSelfUnlockedLessons(parsed);
-            return;
           }
         }
-        setSelfUnlockedLessons([1, 2]);
-        localStorage.setItem(key, JSON.stringify([1, 2]));
       } catch (e) {
         setSelfUnlockedLessons([1, 2]);
       }
+
+      fetchCloudProgress(currentHskLevel, currentUser?.id).then((cloud) => {
+        if (Array.isArray(cloud) && cloud.length > 0) {
+          setSelfUnlockedLessons(cloud);
+        }
+      });
     }
   }, [currentHskLevel, currentUser?.id]);
 
+  useEffect(() => {
+    function handleProgressUpdate(e: Event) {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.level === currentHskLevel && Array.isArray(customEvent.detail.unlockedLessons)) {
+        setSelfUnlockedLessons(customEvent.detail.unlockedLessons);
+      }
+    }
+    window.addEventListener("self-study-progress-updated", handleProgressUpdate);
+    return () => window.removeEventListener("self-study-progress-updated", handleProgressUpdate);
+  }, [currentHskLevel]);
+
   // Hàm mở khóa bài tiếp theo trong Tự học
-  const handleUnlockNextLesson = (nextLessonNumber: number) => {
+  const handleUnlockNextLesson = async (nextLessonNumber: number) => {
     if (typeof window !== "undefined") {
-      const key = `hsk_self_unlocked_lvl_${currentHskLevel}_${currentUser?.id || "guest"}`;
+      const completedLesson = selectedPracticeLesson;
       const updated = Array.from(new Set([...selfUnlockedLessons, nextLessonNumber])).sort((a, b) => a - b);
       setSelfUnlockedLessons(updated);
-      try {
-        localStorage.setItem(key, JSON.stringify(updated));
-      } catch (e) {}
+      
+      setCurrentXpVal((prev) => prev + 50);
+      setPassedLessonInfo({ completed: completedLesson, next: nextLessonNumber });
+      setPassModalOpen(true);
 
-      setCurrentXpVal((prev) => prev + 25);
       setSelectedPracticeLesson(nextLessonNumber);
       setActiveCardIndex(0);
       setShowCardMeaning(false);
       setQuizSelectedOption(null);
       setQuizIsAnswered(false);
+
+      await saveCloudPass({
+        level: currentHskLevel,
+        completedLessonNumber: completedLesson,
+        nextLessonNumber,
+        currentUnlocked: selfUnlockedLessons,
+        studentId: currentUser?.id,
+        xpReward: 50,
+      });
     }
   };
 
@@ -2514,6 +2541,25 @@ export default function StudentPracticeWorkspace({
         isOpen={showVirtualStudyRoomModal}
         onClose={() => setShowVirtualStudyRoomModal(false)}
         studentName={currentUser?.name || "Bạn"}
+      />
+
+      {/* Modal Chiếu chỉ Thông Quan (印) */}
+      <ImperialPassSealModal
+        isOpen={passModalOpen}
+        onClose={() => setPassModalOpen(false)}
+        hskLevel={currentHskLevel}
+        completedLessonNumber={passedLessonInfo.completed}
+        nextLessonNumber={passedLessonInfo.next}
+        xpReward={50}
+        onNextLesson={(nextNum) => {
+          setSelectedPracticeLesson(nextNum);
+        }}
+        onPractice={() => {
+          setActiveMode("vocab");
+        }}
+        onWriteNotes={() => {
+          setShowStationeryNotesModal(true);
+        }}
       />
     </div>
   );

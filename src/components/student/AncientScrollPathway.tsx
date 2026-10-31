@@ -35,10 +35,12 @@ export default function AncientScrollPathway({ lessons, selectedLesson, unlocked
         <div className={styles.paperTop}><span>千里之行，始于足下</span><small>{openCount} / {available.length} bài đã mở</small></div>
         <div ref={trackRef} className={styles.track} role="group" aria-label="Chọn bài học">{available.map(lesson => {
           const isOpen = unlocked.includes(lesson.number), current = selectedLesson === lesson.number;
+          const isPassed = isOpen && (lesson.number < selectedLesson || lesson.number < Math.max(...unlocked));
           return <button key={lesson.number} className={styles.lesson} title={`${lesson.titleZh} · ${lesson.titleVi || `Bài ${lesson.number}`}`} disabled={!isOpen} aria-current={current ? "step" : undefined} aria-label={`Bài ${lesson.number}: ${lesson.titleVi || lesson.titleZh}${isOpen ? "" : ", chưa mở"}`} onClick={() => onSelectLesson(lesson.number)}>
+            {isPassed && <span className={styles.passSeal} title="Đã thông quan">印</span>}
             <span className={styles.number}>{isOpen ? String(lesson.number).padStart(2, "0") : <Lock size={16}/>}</span>
             <span className={styles.chinese} lang="zh-CN">{lesson.titleZh}</span><span className={styles.translation}>{lesson.titleVi || `Bài ${lesson.number}`}</span>
-            <span className={styles.state}>{current && isOpen ? <><BookOpen size={11}/> Đang chọn</> : isOpen ? "Có thể học" : "Chưa mở khóa"}</span>
+            <span className={styles.state}>{current && isOpen ? <><BookOpen size={11}/> Đang chọn</> : isPassed ? "Đã thông quan" : isOpen ? "Có thể học" : "Chưa mở khóa"}</span>
           </button>;
         })}</div>
         {!available.length && <p className={styles.empty}>Bài học sẽ xuất hiện tại đây khi giáo trình được tải.</p>}
