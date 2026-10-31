@@ -148,16 +148,16 @@ export default function StudentSelfStudyWorkspace({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#BC9B6B]/30">
         <div>
           <div className="text-xs uppercase tracking-wider text-[#8F6D3B] font-bold flex items-center gap-2">
-            <span>Lộ trình Tự học HSK 3.0 · Chuẩn Hanban CTI</span>
+            <span>Hanyu · Không gian tự học</span>
             <span className="px-2 py-0.5 rounded-full bg-[#204434] text-[#BC9B6B] text-[10px] font-mono">
-              Kho Giáo Trình Admin
+              HSK {currentLevel}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#204434] mt-0.5">
-            Sơn Hà Thư Viện · Chinh Phục HSK {currentLevel}
+            Mở trang sách, viết hành trình riêng.
           </h1>
           <p className="text-xs text-[#315E48] mt-1 max-w-2xl">
-            Toàn bộ học liệu được đồng bộ trực tiếp từ Kho Giáo Trình của nhà trường. Học sinh tự do luyện tập vượt ải từng bài học.
+            Chọn một bài học, ghi lại điều vừa hiểu và dành một chút thời gian để ôn luyện mỗi ngày.
           </p>
         </div>
 
@@ -169,7 +169,7 @@ export default function StudentSelfStudyWorkspace({
             className="px-3.5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#BC9B6B] text-xs font-bold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <Moon className="w-4 h-4 text-[#BC9B6B]" />
-            <span>🏮 Vân Tự Tập Thất</span>
+            <span>Phòng tập trung</span>
           </button>
           <button
             type="button"
@@ -177,7 +177,7 @@ export default function StudentSelfStudyWorkspace({
             className="px-3.5 py-2 rounded-xl bg-[#FAF7F0] hover:bg-white text-[#204434] border border-[#BC9B6B] text-xs font-bold shadow-2xs flex items-center gap-1.5 transition cursor-pointer"
           >
             <PenTool className="w-4 h-4 text-[#8F6D3B]" />
-            <span>📜 Bút Ký Bên Cạnh</span>
+            <span>Mở thư phòng bút ký</span>
           </button>
         </div>
       </div>
@@ -257,11 +257,11 @@ export default function StudentSelfStudyWorkspace({
                 <h4 className="font-serif font-bold text-xs sm:text-sm text-[#204434] flex items-center gap-2">
                   <span>Lộ Trình Học Tập Cá Nhân Hóa ({roadmapStages.length} Giai đoạn)</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-semibold">
-                    Đồng bộ từ CSDL Admin
+                    Lộ trình của bạn
                   </span>
                 </h4>
                 <p className="text-[11px] text-[#315E48]">
-                  Xem toàn bộ 4 giai đoạn tiến trình học tập từ Nhập môn Pinyin đến Luyện đề thực chiến
+                  Từ những nét Pinyin đầu tiên đến luyện đề thực chiến.
                 </p>
               </div>
             </div>
@@ -396,7 +396,7 @@ export default function StudentSelfStudyWorkspace({
                     className="px-4 py-2.5 rounded-xl bg-[#FAF7F0] hover:bg-white text-[#204434] border border-[#BC9B6B] text-xs font-bold shadow-2xs flex items-center gap-2 transition cursor-pointer"
                   >
                     <PenTool className="w-4 h-4 text-[#8F6D3B]" />
-                    <span>{showSideNotes ? "Đóng Bút Ký" : "Mở Bút Ký Bên Cạnh 📜"}</span>
+                    <span>{showSideNotes ? "Đóng bút ký" : "Ghi chép bài học"}</span>
                   </button>
 
                   {/* Nút Hoàn Thành Bài */}
@@ -406,7 +406,7 @@ export default function StudentSelfStudyWorkspace({
                     className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
-                    <span>Đánh dấu thông quan</span>
+                    <span>Hoàn thành bài học</span>
                   </button>
                 </div>
               </div>
