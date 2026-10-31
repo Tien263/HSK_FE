@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
-import { BookOpen, ChevronDown, Lock } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import styles from "./ScrollPathway.module.css";
 
 interface AncientScrollPathwayProps {
@@ -15,6 +15,12 @@ interface AncientScrollPathwayProps {
 export default function AncientScrollPathway({ lessons, selectedLesson, unlockedLessons, onSelectLesson, hskLevel }: AncientScrollPathwayProps) {
   const [expanded, setExpanded] = useState(true);
   const id = useId();
+  const trackRef = useRef<HTMLDivElement>(null);
+  function scrollLessons(direction: number) {
+    const track = trackRef.current;
+    if (!track) return;
+    track.scrollBy({ left: direction * track.clientWidth * .75, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  }
   const available = Array.isArray(lessons) ? lessons : [];
   const unlocked = Array.isArray(unlockedLessons) ? unlockedLessons : [];
   const openCount = available.filter(lesson => unlocked.includes(lesson.number)).length;
@@ -27,16 +33,16 @@ export default function AncientScrollPathway({ lessons, selectedLesson, unlocked
       <div className={styles.rollerLeft} aria-hidden="true"/><div className={styles.rollerRight} aria-hidden="true"/>
       <div className={styles.paper} id={id} hidden={!expanded}>
         <div className={styles.paperTop}><span>千里之行，始于足下</span><small>{openCount} / {available.length} bài đã mở</small></div>
-        <div className={styles.track} role="group" aria-label="Chọn bài học">{available.map(lesson => {
+        <div ref={trackRef} className={styles.track} role="group" aria-label="Chọn bài học">{available.map(lesson => {
           const isOpen = unlocked.includes(lesson.number), current = selectedLesson === lesson.number;
-          return <button key={lesson.number} className={styles.lesson} disabled={!isOpen} aria-current={current ? "step" : undefined} aria-label={`Bài ${lesson.number}: ${lesson.titleVi || lesson.titleZh}${isOpen ? "" : ", chưa mở"}`} onClick={() => onSelectLesson(lesson.number)}>
+          return <button key={lesson.number} className={styles.lesson} title={`${lesson.titleZh} · ${lesson.titleVi || `Bài ${lesson.number}`}`} disabled={!isOpen} aria-current={current ? "step" : undefined} aria-label={`Bài ${lesson.number}: ${lesson.titleVi || lesson.titleZh}${isOpen ? "" : ", chưa mở"}`} onClick={() => onSelectLesson(lesson.number)}>
             <span className={styles.number}>{isOpen ? String(lesson.number).padStart(2, "0") : <Lock size={16}/>}</span>
             <span className={styles.chinese} lang="zh-CN">{lesson.titleZh}</span><span className={styles.translation}>{lesson.titleVi || `Bài ${lesson.number}`}</span>
             <span className={styles.state}>{current && isOpen ? <><BookOpen size={11}/> Đang chọn</> : isOpen ? "Có thể học" : "Chưa mở khóa"}</span>
           </button>;
         })}</div>
         {!available.length && <p className={styles.empty}>Bài học sẽ xuất hiện tại đây khi giáo trình được tải.</p>}
-        <div className={styles.paperBottom}><span>Chọn một bài để tiếp tục hành trình</span><span aria-hidden="true">宁</span></div>
+        <div className={styles.paperBottom}><div className={styles.scrollControls}><button type="button" aria-label="Xem các bài phía trước" onClick={() => scrollLessons(-1)}><ChevronLeft size={16}/></button><button type="button" aria-label="Xem các bài tiếp theo" onClick={() => scrollLessons(1)}><ChevronRight size={16}/></button></div><span>Kéo ngang hoặc dùng mũi tên để xem các bài</span></div>
       </div>
       {!expanded && <div className={styles.closed}><span>书卷常开 · Tri thức luôn chờ bạn</span></div>}
     </div>

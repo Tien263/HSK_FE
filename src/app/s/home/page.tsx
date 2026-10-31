@@ -915,11 +915,11 @@ export default function StudentHomePage() {
       {/* ========================================================================= */}
       {/* 2. KHU VỰC NỘI DUNG CHÍNH (MAIN VIEWPORT) */}
       {/* ========================================================================= */}
-      <div className="flex-1 lg:pl-60 flex flex-col min-h-screen pb-20 lg:pb-0">
+      <div className="flex-1 min-w-0 w-full lg:pl-60 flex flex-col min-h-screen pb-20 lg:pb-0">
         {/* Top Header Bar */}
         <header className="h-16 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 bg-[#F8F5ED]/90 backdrop-blur-md border-b border-[#E5DEC9]">
           {/* Hamburger button on mobile + Search bar */}
-          <div className="flex items-center gap-2.5 flex-1 max-w-xl">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0 max-w-xl">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
@@ -929,7 +929,7 @@ export default function StudentHomePage() {
               <Menu className="w-5 h-5" />
             </button>
 
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <Search className="w-4 h-4 text-[#315E48] absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -1077,7 +1077,7 @@ export default function StudentHomePage() {
         {/* ========================================================================= */}
         {/* DASHBOARD BODY (WORKSPACE BRANCHING) */}
         {/* ========================================================================= */}
-        <main className="p-4 sm:p-7 space-y-6 max-w-[1780px] w-full mx-auto">
+        <main className="p-4 sm:p-7 space-y-6 min-w-0 max-w-[1780px] w-full mx-auto">
           {activeNav === "classes" ? (
             <StudentClassesWorkspace
               currentUser={currentUser}

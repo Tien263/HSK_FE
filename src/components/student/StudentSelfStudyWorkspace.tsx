@@ -143,7 +143,7 @@ export default function StudentSelfStudyWorkspace({
   };
 
   return (
-    <div className={`${styles.workspace} ${styles.stack} relative`}>
+    <div className={`${styles.workspace} ${styles.stack} relative min-w-0 w-full grid-cols-1`}>
       {/* 1. Header Lộ Trình Tự Học Cổ Phong */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#BC9B6B]/30">
         <div>
@@ -246,17 +246,18 @@ export default function StudentSelfStudyWorkspace({
         <div className="rounded-2xl border border-[#BC9B6B]/40 bg-[#FFFCF6] overflow-hidden shadow-2xs">
           <button
             type="button"
+            aria-expanded={showRoadmapOverview}
             onClick={() => setShowRoadmapOverview(!showRoadmapOverview)}
             className="w-full p-3.5 flex items-center justify-between text-left hover:bg-[#FAF7F0] transition cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
-              <span className="w-7 h-7 rounded-lg bg-[#204434] text-white flex items-center justify-center text-xs font-bold shadow-xs">
+              <span className="w-7 h-7 shrink-0 rounded-lg bg-[#204434] text-white flex items-center justify-center text-xs font-bold shadow-xs">
                 <Compass className="w-4 h-4 text-[#BC9B6B]" />
               </span>
               <div>
                 <h4 className="font-serif font-bold text-xs sm:text-sm text-[#204434] flex items-center gap-2">
-                  <span>Lộ Trình Học Tập Cá Nhân Hóa ({roadmapStages.length} Giai đoạn)</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-semibold">
+                  <span>Lộ trình tổng quan · {roadmapStages.length} giai đoạn</span>
+                  <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full bg-[#204434]/10 text-[#204434] font-semibold">
                     Lộ trình của bạn
                   </span>
                 </h4>
@@ -266,8 +267,8 @@ export default function StudentSelfStudyWorkspace({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#8F6D3B]">
-              <span>{showRoadmapOverview ? "Thu gọn" : "Xem chi tiết"}</span>
+            <div className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-[#8F6D3B]">
+              <span className="hidden sm:inline">{showRoadmapOverview ? "Thu gọn" : "Xem chi tiết"}</span>
               {showRoadmapOverview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </div>
           </button>
