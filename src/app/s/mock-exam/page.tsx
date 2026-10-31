@@ -32,6 +32,7 @@ import {
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { normalizeGrammarList } from "@/lib/chinese-grammar-helper";
 import { isMockAnswerCorrect } from "@/lib/mock-exam-matcher";
+import { recordLevelMockExamScore } from "@/lib/self-study-progression";
 
 interface MockQuestion {
   id: string;
@@ -403,6 +404,10 @@ export default function MockExamPage() {
           questions,
         }),
       });
+
+      // Ghi nhận điểm thi thử cho điều kiện thăng cấp HSK
+      const normalizedScore = Math.round((totalScore / Math.max(maxScore, 1)) * 100);
+      recordLevelMockExamScore(selectedLevel, normalizedScore, studentId);
 
       // Tải lại danh sách đề thi để cập nhật điểm mới nhất
       fetchMockExams(selectedLevel);

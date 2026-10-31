@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type CSSProperties } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Download, Eraser, Feather, FolderOpen, Grid2X2, Maximize2, PanelsTopLeft, Plus, RotateCcw, Save, Search, Stamp, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Download, Eraser, Feather, FileText, FolderOpen, Grid2X2, Maximize2, PanelsTopLeft, Plus, RotateCcw, Save, Search, Stamp, Trash2, X } from "lucide-react";
+import { jsPDF } from "jspdf";
 import LessonStudyContent from "../learning/LessonStudyContent";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import { saveCloudNote, syncCloudNotes } from "@/lib/self-study-cloud-service";
@@ -37,6 +38,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
   const [notes, setNotes] = useState<Note[]>([]), [editingId, setEditingId] = useState<string | null>(null);
   const [query, setQuery] = useState(""), [status, setStatus] = useState(""), [dirty, setDirty] = useState(false), [readyFor, setReadyFor] = useState("");
   const [history, setHistory] = useState<string[]>([]), [revision, setRevision] = useState(0);
+  const [flipAnim, setFlipAnim] = useState("");
   const dialog = useRef<HTMLElement>(null), closeButton = useRef<HTMLButtonElement>(null), canvas = useRef<HTMLCanvasElement>(null), sheet = useRef<HTMLDivElement>(null);
   const drawing = useRef<{ x: number; y: number } | null>(null);
   const drag = useRef<{ id: string; x: number; y: number; startX: number; startY: number } | null>(null);
@@ -142,18 +144,60 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
   function capture() { const el = canvas.current; if (!el) return; const pixels = el.getContext("2d")!.getImageData(0, 0, 800, 640).data; update({ drawingDataUrl: pixels.some((v, i) => i % 4 === 3 && v > 0) ? el.toDataURL() : undefined }); }
   function finish() { if (drawing.current) { drawing.current = null; capture(); } }
   function undo() { const snapshot = history.at(-1); if (!snapshot) return; const img = new Image(); img.onload = () => { const ctx = canvas.current?.getContext("2d"); if (ctx) { ctx.clearRect(0, 0, 800, 640); ctx.globalCompositeOperation = "source-over"; ctx.drawImage(img, 0, 0); capture(); } }; img.src = snapshot; setHistory(h => h.slice(0, -1)); }
-  async function exportArtwork() {
-    if (!hasContent) {
-      setStatus("Chưa có nội dung để xuất tác phẩm.");
-      return;
+  function playPageTurnSound() {
+    if (typeof window === "undefined") return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioContextClass();
+      const bufferSize = Math.floor(ctx.sampleRate * 0.12);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 1100;
+      filter.Q.value = 1.2;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      noise.start();
+    } catch {}
+  }
+
+  function turnPage(dir: "next" | "prev") {
+    if (dir === "prev" && index > 0) {
+      setFlipAnim(s.pageFlipPrev);
+      playPageTurnSound();
+      setTimeout(() => {
+        setIndex(i => i - 1);
+        setFlipAnim("");
+      }, 240);
+    } else if (dir === "next" && index < pages.length - 1) {
+      setFlipAnim(s.pageFlipNext);
+      playPageTurnSound();
+      setTimeout(() => {
+        setIndex(i => i + 1);
+        setFlipAnim("");
+      }, 240);
     }
+  }
+
+  async function renderPageToCanvas(pageIdx: number): Promise<HTMLCanvasElement> {
+    const targetPage = pages[pageIdx] || blank();
     const offscreen = document.createElement("canvas");
     offscreen.width = 1200;
     offscreen.height = 960;
     const ctx = offscreen.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return offscreen;
 
-    // 1. Paper Background & Texture
+    // 1. Background & Material
     ctx.fillStyle = material.color || "#f4ecd9";
     ctx.fillRect(0, 0, 1200, 960);
 
@@ -207,13 +251,13 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
     }
 
     // 4. Text Content (horizontal or vertical)
-    if (page.content) {
+    if (targetPage.content) {
       ctx.fillStyle = ink;
       if (vertical) {
         ctx.font = "26px serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        const lines = page.content.split("\n");
+        const lines = targetPage.content.split("\n");
         let colX = 1050;
         const colWidth = 50;
         const startY = 200;
@@ -233,7 +277,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
         ctx.font = "24px serif";
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
-        const lines = page.content.split("\n");
+        const lines = targetPage.content.split("\n");
         let lineY = 200;
         const lineHeight = 38;
         for (const line of lines) {
@@ -245,7 +289,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
     }
 
     // 5. Canvas Drawing Strokes
-    if (page.drawingDataUrl) {
+    if (targetPage.drawingDataUrl) {
       await new Promise<void>((resolve) => {
         const img = new Image();
         img.onload = () => {
@@ -253,12 +297,12 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
           resolve();
         };
         img.onerror = () => resolve();
-        img.src = page.drawingDataUrl!;
+        img.src = targetPage.drawingDataUrl!;
       });
     }
 
     // 6. Red Stamps
-    for (const st of page.stamps) {
+    for (const st of targetPage.stamps) {
       const stampX = 60 + (st.x / 100) * 1080;
       const stampY = 160 + (st.y / 100) * 700;
       const size = 52;
@@ -281,15 +325,53 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
     ctx.textBaseline = "bottom";
     ctx.fillText("HANYU · 笔墨之间，皆是成长 · THƯ HỌA TRUNG HOA", 60, 915);
     ctx.textAlign = "right";
-    ctx.fillText(`Trang ${index + 1} / ${pages.length} · ${new Date().toLocaleDateString("vi-VN")}`, 1140, 915);
+    ctx.fillText(`Trang ${pageIdx + 1} / ${pages.length} · ${new Date().toLocaleDateString("vi-VN")}`, 1140, 915);
 
-    // Trigger download
-    const dataUrl = offscreen.toDataURL("image/png");
+    return offscreen;
+  }
+
+  async function exportSinglePagePng() {
+    if (!hasContent) {
+      setStatus("Chưa có nội dung để xuất tác phẩm.");
+      return;
+    }
+    const canvasEl = await renderPageToCanvas(index);
+    const dataUrl = canvasEl.toDataURL("image/png");
     const link = document.createElement("a");
     link.href = dataUrl;
     link.download = `thu-hoa-hsk${context.level}-bai${context.number}-trang${index + 1}.png`;
     link.click();
-    setStatus("Đã xuất tác phẩm thư họa hoàn chỉnh thành công!");
+    setStatus(`Đã xuất ảnh trang ${index + 1} thành công!`);
+  }
+
+  async function exportCompletePdf() {
+    if (!hasContent) {
+      setStatus("Chưa có nội dung để xuất tệp PDF.");
+      return;
+    }
+    setStatus(`Đang kết xuất tệp PDF ${pages.length} trang hoàn chỉnh...`);
+    try {
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [1200, 960],
+      });
+
+      for (let i = 0; i < pages.length; i++) {
+        const pageCanvas = await renderPageToCanvas(i);
+        const imgData = pageCanvas.toDataURL("image/jpeg", 0.95);
+        if (i > 0) {
+          doc.addPage([1200, 960], "landscape");
+        }
+        doc.addImage(imgData, "JPEG", 0, 0, 1200, 960);
+      }
+
+      doc.save(`but-ky-hsk${context.level}-bai${context.number}-toan-bo-${pages.length}-trang.pdf`);
+      setStatus(`Đã xuất trọn vẹn tệp PDF ${pages.length} trang thành công!`);
+    } catch {
+      setStatus("Lỗi khi kết xuất PDF. Đang tải ảnh PNG trang này...");
+      exportSinglePagePng();
+    }
   }
   function move(id: string, x: number, y: number) { update({ stamps: page.stamps.map(st => st.id === id ? { ...st, x: Math.max(5, Math.min(95, x)), y: Math.max(8, Math.min(92, y)) } : st) }); }
   if (!isOpen) return null;
@@ -317,7 +399,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
         <section className={s.desk} aria-label="Bàn viết thư pháp">
           <div className={s.deskTop}><div className={s.segmented} aria-label="Hình thức bút ký"><button aria-pressed={layout === "scroll"} onClick={() => { setLayout("scroll"); setDirty(true); }}><Stamp size={15}/> Cuộn thư</button><button aria-pressed={layout === "codex"} onClick={() => { setLayout("codex"); setDirty(true); }}><BookOpen size={15}/> Sổ đóng gáy</button></div><span className={s.paperLabel}>{material.zh} · {material.name}</span></div>
           <div className={s.toolbar}><div className={s.toolGroup}><button aria-pressed={tool === "text"} onClick={() => setTool("text")}>Gõ chữ</button><button aria-pressed={tool === "brush"} onClick={() => setTool("brush")}><Feather size={14}/> Bút lông</button><button aria-label="Tẩy nét bút" aria-pressed={tool === "eraser"} onClick={() => setTool("eraser")}><Eraser size={15}/></button></div>{tool === "text" ? <button aria-pressed={vertical} onClick={() => { setVertical(v => !v); setDirty(true); }}>Chữ {vertical ? "dọc ↓" : "ngang →"}</button> : <label className={s.brushLabel}>Cỡ bút<input type="range" min="2" max="16" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))}/></label>}<button aria-label="Bật tắt ô luyện chữ" aria-pressed={grid} onClick={() => setGrid(g => !g)}><Grid2X2 size={15}/></button><button aria-label="Hoàn tác nét bút" disabled={!history.length} onClick={undo}><RotateCcw size={15}/></button></div>
-          <div className={s.artwork} data-layout={layout}><div className={s.bookCover} aria-hidden="true"><span>拾<br/>光<br/>手<br/>札</span><small>HANYU · BÚT KÝ</small></div><div className={s.scrollSheet} data-paper={paper}><div className={s.rollerLeft} aria-hidden="true"/><div className={s.rollerRight} aria-hidden="true"/><div className={s.sheetInner} key={`${revision}-${index}`}>
+          <div className={s.artwork} data-layout={layout}><div className={s.bookCover} aria-hidden="true"><span>拾<br/>光<br/>手<br/>札</span><small>HANYU · BÚT KÝ</small></div><div className={`${s.scrollSheet} ${flipAnim}`} data-paper={paper}><div className={s.rollerLeft} aria-hidden="true"/><div className={s.rollerRight} aria-hidden="true"/><div className={s.sheetInner} key={`${revision}-${index}`}>
             <div className={s.sheetHeading}><span>HSK {context.level} · BÀI {context.number}</span><span className={s.imperialSeal} aria-hidden="true">宁<br/>记</span></div><input className={s.titleInput} aria-label="Tên bút ký" value={title} onChange={e => { setTitle(e.target.value); setDirty(true); }} placeholder="Đặt tên cho bút ký…"/>
             <div ref={sheet} className={`${s.writingArea} ${grid ? s.riceGrid : ""}`} style={{ "--ink": ink } as CSSProperties}>
               <textarea aria-label={`Nội dung trang ${index + 1}`} className={vertical ? s.verticalText : s.horizontalText} style={{ pointerEvents: tool === "text" ? "auto" : "none" }} value={page.content} onChange={e => update({ content: e.target.value })} placeholder={vertical ? "落笔生花\nHạ bút, nở hoa…" : "Một chữ mới, một câu hay…"} spellCheck={false}/>
@@ -325,7 +407,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
               {page.stamps.map(st => <button key={st.id} className={s.decoration} style={{ left: `${st.x}%`, top: `${st.y}%` }} aria-label={`Ấn ${st.symbol}, dùng mũi tên di chuyển hoặc Delete để bỏ`} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { id: st.id, x: st.x, y: st.y, startX: e.clientX, startY: e.clientY }; }} onPointerMove={e => { const d = drag.current, rect = sheet.current?.getBoundingClientRect(); if (d?.id === st.id && rect) move(st.id, d.x + (e.clientX - d.startX) * 100 / rect.width, d.y + (e.clientY - d.startY) * 100 / rect.height); }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { const offsets: Record<string, [number, number]> = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] }; if (offsets[e.key]) { e.preventDefault(); move(st.id, st.x + offsets[e.key][0], st.y + offsets[e.key][1]); } else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); update({ stamps: page.stamps.filter(p => p.id !== st.id) }); } }}>{st.symbol}</button>)}
             </div><div className={s.sheetFoot}><span>笔墨之间，皆是成长</span><span>{String(index + 1).padStart(2, "0")}</span></div>
           </div></div></div>
-          <div className={s.pagination}><button aria-label="Trang trước" disabled={index === 0} onClick={() => setIndex(i => i - 1)}><ChevronLeft size={17}/></button><span aria-live="polite">Trang {index + 1} / {pages.length}</span><button aria-label="Trang sau" disabled={index === pages.length - 1} onClick={() => setIndex(i => i + 1)}><ChevronRight size={17}/></button><button onClick={() => { setPages(ps => [...ps, blank()]); setIndex(pages.length); setDirty(true); }}><Plus size={14}/> Thêm trang</button><button aria-label="Xuất tác phẩm thư họa PNG" title="Xuất toàn bộ tác phẩm thư họa (Giấy, chữ, nét bút & ấn triện)" disabled={!hasContent} onClick={exportArtwork}><Download size={14}/> Xuất tác phẩm</button></div>
+          <div className={s.pagination}><button aria-label="Trang trước" disabled={index === 0} onClick={() => turnPage("prev")}><ChevronLeft size={17}/></button><span aria-live="polite">Trang {index + 1} / {pages.length}</span><button aria-label="Trang sau" disabled={index === pages.length - 1} onClick={() => turnPage("next")}><ChevronRight size={17}/></button><button onClick={() => { setPages(ps => [...ps, blank()]); setIndex(pages.length); setDirty(true); playPageTurnSound(); }}><Plus size={14}/> Thêm trang</button><button aria-label="Tải ảnh PNG trang này" title="Tải ảnh PNG trang hiện tại" disabled={!hasContent} onClick={exportSinglePagePng}><Download size={14}/> Tải PNG</button><button aria-label="Xuất tệp PDF toàn bộ trang" title={`Xuất toàn bộ ${pages.length} trang thành 1 tệp PDF duy nhất`} disabled={!hasContent} onClick={exportCompletePdf}><FileText size={14}/> Xuất PDF ({pages.length} trang)</button></div>
           <footer className={s.deskFooter}><div><span className={s.saveDot} data-dirty={dirty}/>{dirty ? "Có thay đổi chưa lưu" : editingId ? "Bút ký đã lưu" : "Sẵn sàng hạ bút"}</div><button className={s.primary} disabled={readyFor !== key} onClick={save}><Save size={16}/> Đóng ấn & lưu</button></footer><button className={s.backToLesson} onClick={onClose}><ArrowLeft size={14}/> Trở về bài học</button>
         </section>
       </div>}

@@ -3,15 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Dumbbell, FileCheck2, Lock, Moon, PenTool, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Dumbbell, FileCheck2, Lock, Moon, PenTool, Search, Sparkles, Trophy } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { fetchCloudProgress, saveCloudPass } from "@/lib/self-study-cloud-service";
+import { SCHOLAR_RANKS, getMaxUnlockedHskLevel } from "@/lib/self-study-progression";
 import type { RoadmapStage } from "@/lib/self-study-roadmap-constants";
 import AncientScrollPathway from "./AncientScrollPathway";
 import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
 import ImperialPassSealModal from "./ImperialPassSealModal";
+import ScholarRankProgressionModal from "./ScholarRankProgressionModal";
+import AncientHanziEtymologyModal from "./AncientHanziEtymologyModal";
 import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
 import LessonStudyContent from "../learning/LessonStudyContent";
 import styles from "./SelfStudyWorkspace.module.css";
@@ -41,6 +44,9 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const [roomOpen, setRoomOpen] = useState(false);
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [passedLessonInfo, setPassedLessonInfo] = useState<{ completed: number; next: number }>({ completed: 1, next: 2 });
+  const [showScholarModal, setShowScholarModal] = useState(false);
+  const [scholarLockTarget, setScholarLockTarget] = useState<number | undefined>(undefined);
+  const [showEtymologyModal, setShowEtymologyModal] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
   const { lessons: apiLessons, loading, error } = useCurriculumLessons(level);
   const lessons = useMemo(() => apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level]);
@@ -74,9 +80,20 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
         setUnlocked(customEvent.detail.unlockedLessons);
       }
     }
+    function handleLevelPromoted(e: Event) {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.newLevel) {
+        setMaxLevel(customEvent.detail.newLevel);
+        selection.select({ level: customEvent.detail.newLevel, lessonNumber: 1 });
+      }
+    }
     window.addEventListener("self-study-progress-updated", handleProgressUpdate);
-    return () => window.removeEventListener("self-study-progress-updated", handleProgressUpdate);
-  }, [level]);
+    window.addEventListener("hsk-level-promoted", handleLevelPromoted);
+    return () => {
+      window.removeEventListener("self-study-progress-updated", handleProgressUpdate);
+      window.removeEventListener("hsk-level-promoted", handleLevelPromoted);
+    };
+  }, [level, selection]);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     const controller = new AbortController();
@@ -97,7 +114,11 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     topRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
   }
   function changeLevel(next: number) {
-    if (next > maxLevel) { setNotice(`HSK ${next} chưa mở. Hoàn thành cấp trước hoặc bài kiểm tra đầu vào để tiếp tục.`); return; }
+    if (next > maxLevel) {
+      setScholarLockTarget(next);
+      setShowScholarModal(true);
+      return;
+    }
     selection.select({ level: next, lessonNumber: 1 }); onScreenChange?.("catalog"); setQuery(""); setNotice("");
   }
   function practice() { if (!canStudy) return; rememberOpenLessons(); selection.select({ level, lessonNumber: current.number }); navigate("practice"); }
@@ -126,6 +147,7 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     <button className={reading ? styles.secondary : styles.primary} disabled={!canStudy} onClick={() => openLesson(current.number)}><BookOpen size={16}/>{reading ? "Đang học bài" : "Học tiếp"}</button>
     <button className={styles.secondary} disabled={!canStudy} onClick={practice}><Dumbbell size={16}/>Luyện bài này</button>
     <button className={styles.secondary} disabled={!canStudy} onClick={openNotes}><PenTool size={16}/>Ghi chép</button>
+    <button className={styles.secondary} disabled={!canStudy} onClick={() => setShowEtymologyModal(true)} title="Chiết tự chữ Hán"><Sparkles size={16}/>Chiết tự</button>
   </div>;
 
   return <div ref={topRef} className={styles.workspace} data-self-study-view={view}>
@@ -133,6 +155,41 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       <div><p className={styles.eyebrow}>HANYU · TỰ HỌC HSK {level}</p><h1>{reading ? "Một bài học, một bước tiến." : view === "roadmap" ? "Hành trình của riêng bạn." : "Mở kho sách, tìm điều muốn học."}</h1><p>{view === "roadmap" ? "Tiếp tục bài đang học và nhìn lại những chặng phía trước." : "Tìm bài theo tên, chữ Hán hoặc Pinyin. Học và luyện theo cùng một bài."}</p></div>
       <button className={styles.secondary} onClick={() => setRoomOpen(true)}><Moon size={16}/>Phòng tập trung</button>
     </header>
+
+    {/* Bảng Vàng Khoa Cử Banner */}
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5ECDA]/90 border border-[#BC9B6B]/40 mb-3 shadow-xs">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#2B4837] text-[#FAF4E6] flex flex-col items-center justify-center shadow shrink-0 border border-[#BC9B6B]/60">
+          <span className="font-serif font-black text-sm leading-tight">
+            {SCHOLAR_RANKS[level]?.titleZh || "童生"}
+          </span>
+          <span className="text-[8px] font-bold text-[#EADBC3] uppercase">HSK {level}</span>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase font-bold tracking-wider text-[#8C7A5B] flex items-center gap-1.5">
+            <Trophy className="w-3.5 h-3.5 text-[#A87930]" />
+            <span>Học vị Khoa Cử: {SCHOLAR_RANKS[level]?.titleVi || "Đồng Sinh"} (HSK {level})</span>
+          </div>
+          <div className="text-xs font-bold text-[#2B4837]">
+            {unlocked.length >= lessons.length
+              ? "Đã mở toàn bộ bài học! Hãy thi thử để thăng cấp."
+              : `Đã mở ${unlocked.length}/${lessons.length} bài học · Tự học tuần tự`}
+          </div>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          setScholarLockTarget(undefined);
+          setShowScholarModal(true);
+        }}
+        className="px-3.5 py-1.5 rounded-xl bg-[#BC9B6B] hover:bg-[#A88755] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shadow-xs"
+      >
+        <Trophy className="w-3.5 h-3.5" />
+        <span>Bảng Vàng Khoa Cử</span>
+      </button>
+    </div>
+
     <div className={styles.levels} aria-label="Chọn cấp độ HSK"><span>Cấp độ của bạn</span><div>{[1, 2, 3, 4, 5, 6].map(n => <button key={n} aria-pressed={level === n} onClick={() => changeLevel(n)}>HSK {n}{n > maxLevel && <Lock size={12}/>}</button>)}</div><Link href={`/s/mock-exam?level=${level}`}><FileCheck2 size={15}/>Thi thử HSK {level}</Link></div>
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {loading ? <p className={styles.empty} role="status">Đang mở kho giáo trình HSK {level}…</p> : error ? <p role="alert" className={styles.empty}>{error}</p> : !lessons.length ? <p className={styles.empty}>Cấp độ này chưa có bài học.</p> : <>
@@ -164,6 +221,24 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       onNextLesson={(nextNum) => openLesson(nextNum)}
       onPractice={practice}
       onWriteNotes={openNotes}
+    />
+    <ScholarRankProgressionModal
+      isOpen={showScholarModal}
+      onClose={() => setShowScholarModal(false)}
+      hskLevel={level}
+      unlockedLessons={unlocked}
+      totalLessons={lessons.length}
+      currentUser={currentUser}
+      targetLockedLevel={scholarLockTarget}
+      onPromoted={(newLevel) => {
+        setMaxLevel(newLevel);
+        changeLevel(newLevel);
+      }}
+    />
+    <AncientHanziEtymologyModal
+      isOpen={showEtymologyModal}
+      onClose={() => setShowEtymologyModal(false)}
+      initialCharacter={current?.vocabList?.[0]?.hanzi || "你"}
     />
   </div>;
 }
