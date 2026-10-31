@@ -717,18 +717,20 @@ export default function StudentPracticeWorkspace({
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
+    <div className="min-w-0 space-y-6 animate-fadeIn pb-12">
       {/* Header Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5DEC9]">
         <div>
-          <h1 className="text-2xl font-serif font-bold text-[#204434] flex items-center gap-2">
+          <h1 className="text-2xl font-serif font-bold text-[#204434] flex flex-wrap items-center gap-2">
             <span>Phòng luyện tập HSK</span>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-semibold border border-[#BC9B6B]/40 font-sans">
-              HSK {currentHskLevel}.0 · {activeClass.name}
+              HSK {currentHskLevel} · {learningTrack === "SELF_STUDY" ? "Tự học" : activeClass?.name}
             </span>
           </h1>
           <p className="text-xs text-[#315E48] mt-1">
-            Luyện phản xạ từ vựng, nắm chắc ngữ pháp và làm bài tập củng cố theo từng bài học trong lớp.
+            {learningTrack === "SELF_STUDY"
+              ? "Ôn từ vựng, luyện ngữ pháp và củng cố kiến thức theo từng bài trong lộ trình tự học."
+              : "Luyện phản xạ từ vựng, nắm chắc ngữ pháp và củng cố từng bài học trong lớp."}
           </p>
         </div>
 
@@ -1063,8 +1065,8 @@ export default function StudentPracticeWorkspace({
       {/* Selector chọn bài học trong lớp & Tab chế độ luyện tập */}
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-2xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Bộ chọn bài học (Lesson Selector) */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <span className="text-xs font-bold text-[#204434] flex items-center gap-1">
+        <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center md:max-w-[45%]">
+          <span className="shrink-0 text-xs font-bold text-[#204434] flex items-center gap-1">
             <BookOpen className="w-4 h-4 text-[#8F6D3B]" />
             <span>Bài luyện tập:</span>
           </span>
@@ -1078,7 +1080,7 @@ export default function StudentPracticeWorkspace({
               setQuizIsAnswered(false);
               setGameState("READY");
             }}
-            className="bg-[#FAF7F0] border border-[#BC9B6B]/50 rounded-xl px-3 py-1.5 text-xs font-bold text-[#204434] focus:outline-hidden cursor-pointer"
+            className="min-w-0 w-full bg-[#FAF7F0] border border-[#BC9B6B]/50 rounded-xl px-3 py-1.5 text-xs font-bold text-[#204434] focus:outline-hidden cursor-pointer"
           >
             {officialLessons.map((ls) => {
               const isPub =
@@ -1095,7 +1097,7 @@ export default function StudentPracticeWorkspace({
         </div>
 
         {/* PHẦN 2: NĂM TAB LUYỆN TẬP CHUYÊN SÂU */}
-        <div className="flex items-center gap-1.5 bg-[#FAF7F0] p-1 rounded-xl border border-[#E5DEC9] overflow-x-auto">
+        <div className="flex min-w-0 max-w-full items-center gap-1.5 bg-[#FAF7F0] p-1 rounded-xl border border-[#E5DEC9] overflow-x-auto md:flex-1">
           {/* Tab 1: Luyện từ vựng */}
           <button
             onClick={() => {
