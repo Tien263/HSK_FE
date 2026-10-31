@@ -161,7 +161,7 @@ export default function StudentPracticeWorkspace({
   };
 
   // 4. Tiến trình mở khóa tự học (Self-Study Progression)
-  const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1]);
+  const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1, 2]);
 
   // Đọc danh sách bài đã mở khóa từ LocalStorage
   useEffect(() => {
@@ -176,10 +176,10 @@ export default function StudentPracticeWorkspace({
             return;
           }
         }
-        setSelfUnlockedLessons([1]);
-        localStorage.setItem(key, JSON.stringify([1]));
+        setSelfUnlockedLessons([1, 2]);
+        localStorage.setItem(key, JSON.stringify([1, 2]));
       } catch (e) {
-        setSelfUnlockedLessons([1]);
+        setSelfUnlockedLessons([1, 2]);
       }
     }
   }, [currentHskLevel, currentUser?.id]);
