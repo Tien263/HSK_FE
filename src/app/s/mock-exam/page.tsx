@@ -736,6 +736,8 @@ export default function MockExamPage() {
               {currentQ.options && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                   {currentQ.options.map((opt, optIdx) => {
+                    const letters = ["A", "B", "C", "D", "E", "F"];
+                    const letterBadge = letters[optIdx] || String(optIdx + 1);
                     const isSelected = userAnswers[currentQ.id] === opt;
                     return (
                       <button
@@ -747,8 +749,19 @@ export default function MockExamPage() {
                             : "bg-[#FFFCF6] border-[#E5DEC9] text-[#204434] hover:bg-[#FAF7F0]"
                         }`}
                       >
-                        <span>{opt}</span>
-                        {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`w-7 h-7 rounded-xl flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
+                              isSelected
+                                ? "bg-white text-[#204434]"
+                                : "bg-[#204434]/10 text-[#204434] border border-[#204434]/20"
+                            }`}
+                          >
+                            {letterBadge}
+                          </span>
+                          <span className="leading-relaxed">{opt}</span>
+                        </div>
+                        {isSelected && <CheckCircle2 className="w-4 h-4 text-white shrink-0 ml-2" />}
                       </button>
                     );
                   })}

@@ -137,10 +137,7 @@ export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk
             <span className="text-xs font-bold text-[#8F6D3B] uppercase tracking-wider">Ví dụ ứng dụng ({grammar.examples.length}):</span>
             {grammar.examples.map((ex,exIdx)=>(
               <div key={exIdx} className="rounded-xl bg-[#FAF8F3] p-3.5 border border-[#EFE8DA] space-y-1.5 shadow-2xs">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-serif text-base font-semibold text-[#204434]" lang="zh-CN">{ex.zh}</p>
-                  <button className="p-1 rounded text-[#8F6D3B] hover:text-[#204434] hover:bg-[#EAE4D2] transition" aria-label={`Nghe ${ex.zh}`} onClick={()=>speak(ex.zh)}><Volume2 size={13}/></button>
-                </div>
+                <p className="font-serif text-base font-semibold text-[#204434]" lang="zh-CN">{ex.zh}</p>
                 {ex.pinyin&&<p className={styles.pinyin}>{ex.pinyin}</p>}
                 <p className="text-xs text-[#3E4D42] leading-relaxed">{ex.vi}</p>
                 {ex.explanationVi&&<p className="text-[11px] text-[#8F6D3B] italic pt-1.5 border-t border-dashed border-[#E5DEC9] leading-relaxed">💡 {ex.explanationVi}</p>}
@@ -149,10 +146,7 @@ export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk
           </div>
         ):(grammar.example&&(
           <div className="mt-4 border-t border-[#E5DEC9] pt-3 space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <p className={styles.chinese} lang="zh-CN">{grammar.example}</p>
-              <button className="p-1 rounded text-[#8F6D3B] hover:text-[#204434] hover:bg-[#EAE4D2] transition" aria-label={`Nghe ${grammar.example}`} onClick={()=>speak(grammar.example)}><Volume2 size={13}/></button>
-            </div>
+            <p className={styles.chinese} lang="zh-CN">{grammar.example}</p>
             {grammar.explanation&&<p className="text-xs text-[#5D6B60] mt-1">{grammar.explanation}</p>}
           </div>
         ))}

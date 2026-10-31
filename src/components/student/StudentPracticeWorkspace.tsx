@@ -38,9 +38,8 @@ import {
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { fetchCloudProgress, saveCloudPass } from "@/lib/self-study-cloud-service";
-import { getMaxUnlockedHskLevel, SCHOLAR_RANKS, addLevelStudyMinutes } from "@/lib/self-study-progression";
+import { getMaxUnlockedHskLevel, addLevelStudyMinutes } from "@/lib/self-study-progression";
 import ImperialPassSealModal from "./ImperialPassSealModal";
-import ScholarRankProgressionModal from "./ScholarRankProgressionModal";
 import AncientHanziEtymologyModal from "./AncientHanziEtymologyModal";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
@@ -170,8 +169,6 @@ export default function StudentPracticeWorkspace({
   const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1, 2]);
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [passedLessonInfo, setPassedLessonInfo] = useState<{ completed: number; next: number }>({ completed: 1, next: 2 });
-  const [showScholarModal, setShowScholarModal] = useState(false);
-  const [scholarTargetLockLevel, setScholarTargetLockLevel] = useState<number | undefined>(undefined);
   const [showEtymologyModal, setShowEtymologyModal] = useState(false);
   const [etymologyChar, setEtymologyChar] = useState("你");
   const maxUnlockedLevel = getMaxUnlockedHskLevel(currentUser);
@@ -1059,49 +1056,30 @@ export default function StudentPracticeWorkspace({
               </div>
             </div>
 
-            {/* Scholar Rank Banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5ECDA]/80 border border-[#BC9B6B]/40 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#2B4837] text-[#FAF4E6] flex flex-col items-center justify-center shadow shrink-0 border border-[#BC9B6B]/60">
-                  <span className="font-serif font-black text-sm leading-tight">
-                    {SCHOLAR_RANKS[selfStudyHskLevel]?.titleZh || "童生"}
-                  </span>
-                  <span className="text-[8px] font-bold text-[#EADBC3] uppercase">HSK {selfStudyHskLevel}</span>
-                </div>
+            {/* Thanh tiến độ cấp độ & Nút Chiết Tự */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-xl bg-[#204434] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  HSK {selfStudyHskLevel}
+                </span>
                 <div>
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-[#8C7A5B] flex items-center gap-1.5">
-                    <Award className="w-3 h-3 text-[#A87930]" />
-                    <span>Học vị Khoa cử: {SCHOLAR_RANKS[selfStudyHskLevel]?.titleVi || "Đồng Sinh"}</span>
+                  <div className="text-xs font-bold text-[#204434]">
+                    Lộ trình Tự học HSK {selfStudyHskLevel}
                   </div>
-                  <div className="text-xs font-bold text-[#2B4837]">
-                    {selfUnlockedLessons.length >= officialLessons.length
-                      ? "Đã hoàn thành toàn bộ bài học! Hãy thi thử để thăng cấp."
-                      : `Đã mở ${selfUnlockedLessons.length}/${officialLessons.length} bài học · Tự học tuần tự`}
+                  <div className="text-[11px] text-[#8F6D3B]">
+                    Đã mở {selfUnlockedLessons.length}/{officialLessons.length} bài học · Bắt đầu học tuần tự từ bài 1
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScholarTargetLockLevel(undefined);
-                    setShowScholarModal(true);
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#BC9B6B] hover:bg-[#A88755] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <Trophy className="w-3.5 h-3.5" />
-                  <span>Bảng Vàng Khoa Cử</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowEtymologyModal(true)}
-                  className="px-3 py-1.5 rounded-xl bg-[#2B4837] hover:bg-[#1E3326] text-[#FAF4E6] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Mở Thư Đồng Chiết Tự chữ Hán"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-[#EADBC3]" />
-                  <span>Chiết Tự</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowEtymologyModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
+                title="Mở Thư Đồng Chiết Tự chữ Hán"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-[#EADBC3]" />
+                <span>Chiết Tự Chữ Hán</span>
+              </button>
             </div>
 
             {/* 7 Tabs Cấp độ HSK 1 - HSK 7-9 */}
@@ -1122,15 +1100,14 @@ export default function StudentPracticeWorkspace({
                     type="button"
                     onClick={() => {
                       if (isLocked) {
-                        setScholarTargetLockLevel(lvl);
-                        setShowScholarModal(true);
+                        alert(`HSK ${lvl} đang bị khóa. Bạn cần hoàn thành tất cả các bài học và đạt điểm bài thi thử của HSK ${lvl - 1} để mở khóa!`);
                         return;
                       }
                       setSelfStudyHskLevel(lvl);
                       setActiveCardIndex(0);
                       setShowCardMeaning(false);
                     }}
-                    title={isLocked ? `HSK ${lvl} chưa mở khóa. Cần hoàn thành điều kiện HSK ${lvl - 1}.` : undefined}
+                    title={isLocked ? `HSK ${lvl} chưa mở khóa. Cần hoàn thành HSK ${lvl - 1}.` : undefined}
                     className={`py-2 rounded-xl text-center text-xs font-bold transition cursor-pointer border flex items-center justify-center gap-1 ${
                       isLocked
                         ? "bg-[#F3EFE6] text-[#8C7A5B]/70 border-[#E5DEC9] opacity-75 hover:opacity-100"
@@ -2626,20 +2603,6 @@ export default function StudentPracticeWorkspace({
         }}
         onWriteNotes={() => {
           setShowStationeryNotesModal(true);
-        }}
-      />
-
-      {/* Modal Bảng Vàng Khoa Cử · Quan Lộ Thăng Tiến HSK */}
-      <ScholarRankProgressionModal
-        isOpen={showScholarModal}
-        onClose={() => setShowScholarModal(false)}
-        hskLevel={currentHskLevel}
-        unlockedLessons={selfUnlockedLessons}
-        totalLessons={officialLessons.length}
-        currentUser={currentUser}
-        targetLockedLevel={scholarTargetLockLevel}
-        onPromoted={(newLevel) => {
-          setSelfStudyHskLevel(newLevel);
         }}
       />
 
