@@ -35,6 +35,7 @@ import {
   Unlock,
 } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
+import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import {
@@ -107,13 +108,9 @@ export default function StudentPracticeWorkspace({
   });
 
   // 2. Cấp độ HSK khi tự học độc lập (HSK 1 đến HSK 7-9)
-  const [selfStudyHskLevel, setSelfStudyHskLevel] = useState<number>(activeHskLevel || 1);
-
-  useEffect(() => {
-    if (activeHskLevel) {
-      setSelfStudyHskLevel(activeHskLevel);
-    }
-  }, [activeHskLevel]);
+  const sharedSelection = useSelfStudySelection(currentUser?.id, activeHskLevel || 1);
+  const selfStudyHskLevel = sharedSelection.level;
+  const setSelfStudyHskLevel = (level: number) => sharedSelection.select({ level, lessonNumber: 1 });
 
   // 3. Quản lý lớp học được chọn khi ở chế độ CLASS
   const [selectedClassId, setSelectedClassId] = useState<string>(() => {
@@ -156,7 +153,12 @@ export default function StudentPracticeWorkspace({
     return getLessonsByHskLevel(currentHskLevel);
   }, [apiLessons, currentHskLevel]);
 
-  const [selectedPracticeLesson, setSelectedPracticeLesson] = useState<number>(1);
+  const [classPracticeLesson, setClassPracticeLesson] = useState(1);
+  const selectedPracticeLesson = learningTrack === "SELF_STUDY" ? sharedSelection.lessonNumber : classPracticeLesson;
+  const setSelectedPracticeLesson = (lessonNumber: number) => {
+    if (learningTrack === "SELF_STUDY") sharedSelection.select({ level: selfStudyHskLevel, lessonNumber });
+    else setClassPracticeLesson(lessonNumber);
+  };
 
   // 4. Tiến trình mở khóa tự học (Self-Study Progression)
   const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1]);
@@ -836,6 +838,11 @@ export default function StudentPracticeWorkspace({
         </div>
       </div>
 
+      {learningTrack === "SELF_STUDY" && currentOfficialLesson && <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#D5C3A0] bg-[#FFFCF5] p-5" aria-label="Bài đang luyện">
+        <div className="min-w-0"><p className="text-[10px] font-bold tracking-wider text-[#977A4C]">CÙNG MỘT BÀI · HỌC VÀ THỰC HÀNH</p><h2 className="mt-2 font-serif text-xl font-bold">HSK {currentHskLevel} · Bài {selectedPracticeLesson}: {currentOfficialLesson.titleVi || currentOfficialLesson.titleZh}</h2></div>
+        <div className="flex flex-wrap gap-2"><button className="flex items-center gap-2 rounded-lg border border-[#D5C3A0] px-4 py-2.5 text-xs font-semibold" onClick={() => onNavigateToTab?.("lessons")}><BookOpen size={15}/>Đọc lại bài học</button><button className="flex items-center gap-2 rounded-lg bg-[#294C37] px-4 py-2.5 text-xs font-semibold text-[#FFF9E9] disabled:opacity-40" disabled={!isLessonUnlocked} onClick={() => setShowStationeryNotesModal(true)}><PenTool size={15}/>Ghi chép bài này</button></div>
+      </section>}
+
       {/* =================================================================== */}
       {/* PHẦN 1: THỐNG KÊ HỌC TẬP (5 CHỈ SỐ QUAN TRỌNG)                      */}
       {/* =================================================================== */}
@@ -1031,7 +1038,6 @@ export default function StudentPracticeWorkspace({
                   type="button"
                   onClick={() => {
                     setSelfStudyHskLevel(lvl);
-                    setSelectedPracticeLesson(1);
                     setActiveCardIndex(0);
                     setShowCardMeaning(false);
                   }}
@@ -1232,6 +1238,7 @@ export default function StudentPracticeWorkspace({
       {/* =================================================================== */}
       {isLessonUnlocked && activeMode === "vocab" && (
         <VocabPracticeSuite
+          key={`${currentHskLevel}-${selectedPracticeLesson}`}
           vocabList={vocabList}
           lessonTitleZh={currentOfficialLesson?.titleZh}
           lessonNumber={selectedPracticeLesson}
@@ -1248,6 +1255,7 @@ export default function StudentPracticeWorkspace({
       {/* =================================================================== */}
       {isLessonUnlocked && activeMode === "comprehensive" && (
         <ComprehensivePracticeSuite
+          key={`${currentHskLevel}-${selectedPracticeLesson}`}
           vocabList={vocabList}
           grammarList={grammarList}
           lessonTitleZh={currentOfficialLesson?.titleZh}
@@ -1262,6 +1270,7 @@ export default function StudentPracticeWorkspace({
       {/* =================================================================== */}
       {isLessonUnlocked && activeMode === "grammar" && (
         <GrammarPracticeSuite
+          key={`${currentHskLevel}-${selectedPracticeLesson}`}
           grammarList={grammarList}
           vocabList={vocabList}
           dialogueList={currentOfficialLesson?.dialogue || []}
@@ -2493,6 +2502,7 @@ export default function StudentPracticeWorkspace({
       <AncientSideDrawerNotes
         isOpen={showStationeryNotesModal}
         onClose={() => setShowStationeryNotesModal(false)}
+        lesson={learningTrack === "SELF_STUDY" && isLessonUnlocked ? currentOfficialLesson : undefined}
         lessonNumber={selectedPracticeLesson}
         hskLevel={currentHskLevel}
         studentId={currentUser?.id}

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type CSSProperties } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Download, Eraser, Feather, FolderOpen, Grid2X2, Plus, RotateCcw, Save, Search, Stamp, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Download, Eraser, Feather, FolderOpen, Grid2X2, Maximize2, PanelsTopLeft, Plus, RotateCcw, Save, Search, Stamp, Trash2, X } from "lucide-react";
+import LessonStudyContent from "../learning/LessonStudyContent";
+import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import s from "./CalligraphyStudio.module.css";
 
 const papers = [
@@ -16,11 +18,14 @@ type Paper = typeof papers[number]["id"];
 type Seal = { id: string; symbol: string; x: number; y: number };
 type Page = { content: string; drawingDataUrl?: string; stamps: Seal[] };
 type Note = { id: string; title: string; content: string; lessonNumber: number; hskLevel: number; createdAt: string; paperType: string; brushType?: string; drawingDataUrl?: string; pages?: Page[]; layout?: "scroll" | "codex"; vertical?: boolean };
-type Props = { isOpen: boolean; onClose: () => void; lessonNumber: number; hskLevel: number; studentId?: string; lessonTitle?: string };
+type Props = { isOpen: boolean; onClose: () => void; lessonNumber: number; hskLevel: number; studentId?: string; lessonTitle?: string; lesson?: Hsk1FullLesson };
 const blank = (): Page => ({ content: "", stamps: [] });
 const paperId = (id: string): Paper => papers.some(p => p.id === id) ? id as Paper : id === "silk" ? "royal" : "xuan";
 
-export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hskLevel, studentId = "default", lessonTitle = "Bài học" }: Props) {
+export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hskLevel, studentId = "default", lessonTitle = "Bài học", lesson }: Props) {
+  const [context, setContext] = useState({ level: hskLevel, number: lessonNumber, title: lessonTitle, lesson });
+  const [focused, setFocused] = useState(false);
+  const [mobileView, setMobileView] = useState<"lesson" | "notes">("notes");
   const [view, setView] = useState<"write" | "archive">("write");
   const [layout, setLayout] = useState<"scroll" | "codex">("scroll");
   const [paper, setPaper] = useState<Paper>("xuan");
@@ -36,6 +41,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
   const drag = useRef<{ id: string; x: number; y: number; startX: number; startY: number } | null>(null);
   const closeAction = useRef(onClose);
   const page = pages[index];
+  const hasContent = pages.some(p => p.content.trim() || p.drawingDataUrl || p.stamps.length);
   const key = `hsk_ancient_notes_${studentId}`;
   const material = papers.find(p => p.id === paper)!;
 
@@ -50,6 +56,21 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
       setTitle(""); setPages([blank()]); setIndex(0); setEditingId(null); setDirty(false); setRevision(r => r + 1);
     } catch { setReadyFor(""); setStatus("Chưa đọc được sổ đã lưu. Hãy mở lại để tránh ghi đè ghi chú cũ."); }
   }, [key]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  /* eslint-disable react-hooks/set-state-in-effect -- Bind drafts to their lesson and preserve unsaved work when reopening from another lesson. */
+  useEffect(() => {
+    if (!isOpen) return;
+    if (context.number === lessonNumber && context.level === hskLevel) {
+      if (!editingId && (context.lesson !== lesson || context.title !== lessonTitle)) setContext(c => ({ ...c, lesson, title: lessonTitle }));
+      return;
+    }
+    if (dirty && hasContent) { setStatus(`Bạn còn bút ký chưa lưu của HSK ${context.level}, bài ${context.number}. Hãy lưu trước khi chuyển sang bài khác.`); return; }
+    setContext({ level: hskLevel, number: lessonNumber, title: lessonTitle, lesson });
+    setTitle(""); setPages([blank()]); setIndex(0); setEditingId(null); setRevision(r => r + 1); setStatus(""); setView("write"); setDirty(false);
+    // Archive navigation deliberately changes draft context without changing the selected lesson.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, lessonNumber, hskLevel, lessonTitle, lesson]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -85,16 +106,17 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
     catch { setStatus("Chưa lưu được: bộ nhớ trình duyệt đã đầy hoặc không khả dụng. Bút ký đang viết vẫn được giữ trong cửa sổ này."); return false; }
   }
   function save() {
-    if (!pages.some(p => p.content.trim() || p.drawingDataUrl || p.stamps.length)) { setStatus("Hãy viết vài dòng hoặc thêm nét bút trước khi đóng ấn."); return; }
+    if (!hasContent) { setStatus("Hãy viết vài dòng hoặc thêm nét bút trước khi đóng ấn."); return; }
     const old = notes.find(n => n.id === editingId);
-    const note: Note = { ...old, id: editingId || crypto.randomUUID(), title: title.trim() || `Bút ký · Bài ${lessonNumber}`, content: pages.map(p => p.content).join("\n\n"), lessonNumber: old?.lessonNumber ?? lessonNumber, hskLevel: old?.hskLevel ?? hskLevel, createdAt: old?.createdAt || new Date().toLocaleString("vi-VN"), paperType: paper, brushType: "langhao", drawingDataUrl: pages[0].drawingDataUrl, pages, layout, vertical };
+    const note: Note = { ...old, id: editingId || crypto.randomUUID(), title: title.trim() || `Bút ký · Bài ${context.number}`, content: pages.map(p => p.content).join("\n\n"), lessonNumber: old?.lessonNumber ?? context.number, hskLevel: old?.hskLevel ?? context.level, createdAt: old?.createdAt || new Date().toLocaleString("vi-VN"), paperType: paper, brushType: "langhao", drawingDataUrl: pages[0].drawingDataUrl, pages, layout, vertical };
     if (persist([note, ...notes.filter(n => n.id !== note.id)])) { setEditingId(note.id); setDirty(false); setStatus("Đã đóng ấn và lưu bút ký trên trình duyệt này."); }
   }
   function open(note?: Note) {
-    if (dirty) { setStatus("Hãy lưu bút ký đang viết trước khi mở tác phẩm khác hoặc tạo bút ký mới."); return; }
+    if (dirty && hasContent) { setStatus("Hãy lưu bút ký đang viết trước khi mở tác phẩm khác hoặc tạo bút ký mới."); return; }
     setEditingId(note?.id || null); setTitle(note?.title || ""); setPaper(paperId(note?.paperType || "xuan")); setLayout(note?.layout || "scroll"); setVertical(note?.vertical ?? !note);
+    setContext({ level: note?.hskLevel ?? hskLevel, number: note?.lessonNumber ?? lessonNumber, title: note?.title || lessonTitle, lesson: !note || (note.hskLevel === hskLevel && note.lessonNumber === lessonNumber) ? lesson : undefined });
     setPages(note ? note.pages?.length ? note.pages.map(p => ({ ...p, stamps: p.stamps || [] })) : [{ content: note.content, drawingDataUrl: note.drawingDataUrl, stamps: [] }] : [blank()]);
-    setIndex(0); setRevision(r => r + 1); setView("write"); setStatus("");
+    setIndex(0); setRevision(r => r + 1); setView("write"); setStatus(""); setDirty(false);
   }
   function position(e: PointerEvent<HTMLCanvasElement>) { const rect = e.currentTarget.getBoundingClientRect(); return { x: (e.clientX - rect.left) * 800 / rect.width, y: (e.clientY - rect.top) * 640 / rect.height }; }
   function draw(e: PointerEvent<HTMLCanvasElement>, start = false) {
@@ -114,8 +136,12 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
 
   return <div className={s.overlay}>
     <button className={s.backdrop} aria-label="Đóng bút ký" onClick={onClose} tabIndex={-1}/>
-    <aside className={s.studio} ref={dialog} role="dialog" aria-modal="true" aria-labelledby="calligraphy-title">
-      <header className={s.header}><div className={s.brandSeal} aria-hidden="true">墨</div><div className={s.heading}><span className={s.eyebrow}>THƯ PHÒNG · HSK {hskLevel} / BÀI {lessonNumber}</span><h2 id="calligraphy-title">Băng Thư Cuộn Chiếu Chỉ</h2><p>{lessonTitle}<span> · Một trang giấy, một bước tiến.</span></p></div><button ref={closeButton} className={s.iconButton} onClick={onClose} aria-label="Đóng thư phòng"><X size={20}/></button></header>
+    <aside className={s.studio} data-split={!!context.lesson && !focused} ref={dialog} role="dialog" aria-modal="true" aria-labelledby="calligraphy-title">
+      <header className={s.header}><div className={s.brandSeal} aria-hidden="true">墨</div><div className={s.heading}><span className={s.eyebrow}>THƯ PHÒNG · HSK {context.level} / BÀI {context.number}</span><h2 id="calligraphy-title">Băng Thư Cuộn Chiếu Chỉ</h2><p>{context.title}<span> · Một trang giấy, một bước tiến.</span></p></div>{context.lesson && <button className={s.focusToggle} aria-label={focused ? "Vừa học vừa ghi" : "Viết tập trung"} aria-pressed={focused} onClick={() => setFocused(v => !v)}>{focused ? <PanelsTopLeft size={16}/> : <Maximize2 size={16}/>}<span>{focused ? "Vừa học vừa ghi" : "Viết tập trung"}</span></button>}<button ref={closeButton} className={s.iconButton} onClick={onClose} aria-label="Đóng thư phòng"><X size={20}/></button></header>
+      {context.lesson && !focused && <nav className={s.mobileTabs} aria-label="Chuyển giữa bài học và bút ký"><button aria-pressed={mobileView === "lesson"} onClick={() => setMobileView("lesson")}><BookOpen size={15}/>Đọc bài học</button><button aria-pressed={mobileView === "notes"} onClick={() => setMobileView("notes")}><Feather size={15}/>Viết bút ký</button></nav>}
+      <div className={s.readingLayout} data-split={!!context.lesson && !focused} data-mobile-view={mobileView}>
+        {context.lesson && <section className={s.referencePane} aria-label="Bài học bên cạnh bút ký"><div className={s.referenceHeading}><span className={s.eyebrow}>HSK {context.level} · BÀI {context.number}</span><h3>{context.lesson.titleVi || context.lesson.titleZh}</h3><p>Đọc bài bên trái, ghi điều vừa hiểu bên phải.</p></div><LessonStudyContent key={`${context.level}-${context.number}`} lesson={context.lesson}/></section>}
+        <div className={s.notebookColumn}>
       <nav className={s.navigation} aria-label="Không gian bút ký"><button aria-pressed={view === "write"} onClick={() => setView("write")}><Feather size={16}/> Bàn viết</button><button aria-pressed={view === "archive"} onClick={() => setView("archive")}><FolderOpen size={16}/> Bút ký đã lưu <small>{notes.length}</small></button><span className={s.localHint}>Lưu riêng trên trình duyệt</span></nav>
       {status && <p className={s.status} role="status"><Stamp size={16}/>{status}</p>}
       {view === "archive" ? <div className={s.archive}>
@@ -131,7 +157,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
           <div className={s.deskTop}><div className={s.segmented} aria-label="Hình thức bút ký"><button aria-pressed={layout === "scroll"} onClick={() => { setLayout("scroll"); setDirty(true); }}><Stamp size={15}/> Cuộn thư</button><button aria-pressed={layout === "codex"} onClick={() => { setLayout("codex"); setDirty(true); }}><BookOpen size={15}/> Sổ đóng gáy</button></div><span className={s.paperLabel}>{material.zh} · {material.name}</span></div>
           <div className={s.toolbar}><div className={s.toolGroup}><button aria-pressed={tool === "text"} onClick={() => setTool("text")}>Gõ chữ</button><button aria-pressed={tool === "brush"} onClick={() => setTool("brush")}><Feather size={14}/> Bút lông</button><button aria-label="Tẩy nét bút" aria-pressed={tool === "eraser"} onClick={() => setTool("eraser")}><Eraser size={15}/></button></div>{tool === "text" ? <button aria-pressed={vertical} onClick={() => { setVertical(v => !v); setDirty(true); }}>Chữ {vertical ? "dọc ↓" : "ngang →"}</button> : <label className={s.brushLabel}>Cỡ bút<input type="range" min="2" max="16" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))}/></label>}<button aria-label="Bật tắt ô luyện chữ" aria-pressed={grid} onClick={() => setGrid(g => !g)}><Grid2X2 size={15}/></button><button aria-label="Hoàn tác nét bút" disabled={!history.length} onClick={undo}><RotateCcw size={15}/></button></div>
           <div className={s.artwork} data-layout={layout}><div className={s.bookCover} aria-hidden="true"><span>拾<br/>光<br/>手<br/>札</span><small>HANYU · BÚT KÝ</small></div><div className={s.scrollSheet} data-paper={paper}><div className={s.rollerLeft} aria-hidden="true"/><div className={s.rollerRight} aria-hidden="true"/><div className={s.sheetInner} key={`${revision}-${index}`}>
-            <div className={s.sheetHeading}><span>HSK {hskLevel} · BÀI {lessonNumber}</span><span className={s.imperialSeal} aria-hidden="true">宁<br/>记</span></div><input className={s.titleInput} aria-label="Tên bút ký" value={title} onChange={e => { setTitle(e.target.value); setDirty(true); }} placeholder="Đặt tên cho bút ký…"/>
+            <div className={s.sheetHeading}><span>HSK {context.level} · BÀI {context.number}</span><span className={s.imperialSeal} aria-hidden="true">宁<br/>记</span></div><input className={s.titleInput} aria-label="Tên bút ký" value={title} onChange={e => { setTitle(e.target.value); setDirty(true); }} placeholder="Đặt tên cho bút ký…"/>
             <div ref={sheet} className={`${s.writingArea} ${grid ? s.riceGrid : ""}`} style={{ "--ink": ink } as CSSProperties}>
               <textarea aria-label={`Nội dung trang ${index + 1}`} className={vertical ? s.verticalText : s.horizontalText} style={{ pointerEvents: tool === "text" ? "auto" : "none" }} value={page.content} onChange={e => update({ content: e.target.value })} placeholder={vertical ? "落笔生花\nHạ bút, nở hoa…" : "Một chữ mới, một câu hay…"} spellCheck={false}/>
               <canvas ref={canvas} width={800} height={640} className={s.canvas} style={{ pointerEvents: tool === "text" ? "none" : "auto" }} aria-label="Mặt giấy luyện nét bút" onPointerDown={e => draw(e, true)} onPointerMove={e => draw(e)} onPointerUp={finish} onPointerCancel={finish}/>
@@ -142,6 +168,8 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
           <footer className={s.deskFooter}><div><span className={s.saveDot} data-dirty={dirty}/>{dirty ? "Có thay đổi chưa lưu" : editingId ? "Bút ký đã lưu" : "Sẵn sàng hạ bút"}</div><button className={s.primary} disabled={readyFor !== key} onClick={save}><Save size={16}/> Đóng ấn & lưu</button></footer><button className={s.backToLesson} onClick={onClose}><ArrowLeft size={14}/> Trở về bài học</button>
         </section>
       </div>}
+        </div>
+      </div>
     </aside>
   </div>;
 }

@@ -63,6 +63,7 @@ import AncientSideDrawerNotes from "@/components/student/AncientSideDrawerNotes"
 import VirtualStudyRoomModal from "@/components/student/VirtualStudyRoomModal";
 import StudentSelfStudyWorkspace from "@/components/student/StudentSelfStudyWorkspace";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
+import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { getClassArtwork } from "@/lib/class-helper";
 import {
@@ -175,8 +176,12 @@ export default function StudentHomePage() {
     : studyProfile?.currentHskLevel || currentUser?.currentHskLevel || 1;
 
   // Trạng thái Lộ trình Tự học Cổ Phong & Modals
-  const [selfStudyHskLevel, setSelfStudyHskLevel] = useState<number>(1);
-  const [selectedScrollLesson, setSelectedScrollLesson] = useState<number>(1);
+  const selfStudySelection = useSelfStudySelection(currentUser?.id, activeHskLevel);
+  const selfStudyHskLevel = selfStudySelection.level;
+  const selectedScrollLesson = selfStudySelection.lessonNumber;
+  const setSelfStudyHskLevel = (level: number) => selfStudySelection.select({ level, lessonNumber: 1 });
+  const setSelectedScrollLesson = (lessonNumber: number) => selfStudySelection.select({ level: selfStudyHskLevel, lessonNumber });
+  const [selfStudyScreen, setSelfStudyScreen] = useState<"catalog" | "reader">("catalog");
   const [selfUnlockedLessons, setSelfUnlockedLessons] = useState<number[]>([1, 2]);
   const [showNotesModal, setShowNotesModal] = useState<boolean>(false);
   const [showStudyRoomModal, setShowStudyRoomModal] = useState<boolean>(false);
@@ -187,13 +192,6 @@ export default function StudentHomePage() {
     const tested = Number(studyProfile?.currentHskLevel || currentUser?.currentHskLevel || 1);
     return Math.max(tested, 1);
   }, [studyProfile?.currentHskLevel, currentUser?.currentHskLevel]);
-
-  // Đồng bộ cấp độ HSK tự học từ profile hoặc activeHskLevel
-  useEffect(() => {
-    if (activeHskLevel) {
-      setSelfStudyHskLevel(activeHskLevel);
-    }
-  }, [activeHskLevel]);
 
   // Load danh sách bài tự học đã mở khóa từ storage
   useEffect(() => {
@@ -691,6 +689,7 @@ export default function StudentHomePage() {
             <button
               type="button"
               onClick={() => {
+                setSelfStudyScreen("catalog");
                 setActiveNav("lessons");
                 setMobileMenuOpen(false);
               }}
@@ -1104,6 +1103,9 @@ export default function StudentHomePage() {
               />
             ) : (
               <StudentSelfStudyWorkspace
+                view="roadmap"
+                screen={selfStudyScreen}
+                onScreenChange={setSelfStudyScreen}
                 currentUser={currentUser}
                 activeHskLevel={activeHskLevel}
                 onNavigateToTab={(tab) => setActiveNav(tab)}
@@ -1122,6 +1124,9 @@ export default function StudentHomePage() {
               />
             ) : (
               <StudentSelfStudyWorkspace
+                view="lessons"
+                screen={selfStudyScreen}
+                onScreenChange={setSelfStudyScreen}
                 currentUser={currentUser}
                 activeHskLevel={activeHskLevel}
                 onNavigateToTab={(tab) => setActiveNav(tab)}
@@ -1131,7 +1136,7 @@ export default function StudentHomePage() {
           ) : activeNav === "practice" ? (
             <StudentPracticeWorkspace
               currentUser={currentUser}
-              onNavigateToTab={(tab) => setActiveNav(tab)}
+              onNavigateToTab={(tab) => { if (tab === "lessons") setSelfStudyScreen("reader"); setActiveNav(tab); }}
               classesCount={myClasses.length}
               myClasses={myClasses}
               onOpenJoinModal={() => setShowJoinModal(true)}
@@ -1196,7 +1201,7 @@ export default function StudentHomePage() {
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => setActiveNav("lessons")}
+                          onClick={() => { setSelfStudyScreen("reader"); setActiveNav("lessons"); }}
                           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] text-xs font-semibold shadow-md shadow-[#204434]/15 transition cursor-pointer"
                         >
                           <BookOpen className="w-4 h-4 text-[#BC9B6B]" />
@@ -1462,7 +1467,6 @@ export default function StudentHomePage() {
                                   return;
                                 }
                                 setSelfStudyHskLevel(lvl);
-                                setSelectedScrollLesson(1);
                               }}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
                                 isSelected
@@ -1543,7 +1547,7 @@ export default function StudentHomePage() {
                       <div className="pt-4 mt-4 border-t border-[#E5DEC9] flex items-center justify-between gap-2 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => setActiveNav("lessons")}
+                          onClick={() => { setSelfStudyScreen("reader"); setActiveNav("lessons"); }}
                           className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs transition flex items-center gap-2 cursor-pointer"
                         >
                           <BookOpen className="w-4 h-4 text-[#BC9B6B]" />
@@ -2986,6 +2990,7 @@ export default function StudentHomePage() {
         <button
           type="button"
           onClick={() => {
+            setSelfStudyScreen("catalog");
             setActiveNav("lessons");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
@@ -3090,6 +3095,7 @@ export default function StudentHomePage() {
       <AncientSideDrawerNotes
         isOpen={showNotesModal}
         onClose={() => setShowNotesModal(false)}
+        lesson={selfStudyLessons.find(lesson => lesson.number === selectedScrollLesson)}
         lessonNumber={selectedScrollLesson || 1}
         hskLevel={selfStudyHskLevel || 1}
         studentId={currentUser?.id}
