@@ -6,7 +6,16 @@ export async function GET(_request: Request, context: { params: Promise<{ charac
   const { character } = await context.params;
   if (!/^\p{Script=Han}$/u.test(character)) return NextResponse.json({ message: "Chữ Hán không hợp lệ." }, { status: 400 });
   try {
-    const data = await readFile(path.join(process.cwd(), "node_modules", "hanzi-writer-data", `${character}.json`), "utf8");
+    const data = await readFile(path.join(/*turbopackIgnore: true*/ process.cwd(), "node_modules", "hanzi-writer-data", `${character}.json`), "utf8");
     return new Response(data, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400" } });
-  } catch { return NextResponse.json({ message: "Chưa có dữ liệu nét viết cho chữ này." }, { status: 404 }); }
+  } catch {
+    try {
+      const res = await fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/${encodeURIComponent(character)}.json`);
+      if (res.ok) {
+        const text = await res.text();
+        return new Response(text, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400" } });
+      }
+    } catch {}
+    return NextResponse.json({ message: "Chưa có dữ liệu nét viết cho chữ này." }, { status: 404 });
+  }
 }

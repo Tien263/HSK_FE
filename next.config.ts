@@ -1,11 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  outputFileTracingIncludes: {
-    "/api/dictionary/strokes/*": ["./node_modules/hanzi-writer-data/*.json"],
-  },
   outputFileTracingExcludes: {
-    "/*": ["./data/dictionary/**/*", "./scripts/dictionary/**/*"],
+    "/*": ["./data/dictionary/**/*", "./scripts/dictionary/**/*", "./node_modules/hanzi-writer-data/**/*"],
   },
   /* config options here */
   typescript: {

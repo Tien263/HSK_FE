@@ -5,24 +5,28 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { lookupRadicalOrComponent, KANGXI_RADICALS } from "@/lib/chinese-radicals";
 
-// Lazy initialization for HanziJS decomposition engine
+// Lazy initialization for HanziJS decomposition engine (lightweight composer only)
 let hanziInitialized = false;
-let hanziModule: any = null;
+let hanziDecomposer: any = null;
 
 function getHanziEngine() {
-  if (!hanziModule) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    hanziModule = require("hanzi");
-  }
-  if (!hanziInitialized && hanziModule) {
+  if (!hanziDecomposer) {
     try {
-      hanziModule.start();
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      hanziDecomposer = require("hanzi/lib/hanzidecomposer.js");
+    } catch (e) {
+      console.warn("Failed to require hanzidecomposer:", e);
+    }
+  }
+  if (!hanziInitialized && hanziDecomposer) {
+    try {
+      hanziDecomposer.start();
       hanziInitialized = true;
     } catch (e) {
       console.warn("HanziJS initialization error:", e);
     }
   }
-  return hanziModule;
+  return hanziDecomposer;
 }
 
 // Bảng âm Hán Việt chuẩn cho các chữ phổ biến nếu CSDL chưa có
@@ -92,13 +96,26 @@ export async function GET(request: Request) {
     // 3. Đọc dữ liệu nét viết từ hanzi-writer-data (nếu có)
     let writerStrokesCount = 0;
     try {
-      const writerPath = path.join(process.cwd(), "node_modules", "hanzi-writer-data", `${char}.json`);
+      const writerPath = path.join(/*turbopackIgnore: true*/ process.cwd(), "node_modules", "hanzi-writer-data", `${char}.json`);
       const writerRaw = await readFile(writerPath, "utf8");
       const writerJson = JSON.parse(writerRaw);
       if (Array.isArray(writerJson.strokes)) {
         writerStrokesCount = writerJson.strokes.length;
       }
-    } catch {}
+    } catch {
+      // Fallback: Nếu trên server container không có file cục bộ, fetch từ CDN jsdelivr
+      try {
+        const cdnRes = await fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/${encodeURIComponent(char)}.json`, {
+          next: { revalidate: 86400 },
+        });
+        if (cdnRes.ok) {
+          const cdnJson = await cdnRes.json();
+          if (Array.isArray(cdnJson.strokes)) {
+            writerStrokesCount = cdnJson.strokes.length;
+          }
+        }
+      } catch {}
+    }
 
     const totalStrokes = writerStrokesCount || 1;
 
