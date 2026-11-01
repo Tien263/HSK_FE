@@ -445,6 +445,42 @@ export default function StudentHomePage() {
     };void load();
   }, []);
 
+  // Lắng nghe sự kiện Back/Forward của trình duyệt và thay đổi Hash URL để chuyển tab mượt mà
+  useEffect(() => {
+    const handleUrlChange = () => {
+      if (typeof window === "undefined") return;
+      const urlParams = new URLSearchParams(window.location.search);
+      let tab = urlParams.get("tab");
+      if (!tab && window.location.hash) {
+        const cleanHash = window.location.hash.replace(/^#/, "");
+        if (["home", "roadmap", "lessons", "classes", "assignments", "practice", "results"].includes(cleanHash)) {
+          tab = cleanHash;
+        }
+      }
+      if (tab && ["home", "roadmap", "lessons", "classes", "assignments", "practice", "results"].includes(tab)) {
+        setActiveNav(tab);
+      }
+      const mode = urlParams.get("mode");
+      if (mode && ["vocab", "grammar", "game", "saved", "wrong"].includes(mode)) {
+        setPracticeSubMode(mode as any);
+      }
+      const hskParam = urlParams.get("hsk");
+      if (hskParam) {
+        const lvl = parseInt(hskParam, 10);
+        if (lvl >= 1 && lvl <= 6) {
+          setStudyProfile((prev) => (prev ? { ...prev, currentHskLevel: lvl } : null));
+        }
+      }
+    };
+
+    window.addEventListener("popstate", handleUrlChange);
+    window.addEventListener("hashchange", handleUrlChange);
+    return () => {
+      window.removeEventListener("popstate", handleUrlChange);
+      window.removeEventListener("hashchange", handleUrlChange);
+    };
+  }, []);
+
   // Real-time polling (10s) to keep class enrollments, progress, and assignments updated live
   useEffect(() => {
     if (!currentUser?.id && !username) return;

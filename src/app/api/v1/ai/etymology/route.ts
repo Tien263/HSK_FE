@@ -3,43 +3,55 @@ import { pinyin } from "pinyin-pro";
 import { prisma } from "@/lib/prisma";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { lookupRadicalOrComponent, KANGXI_RADICALS } from "@/lib/chinese-radicals";
 
-// Mapping các bộ thủ phổ biến trong chữ Hán
-const COMMON_RADICALS: Record<string, { name: string; meaning: string }> = {
-  "亻": { name: "Nhân đứng", meaning: "Liên quan đến con người, tính cách hoặc hành vi" },
-  "口": { name: "Khẩu", meaning: "Liên quan đến miệng, lời nói, âm thanh hoặc ăn uống" },
-  "氵": { name: "Ba chấm thủy", meaning: "Liên quan đến nước, chất lỏng, sông hồ biển" },
-  "木": { name: "Mộc", meaning: "Liên quan đến cây cối, gỗ, thực vật hoặc rừng" },
-  "艹": { name: "Thảo đầu", meaning: "Liên quan đến cỏ, hoa lá, thảo mộc dược liệu" },
-  "女": { name: "Nữ", meaning: "Liên quan đến phụ nữ, phái đẹp, người mẹ" },
-  "子": { name: "Tử", meaning: "Liên quan đến con cái, hạt giống, thế hệ trẻ" },
-  "日": { name: "Nhật", meaning: "Mặt trời, ban ngày, thời gian, ánh sáng" },
-  "月": { name: "Nguyệt (Nhục)", meaning: "Mặt trăng, ban đêm hoặc các bộ phận cơ thể thịt" },
-  "心": { name: "Tâm", meaning: "Tâm tư, tình cảm, suy nghĩ, đạo đức" },
-  "忄": { name: "Tâm đứng", meaning: "Trạng thái tinh thần, cảm xúc nội tâm" },
-  "手": { name: "Thủ", meaning: "Bàn tay, thao tác lao động, cầm nắm" },
-  "扌": { name: "Tài gảy", meaning: "Hành động bằng tay, đẩy, kéo, vung" },
-  "火": { name: "Hỏa", meaning: "Lửa, ánh sáng, nhiệt độ cao, nấu nướng" },
-  "灬": { name: "Bốn chấm hỏa", meaning: "Hơi nóng, bếp núc, nấu chín" },
-  "土": { name: "Thổ", meaning: "Đất đai, mặt đất, công trình xây dựng" },
-  "金": { name: "Kim", meaning: "Kim loại, vàng bạc, vũ khí đao kiếm" },
-  "钅": { name: "Kim đứng", meaning: "Dụng cụ kim khí, máy móc sắc bén" },
-  "宀": { name: "Miên", meaning: "Mái nhà, gia đình, nơi cư ngụ che chở" },
-  "广": { name: "Nghiễm", meaning: "Nhà kho, mái hiên rộng, dinh thự" },
-  "言": { name: "Ngôn", meaning: "Lời nói, ngôn ngữ, đàm thoại, văn tự" },
-  "讠": { name: "Ngôn đứng", meaning: "Phát biểu, trò chuyện, văn bản" },
-  "走": { name: "Tẩu", meaning: "Chạy nhảy, đi lại nhanh, di chuyển" },
-  "辶": { name: "Quai xước", meaning: "Đường đi, bước chân di chuyển xa gần" },
-  "纟": { name: "Mịch", meaning: "Sợi tơ, dệt lụa, liên kết gắn bó" },
-  "目": { name: "Mục", meaning: "Mắt, thị giác, nhìn ngắm, quan sát" },
-  "足": { name: "Túc", meaning: "Chân, bước đi, dẫm đạp, hành trình" },
-  "食": { name: "Thực", meaning: "Thức ăn, ẩm thực, dinh dưỡng" },
-  "饣": { name: "Thực đứng", meaning: "Đồ ăn, bữa cơm, nuôi dưỡng" },
-  "门": { name: "Môn", meaning: "Cổng thành, cửa nhà, lối ra vào" },
-  "贝": { name: "Bối", meaning: "Vỏ sò tiền tệ cổ, của cải, quý giá" },
-  "力": { name: "Lực", meaning: "Sức mạnh, cơ bắp, sự nỗ lực làm việc" },
-  "刀": { name: "Đao", meaning: "Con dao, cắt gọt, sắc bén" },
-  "刂": { name: "Đao đứng", meaning: "Phân chia, chặt đứt, dao kéo" },
+// Lazy initialization for HanziJS decomposition engine
+let hanziInitialized = false;
+let hanziModule: any = null;
+
+function getHanziEngine() {
+  if (!hanziModule) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    hanziModule = require("hanzi");
+  }
+  if (!hanziInitialized && hanziModule) {
+    try {
+      hanziModule.start();
+      hanziInitialized = true;
+    } catch (e) {
+      console.warn("HanziJS initialization error:", e);
+    }
+  }
+  return hanziModule;
+}
+
+// Bảng âm Hán Việt chuẩn cho các chữ phổ biến nếu CSDL chưa có
+const SINO_VIETNAMESE_FALLBACK: Record<string, string> = {
+  搞: "Cảo / Cào",
+  你: "Nễ / Nhĩ",
+  我: "Ngã",
+  他: "Tha",
+  她: "Tha (Nữ)",
+  好: "Hảo / Háo",
+  学: "Học",
+  做: "Tố / Tác",
+  看: "Khán",
+  听: "Thính",
+  说: "Thuyết",
+  读: "Độc",
+  写: "Tả",
+  吃: "Cật",
+  喝: "Hát",
+  明: "Minh",
+  休: "Hưu",
+  森: "Sâm",
+  林: "Lâm",
+  家: "Gia",
+  国: "Quốc",
+  人: "Nhân",
+  中: "Trung",
+  大: "Đại",
+  小: "Tiểu",
 };
 
 export async function GET(request: Request) {
@@ -52,22 +64,30 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Lấy Pinyin động từ pinyin-pro
+    // 1. Pinyin chuẩn từ pinyin-pro
     const py = pinyin(char, { toneType: "symbol" });
     const pyNum = pinyin(char, { toneType: "num" });
 
-    // 2. Tra cứu cơ sở dữ liệu từ điển nếu có
-    const dictEntry = await prisma.dictionaryEntry.findFirst({
-      where: {
-        OR: [{ simplified: char }, { traditional: char }],
-      },
-      select: {
-        simplified: true,
-        traditional: true,
-        pinyin: true,
-        definitionsVi: true,
-      },
-    });
+    // 2. Tra cứu Từ Điển CSDL để lấy nghĩa tiếng Việt và âm Hán Việt chuẩn
+    const [dictEntry, charEntry] = await Promise.all([
+      prisma.dictionaryEntry.findFirst({
+        where: {
+          OR: [{ simplified: char }, { traditional: char }],
+        },
+        select: {
+          simplified: true,
+          traditional: true,
+          pinyin: true,
+          definitionsVi: true,
+        },
+      }),
+      prisma.dictionaryCharacter.findUnique({
+        where: { character: char },
+        select: {
+          hanViet: true,
+        },
+      }),
+    ]);
 
     // 3. Đọc dữ liệu nét viết từ hanzi-writer-data (nếu có)
     let writerStrokesCount = 0;
@@ -82,51 +102,100 @@ export async function GET(request: Request) {
 
     const totalStrokes = writerStrokesCount || 1;
 
-    // 4. Xác định bộ thủ động
-    let detectedRadical = "";
-    let detectedRadicalInfo = { name: "Bộ thủ", meaning: "Nét cơ bản cấu thành chữ" };
+    // 4. Phân tích thành phần chiết tự động bằng HanziJS
+    const hanzi = getHanziEngine();
+    let rawParts: string[] = [];
 
-    if (!detectedRadical) {
-      for (const [rad, info] of Object.entries(COMMON_RADICALS)) {
-        if (char.includes(rad)) {
-          detectedRadical = rad;
-          detectedRadicalInfo = info;
+    if (hanzi) {
+      try {
+        const dec = hanzi.decompose(char);
+        if (dec && Array.isArray(dec.components1) && dec.components1.length > 1 && !dec.components1.includes("No glyph available")) {
+          rawParts = dec.components1;
+        } else if (dec && Array.isArray(dec.components2) && dec.components2.length > 1 && !dec.components2.includes("No glyph available")) {
+          rawParts = dec.components2;
+        } else if (dec && Array.isArray(dec.components4) && dec.components4.length > 1) {
+          rawParts = dec.components4.filter((c: string) => c && c !== "No glyph available");
+        }
+      } catch (err) {
+        console.warn("Decompose error:", err);
+      }
+    }
+
+    // Xác định bộ thủ chính (ưu tiên khớp bộ thủ Khang Hy trong các thành phần)
+    let detectedRadical = "";
+
+    if (!detectedRadical && rawParts.length > 0) {
+      for (const part of rawParts) {
+        if (KANGXI_RADICALS[part]) {
+          detectedRadical = part;
           break;
         }
       }
-    } else if (COMMON_RADICALS[detectedRadical]) {
-      detectedRadicalInfo = COMMON_RADICALS[detectedRadical];
     }
 
     if (!detectedRadical) {
-      detectedRadical = char;
+      // Trường hợp chữ độc thể (tự thân là bộ thủ hoặc ký tự đơn)
+      detectedRadical = KANGXI_RADICALS[char] ? char : rawParts[0] || char;
     }
 
-    // 5. Tìm các thành phần phân rã (decomposition)
+    const radicalInfo = lookupRadicalOrComponent(detectedRadical);
+
+    // Xây dựng mảng thành phần cấu trúc (components) chi tiết
     const components: Array<{ part: string; meaning: string }> = [];
-    for (const [rad, info] of Object.entries(COMMON_RADICALS)) {
-      if (rad !== char && char.includes(rad)) {
-        components.push({ part: rad, meaning: `${info.name} - ${info.meaning}` });
-        if (components.length >= 3) break;
+    if (rawParts.length > 0) {
+      for (const part of rawParts) {
+        if (part === char && rawParts.length > 1) continue;
+        const partInfo = lookupRadicalOrComponent(part);
+        components.push({
+          part,
+          meaning: `${partInfo.nameVi} - ${partInfo.meaningVi}`,
+        });
       }
     }
+
     if (components.length === 0) {
-      components.push({ part: detectedRadical, meaning: detectedRadicalInfo.meaning });
+      components.push({
+        part: detectedRadical,
+        meaning: `${radicalInfo.nameVi} - ${radicalInfo.meaningVi}`,
+      });
     }
 
-    // 6. Nghĩa tiếng Việt và âm Hán Việt
+    // 5. Chuẩn hóa âm Hán Việt (Sino-Vietnamese)
+    let sinoVietnamese = "";
+    if (charEntry?.hanViet) {
+      // Viết hoa chữ cái đầu từng âm
+      sinoVietnamese = charEntry.hanViet
+        .split(/[\s,/]+/)
+        .filter(Boolean)
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" / ");
+    } else if (SINO_VIETNAMESE_FALLBACK[char]) {
+      sinoVietnamese = SINO_VIETNAMESE_FALLBACK[char];
+    } else {
+      sinoVietnamese = "Hán tự";
+    }
+
+    // Nghĩa tiếng Việt
     const meaningVi = dictEntry?.definitionsVi?.slice(0, 3).join("; ") || "Ý nghĩa từ vựng Hán ngữ chuẩn";
 
-    // 7. Sinh câu chuyện chiết tự động dựa trên thành phần
+    // 6. Diễn giải tượng hình & Câu chuyện chiết tự chuẩn mực Lục Thư
     let mnemonicStory = "";
-    if (components.length > 1) {
-      const partsDesc = components.map((c) => c.meaning).join(", kết hợp cùng ");
-      mnemonicStory = `Chữ "${char}" được tạo thành từ ${components.map((c) => c.part).join(" và ")}. Tượng trưng cho ý niệm: ${partsDesc}. Qua ngàn năm biến đổi, hình thành nên ý nghĩa "${meaningVi}".`;
+    if (components.length >= 2) {
+      const p1 = components[0];
+      const p2 = components[1];
+      const isPhonetic = rawParts.length === 2;
+
+      if (isPhonetic) {
+        mnemonicStory = `Chữ "${char}" (${sinoVietnamese}) cấu tạo theo lối **Hình Thanh** (形声) kinh điển trong Lục Thư. Phần biểu ý là bộ **${p1.part}** (${p1.meaning.split(" - ")[0]}), gợi tả hàm ý "${radicalInfo.meaningVi}". Phần biểu âm/hài thanh là **${p2.part}** (${p2.meaning.split(" - ")[0]}), vừa trợ âm đọc (${py}), vừa cộng hưởng ý niệm mở rộng. Tổ hợp nét bút tạo nên ý nghĩa trọn vẹn: "${meaningVi}".`;
+      } else {
+        const partsSummary = components.map((c) => `[${c.part}] ${c.meaning.split(" - ")[0]}`).join(" kết hợp cùng ");
+        mnemonicStory = `Chữ "${char}" (${sinoVietnamese}) là chữ **Hội Ý** (会意) được tạo thành từ ${partsSummary}. Mỗi bộ phận mang một biểu tượng đời sống, hòa quyện tạo nên ý niệm: "${meaningVi}".`;
+      }
     } else {
-      mnemonicStory = `Chữ "${char}" là chữ tượng hình độc thể cổ điển mang bộ ${detectedRadical} (${detectedRadicalInfo.name} - ${detectedRadicalInfo.meaning}). Từng nét bút mô phỏng sự vật trong thiên nhiên và đời sống.`;
+      mnemonicStory = `Chữ "${char}" (${sinoVietnamese}) là chữ **Tượng Hình** (象形) hoặc Độc Thể cổ điển mang bộ **${detectedRadical}** (${radicalInfo.nameVi} - ${radicalInfo.meaningVi}). Nét chữ khắc họa trực quan hình tượng sự vật trong thiên nhiên và đời sống con người từ thời giáp cốt văn.`;
     }
 
-    // 8. Tìm từ ghép liên quan từ CSDL từ điển
+    // 7. Tìm từ ghép liên quan từ CSDL từ điển
     const relatedEntries = await prisma.dictionaryEntry.findMany({
       where: {
         simplified: { contains: char },
@@ -152,10 +221,10 @@ export async function GET(request: Request) {
         hanzi: char,
         pinyin: py,
         pinyinNum: pyNum,
-        sinoVietnamese: dictEntry?.definitionsVi?.[0]?.split(";")?.[0]?.trim() || "Hán tự",
+        sinoVietnamese,
         meaning: meaningVi,
-        radical: `${detectedRadical} (${detectedRadicalInfo.name})`,
-        radicalMeaning: detectedRadicalInfo.meaning,
+        radical: `${detectedRadical} (${radicalInfo.nameVi})`,
+        radicalMeaning: radicalInfo.meaningVi,
         strokeCount: totalStrokes,
         mnemonicStory,
         components,

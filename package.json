@@ -30,6 +30,7 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "fflate": "^0.8.3",
+    "hanzi": "^4.1.0",
     "hanzi-writer": "^3.7.3",
     "hanzi-writer-data": "^2.0.1",
     "jspdf": "^4.2.1",

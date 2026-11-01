@@ -322,35 +322,66 @@ export default function MockExamPage() {
     setSubmitting(true);
     setIsTimerRunning(false);
 
+    const hasListening = questions.some((q) => q.section === "LISTENING");
+    const hasReading = questions.some((q) => q.section === "READING");
+    const hasWriting = questions.some((q) => q.section === "WRITING");
+
+    const listeningQuestions = questions.filter((q) => q.section === "LISTENING");
+    const readingQuestions = questions.filter((q) => q.section === "READING");
+    const writingQuestions = questions.filter((q) => q.section === "WRITING");
+
     let listeningCorrect = 0;
     let readingCorrect = 0;
     let writingCorrect = 0;
-
-    const listeningTotal = questions.filter((q) => q.section === "LISTENING").length || 1;
-    const readingTotal = questions.filter((q) => q.section === "READING").length || 1;
-    const writingTotal = questions.filter((q) => q.section === "WRITING").length || 1;
+    let totalCorrect = 0;
 
     questions.forEach((q) => {
       const userAns = userAnswers[q.id];
       const isRight = isMockAnswerCorrect(userAns, q.correctAnswer, q.options);
       if (isRight) {
+        totalCorrect += 1;
         if (q.section === "LISTENING") listeningCorrect += 1;
         else if (q.section === "READING") readingCorrect += 1;
         else if (q.section === "WRITING") writingCorrect += 1;
       }
     });
 
-    const isLevel12 = selectedLevel <= 2;
-    const maxScore = isLevel12 ? 200 : 300;
-    const passThreshold = isLevel12 ? 120 : 180;
+    const listeningTotal = listeningQuestions.length;
+    const readingTotal = readingQuestions.length;
+    const writingTotal = writingQuestions.length;
 
-    const listeningScore = Math.round((listeningCorrect / listeningTotal) * 100);
-    const readingScore = Math.round((readingCorrect / readingTotal) * 100);
-    const writingScore = isLevel12 ? 0 : Math.round((writingCorrect / writingTotal) * 100);
+    // Xác định thang điểm chuẩn động theo số phần thi thực tế
+    const activeSectionsCount = [hasListening, hasReading, hasWriting].filter(Boolean).length;
+    let maxScore = 300;
+    let passThreshold = 180;
 
-    const totalScore = isLevel12
-      ? listeningScore + readingScore
-      : listeningScore + readingScore + writingScore;
+    if (activeSectionsCount === 1) {
+      maxScore = 100;
+      passThreshold = 60;
+    } else if (!hasWriting) {
+      maxScore = 200;
+      passThreshold = 120;
+    } else {
+      maxScore = 300;
+      passThreshold = 180;
+    }
+
+    const listeningScore = listeningTotal > 0 ? Math.round((listeningCorrect / listeningTotal) * 100) : 0;
+    const readingScore = readingTotal > 0 ? Math.round((readingCorrect / readingTotal) * 100) : 0;
+    const writingScore = writingTotal > 0 ? Math.round((writingCorrect / writingTotal) * 100) : 0;
+
+    let totalScore = 0;
+    if (activeSectionsCount === 1) {
+      totalScore = hasListening ? listeningScore : hasReading ? readingScore : writingScore;
+    } else if (maxScore === 200) {
+      totalScore = listeningScore + readingScore;
+    } else {
+      totalScore = listeningScore + readingScore + writingScore;
+    }
+
+    if (questions.length > 0 && totalCorrect === questions.length) {
+      totalScore = maxScore;
+    }
     const isPassed = totalScore >= passThreshold;
 
     setExamResult({
@@ -358,6 +389,9 @@ export default function MockExamPage() {
       maxScore,
       passThreshold,
       isPassed,
+      hasListening,
+      hasReading,
+      hasWriting,
       listeningScore,
       readingScore,
       writingScore,
@@ -369,6 +403,7 @@ export default function MockExamPage() {
       writingTotal,
       totalAnswered: Object.keys(userAnswers).length,
       totalQuestions: questions.length,
+      totalCorrect,
     });
 
     setExamState("RESULT");
@@ -430,9 +465,9 @@ export default function MockExamPage() {
       <header className="sticky top-0 z-40 bg-[#FFFCF6]/95 backdrop-blur-md border-b border-[#E5DEC9] px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href="/s/home#practice"
+            href="/s/home?tab=practice"
             className="p-2 rounded-xl border border-[#E5DEC9] bg-white text-[#204434] hover:bg-[#FAF7F0] transition shadow-2xs"
-            title="Quay lại phòng luyện"
+            title="Quay lại phòng luyện tập"
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
@@ -873,35 +908,41 @@ export default function MockExamPage() {
 
               {/* Chi tiết từng phần thi */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                <div className="p-4 bg-white rounded-2xl border border-[#E5DEC9] space-y-1">
-                  <span className="text-[11px] font-bold text-[#315E48] block">Phần 1: Nghe hiểu</span>
-                  <span className="text-xl font-serif font-bold text-[#204434]">
-                    {examResult.listeningScore}/100đ
-                  </span>
-                  <span className="text-[10px] text-[#8F6D3B] block">
-                    Đúng {examResult.listeningCorrect}/{examResult.listeningTotal} câu
-                  </span>
-                </div>
+                {examResult.hasListening && (
+                  <div className="p-4 bg-white rounded-2xl border border-[#E5DEC9] space-y-1">
+                    <span className="text-[11px] font-bold text-[#315E48] block">Phần 1: Nghe hiểu</span>
+                    <span className="text-xl font-serif font-bold text-[#204434]">
+                      {examResult.listeningScore}/100đ
+                    </span>
+                    <span className="text-[10px] text-[#8F6D3B] block">
+                      Đúng {examResult.listeningCorrect}/{examResult.listeningTotal} câu
+                    </span>
+                  </div>
+                )}
 
-                <div className="p-4 bg-white rounded-2xl border border-[#E5DEC9] space-y-1">
-                  <span className="text-[11px] font-bold text-[#315E48] block">Phần 2: Đọc hiểu</span>
-                  <span className="text-xl font-serif font-bold text-[#204434]">
-                    {examResult.readingScore}/100đ
-                  </span>
-                  <span className="text-[10px] text-[#8F6D3B] block">
-                    Đúng {examResult.readingCorrect}/{examResult.readingTotal} câu
-                  </span>
-                </div>
+                {examResult.hasReading && (
+                  <div className="p-4 bg-white rounded-2xl border border-[#E5DEC9] space-y-1">
+                    <span className="text-[11px] font-bold text-[#315E48] block">Phần 2: Đọc hiểu</span>
+                    <span className="text-xl font-serif font-bold text-[#204434]">
+                      {examResult.readingScore}/100đ
+                    </span>
+                    <span className="text-[10px] text-[#8F6D3B] block">
+                      Đúng {examResult.readingCorrect}/{examResult.readingTotal} câu
+                    </span>
+                  </div>
+                )}
 
-                <div className="p-4 bg-white rounded-2xl border border-[#E5DEC9] space-y-1">
-                  <span className="text-[11px] font-bold text-[#315E48] block">Phần 3: Viết & Ngữ pháp</span>
-                  <span className="text-xl font-serif font-bold text-[#204434]">
-                    {selectedLevel <= 2 ? "Miễn thi viết" : `${examResult.writingScore}/100đ`}
-                  </span>
-                  <span className="text-[10px] text-[#8F6D3B] block">
-                    {selectedLevel <= 2 ? "HSK 1-2 không có phần viết" : `Đúng ${examResult.writingCorrect}/${examResult.writingTotal} câu`}
-                  </span>
-                </div>
+                {examResult.hasWriting && (
+                  <div className="p-4 bg-white rounded-2xl border border-[#E5DEC9] space-y-1">
+                    <span className="text-[11px] font-bold text-[#315E48] block">Phần 3: Viết & Ngữ pháp</span>
+                    <span className="text-xl font-serif font-bold text-[#204434]">
+                      {examResult.writingScore}/100đ
+                    </span>
+                    <span className="text-[10px] text-[#8F6D3B] block">
+                      Đúng {examResult.writingCorrect}/{examResult.writingTotal} câu
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Nút hành động */}
@@ -915,10 +956,10 @@ export default function MockExamPage() {
                 </button>
 
                 <Link
-                  href="/s/home"
+                  href="/s/home?tab=practice"
                   className="px-6 py-2.5 rounded-2xl bg-[#204434] hover:bg-[#183629] text-xs font-bold text-white transition flex items-center gap-1.5 shadow-xs"
                 >
-                  <span>Quay lại trang chủ học tập</span>
+                  <span>Quay lại phòng luyện tập</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -935,6 +976,17 @@ export default function MockExamPage() {
                 {questions.map((q, idx) => {
                   const userAns = userAnswers[q.id];
                   const isRight = isMockAnswerCorrect(userAns, q.correctAnswer, q.options);
+                  
+                  // Format đáp án đúng kèm nội dung tùy chọn nếu đáp án là chữ cái A, B, C...
+                  const letters = ["A", "B", "C", "D", "E", "F"];
+                  let formattedCorrectAns = q.correctAnswer;
+                  if (/^[A-Fa-f]$/.test(q.correctAnswer.trim()) && Array.isArray(q.options) && q.options.length > 0) {
+                    const lIdx = letters.indexOf(q.correctAnswer.trim().toUpperCase());
+                    if (lIdx !== -1 && q.options[lIdx]) {
+                      formattedCorrectAns = `${q.correctAnswer.trim().toUpperCase()}. ${q.options[lIdx]}`;
+                    }
+                  }
+
                   return (
                     <div
                       key={q.id}
@@ -969,7 +1021,7 @@ export default function MockExamPage() {
                         </div>
                         <div>
                           <span className="text-[#8F6D3B] font-semibold">Đáp án đúng: </span>
-                          <strong className="text-emerald-800">{q.correctAnswer}</strong>
+                          <strong className="text-emerald-800">{formattedCorrectAns}</strong>
                         </div>
                       </div>
 
