@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { BookOpen, Sparkles, Volume2, X, Feather, Search, Loader2 } from "lucide-react";
+import { BookOpen, Sparkles, Volume2, X, Feather, Search, Loader2, PenTool } from "lucide-react";
 
 export interface HanziEtymologyData {
   hanzi: string;
@@ -21,12 +21,14 @@ interface AncientHanziEtymologyModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialCharacter?: string;
+  onOpenWritingPractice?: (char: string) => void;
 }
 
 export default function AncientHanziEtymologyModal({
   isOpen,
   onClose,
   initialCharacter = "你",
+  onOpenWritingPractice,
 }: AncientHanziEtymologyModalProps) {
   const [inputChar, setInputChar] = useState(initialCharacter);
   const [data, setData] = useState<HanziEtymologyData | null>(null);
@@ -215,6 +217,20 @@ export default function AncientHanziEtymologyModal({
                     <span>•</span>
                     <span>Tổng số nét: <strong className="text-[#2B4837]">{data.strokeCount} nét</strong></span>
                   </div>
+
+                  {onOpenWritingPractice && (
+                    <div className="pt-1.5 flex items-center justify-center sm:justify-start">
+                      <button
+                        type="button"
+                        onClick={() => onOpenWritingPractice(data.hanzi)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#2B4837] hover:bg-[#1E3326] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                        title="Mở phòng luyện viết từng nét theo quy tắc thuận bút"
+                      >
+                        <PenTool className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                        <span>Luyện viết thuận bút chữ này</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

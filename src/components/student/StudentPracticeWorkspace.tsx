@@ -58,6 +58,7 @@ import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
 import ComprehensivePracticeSuite from "./practice/ComprehensivePracticeSuite";
 import ClassLeaderboardModal from "./ClassLeaderboardModal";
 import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
+import HanziPracticeModal from "./HanziPracticeModal";
 import AiWritingCheckerModal from "./AiWritingCheckerModal";
 import VocabNotebookModal from "./VocabNotebookModal";
 import MistakeNotebookModal from "./MistakeNotebookModal";
@@ -366,6 +367,8 @@ export default function StudentPracticeWorkspace({
   const [showHskRadarModal, setShowHskRadarModal] = useState<boolean>(false);
   const [showStationeryNotesModal, setShowStationeryNotesModal] = useState<boolean>(false);
   const [showVirtualStudyRoomModal, setShowVirtualStudyRoomModal] = useState<boolean>(false);
+  const [showHanziPracticeModal, setShowHanziPracticeModal] = useState<boolean>(false);
+  const [hanziPracticeChar, setHanziPracticeChar] = useState<string>("你");
 
   // Fetch Class Lessons
   const fetchLessons = useCallback(async () => {
@@ -799,6 +802,19 @@ export default function StudentPracticeWorkspace({
               <Award className="w-3.5 h-3.5 text-[#8F6D3B]" />
               <span>Thi thử HSK</span>
             </Link>
+            <div className="w-px h-4 bg-[#E5DEC9]" />
+            <button
+              onClick={() => {
+                const initialW = currentVocab?.hanzi || "你";
+                setHanziPracticeChar(initialW);
+                setShowHanziPracticeModal(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
+              title="Mở phòng Luyện Viết Thuận Bút Canvas chuẩn nét bút chữ Hán"
+            >
+              <PenTool className="w-3.5 h-3.5 text-[#204434]" />
+              <span>Luyện thuận bút</span>
+            </button>
           </div>
 
           {/* Nhóm 2: Sổ tay & Đánh giá năng lực */}
@@ -2611,6 +2627,29 @@ export default function StudentPracticeWorkspace({
         isOpen={showEtymologyModal}
         onClose={() => setShowEtymologyModal(false)}
         initialCharacter={etymologyChar || "你"}
+        onOpenWritingPractice={(char) => {
+          setHanziPracticeChar(char);
+          setShowHanziPracticeModal(true);
+        }}
+      />
+
+      {/* Modal Luyện Viết Thuận Bút Canvas Từng Nét Chữ Hán */}
+      <HanziPracticeModal
+        isOpen={showHanziPracticeModal}
+        onClose={() => setShowHanziPracticeModal(false)}
+        initialHanzi={hanziPracticeChar}
+        username={currentUser?.username}
+        studentId={currentUser?.id}
+        words={vocabList.map((v: any) => ({
+          hanzi: v.hanzi,
+          pinyin: v.pinyin,
+          meaning: v.meaningVi || v.meaning || "",
+          meaningVi: v.meaningVi || v.meaning,
+          rule: v.rule,
+          exampleZh: v.examples?.[0]?.zh || v.exampleZh,
+          examplePinyin: v.examples?.[0]?.pinyin || v.examplePy,
+          exampleVi: v.examples?.[0]?.vi || v.exampleVi,
+        }))}
       />
     </div>
   );

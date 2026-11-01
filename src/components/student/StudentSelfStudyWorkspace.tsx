@@ -17,6 +17,7 @@ import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
 import VocabNotebookModal from "./VocabNotebookModal";
 import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
 import MistakeNotebookModal from "./MistakeNotebookModal";
+import HanziPracticeModal from "./HanziPracticeModal";
 import LessonStudyContent from "../learning/LessonStudyContent";
 import styles from "./SelfStudyWorkspace.module.css";
 
@@ -49,6 +50,8 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const [showVocabModal, setShowVocabModal] = useState(false);
   const [showDialogueModal, setShowDialogueModal] = useState(false);
   const [showMistakesModal, setShowMistakesModal] = useState(false);
+  const [showHanziPracticeModal, setShowHanziPracticeModal] = useState(false);
+  const [hanziPracticeChar, setHanziPracticeChar] = useState("你");
   const topRef = useRef<HTMLDivElement>(null);
   const { lessons: apiLessons, loading, error } = useCurriculumLessons(level);
   const lessons = useMemo(() => apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level]);
@@ -158,6 +161,18 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
         <button className={styles.secondary} onClick={() => setShowVocabModal(true)} title="Sổ từ vựng cá nhân & Flashcard SRS 5 hộp Leitner Thất Nhật Ôn Tập"><BookOpen size={16}/>Thất Nhật Ôn Tập</button>
         <button className={styles.secondary} onClick={() => setShowDialogueModal(true)} title="Trợ lý Hán ngữ AI Nhập vai Tình huống"><Sparkles size={16}/>AI Đối Thoại</button>
         <button className={styles.secondary} onClick={() => setShowMistakesModal(true)} title="Bản đồ nhiệt điểm yếu & Bộ đề giải độc ngữ pháp"><FileCheck2 size={16}/>Giải Độc Ngữ Pháp</button>
+        <button
+          className={styles.secondary}
+          onClick={() => {
+            const firstChar = current?.vocabList?.[0]?.hanzi || "你";
+            setHanziPracticeChar(firstChar);
+            setShowHanziPracticeModal(true);
+          }}
+          title="Luyện viết từng nét chữ Hán theo ô mễ tự chuẩn mực"
+        >
+          <PenTool size={16} />
+          Luyện Thuận Bút
+        </button>
         <button className={styles.secondary} onClick={() => setRoomOpen(true)}><Moon size={16}/>Phòng tập trung</button>
       </div>
     </header>
@@ -198,6 +213,27 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       isOpen={showEtymologyModal}
       onClose={() => setShowEtymologyModal(false)}
       initialCharacter={current?.vocabList?.[0]?.hanzi || "你"}
+      onOpenWritingPractice={(char) => {
+        setHanziPracticeChar(char);
+        setShowHanziPracticeModal(true);
+      }}
+    />
+    <HanziPracticeModal
+      isOpen={showHanziPracticeModal}
+      onClose={() => setShowHanziPracticeModal(false)}
+      initialHanzi={hanziPracticeChar}
+      username={currentUser?.name}
+      studentId={currentUser?.id}
+      words={current?.vocabList?.map((v: any) => ({
+        hanzi: v.hanzi,
+        pinyin: v.pinyin,
+        meaning: v.meaningVi || v.meaning || "",
+        meaningVi: v.meaningVi || v.meaning,
+        rule: v.rule,
+        exampleZh: v.examples?.[0]?.zh || v.exampleZh,
+        examplePinyin: v.examples?.[0]?.pinyin || v.examplePy,
+        exampleVi: v.examples?.[0]?.vi || v.exampleVi,
+      }))}
     />
     <VocabNotebookModal
       isOpen={showVocabModal}

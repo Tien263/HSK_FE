@@ -531,8 +531,7 @@ export default function HanziPracticeModal({
 
         // 4. Nếu không khớp chữ nào hoặc đọc sai từ hoàn toàn
         if (matchedCount === 0 || spoken.length === 0) {
-          const fakeScore = Math.min(15, Math.floor(Math.random() * 10) + 5);
-          setSpeechAccuracy(fakeScore);
+          setSpeechAccuracy(0);
           setSpeechStatusText("❌ Phát âm chưa đúng từ hoặc sai thanh điệu!");
           setSpeechErrorDetail(
             `Máy ghi nhận âm bạn đọc: "【${spokenRaw || "im lặng/tạp âm"}】", trong khi từ cần phát âm là: "【${targetClean}】" (${

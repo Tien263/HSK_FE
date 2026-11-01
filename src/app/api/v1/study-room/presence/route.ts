@@ -20,6 +20,9 @@ export async function GET(request: Request) {
         totalXp: true,
         streakDays: true,
         updatedAt: true,
+        attempts: {
+          select: { durationSec: true },
+        },
       },
       orderBy: { updatedAt: "desc" },
       take: 12,
@@ -47,9 +50,11 @@ export async function GET(request: Request) {
     }
 
     const students = realStudents.map((s) => {
-      // Thời gian học thật: từ log presence hoặc ước tính từ totalXp
+      // Thời gian học thật: từ log presence của phòng học hoặc tích lũy làm bài thực tế
       const recordedMin = activeMinutesMap.get(s.id);
-      const minutes = recordedMin !== undefined ? recordedMin : Math.max(15, Math.min(180, Math.floor(s.totalXp / 10)));
+      const attemptSec = s.attempts.reduce((acc: number, a: { durationSec: number | null }) => acc + Math.max(0, a.durationSec || 0), 0);
+      const attemptMin = Math.floor(attemptSec / 60);
+      const minutes = recordedMin !== undefined ? recordedMin : Math.max(1, attemptMin);
       return {
         id: s.id,
         name: s.name || s.username || "Đồng môn",
