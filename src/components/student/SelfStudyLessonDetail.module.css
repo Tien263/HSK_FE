@@ -31,7 +31,7 @@
 .supplementarySection{margin-top:24px;padding:18px;border:1.5px dashed #c9b896;border-radius:16px;background:#faf6ed}
 .supplementaryHeading{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#8c662b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:14px}
 .supplementaryGrid{display:grid;gap:12px}
-.supplementaryCard{background:#ffffff;border:1px solid #e5ddc8;border-radius:12px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.03)}
+.supplementaryCard{background:#ffffff;border:1px solid #e5ddc8;border-radius:12px;padding:14px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.03);min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .supplementaryCard h5{font-size:12px;font-weight:700;color:#2d583f;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .dynamicMediaImage{max-width:100%;max-height:360px;border-radius:10px;border:1px solid #e0d5bd;object-fit:cover;margin-top:6px;display:block}
 .dynamicMediaAudio{width:100%;margin-top:6px}
