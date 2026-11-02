@@ -44,10 +44,11 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
       let examples: { zh: string; pinyin: string; vi: string }[] = [];
       if (Array.isArray(row.examples)) {
         examples = row.examples.map((ex: any) => ({
-          zh: String(ex?.zh || ex?.exampleZh || "").trim(),
+          ...(ex && typeof ex === "object" ? ex : {}),
+          zh: String(typeof ex === "string" ? ex : ex?.zh || ex?.exampleZh || "").trim(),
           pinyin: String(ex?.pinyin || ex?.py || ex?.examplePy || "").trim(),
           vi: String(ex?.vi || ex?.meaningVi || ex?.exampleVi || "").trim(),
-        })).filter((ex: any) => ex.zh);
+        })).filter((ex: any) => Object.entries(ex).some(([key,value]) => key !== "id" && value !== "" && value !== null && value !== undefined && (!Array.isArray(value) || value.length > 0)));
       }
       if (examples.length === 0 && (row.exampleZh || row.example)) {
         examples.push({
@@ -69,20 +70,22 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
         commonMistakes = row.commonMistakes.map((m: any) => {
           if (typeof m === "string") return { incorrect: m, correct: "", explanation: "" };
           return {
+            ...(m && typeof m === "object" ? m : {}),
             incorrect: String(m?.incorrect || m?.wrong || m?.zhWrong || "").trim(),
             correct: String(m?.correct || m?.right || m?.zhCorrect || "").trim(),
             explanation: String(m?.explanation || m?.explanationVi || m?.reason || "").trim(),
           };
-        }).filter(m => m.incorrect || m.correct || m.explanation);
+        }).filter(m => Object.entries(m).some(([key,value]) => key !== "id" && value !== "" && value !== null && value !== undefined));
       } else if (typeof row.commonMistakes === "string" && row.commonMistakes.trim()) {
         commonMistakes = [{ incorrect: row.commonMistakes.trim(), correct: "", explanation: "" }];
       }
 
       return {
+        ...row,
         ...(row.id ? { id: String(row.id) } : {}),
         hanzi,
         pinyin,
-        meaning,
+        meaning: String(row.meaning || meaning).trim(),
         meaningVi: String(row.meaningVi || meaning),
         usageExplanation: String(row.usageExplanation || row.usage || row.usageNote || "").trim(),
         usagePatterns,
@@ -90,9 +93,9 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
         commonMistakes,
         comparison: String(row.comparison || "").trim(),
         type: String(row.type || row.wordType || "Từ vựng"),
-        exampleZh: examples[0]?.zh || String(row.exampleZh || row.example || ""),
-        examplePy: examples[0]?.pinyin || String(row.examplePy || ""),
-        exampleVi: examples[0]?.vi || String(row.exampleVi || ""),
+        exampleZh: String(row.exampleZh || row.example || examples[0]?.zh || ""),
+        examplePy: String(row.examplePy || examples[0]?.pinyin || ""),
+        exampleVi: String(row.exampleVi || examples[0]?.vi || ""),
       };
     }
     case "grammar": {
@@ -108,12 +111,13 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
         examples = row.examples.map((ex: any) => {
           if (typeof ex === "string") return { zh: ex, pinyin: "", vi: "", explanationVi: "" };
           return {
+            ...(ex && typeof ex === "object" ? ex : {}),
             zh: String(ex?.zh || ex?.example || "").trim(),
             pinyin: String(ex?.pinyin || ex?.py || "").trim(),
             vi: String(ex?.vi || ex?.meaningVi || "").trim(),
             explanationVi: String(ex?.explanationVi || ex?.explanation || "").trim(),
           };
-        }).filter((ex: any) => ex.zh);
+        }).filter((ex: any) => Object.entries(ex).some(([key,value]) => key !== "id" && value !== "" && value !== null && value !== undefined && (!Array.isArray(value) || value.length > 0)));
       }
       if (examples.length === 0 && row.example) {
         examples.push({
@@ -143,6 +147,7 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
         commonMistakes = row.commonMistakes.map((m: any) => {
           if (typeof m === "string") return { incorrect: m, correct: "", explanation: "" };
           return {
+            ...(m && typeof m === "object" ? m : {}),
             incorrect: String(m?.incorrect || m?.wrong || "").trim(),
             correct: String(m?.correct || m?.right || "").trim(),
             explanation: String(m?.explanation || m?.explanationVi || "").trim(),
@@ -153,6 +158,7 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
       }
 
       return {
+        ...row,
         ...(row.id ? { id: String(row.id) } : {}),
         title,
         titleZh,
@@ -164,8 +170,8 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
         usageContexts,
         comparison: String(row.comparison || "").trim(),
         commonMistakes,
-        example: examples[0]?.zh || String(row.example || title),
-        explanation: usageExplanation,
+        example: String(row.example || examples[0]?.zh || title),
+        explanation: String(row.explanation || usageExplanation),
         notes: String(row.notes || ""),
         memo: String(row.memo || ""),
         usage: String(row.usage || usageExplanation),
@@ -227,6 +233,7 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
       ).trim();
 
       return {
+        ...row,
         speaker: speaker || "A",
         zh,
         pinyin,
@@ -235,6 +242,7 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
     }
     case "phonetics": {
       return {
+        ...row,
         title: String(row.title || ""),
         rule: String(row.rule || ""),
         examples: Array.isArray(row.examples)
@@ -267,7 +275,7 @@ export function normalizeLessons(value: unknown, level: number): Hsk1FullLesson[
     const vocabList = array(row.vocabList ?? [], path + ".vocabList").map((v, i) => sectionItem("vocab", v, `${path}.vocabList[${i + 1}]`));
     const grammarList = array(row.grammarList ?? [], path + ".grammarList").map((v, i) => sectionItem("grammar", v, `${path}.grammarList[${i + 1}]`));
     const dialogue = array(row.dialogue ?? [], path + ".dialogue").map((v, i) => sectionItem("dialogue", v, `${path}.dialogue[${i + 1}]`));
-    return { ...base, id, number, titleZh: finalTitleZh, titleVi: finalTitleVi, durationMin, pinyin: string(row, "pinyin", path), desc: string(row, "desc", path), vocabList, grammarList, dialogue, vocabCount: vocabList.length, grammarCount: grammarList.length, isUnlockedDefault: row.isUnlockedDefault !== false, unlockedScheduleText: string(row, "unlockedScheduleText", path) || base.unlockedScheduleText, phonetics: sectionItem("phonetics", row.phonetics ?? base.phonetics, path + ".phonetics"), culture: string(row, "culture", path), grammarExercises: Array.isArray(row.grammarExercises) ? row.grammarExercises : [], reading: normalizeReading(row.reading,id), culturalNote: normalizeCulturalNote(row.culturalNote,string(row,"culture",path)) } as unknown as Hsk1FullLesson;
+    return { ...base, ...row, id, number, titleZh: finalTitleZh, titleVi: finalTitleVi, durationMin, pinyin: string(row, "pinyin", path), desc: string(row, "desc", path), vocabList, grammarList, dialogue, vocabCount: vocabList.length, grammarCount: grammarList.length, isUnlockedDefault: row.isUnlockedDefault !== false, unlockedScheduleText: string(row, "unlockedScheduleText", path) || base.unlockedScheduleText, phonetics: sectionItem("phonetics", row.phonetics ?? base.phonetics, path + ".phonetics"), culture: string(row, "culture", path), grammarExercises: Array.isArray(row.grammarExercises) ? row.grammarExercises : [], reading: normalizeReading(row.reading,id), culturalNote: normalizeCulturalNote(row.culturalNote,string(row,"culture",path)) } as unknown as Hsk1FullLesson;
   }).sort((a, b) => a.number - b.number);
 }
 

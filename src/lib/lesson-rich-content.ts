@@ -18,16 +18,16 @@ export function normalizeReading(value: unknown, lessonId: string): ReadingItem 
   if (value == null) return undefined;
   const row = record(value);
   const contentZh = text(row.originalText ?? row.contentZh, "Bài đọc");
-  const contentVi = text(row.translation ?? row.contentVi, "Bản dịch");
   return {
+    ...row,
     id: text(row.id, "Mã bài đọc") || `${lessonId}-reading`,
     titleZh: text(row.titleZh, "Tên Trung"),
     titleVi: text(row.titleVi, "Tên Việt"),
-    originalText: contentZh,
-    translation: contentVi,
-    contentZh,
+    originalText: text(row.originalText ?? row.contentZh, "Nguyên văn"),
+    translation: text(row.translation ?? row.contentVi, "Bản dịch"),
+    contentZh: text(row.contentZh ?? row.originalText, "Bài đọc"),
     contentPy: text(row.contentPy, "Pinyin"),
-    contentVi,
+    contentVi: text(row.contentVi ?? row.translation, "Bản dịch"),
     analysisExplanation: text(row.analysisExplanation, "Phân tích bài đọc"),
     mainEvent: text(row.mainEvent, "Sự kiện chính"),
     keywords: list(row.keywords).map(k => String(k).trim()).filter(Boolean),
@@ -42,6 +42,7 @@ export function normalizeReading(value: unknown, lessonId: string): ReadingItem 
     extraVocabs: list(row.extraVocabs).map((value, index) => {
       const word = record(value);
       return {
+        ...word,
         id: text(word.id, "Mã từ") || `${lessonId}-reading-word-${index}`,
         hanzi: text(word.hanzi, "Chữ Hán"),
         pinyin: text(word.pinyin, "Pinyin"),
@@ -57,8 +58,8 @@ export function normalizeReading(value: unknown, lessonId: string): ReadingItem 
 export function normalizeCulturalNote(value: unknown, legacy = ""): CulturalNoteItem {
   if (value == null) return splitLegacyCulture(legacy);
   const row = record(value);
-  const expressions = (key: string) => list(row[key]).map(value => {const item = record(value); return {zh: text(item.zh, key), py: text(item.py, key), vi: text(item.vi, key), usage: text(item.usage, key), note: text(item.note, key)};});
-  return {context: text(row.context, "Bối cảnh", 1200), targetAudience: text(row.targetAudience, "Đối tượng"), naturalExpressions: expressions("naturalExpressions"), politeExpressions: expressions("politeExpressions"), cautionNotes: list(row.cautionNotes).map(value => text(value, "Lưu ý")), comparisonNote: text(row.comparisonNote, "Ngữ dụng"), practiceScenario: text(row.practiceScenario, "Thực hành")};
+  const expressions = (key: string) => list(row[key]).map(value => {const item = record(value); return {...item,zh: text(item.zh, key), py: text(item.py, key), vi: text(item.vi, key), usage: text(item.usage, key), note: text(item.note, key)};});
+  return {...row,context: text(row.context, "Bối cảnh", 1200), targetAudience: text(row.targetAudience, "Đối tượng"), naturalExpressions: expressions("naturalExpressions"), politeExpressions: expressions("politeExpressions"), cautionNotes: list(row.cautionNotes).map(value => text(value, "Lưu ý")), comparisonNote: text(row.comparisonNote, "Ngữ dụng"), practiceScenario: text(row.practiceScenario, "Thực hành")};
 }
 // Legacy prose is kept as culture, never merged with phonetics or invented as a reading.
 export function splitLegacyCulture(value: string): CulturalNoteItem {
