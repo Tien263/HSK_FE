@@ -8,7 +8,6 @@ import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { fetchCloudProgress, saveCloudPass } from "@/lib/self-study-cloud-service";
-import type { RoadmapStage } from "@/lib/self-study-roadmap-constants";
 import AncientScrollPathway from "./AncientScrollPathway";
 import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
 import ImperialPassSealModal from "./ImperialPassSealModal";
@@ -19,6 +18,7 @@ import VocabNotebookModal from "./VocabNotebookModal";
 import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
 import MistakeNotebookModal from "./MistakeNotebookModal";
 import HanziPracticeModal from "./HanziPracticeModal";
+import HskLevelMasteryWidget from "./HskLevelMasteryWidget";
 import LessonStudyContent from "../learning/LessonStudyContent";
 import styles from "./SelfStudyWorkspace.module.css";
 
@@ -40,7 +40,6 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const selection = useSelfStudySelection(currentUser?.id, maxLevel);
   const level = Math.min(selection.level, maxLevel);
   const [unlocked, setUnlocked] = useState<number[]>([1, 2]);
-  const [stages, setStages] = useState<RoadmapStage[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [notice, setNotice] = useState("");
@@ -61,6 +60,27 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const canStudy = !!current && unlocked.includes(current.number);
   const reading = view === "lessons" && screen === "reader";
   const openCount = lessons.filter(lesson => unlocked.includes(lesson.number)).length;
+
+  const totalVocabInLevel = useMemo(() => {
+    return lessons.reduce((acc, l) => acc + (l.vocabList?.length || 0), 0);
+  }, [lessons]);
+
+  const unlockedVocabInLevel = useMemo(() => {
+    return lessons
+      .filter((l) => unlocked.includes(l.number))
+      .reduce((acc, l) => acc + (l.vocabList?.length || 0), 0);
+  }, [lessons, unlocked]);
+
+  const totalGrammarInLevel = useMemo(() => {
+    return lessons.reduce((acc, l) => acc + (l.grammarList?.length || (l as any).grammar?.length || 0), 0);
+  }, [lessons]);
+
+  const unlockedGrammarInLevel = useMemo(() => {
+    return lessons
+      .filter((l) => unlocked.includes(l.number))
+      .reduce((acc, l) => acc + (l.grammarList?.length || (l as any).grammar?.length || 0), 0);
+  }, [lessons, unlocked]);
+
   const results = lessons.filter(lesson => {
     const isOpen = unlocked.includes(lesson.number);
     return (filter === "all" || (filter === "open" ? isOpen : !isOpen)) && normalize(`${lesson.number} ${lesson.titleZh} ${lesson.titleVi} ${lesson.pinyin}`).includes(normalize(query.trim()));
@@ -102,11 +122,6 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     };
   }, [level, selection]);
   /* eslint-enable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/v1/self-study-roadmap", { signal: controller.signal }).then(res => res.json()).then(data => { if (data.success && Array.isArray(data.stages)) setStages(data.stages); }).catch(() => {});
-    return () => controller.abort();
-  }, []);
 
   function navigate(tab: string) { if (onNavigateToTab) onNavigateToTab(tab); else router.push(`/s/home?tab=${tab}`); }
   function rememberOpenLessons() {
@@ -184,8 +199,17 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     {loading ? <p className={styles.empty} role="status">Đang mở kho giáo trình HSK {level}…</p> : error ? <p role="alert" className={styles.empty}>{error}</p> : !lessons.length ? <p className={styles.empty}>Cấp độ này chưa có bài học.</p> : <>
       {view === "roadmap" ? <>
         <InkStudyDashboard lesson={current} level={level} totalLessons={lessons.length} openCount={openCount} studentId={currentUser?.id} actions={actions} canStudy={canStudy} onRead={() => openLesson(current.number)} onVocab={() => setShowVocabModal(true)} onDialogue={() => setShowDialogueModal(true)} onMistakes={() => setShowMistakesModal(true)} onFocus={() => setRoomOpen(true)} onWriting={() => { setHanziPracticeChar(current?.vocabList?.[0]?.hanzi || "你"); setShowHanziPracticeModal(true); }}/>
-        <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>TỪNG BƯỚC VỮNG VÀNG</p><h2>Các chặng học tập</h2></div><span>{openCount} / {lessons.length} bài đã mở</span></div>
-        <div className={styles.stages}>{stages.map(stage => <article key={stage.step} title={stage.desc}><span className={styles.stageNumber}>{String(stage.step).padStart(2, "0")}</span><small>{stage.duration}</small><h3>{stage.title}</h3><p>{stage.desc}</p>{stage.badge && <span className={styles.stageBadge}>{stage.badge}</span>}</article>)}</div>
+        <HskLevelMasteryWidget
+          level={level}
+          totalLessons={lessons.length}
+          openCount={openCount}
+          totalVocab={totalVocabInLevel}
+          unlockedVocab={unlockedVocabInLevel}
+          totalGrammar={totalGrammarInLevel}
+          unlockedGrammar={unlockedGrammarInLevel}
+          onOpenVocabModal={() => setShowVocabModal(true)}
+          onOpenStudyRoomModal={() => setRoomOpen(true)}
+        />
         <AncientScrollPathway lessons={lessons} selectedLesson={current.number} unlockedLessons={unlocked} onSelectLesson={openLesson} hskLevel={level}/>
         <button className={styles.catalogLink} onClick={() => { onScreenChange?.("catalog"); navigate("lessons"); }}>Khám phá toàn bộ kho bài học <ArrowRight size={16}/></button>
       </> : reading ? <>
