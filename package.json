@@ -22,7 +22,8 @@
     "portal:setup": "node scripts/learning-portal-setup.cjs",
     "portal:test": "node --test scripts/learning-portal.test.cjs",
     "portal:verify": "node scripts/learning-portal-verify.cjs",
-    "portal:browser": "node scripts/teacher-classic-browser.cjs"
+    "portal:browser": "node scripts/teacher-classic-browser.cjs",
+    "db:backup": "node scripts/db-backup.cjs"
   },
   "engines": {
     "node": ">=18.18.0"

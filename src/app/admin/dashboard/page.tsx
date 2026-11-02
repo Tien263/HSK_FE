@@ -46,6 +46,7 @@ import {
   FileCheck2,
   Bot,
   Zap,
+  Database,
   Menu,
 } from "lucide-react";
 
@@ -1167,6 +1168,16 @@ export default function AdminDashboardPage() {
               <Upload className="w-4 h-4 text-[#BC9B6B]" />
               <span>Cloudinary Media</span>
             </Link>
+
+            <a
+              href="/api/v1/admin/backup"
+              download
+              title="Tải bản sao lưu toàn bộ dữ liệu CSDL dạng JSON"
+              className="px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer bg-[#FFFCF6] text-[#204434] hover:bg-[#204434] hover:text-[#FFFCF6] border border-[#BC9B6B]/30"
+            >
+              <Database className="w-4 h-4 text-emerald-600" />
+              <span>Sao lưu CSDL</span>
+            </a>
           </div>
 
           {activeTab === "users" && (

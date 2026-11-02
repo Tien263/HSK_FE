@@ -47,6 +47,9 @@ yarn-error.log*
 # prisma custom output
 /src/generated/
 
+# database backups
+/backups/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
