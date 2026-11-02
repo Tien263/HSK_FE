@@ -1,0 +1,10 @@
+"use client";
+import { useState } from "react";
+import type { PersonalNote } from "@/lib/self-study-knowledge";
+import { updateLibrary } from "@/lib/use-lesson-library";
+import s from "./SelfStudyLessonDetail.module.css";
+export default function KnowledgeNoteEditor({ studentId, note, sourceId, title = "", onClose }: { studentId?: string; note?: PersonalNote; sourceId?: string; title?: string; onClose: () => void }) {
+  const [draft, setDraft] = useState({ title: note?.title || title, hanzi: note?.hanzi || "", pinyin: note?.pinyin || "", meaning: note?.meaning || "", body: note?.body || "" });
+  const [error, setError] = useState("");
+  return <form className={s.noteForm} aria-label="Soạn ghi chú cá nhân" onSubmit={event => { event.preventDefault(); if (!draft.body.trim() && !(draft.hanzi.trim() && draft.meaning.trim())) { setError("Nhập nội dung ghi chú hoặc từ mới kèm nghĩa."); return; } const value: PersonalNote = { ...draft, id: note?.id || crypto.randomUUID(), sourceId: note?.sourceId || sourceId, updatedAt: new Date().toISOString() }; const ok = updateLibrary(studentId, store => ({ ...store, notes: [...store.notes.filter(entry => entry.id !== value.id), value] })); if (ok) onClose(); else setError("Chưa lưu được ghi chú. Kiểm tra quyền lưu trữ của trình duyệt."); }}><h3>{note ? "Sửa ghi chú" : "Ghi chú cá nhân / Từ mới"}</h3><label>Tiêu đề<input required maxLength={300} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })}/></label><div className={s.noteWords}>{([['hanzi','Chữ Hán'],['pinyin','Pinyin'],['meaning','Nghĩa Việt']] as const).map(([key,label]) => <label key={key}>{label}<input maxLength={1000} value={draft[key]} onChange={e => setDraft({ ...draft, [key]: e.target.value })}/></label>)}</div><label>Nội dung<textarea rows={5} value={draft.body} maxLength={30000} onChange={e => setDraft({ ...draft, body: e.target.value })}/></label>{error && <p role="alert">{error}</p>}<div className={s.buttons}><button type="submit" className={s.primary}>Lưu ghi chú</button><button type="button" className={s.outline} onClick={onClose}>Hủy</button></div></form>;
+}

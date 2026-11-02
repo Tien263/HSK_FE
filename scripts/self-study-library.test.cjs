@@ -55,3 +55,27 @@ test('reading percentages use only content actually present, independent of unlo
   const lib = load('src/lib/use-lesson-library.ts'); const lesson = { vocabList: [{}], grammarList: [{}], dialogue: [], phonetics: { rule: '', examples: [] } };
   assert.equal(lib.viewedPercent(lesson), 0); assert.equal(lib.viewedPercent(lesson, { viewed: ['vocab', 'dialogue'] }), 50); assert.equal(lib.viewedPercent({ ...lesson, vocabList: [], grammarList: [] }, { viewed: ['vocab'] }), 0);
 });
+
+test('legacy lesson bookmarks migrate without becoming learned content', () => {
+  const legacy = JSON.stringify({ saved: ['1:7'], resume: { 1: 7 }, reading: { '1:7': { tab: 'grammar', viewed: ['vocab','grammar'], updatedAt: '' } } });
+  const react = { useMemo: fn => fn(), useSyncExternalStore: (_subscribe, snapshot) => snapshot() };
+  const lib = load('src/lib/use-lesson-library.ts', { react }, { localStorage: { getItem: () => legacy } });
+  const store = lib.useLessonLibrary('a'); assert.deepEqual(plain(store.saved), ['1:7']); assert.deepEqual(plain(store.completed), []); assert.deepEqual(plain(store.items), []); assert.equal(store.reading['1:7'].tab, 'grammar');
+});
+test('knowledge identifiers retain progress after list reorder but invalidate changed explanations', () => {
+  const model = load('src/lib/self-study-knowledge.ts');
+  const lesson = { id: 'hsk1-7', number: 7, titleZh: '你好', titleVi: 'Chào', vocabList: [{ hanzi:'你', pinyin:'nǐ', meaning:'bạn', usageExplanation:'Dùng để xưng hô', examples:[{zh:'你好。',vi:'Chào bạn.'},{zh:'你是谁？',vi:'Bạn là ai?'}] }, {hanzi:'好',pinyin:'hǎo',meaning:'tốt'}], grammarList: [], dialogue: [], culture: '', phonetics: { title:'',rule:'',examples:[] } };
+  const original = model.lessonKnowledge(lesson,1), reordered = model.lessonKnowledge({...lesson,vocabList:[...lesson.vocabList].reverse()},1);
+  assert.equal(original[0].id, reordered[1].id); assert.equal(original[0].data.examples.length,2);
+  const changed = model.lessonKnowledge({...lesson,vocabList:[{...lesson.vocabList[0],usageExplanation:'Nội dung được sửa'},lesson.vocabList[1]]},1);
+  assert.notEqual(original[0].id, changed[0].id); assert.notEqual(original[0].id, model.lessonKnowledge(lesson,2)[0].id);
+  assert.equal(model.completionPercent(lesson,1,[]),0); assert.equal(model.completionPercent(lesson,1,[original[0].id]),50); assert.equal(model.completionPercent(lesson,2,[original[0].id]),0);
+});
+test('lesson and knowledge bookmarks synchronize through one store and never increase completion', () => {
+  const values = new Map(); const lib = load('src/lib/use-lesson-library.ts', { react: {useMemo: fn=>fn(),useSyncExternalStore: (_sub,snapshot)=>snapshot()} }, { localStorage: { getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value) },window:{dispatchEvent(){}},Event });
+  const item={id:'1:7:vocab:a',kind:'vocab',section:'vocab',level:1,lessonNumber:7,lessonTitle:'你好',title:'你',subtitle:'nǐ',data:{hanzi:'你',usageExplanation:'Chi tiết'}};
+  assert.equal(lib.toggleKnowledge('a',item),true); let store=lib.useLessonLibrary('a'); assert.equal(lib.isKnowledgeSaved(store,item),true); assert.equal(store.items[0].data.usageExplanation,'Chi tiết'); assert.deepEqual(plain(store.completed),[]);
+  lib.toggleKnowledge('a',{...item,id:'1:7',kind:'lesson'}); store=lib.useLessonLibrary('a'); assert.deepEqual(plain(store.saved),['1:7']); assert.equal(store.items.length,2);
+  lib.toggleKnowledge('a',item); assert.equal(lib.isKnowledgeSaved(lib.useLessonLibrary('a'),item),false); assert.deepEqual(plain(lib.useLessonLibrary('b').items),[]);
+  const failing=load('src/lib/use-lesson-library.ts',{}, {localStorage:{getItem:()=>null,setItem:()=>{throw new Error('quota');}},window:{dispatchEvent(){}},Event});assert.equal(failing.toggleKnowledge('a',item),false);
+});
