@@ -198,7 +198,15 @@ export default function OnboardingPage() {
     try {
       const stored = localStorage.getItem("currentUser");
       if (stored) {
-        setCurrentUser(JSON.parse(stored));
+        const u = JSON.parse(stored);
+        setCurrentUser(u);
+        // Nếu học viên đã có lịch sử học tập (đã có điểm XP hoặc đã vào lớp), tự động cho vào trang chủ học viên
+        if ((u.totalXp && u.totalXp > 0) || u.hasEnrolledClasses) {
+          localStorage.setItem(`hanyu_onboarding_${u.id}`, "true");
+          localStorage.setItem("hanyu_onboarding_completed", "true");
+          router.push("/s/home");
+          return;
+        }
       }
 
       const savedStep = localStorage.getItem("hanyu_onboarding_step");
