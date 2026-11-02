@@ -1,11 +1,49 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import HanziiDictionaryDrawer from "@/components/common/HanziiDictionaryDrawer";
+import { getSeoConfig } from "@/lib/seo-config";
 
-export const metadata: Metadata = {
-  title: "Lớp Tiếng Trung Cô Ning Ning - Ôn Đúng Bài, Luyện Đúng Chuẩn HSK 3.0",
-  description: "Website nội bộ dành cho học viên lớp cô Ning Ning. Không gian ôn bài, luyện đề và chơi game từ vựng mỗi ngày.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = getSeoConfig();
+  const baseUrl = (seo.canonicalUrl || "https://ninjistudy.click").replace(/\/$/, "");
+
+  const keywordsArray = seo.keywords
+    ? seo.keywords.split(",").map((k) => k.trim()).filter(Boolean)
+    : ["học tiếng trung", "luyện thi hsk", "ninjistudy"];
+
+  return {
+    metadataBase: new URL(baseUrl),
+    title: {
+      default: seo.title,
+      template: `%s · ${seo.siteName}`,
+    },
+    description: seo.description,
+    keywords: keywordsArray,
+    verification: seo.googleVerificationCode
+      ? { google: seo.googleVerificationCode }
+      : undefined,
+    openGraph: {
+      title: seo.title,
+      description: seo.description,
+      url: baseUrl,
+      siteName: seo.siteName,
+      images: [
+        {
+          url: seo.ogImage || `${baseUrl}/theme/bg-auth-master.jpg`,
+          width: 1200,
+          height: 630,
+          alt: seo.siteName,
+        },
+      ],
+      locale: "vi_VN",
+      type: "website",
+    },
+    robots: {
+      index: seo.allowIndexing,
+      follow: seo.allowIndexing,
+    },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

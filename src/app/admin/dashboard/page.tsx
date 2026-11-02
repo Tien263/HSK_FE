@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import CurriculumBuilderWorkspace from "@/components/admin/CurriculumBuilderWorkspace";
 import SelfStudyRoadmapAdminWorkspace from "@/components/admin/SelfStudyRoadmapAdminWorkspace";
+import AdminSeoSettings from "@/components/admin/AdminSeoSettings";
 import AvatarUpload from "@/components/common/AvatarUpload";
 import {
   Users,
@@ -44,6 +45,7 @@ import {
   BookOpen,
   Compass,
   FileCheck2,
+  Globe,
   Bot,
   Zap,
   Database,
@@ -98,7 +100,7 @@ export default function AdminDashboardPage() {
   // State
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum" | "roadmap" | "profile"
+    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum" | "roadmap" | "seo" | "profile"
   >("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -122,7 +124,7 @@ export default function AdminDashboardPage() {
     window.history.replaceState(null, "", url);
   }
   useEffect(() => {
-    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum","roadmap","profile"].includes(tab)) setActiveTab(tab as typeof activeTab); };
+    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum","roadmap","seo","profile"].includes(tab)) setActiveTab(tab as typeof activeTab); };
     const timer = setTimeout(sync, 0); window.addEventListener("hashchange", sync);
     return () => { clearTimeout(timer); window.removeEventListener("hashchange", sync); };
   }, []);
@@ -792,6 +794,8 @@ export default function AdminDashboardPage() {
             [
               { id: "overview", label: "Tổng quan", icon: BarChart3 },
               { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
+              { id: "roadmap", label: "Lộ trình tự học", icon: Compass },
+              { id: "seo", label: "Cấu hình SEO & Google", icon: Globe },
               { id: "users", label: "Tài khoản & phân quyền", icon: Users },
               { id: "profile", label: "Hồ sơ & Tài khoản của tôi", icon: User },
               { id: "ai", label: "Trợ lý AI", icon: Sparkles },
@@ -1152,6 +1156,18 @@ export default function AdminDashboardPage() {
             >
               <Compass className="w-4 h-4 text-[#BC9B6B]" />
               <span>Lộ trình Tự học</span>
+            </button>
+
+            <button
+              onClick={() => selectAdminTab("seo")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "seo"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <Globe className="w-4 h-4 text-emerald-600" />
+              <span>Cấu hình SEO</span>
             </button>
 
             <Link
@@ -2635,6 +2651,11 @@ export default function AdminDashboardPage() {
         {/* TAB: LỘ TRÌNH TỰ HỌC (SELF-STUDY ROADMAP CONFIG) */}
         {activeTab === "roadmap" && (
           <SelfStudyRoadmapAdminWorkspace />
+        )}
+
+        {/* TAB: CẤU HÌNH SEO, GOOGLE & SITEMAP */}
+        {activeTab === "seo" && (
+          <AdminSeoSettings />
         )}
 
         {/* =================================================================== */}
