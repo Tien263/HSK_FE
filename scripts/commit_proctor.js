@@ -6,7 +6,7 @@ process.env.GIT_INDEX_FILE = path.join(process.env.TEMP, "git_index_hsk");
 execSync("git add -A", { stdio: "inherit" });
 const tree = execSync("git write-tree").toString().trim();
 const parent = execSync("git rev-parse HEAD").toString().trim();
-const msg = "feat(security): remove demo login switchers and disable fallback default accounts";
+const msg = "feat(security & proctoring): add online exam anti-cheat suite with webcam, mic, tab-switch monitoring, teacher notifications, and security headers";
 const commit = execSync(`git commit-tree ${tree} -p ${parent} -m "${msg}"`).toString().trim();
 
 fs.writeFileSync(path.join(".git", "refs", "heads", "main"), commit + "\n");

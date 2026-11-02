@@ -33,6 +33,7 @@ import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { normalizeGrammarList } from "@/lib/chinese-grammar-helper";
 import { isMockAnswerCorrect } from "@/lib/mock-exam-matcher";
 import { recordLevelMockExamScore } from "@/lib/self-study-progression";
+import ExamAntiCheatProctor from "@/components/common/ExamAntiCheatProctor";
 
 interface MockQuestion {
   id: string;
@@ -712,6 +713,15 @@ export default function MockExamPage() {
         {/* =================================================================== */}
         {examState === "EXAM" && currentQ && (
           <div className="space-y-6 animate-fadeIn">
+            {/* Giám thị AI Chống Gian Lận (Camera PiP, Mic, Rời Tab, Chặn Copy/Phím tắt) */}
+            <ExamAntiCheatProctor
+              examTitle={selectedExamTitle || `Thi thử HSK ${selectedLevel}`}
+              maxViolations={3}
+              onForceSubmit={(reason) => {
+                alert(`Bài thi của bạn bị thu bài cưỡng chế do: ${reason}`);
+                handleAutoSubmit();
+              }}
+            />
             {/* Phân đoạn kỹ năng & Thanh số câu */}
             <div className="bg-[#FFFCF6] border border-[#E5DEC9] rounded-2xl p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
