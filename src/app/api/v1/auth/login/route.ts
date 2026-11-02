@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createDictionarySession, dictionaryCookieOptions, DICTIONARY_SESSION_COOKIE } from "@/lib/dictionary-session";
+import {
+  getClientIp,
+  checkLoginRateLimit,
+  recordLoginFailure,
+  recordLoginSuccess,
+} from "@/lib/auth-rate-limiter";
 
 export async function POST(request: Request) {
   try {
@@ -21,6 +27,20 @@ export async function POST(request: Request) {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    const clientIp = getClientIp(request);
+
+    // Chống Brute-force & DDoS mật khẩu
+    const rateLimitCheck = checkLoginRateLimit(clientIp, cleanUsername);
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: rateLimitCheck.message,
+          retryAfterMinutes: rateLimitCheck.retryAfterMinutes,
+        },
+        { status: 429 }
+      );
+    }
 
     let user = await prisma.user.findFirst({
       where: {
@@ -92,20 +112,30 @@ export async function POST(request: Request) {
           },
         });
       } else {
+        const failure = recordLoginFailure(clientIp, cleanUsername);
         return NextResponse.json(
-          { success: false, message: "Thông tin đăng nhập không hợp lệ hoặc tài khoản không tồn tại." },
-          { status: 401 }
+          {
+            success: false,
+            message: failure.isBlocked
+              ? failure.message
+              : "Thông tin đăng nhập không hợp lệ hoặc tài khoản không tồn tại.",
+          },
+          { status: failure.isBlocked ? 429 : 401 }
         );
       }
     }
 
     // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu thường và mã hóa)
     if (user.passwordHash && user.passwordHash !== password) {
+      const failure = recordLoginFailure(clientIp, cleanUsername);
       return NextResponse.json(
-        { success: false, message: "Mật khẩu không chính xác. Vui lòng kiểm tra lại." },
-        { status: 401 }
+        { success: false, message: failure.message },
+        { status: failure.isBlocked ? 429 : 401 }
       );
     }
+
+    // Đăng nhập hợp lệ -> Xóa bộ đếm thất bại
+    recordLoginSuccess(clientIp, cleanUsername);
 
     // Kiểm tra trạng thái tài khoản
     if (user.status === "LOCKED" || user.status === "INACTIVE") {

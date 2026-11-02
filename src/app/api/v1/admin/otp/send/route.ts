@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateAndSendOtp, getOtpLogs } from "@/lib/otp-store";
+import { checkOtpSendRateLimit, recordOtpSendSuccess } from "@/lib/auth-rate-limiter";
 
 // GET /api/v1/admin/otp/send - Lấy danh sách OTP logs
 export async function GET() {
@@ -24,7 +25,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Chống spam cạn quota email SMTP
+    const otpLimit = checkOtpSendRateLimit(cleanEmail);
+    if (!otpLimit.allowed) {
+      return NextResponse.json(
+        { success: false, message: otpLimit.message },
+        { status: 429 }
+      );
+    }
+
     const newRecord = await generateAndSendOtp(cleanEmail, purpose, length);
+    recordOtpSendSuccess(cleanEmail);
 
     return NextResponse.json({
       success: true,

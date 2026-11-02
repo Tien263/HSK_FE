@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {createDictionarySession,dictionaryCookieOptions,DICTIONARY_SESSION_COOKIE} from "@/lib/dictionary-session";
+import { getClientIp, checkRegisterRateLimit, recordRegisterSuccess } from "@/lib/auth-rate-limiter";
 
 export async function POST(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+    const rateCheck = checkRegisterRateLimit(clientIp);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, message: rateCheck.message },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { name, username, email, password } = body;
 
@@ -73,6 +83,8 @@ export async function POST(request: Request) {
         streakDays: 1,
       },
     });
+
+    recordRegisterSuccess(clientIp);
 
     const response = NextResponse.json({
       success: true,
