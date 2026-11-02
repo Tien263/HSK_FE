@@ -1186,6 +1186,8 @@ export default function StudentHomePage() {
               classesCount={myClasses.length}
               onOpenJoinModal={() => setShowJoinModal(true)}
             />
+          ) : myClasses.length === 0 ? (
+            <StudentSelfStudyWorkspace home view="roadmap" screen={selfStudyScreen} onScreenChange={setSelfStudyScreen} currentUser={currentUser} activeHskLevel={activeHskLevel} onNavigateToTab={(tab) => setActiveNav(tab)} onOpenJoinModal={() => setShowJoinModal(true)}/>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* --------------------------------------------------------------------- */}

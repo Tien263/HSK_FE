@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { pinyin } from "pinyin-pro";
 import CurriculumSentencePickerModal from "./CurriculumSentencePickerModal";
+import roomStyles from "./VirtualStudyRoom.module.css";
 import {
   LessonSentenceItem,
   getSentencesByHskAndLesson,
@@ -109,7 +110,9 @@ export default function VirtualStudyRoomModal({
   // 2. Dữ liệu học sinh thật từ API /api/v1/study-room/presence
   const [students, setStudents] = useState<RealStudentPresence[]>([]);
   const [loadingPresence, setLoadingPresence] = useState(false);
-  const [myAccumulatedMinutes, setMyAccumulatedMinutes] = useState(25);
+  const [myAccumulatedMinutes, setMyAccumulatedMinutes] = useState(0);
+  const roomRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   // 3. Audio Synthesizer (Tiếng mưa trúc / thiền định)
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -119,6 +122,23 @@ export default function VirtualStudyRoomModal({
   const [activeHskLevel, setActiveHskLevel] = useState<number>(initialHskLevel || 1);
   const [activeLessonNumber, setActiveLessonNumber] = useState<number>(initialLessonNumber || 1);
   const [showCurriculumPicker, setShowCurriculumPicker] = useState<boolean>(false);
+  useEffect(() => {
+    if (!isOpen || showCurriculumPicker) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") { event.preventDefault(); closeRef.current?.click(); return; }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(roomRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select, textarea, [tabindex="0"]') || []).filter(el => el.getClientRects().length);
+      const first = focusable[0], last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => { document.body.style.overflow = overflow; document.removeEventListener("keydown", handleKey); previous?.focus(); };
+  }, [isOpen, showCurriculumPicker]);
   const [lessonSentences, setLessonSentences] = useState<LessonSentenceItem[]>([]);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(0);
   const [selectedCurriculumSentence, setSelectedCurriculumSentence] = useState<LessonSentenceItem | null>(null);
@@ -555,51 +575,44 @@ export default function VirtualStudyRoomModal({
   const seconds = secondsLeft % 60;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070B09]/85 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
+    <div className={roomStyles.overlay}>
       {/* Khung Thư Phòng Thủy Mặc */}
-      <div className="relative w-full max-w-5xl max-h-[94vh] flex flex-col bg-[#111815] text-[#F3EFE6] rounded-3xl shadow-2xl border-2 border-[#BC9B6B]/40 overflow-hidden">
+      <div ref={roomRef} className={roomStyles.room} role="dialog" aria-modal="true" aria-labelledby="ink-study-room-title">
         
-        {/* Nền Thủy Mặc Sơn Thủy (Ink Wash Landscape Silhouette) */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-20 mix-blend-screen"
-          style={{
-            backgroundImage: `radial-gradient(ellipse at 80% 20%, rgba(212,175,55,0.15) 0%, transparent 60%),
-              radial-gradient(ellipse at 20% 80%, rgba(32,68,52,0.3) 0%, transparent 70%)`,
-          }}
-        />
+        <div className={roomStyles.landscape} aria-hidden="true"/>
 
         {/* Header Cổ Phong Thư Phòng */}
-        <div className="relative z-10 flex items-center justify-between px-6 py-4 bg-[#0A100E]/90 border-b border-[#BC9B6B]/25">
+        <div className={`${roomStyles.header} relative z-10 flex items-center justify-between px-6 py-4 bg-[#F8F4E8]/95 border-b border-[#BC9B6B]/25`}>
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#D4AF37] flex items-center justify-center font-serif text-2xl font-bold shadow-inner">
+            <div className="w-11 h-11 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#94713B] flex items-center justify-center font-serif text-2xl font-bold shadow-inner">
               斋
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-base font-serif font-bold text-[#EADBC3] flex items-center gap-2">
-                  <span>Vân Tự Tập Thất · Thư Phòng Thủy Mặc</span>
+                <h2 id="ink-study-room-title" className="text-base font-serif font-bold text-[#2F533A] flex items-center gap-2">
+                  <span>Thư phòng bên hồ · Vân Tự Tập Thất</span>
                 </h2>
-                <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 px-2.5 py-0.5 rounded-full font-mono flex items-center gap-1">
+                <span className="text-[10px] bg-emerald-50 text-emerald-300 border border-emerald-600/40 px-2.5 py-0.5 rounded-full font-mono flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{students.length || 1} sĩ tử thật đang thắp đèn</span>
+                  <span>{loadingPresence ? "Đang kết nối thư phòng…" : `${students.length} học viên trong danh sách`}</span>
                 </span>
               </div>
-              <p className="text-xs text-stone-400">
-                Thư phòng tĩnh tại, dữ liệu thật từ đồng môn khắp cả nước & Trợ lý luyện âm AI
+              <p className="text-xs text-[#7B826C]">
+                Một khoảng yên bình để học cùng nhau và luyện âm theo bài.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Tab chuyển đổi giữa Đồng hồ Pomodoro & AI Shadowing */}
-            <div className="hidden sm:flex items-center p-1 bg-[#1A2420] border border-[#BC9B6B]/30 rounded-2xl text-xs">
+            <div className="hidden sm:flex items-center p-1 bg-[#EEE9DB] border border-[#BC9B6B]/30 rounded-2xl text-xs">
               <button
                 type="button"
                 onClick={() => setActiveTab("pomodoro")}
                 className={`px-3 py-1.5 rounded-xl font-serif font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "pomodoro"
                     ? "bg-[#D4AF37] text-[#0A100E] shadow-sm"
-                    : "text-stone-300 hover:text-white"
+                    : "text-[#65765A] hover:text-[#23452F]"
                 }`}
               >
                 <span>Đồng Hồ Pomodoro</span>
@@ -610,7 +623,7 @@ export default function VirtualStudyRoomModal({
                 className={`px-3 py-1.5 rounded-xl font-serif font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "shadowing"
                     ? "bg-[#D4AF37] text-[#0A100E] shadow-sm"
-                    : "text-stone-300 hover:text-white"
+                    : "text-[#65765A] hover:text-[#23452F]"
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -619,13 +632,15 @@ export default function VirtualStudyRoomModal({
             </div>
 
             <button
+              ref={closeRef}
+              aria-label="Đóng thư phòng"
               onClick={() => {
                 if (audioCtxRef.current) audioCtxRef.current.suspend();
                 setIsAudioPlaying(false);
                 if (recognitionRef.current) recognitionRef.current.abort();
                 onClose();
               }}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-stone-300 hover:text-white transition cursor-pointer"
+              className="w-9 h-9 rounded-full bg-[#E9E2CD] hover:bg-[#DFE7CB] flex items-center justify-center text-[#65765A] hover:text-[#23452F] transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -640,7 +655,7 @@ export default function VirtualStudyRoomModal({
             className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
               activeTab === "pomodoro"
                 ? "bg-[#D4AF37] text-[#0A100E] border-[#D4AF37]"
-                : "bg-white/5 border-white/10 text-stone-300"
+                : "bg-[#F8F3E7] border-[#D8CFBA] text-[#65765A]"
             }`}
           >
             Đồng Hồ Pomodoro
@@ -651,7 +666,7 @@ export default function VirtualStudyRoomModal({
             className={`flex-1 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
               activeTab === "shadowing"
                 ? "bg-[#D4AF37] text-[#0A100E] border-[#D4AF37]"
-                : "bg-white/5 border-white/10 text-stone-300"
+                : "bg-[#F8F3E7] border-[#D8CFBA] text-[#65765A]"
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -667,7 +682,7 @@ export default function VirtualStudyRoomModal({
             
             {activeTab === "pomodoro" ? (
               /* ================= POMODORO VÀ HIỆU ỨNG THỦY MẶC ================= */
-              <div className="p-8 rounded-3xl bg-[#151F1B]/90 border border-[#BC9B6B]/30 relative overflow-hidden flex flex-col items-center justify-center text-center space-y-6 shadow-inner">
+              <div className={`${roomStyles.timerScene} p-8 rounded-3xl bg-[#FFFCF5]/90 border border-[#BC9B6B]/30 relative overflow-hidden flex flex-col items-center justify-center text-center space-y-6 shadow-inner`}>
                 {/* Trăng khuyết và mây mờ thủy mặc */}
                 <div className="absolute top-4 right-6 text-4xl opacity-15 select-none pointer-events-none">
                   🌙
@@ -677,16 +692,16 @@ export default function VirtualStudyRoomModal({
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[11px] font-serif uppercase tracking-widest text-[#BC9B6B]">
-                    Thời Gian Tĩnh Tâm Khổ Luyện (Pomodoro)
+                  <span className="text-[11px] font-serif uppercase tracking-widest text-[#93804E]">
+                    Tĩnh tâm bên trang sách · Pomodoro
                   </span>
-                  <div className="font-mono font-black text-6xl sm:text-7xl text-[#EADBC3] tracking-widest py-3 drop-shadow">
+                  <div className="font-serif font-semibold text-6xl sm:text-7xl text-[#2F533A] tracking-widest py-3">
                     {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
                   </div>
-                  <p className="text-xs text-stone-400 italic">
+                  <p className="text-xs text-[#7B826C] italic">
                     {isActive
-                      ? "Đèn thư phòng đang sáng... Mỗi phút bạn học đều được ghi nhận vào CSDL thật!"
-                      : "Bấm nút bắt đầu để cùng đồng môn thắp đèn khổ luyện thi đỗ HSK"}
+                      ? "Thả lỏng, tập trung vào từng trang sách. Bạn đang làm rất tốt."
+                      : "Một khoảng lặng để đọc, hiểu và ghi nhớ. Bắt đầu khi bạn sẵn sàng."}
                   </p>
                 </div>
 
@@ -707,7 +722,7 @@ export default function VirtualStudyRoomModal({
                       setIsActive(false);
                       setSecondsLeft(25 * 60);
                     }}
-                    className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-stone-300 transition cursor-pointer"
+                    className="p-3 rounded-2xl bg-[#E9E2CD] hover:bg-[#DFE7CB] text-[#65765A] transition cursor-pointer"
                     title="Làm mới lại đồng hồ 25 phút"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -719,7 +734,7 @@ export default function VirtualStudyRoomModal({
                     className={`px-4 py-3 rounded-2xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                       isAudioPlaying
                         ? "bg-emerald-950 border-emerald-500 text-emerald-300 shadow-sm"
-                        : "bg-white/5 border-white/15 text-stone-300 hover:bg-white/10"
+                        : "bg-[#F8F3E7] border-[#D8CFBA] text-[#65765A] hover:bg-[#E9E2CD]"
                     }`}
                     title="Bật/tắt âm thanh mưa hiên trúc thiền định"
                   >
@@ -729,46 +744,46 @@ export default function VirtualStudyRoomModal({
                 </div>
 
                 {/* Bàn học của chính bạn */}
-                <div className="w-full pt-6 border-t border-[#BC9B6B]/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-300">
+                <div className="w-full pt-6 border-t border-[#BC9B6B]/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#65765A]">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">🏮</span>
                     <div className="text-left">
-                      <div className="font-serif font-bold text-[#EADBC3]">{studentName} (Bàn của bạn)</div>
-                      <div className="text-[11px] text-emerald-400">Đã tích lũy {myAccumulatedMinutes} phút học thật trên CSDL</div>
+                      <div className="font-serif font-bold text-[#2F533A]">{studentName} (Bàn của bạn)</div>
+                      <div className="text-[11px] text-[#527A48]">Đã ghi nhận {myAccumulatedMinutes} phút trong phòng học</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] text-stone-400 uppercase tracking-wider">Mục tiêu hôm nay</div>
-                    <div className="font-bold text-[#D4AF37]">4 hiệp Pomodoro (100 phút)</div>
+                    <div className="text-[10px] text-[#7B826C] uppercase tracking-wider">Phiên học hiện tại</div>
+                    <div className="font-bold text-[#94713B]">25 phút tập trung</div>
                   </div>
                 </div>
               </div>
             ) : (
               /* ================= AI SHADOWING & CHẨN ĐOÁN PHÁT ÂM ================= */
-              <div className="p-6 sm:p-7 rounded-3xl bg-[#151F1B]/95 border border-[#BC9B6B]/30 space-y-6">
+              <div className="p-6 sm:p-7 rounded-3xl bg-[#FFFCF5]/95 border border-[#BC9B6B]/30 space-y-6">
                 
                 {/* Header phần Shadowing */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#BC9B6B]/20">
                   <div>
-                    <h3 className="font-serif font-bold text-sm text-[#EADBC3] flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                    <h3 className="font-serif font-bold text-sm text-[#2F533A] flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#94713B]" />
                       <span>Thiền Luyện Âm Khẩu Tự · AI Shadowing Chẩn Đoán</span>
                     </h3>
-                    <p className="text-xs text-stone-400">
+                    <p className="text-xs text-[#7B826C]">
                       Nghe AI bản xứ đọc mẫu, lặp lại theo nhịp và nhận phân tích khẩu hình, thanh điệu để đạt 100 điểm
                     </p>
                   </div>
 
                   {/* Tốc độ đọc AI */}
-                  <div className="flex items-center gap-2 text-xs bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 self-start sm:self-auto">
-                    <span className="text-stone-400">Tốc độ AI:</span>
+                  <div className="flex items-center gap-2 text-xs bg-[#EFE6D1]/70 px-3 py-1.5 rounded-xl border border-[#D8CFBA] self-start sm:self-auto">
+                    <span className="text-[#7B826C]">Tốc độ AI:</span>
                     {[0.7, 0.85, 1.0].map((rate) => (
                       <button
                         key={rate}
                         type="button"
                         onClick={() => setSpeechRate(rate)}
                         className={`px-2 py-0.5 rounded-lg font-mono font-bold transition ${
-                          speechRate === rate ? "bg-[#D4AF37] text-black" : "text-stone-300 hover:text-white"
+                          speechRate === rate ? "bg-[#D4AF37] text-black" : "text-[#65765A] hover:text-[#23452F]"
                         }`}
                       >
                         {rate}x
@@ -781,10 +796,10 @@ export default function VirtualStudyRoomModal({
                 <div className="space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-serif font-bold text-[#BC9B6B]">
+                      <span className="text-xs font-serif font-bold text-[#93804E]">
                         Kho câu đang chọn:
                       </span>
-                      <span className="text-xs font-bold text-[#F3EFE6] bg-[#204434] px-2.5 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-[#284A39] bg-[#204434] px-2.5 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                         <span>HSK {activeHskLevel} · Bài {activeLessonNumber} ({lessonSentences.length} câu)</span>
                       </span>
@@ -794,7 +809,7 @@ export default function VirtualStudyRoomModal({
                       <button
                         type="button"
                         onClick={() => setShowCurriculumPicker(true)}
-                        className="px-3 py-1.5 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/50 hover:bg-[#D4AF37]/30 text-[#D4AF37] hover:text-[#FFF8E7] text-xs font-serif font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        className="px-3 py-1.5 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/50 hover:bg-[#D4AF37]/30 text-[#94713B] hover:text-[#FFF8E7] text-xs font-serif font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <BookOpen className="w-3.5 h-3.5" />
                         <span>Dùng kho câu chuẩn giáo trình</span>
@@ -829,12 +844,12 @@ export default function VirtualStudyRoomModal({
                           className={`p-2.5 rounded-xl text-left border transition text-xs cursor-pointer ${
                             isSelected
                               ? "bg-[#204434] border-[#D4AF37] text-white font-bold shadow-sm"
-                              : "bg-white/5 border-white/10 text-stone-300 hover:bg-white/10"
+                              : "bg-[#F8F3E7] border-[#D8CFBA] text-[#65765A] hover:bg-[#E9E2CD]"
                           }`}
                         >
-                          <div className="flex items-center justify-between text-[10px] text-[#D4AF37] font-mono mb-0.5">
+                          <div className="flex items-center justify-between text-[10px] text-[#94713B] font-mono mb-0.5">
                             <span>{isCurriculum ? item.categoryLabel : `HSK ${item.level}`}</span>
-                            {isCurriculum && <span className="text-stone-400 truncate max-w-[100px]">{item.detailTag}</span>}
+                            {isCurriculum && <span className="text-[#7B826C] truncate max-w-[100px]">{item.detailTag}</span>}
                           </div>
                           <div className="font-serif line-clamp-1">{item.zh}</div>
                         </button>
@@ -853,31 +868,31 @@ export default function VirtualStudyRoomModal({
                         setEvaluation(null);
                       }}
                       placeholder="Hoặc gõ/dán bất kỳ câu tiếng Trung nào vào đây để AI đọc & chấm điểm..."
-                      className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-[#BC9B6B]/30 text-xs text-[#F3EFE6] placeholder:text-stone-500 focus:outline-none focus:border-[#D4AF37]"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#EFE6D1]/70 border border-[#BC9B6B]/30 text-xs text-[#284A39] placeholder:text-[#8C9278] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
                 </div>
 
                 {/* Thẻ hiển thị câu mẫu mục tiêu */}
-                <div className="p-6 rounded-2xl bg-[#0E1512] border border-[#BC9B6B]/40 space-y-3 text-center relative shadow-inner">
+                <div className="p-6 rounded-2xl bg-[#F3EDDD] border border-[#BC9B6B]/40 space-y-3 text-center relative shadow-inner">
                   {/* Thanh điều hướng câu trước / sau trong bài */}
                   {selectedCurriculumSentence && lessonSentences.length > 1 && (
-                    <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-black/50 border border-[#BC9B6B]/30 text-xs mb-2">
+                    <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-[#E8DEC5]/70 border border-[#BC9B6B]/30 text-xs mb-2">
                       <button
                         type="button"
                         disabled={currentSentenceIndex <= 0}
                         onClick={handlePrevSentence}
-                        className="text-stone-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-serif"
+                        className="text-[#65765A] hover:text-[#23452F] disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-serif"
                       >
                         ◀ Câu trước
                       </button>
 
-                      <div className="flex items-center gap-1.5 text-stone-400 font-mono text-[11px]">
-                        <span className="text-[#D4AF37] font-bold">
+                      <div className="flex items-center gap-1.5 text-[#7B826C] font-mono text-[11px]">
+                        <span className="text-[#94713B] font-bold">
                           Câu {currentSentenceIndex + 1}/{lessonSentences.length}
                         </span>
                         <span>•</span>
-                        <span className="truncate max-w-[180px] text-[#F3EFE6]">
+                        <span className="truncate max-w-[180px] text-[#284A39]">
                           {targetSentence.sourceTag}
                         </span>
                       </div>
@@ -886,25 +901,25 @@ export default function VirtualStudyRoomModal({
                         type="button"
                         disabled={currentSentenceIndex >= lessonSentences.length - 1}
                         onClick={handleNextSentence}
-                        className="text-[#D4AF37] hover:text-[#FFF8E7] disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-serif font-bold"
+                        className="text-[#94713B] hover:text-[#FFF8E7] disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-serif font-bold"
                       >
                         Câu tiếp ▶
                       </button>
                     </div>
                   )}
 
-                  <div className="text-xs font-mono text-[#D4AF37] tracking-wider">
+                  <div className="text-xs font-mono text-[#94713B] tracking-wider">
                     {targetSentence.py}
                   </div>
-                  <div className="font-serif font-black text-2xl sm:text-3xl text-white tracking-wide">
+                  <div className="font-serif font-black text-2xl sm:text-3xl text-[#2E5138] tracking-wide">
                     {targetSentence.zh}
                   </div>
-                  <div className="text-xs text-stone-300">
+                  <div className="text-xs text-[#65765A]">
                     &quot;{targetSentence.vi}&quot;
                   </div>
 
                   {targetSentence.tip && (
-                    <div className="text-[11px] text-stone-400 bg-black/30 px-3 py-1.5 rounded-xl border border-white/5 inline-block mx-auto max-w-xl">
+                    <div className="text-[11px] text-[#7B826C] bg-[#E8DEC5]/60 px-3 py-1.5 rounded-xl border border-[#E2D8C0] inline-block mx-auto max-w-xl">
                       💡 <span className="italic">{targetSentence.tip}</span>
                     </div>
                   )}
@@ -938,13 +953,13 @@ export default function VirtualStudyRoomModal({
 
                 {/* Kết quả nhận diện giọng nói & Đánh giá thời gian thực */}
                 {userTranscript && (
-                  <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3">
+                  <div className="p-4 rounded-2xl bg-[#EFE6D1]/70 border border-[#D8CFBA] space-y-3">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-stone-400">Giọng đọc nhận diện từ bạn:</span>
+                      <span className="text-[#7B826C]">Giọng đọc nhận diện từ bạn:</span>
                       <button
                         type="button"
                         onClick={evaluatePronunciation}
-                        className="text-[11px] text-[#D4AF37] hover:underline flex items-center gap-1"
+                        className="text-[11px] text-[#94713B] hover:underline flex items-center gap-1"
                       >
                         <RefreshCw className="w-3 h-3" />
                         <span>Chấm điểm lại</span>
@@ -958,32 +973,32 @@ export default function VirtualStudyRoomModal({
 
                 {/* BẢNG CHẨN ĐOÁN CHI TIẾT & BÍ QUYẾT ĐẠT 100 ĐIỂM */}
                 {evaluation && evaluation.isEvaluated && (
-                  <div className="p-5 rounded-2xl bg-[#1A2621] border border-emerald-500/40 space-y-4 animate-in fade-in">
+                  <div className="p-5 rounded-2xl bg-[#EFF2E5] border border-emerald-500/40 space-y-4 animate-in fade-in">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Award className="w-5 h-5 text-[#D4AF37]" />
-                        <span className="font-serif font-bold text-sm text-[#EADBC3]">
+                        <Award className="w-5 h-5 text-[#94713B]" />
+                        <span className="font-serif font-bold text-sm text-[#2F533A]">
                           Điểm Khớp Phát Âm Thực Tế
                         </span>
                       </div>
-                      <div className="font-mono font-black text-2xl text-[#D4AF37]">
+                      <div className="font-mono font-black text-2xl text-[#94713B]">
                         {evaluation.score} / 100 đ
                       </div>
                     </div>
 
                     {/* Từng âm tiết đối chiếu chi tiết */}
                     <div className="space-y-1.5">
-                      <div className="text-[11px] text-stone-400">So khớp từng chữ Hán & Thanh điệu:</div>
+                      <div className="text-[11px] text-[#7B826C]">So khớp từng chữ Hán & Thanh điệu:</div>
                       <div className="flex flex-wrap gap-2">
                         {evaluation.matchDetails.map((detail, i) => (
                           <div
                             key={i}
                             className={`px-3 py-2 rounded-xl border text-center ${
                               detail.status === "CORRECT"
-                                ? "bg-emerald-950/80 border-emerald-500 text-emerald-200"
+                                ? "bg-emerald-50 border-emerald-500 text-emerald-900"
                                 : detail.status === "CLOSE"
-                                ? "bg-amber-950/80 border-amber-500 text-amber-200"
-                                : "bg-red-950/80 border-red-500 text-red-200"
+                                ? "bg-amber-50 border-amber-500 text-amber-900"
+                                : "bg-red-50 border-red-500 text-red-900"
                             }`}
                           >
                             <div className="font-serif font-bold text-base">{detail.char}</div>
@@ -998,12 +1013,12 @@ export default function VirtualStudyRoomModal({
 
                     {/* Lời khuyên cụ thể để đạt 100 điểm */}
                     {evaluation.tips.length > 0 && (
-                      <div className="p-3.5 rounded-xl bg-black/40 border border-[#BC9B6B]/20 text-xs space-y-1.5">
-                        <div className="font-bold text-[#D4AF37] flex items-center gap-1.5">
+                      <div className="p-3.5 rounded-xl bg-[#EFE6D1]/70 border border-[#BC9B6B]/20 text-xs space-y-1.5">
+                        <div className="font-bold text-[#94713B] flex items-center gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Chỉ dẫn để đạt 100 điểm tuyệt đối:</span>
                         </div>
-                        <ul className="list-disc list-inside space-y-1 text-stone-300 text-[11px] leading-relaxed">
+                        <ul className="list-disc list-inside space-y-1 text-[#65765A] text-[11px] leading-relaxed">
                           {evaluation.tips.map((tip, idx) => (
                             <li key={idx}>{tip}</li>
                           ))}
@@ -1017,17 +1032,17 @@ export default function VirtualStudyRoomModal({
           </div>
 
           {/* CỘT PHẢI (4/12): DANH SÁCH ĐỒNG MÔN THẬT TỪ CSDL ĐANG CÙNG THẮP ĐÈN */}
-          <div className="lg:col-span-4 space-y-4 flex flex-col justify-between p-5 rounded-3xl bg-[#151F1B]/95 border border-[#BC9B6B]/30">
+          <div className={`${roomStyles.presence} lg:col-span-4 space-y-4 flex flex-col justify-between p-5 rounded-3xl bg-[#FFFCF5]/95 border border-[#BC9B6B]/30`}>
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-[#BC9B6B]/20">
-                <h4 className="font-serif font-bold text-xs text-[#EADBC3] flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-[#D4AF37]" />
+                <h4 className="font-serif font-bold text-xs text-[#2F533A] flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-[#94713B]" />
                   <span>Đồng Môn Đang Cùng Thắp Đèn</span>
                 </h4>
                 <button
                   type="button"
                   onClick={fetchRealPresence}
-                  className="text-[10px] text-stone-400 hover:text-stone-200 cursor-pointer flex items-center gap-1"
+                  className="text-[10px] text-[#7B826C] hover:text-stone-200 cursor-pointer flex items-center gap-1"
                   title="Cập nhật danh sách mới nhất"
                 >
                   <RefreshCw className={`w-3 h-3 ${loadingPresence ? "animate-spin" : ""}`} />
@@ -1043,16 +1058,16 @@ export default function VirtualStudyRoomModal({
                       className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs transition ${
                         st.isCurrent
                           ? "bg-[#204434]/60 border-[#D4AF37]/60"
-                          : "bg-white/5 border-white/10"
+                          : "bg-[#F8F3E7] border-[#D8CFBA]"
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <span className="text-xl">🏮</span>
                         <div>
-                          <div className="font-serif font-bold text-white line-clamp-1">
+                          <div className="font-serif font-bold text-[#2E5138] line-clamp-1">
                             {st.name} {st.isCurrent && "(Bạn)"}
                           </div>
-                          <div className="text-[10px] text-[#BC9B6B] flex items-center gap-1">
+                          <div className="text-[10px] text-[#93804E] flex items-center gap-1">
                             <span>{st.hsk}</span>
                             <span>·</span>
                             <span className="text-amber-300">🔥 {st.streakDays} ngày</span>
@@ -1060,7 +1075,7 @@ export default function VirtualStudyRoomModal({
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                        <div className="text-[10px] text-[#527A48] font-mono font-bold">
                           {st.minutes} phút
                         </div>
                         <div className="w-2 h-2 rounded-full bg-emerald-500 ml-auto mt-1 animate-pulse" />
@@ -1068,15 +1083,15 @@ export default function VirtualStudyRoomModal({
                     </div>
                   ))
                 ) : (
-                  <div className="p-4 rounded-xl bg-white/5 text-center text-xs text-stone-400">
-                    Đang kết nối sĩ tử thư phòng...
+                  <div className="p-4 rounded-xl bg-[#F8F3E7] text-center text-xs text-[#7B826C]">
+                    {loadingPresence ? "Đang kết nối thư phòng…" : "Chưa có học viên trong danh sách. Một phiên học yên tĩnh đang chờ bạn."}
                   </div>
                 )}
               </div>
             </div>
 
             {/* Châm ngôn thư phòng */}
-            <div className="p-3.5 rounded-xl bg-black/40 border border-[#BC9B6B]/20 text-[11px] text-stone-400 leading-relaxed text-center">
+            <div className="p-3.5 rounded-xl bg-[#EFE6D1]/70 border border-[#BC9B6B]/20 text-[11px] text-[#7B826C] leading-relaxed text-center">
               💡 <em>&quot;Ngồi giữa muôn vàn đốm đèn học, bạn sẽ không còn thấy cô đơn một mình giữa đêm khuya nữa.&quot;</em>
             </div>
           </div>

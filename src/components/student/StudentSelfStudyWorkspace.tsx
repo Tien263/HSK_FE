@@ -14,6 +14,7 @@ import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
 import ImperialPassSealModal from "./ImperialPassSealModal";
 import AncientHanziEtymologyModal from "./AncientHanziEtymologyModal";
 import VirtualStudyRoomModal from "./VirtualStudyRoomModal";
+import InkStudyDashboard from "./InkStudyDashboard";
 import VocabNotebookModal from "./VocabNotebookModal";
 import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
 import MistakeNotebookModal from "./MistakeNotebookModal";
@@ -29,10 +30,11 @@ export interface StudentSelfStudyWorkspaceProps {
   view?: "roadmap" | "lessons";
   screen?: "catalog" | "reader";
   onScreenChange?: (screen: "catalog" | "reader") => void;
+  home?: boolean;
 }
 const normalize = (text: string) => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 
-export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel = 1, onNavigateToTab, view = "roadmap", screen = "catalog", onScreenChange }: StudentSelfStudyWorkspaceProps) {
+export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel = 1, onNavigateToTab, view = "roadmap", screen = "catalog", onScreenChange, home = false }: StudentSelfStudyWorkspaceProps) {
   const router = useRouter();
   const [maxLevel, setMaxLevel] = useState(currentUser?.currentHskLevel || activeHskLevel);
   const selection = useSelfStudySelection(currentUser?.id, maxLevel);
@@ -156,8 +158,8 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
 
   return <div ref={topRef} className={styles.workspace} data-self-study-view={view}>
     <header className={styles.header}>
-      <div><p className={styles.eyebrow}>HANYU · TỰ HỌC HSK {level}</p><h1>{reading ? "Một bài học, một bước tiến." : view === "roadmap" ? "Hành trình của riêng bạn." : "Mở kho sách, tìm điều muốn học."}</h1><p>{view === "roadmap" ? "Tiếp tục bài đang học và nhìn lại những chặng phía trước." : "Tìm bài theo tên, chữ Hán hoặc Pinyin. Học và luyện theo cùng một bài."}</p></div>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+      <div><p className={styles.eyebrow}>HANYU · TỰ HỌC HSK {level}</p><h1>{reading ? "Một bài học, một bước tiến." : view === "roadmap" ? home ? "Góc tự học của bạn" : "Lộ trình của tôi" : "Mở kho sách, tìm điều muốn học."}</h1><p>{view === "roadmap" ? "Tiếp tục bài đang học và nhìn lại những chặng phía trước." : "Tìm bài theo tên, chữ Hán hoặc Pinyin. Học và luyện theo cùng một bài."}</p></div>
+      <div className={styles.headerTools} data-dashboard={view === "roadmap"}>
         <button className={styles.secondary} onClick={() => setShowVocabModal(true)} title="Sổ từ vựng cá nhân & Flashcard SRS 5 hộp Leitner Thất Nhật Ôn Tập"><BookOpen size={16}/>Thất Nhật Ôn Tập</button>
         <button className={styles.secondary} onClick={() => setShowDialogueModal(true)} title="Trợ lý Hán ngữ AI Nhập vai Tình huống"><Sparkles size={16}/>AI Đối Thoại</button>
         <button className={styles.secondary} onClick={() => setShowMistakesModal(true)} title="Bản đồ nhiệt điểm yếu & Bộ đề giải độc ngữ pháp"><FileCheck2 size={16}/>Giải Độc Ngữ Pháp</button>
@@ -181,9 +183,9 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {loading ? <p className={styles.empty} role="status">Đang mở kho giáo trình HSK {level}…</p> : error ? <p role="alert" className={styles.empty}>{error}</p> : !lessons.length ? <p className={styles.empty}>Cấp độ này chưa có bài học.</p> : <>
       {view === "roadmap" ? <>
-        <section className={styles.resume} aria-label="Tiếp tục học"><div className={styles.resumeArt} aria-hidden="true"><span>学<br/>而<br/>时<br/>习</span></div><div className={styles.resumeBody}><p className={styles.eyebrow}>BÀI ĐANG CHỌN · HSK {level} / BÀI {current.number}</p><h2>{current.titleVi || current.titleZh}</h2><p className={styles.chinese} lang="zh-CN">{current.titleZh}</p><p className={styles.pinyin}>{current.pinyin}</p><div className={styles.meta}><span>{current.vocabList.length} từ vựng</span><span>{current.grammarList.length} ngữ pháp</span><span>{current.durationMin} phút dự kiến</span></div>{actions}{!canStudy && <p className={styles.hint}>Bài này chưa mở. Chọn một bài đã mở trong cuộn thư bên dưới.</p>}</div></section>
+        <InkStudyDashboard lesson={current} level={level} totalLessons={lessons.length} openCount={openCount} studentId={currentUser?.id} actions={actions} canStudy={canStudy} onRead={() => openLesson(current.number)} onVocab={() => setShowVocabModal(true)} onDialogue={() => setShowDialogueModal(true)} onMistakes={() => setShowMistakesModal(true)} onFocus={() => setRoomOpen(true)} onWriting={() => { setHanziPracticeChar(current?.vocabList?.[0]?.hanzi || "你"); setShowHanziPracticeModal(true); }}/>
         <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>TỪNG BƯỚC VỮNG VÀNG</p><h2>Các chặng học tập</h2></div><span>{openCount} / {lessons.length} bài đã mở</span></div>
-        <div className={styles.stages}>{stages.map(stage => <article key={stage.step}><span className={styles.stageNumber}>{String(stage.step).padStart(2, "0")}</span><small>{stage.duration}</small><h3>{stage.title}</h3><p>{stage.desc}</p>{stage.badge && <span className={styles.stageBadge}>{stage.badge}</span>}</article>)}</div>
+        <div className={styles.stages}>{stages.map(stage => <article key={stage.step} title={stage.desc}><span className={styles.stageNumber}>{String(stage.step).padStart(2, "0")}</span><small>{stage.duration}</small><h3>{stage.title}</h3><p>{stage.desc}</p>{stage.badge && <span className={styles.stageBadge}>{stage.badge}</span>}</article>)}</div>
         <AncientScrollPathway lessons={lessons} selectedLesson={current.number} unlockedLessons={unlocked} onSelectLesson={openLesson} hskLevel={level}/>
         <button className={styles.catalogLink} onClick={() => { onScreenChange?.("catalog"); navigate("lessons"); }}>Khám phá toàn bộ kho bài học <ArrowRight size={16}/></button>
       </> : reading ? <>
@@ -248,6 +250,7 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     />
     <AiDialogueRoleplayModal
       isOpen={showDialogueModal}
+      initialDialogue={current?.dialogue}
       onClose={() => setShowDialogueModal(false)}
       studentId={currentUser?.id}
       hskLevel={level}

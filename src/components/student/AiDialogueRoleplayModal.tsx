@@ -269,10 +269,12 @@ interface AiDialogueRoleplayModalProps {
   studentId?: string;
 }
 
+const EMPTY_DIALOGUE: LessonDialogueLine[] = [];
+
 export default function AiDialogueRoleplayModal({
   isOpen,
   onClose,
-  initialDialogue = [],
+  initialDialogue = EMPTY_DIALOGUE,
   lessonTitle = "Bài học HSK",
   lessonNumber = 1,
   hskLevel = 1,
