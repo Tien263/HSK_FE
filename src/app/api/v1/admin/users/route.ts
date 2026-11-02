@@ -34,6 +34,9 @@ export async function GET(request: Request) {
         currentHskLevel: true,
         totalXp: true,
         streakDays: true,
+        dailyAiQuota: true,
+        aiUsageToday: true,
+        aiUsageResetDate: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -273,6 +276,51 @@ export async function PATCH(request: Request) {
         success: true,
         message: `Đã cập nhật thông tin tài khoản ${user.username}!`,
         user: updated,
+      });
+    }
+
+    // Update Daily AI Quota
+    if (action === "UPDATE_AI_QUOTA") {
+      const { dailyAiQuota } = body;
+      const parsedQuota = parseInt(String(dailyAiQuota), 10);
+      if (isNaN(parsedQuota) || parsedQuota < -1) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Hạn mức AI không hợp lệ (-1: Không giới hạn, hoặc từ 0 trở lên).",
+          },
+          { status: 400 }
+        );
+      }
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { dailyAiQuota: parsedQuota },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          dailyAiQuota: true,
+          aiUsageToday: true,
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Đã cập nhật hạn mức AI cho ${user.username} thành ${
+          parsedQuota === -1 ? "Không giới hạn" : parsedQuota + " lượt/ngày"
+        }!`,
+        user: updated,
+      });
+    }
+
+    // Reset Daily AI Usage count to 0
+    if (action === "RESET_AI_USAGE") {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { aiUsageToday: 0 },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Đã làm mới số lượt AI hôm nay của ${user.username} về 0.`,
       });
     }
 

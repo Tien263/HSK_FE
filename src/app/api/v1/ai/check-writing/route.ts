@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeDictionaryPinyin } from "@/lib/dictionary-search";
+import { getAuthUser } from "@/lib/auth-server";
+import { checkAndConsumeAiQuota, getClientIp } from "@/lib/ai-rate-limiter";
 
 export async function POST(request: Request) {
   try {
@@ -15,6 +17,27 @@ export async function POST(request: Request) {
     }
 
     const rawText = text.trim();
+
+    // Kiểm tra Hạn mức Quota AI & Chống Spam
+    const authUser = await getAuthUser(request);
+    const clientIp = getClientIp(request);
+    const quotaCheck = await checkAndConsumeAiQuota({
+      userId: authUser?.id,
+      clientIp,
+      cost: 1,
+    });
+
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "QUOTA_EXCEEDED",
+          message: quotaCheck.errorMessage || "Bạn đã dùng hết số lượt hỏi AI hôm nay.",
+          aiQuota: quotaCheck,
+        },
+        { status: 429 }
+      );
+    }
 
     // 1. Phân tích các chữ Hán và từ vựng trong văn bản
     // Tách các từ đơn và từ ghép 2-4 ký tự
@@ -528,6 +551,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
       issuesCount: issues.length,
       issues,
       vocabBreakdown,
+      aiQuota: quotaCheck,
     });
   } catch (error: any) {
     console.error("POST /api/v1/ai/check-writing error:", error);

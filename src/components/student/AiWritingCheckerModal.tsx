@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   PenTool,
@@ -14,6 +14,7 @@ import {
   Volume2,
   Award,
   Layers,
+  Zap,
 } from "lucide-react";
 
 interface AiWritingCheckerModalProps {
@@ -37,6 +38,25 @@ export default function AiWritingCheckerModal({
   const [checking, setChecking] = useState<boolean>(false);
   const [result, setResult] = useState<any>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [aiQuota, setAiQuota] = useState<{
+    limit: number;
+    remaining: number;
+    usedToday: number;
+    resetAt: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/v1/ai/quota")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.quota) {
+            setAiQuota(data.quota);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   // Câu mẫu gợi ý luyện viết
   const sampleSuggestions = [
@@ -78,11 +98,20 @@ export default function AiWritingCheckerModal({
       });
 
       const data = await res.json();
-      if (data.success) {
-        setResult(data);
-      } else {
-        alert(data.error || "Có lỗi xảy ra khi kiểm tra bài viết.");
+      if (!res.ok || !data.success) {
+        if (data.error === "QUOTA_EXCEEDED" || res.status === 429) {
+          if (data.aiQuota) setAiQuota(data.aiQuota);
+          alert(data.message || "Bạn đã dùng hết hạn mức AI hôm nay.");
+        } else {
+          alert(data.error || "Có lỗi xảy ra khi kiểm tra bài viết.");
+        }
+        return;
       }
+
+      if (data.aiQuota) {
+        setAiQuota(data.aiQuota);
+      }
+      setResult(data);
     } catch (e) {
       console.warn("handleCheckWriting error:", e);
       alert("Không kết nối được dịch vụ kiểm tra bài viết.");
@@ -118,6 +147,27 @@ export default function AiWritingCheckerModal({
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-bold">
                   Đối chiếu Từ Điển CSDL
                 </span>
+                {aiQuota && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold border flex items-center gap-1 ${
+                      aiQuota.remaining === 0
+                        ? "bg-red-500/15 text-red-700 border-red-300/50"
+                        : "bg-amber-500/15 text-amber-800 border-amber-300/50"
+                    }`}
+                    title={
+                      aiQuota.limit === -1
+                        ? "Tài khoản có quyền dùng AI không giới hạn"
+                        : `Đã dùng ${aiQuota.usedToday}/${aiQuota.limit} lượt. Làm mới lúc ${aiQuota.resetAt}`
+                    }
+                  >
+                    <Zap className="w-2.5 h-2.5 text-amber-600" />
+                    <span>
+                      {aiQuota.limit === -1
+                        ? "AI: Không giới hạn"
+                        : `Còn ${aiQuota.remaining}/${aiQuota.limit} lượt AI`}
+                    </span>
+                  </span>
+                )}
               </div>
               <p className="text-xs text-[#315E48]">
                 {lessonTitle} · Bắt lỗi trật tự từ, lượng từ, trợ từ và gợi ý văn phong chuẩn bản xứ

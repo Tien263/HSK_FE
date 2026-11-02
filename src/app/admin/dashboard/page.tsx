@@ -45,6 +45,7 @@ import {
   Compass,
   FileCheck2,
   Bot,
+  Zap,
   Menu,
 } from "lucide-react";
 
@@ -59,6 +60,9 @@ interface UserItem {
   currentHskLevel: number;
   totalXp: number;
   streakDays: number;
+  dailyAiQuota?: number;
+  aiUsageToday?: number;
+  aiUsageResetDate?: string;
   createdAt: string;
   enrolledCount?: number;
   taughtCount?: number;
@@ -210,6 +214,11 @@ export default function AdminDashboardPage() {
   const [resetTargetUser, setResetTargetUser] = useState<UserItem | null>(null);
   const [newPasswordInput, setNewPasswordInput] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
+
+  // AI Quota Management Modal
+  const [aiQuotaTargetUser, setAiQuotaTargetUser] = useState<UserItem | null>(null);
+  const [selectedQuota, setSelectedQuota] = useState<number>(5);
+  const [updatingQuota, setUpdatingQuota] = useState(false);
 
   // OTP Tool State
   const [otpEmail, setOtpEmail] = useState("");
@@ -554,6 +563,75 @@ export default function AdminDashboardPage() {
       showToast("Lỗi máy chủ khi đặt lại mật khẩu", "error");
     } finally {
       setResettingPassword(false);
+    }
+  };
+
+  // Cập nhật Hạn mức Quota AI cho người dùng
+  const handleUpdateAiQuota = async () => {
+    if (!aiQuotaTargetUser) return;
+    setUpdatingQuota(true);
+    try {
+      const res = await fetch("/api/v1/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: aiQuotaTargetUser.id,
+          action: "UPDATE_AI_QUOTA",
+          dailyAiQuota: selectedQuota,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === aiQuotaTargetUser.id
+              ? { ...u, dailyAiQuota: selectedQuota }
+              : u
+          )
+        );
+        setAiQuotaTargetUser(null);
+      } else {
+        showToast(data.message || "Cập nhật hạn mức AI thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi máy chủ khi cập nhật hạn mức AI", "error");
+    } finally {
+      setUpdatingQuota(false);
+    }
+  };
+
+  // Làm mới số lượt AI đã dùng hôm nay về 0
+  const handleResetAiUsageToday = async () => {
+    if (!aiQuotaTargetUser) return;
+    setUpdatingQuota(true);
+    try {
+      const res = await fetch("/api/v1/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: aiQuotaTargetUser.id,
+          action: "RESET_AI_USAGE",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === aiQuotaTargetUser.id
+              ? { ...u, aiUsageToday: 0 }
+              : u
+          )
+        );
+        setAiQuotaTargetUser((prev) => (prev ? { ...prev, aiUsageToday: 0 } : null));
+      } else {
+        showToast(data.message || "Làm mới lượt thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối khi làm mới lượt AI", "error");
+    } finally {
+      setUpdatingQuota(false);
     }
   };
 
@@ -1494,6 +1572,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Email</th>
                       <th className="py-3 px-4">Vai trò</th>
                       <th className="py-3 px-4">Trạng thái</th>
+                      <th className="py-3 px-4">Hạn mức AI / ngày</th>
                       <th className="py-3 px-4">Thông tin học/dạy</th>
                       <th className="py-3 px-4">Ngày tạo</th>
                       <th className="py-3 px-4 text-right">Thao tác</th>
@@ -1502,7 +1581,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-[#BC9B6B]/15 text-xs sm:text-sm">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-[#315E48]">
+                        <td colSpan={8} className="py-12 text-center text-[#315E48]">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <div className="w-6 h-6 border-2 border-[#204434]/20 border-t-[#204434] rounded-full animate-spin" />
                             <span>Đang tải danh sách tài khoản...</span>
@@ -1511,7 +1590,7 @@ export default function AdminDashboardPage() {
                       </tr>
                     ) : users.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-[#315E48]">
+                        <td colSpan={8} className="py-12 text-center text-[#315E48]">
                           Không tìm thấy tài khoản nào phù hợp với điều kiện tìm kiếm.
                         </td>
                       </tr>
@@ -1604,6 +1683,37 @@ export default function AdminDashboardPage() {
                               </span>
                             </td>
 
+                            {/* Hạn mức AI / ngày */}
+                            <td className="py-3.5 px-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAiQuotaTargetUser(u);
+                                  setSelectedQuota(
+                                    u.dailyAiQuota ?? (u.role === "ADMIN" ? -1 : u.role === "TEACHER" ? 50 : 5)
+                                  );
+                                }}
+                                title="Bấm để điều chỉnh hạn mức AI"
+                                className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-[#FFFCF6] border border-[#BC9B6B]/30 transition cursor-pointer"
+                              >
+                                <Zap className="w-3 h-3 text-amber-600 group-hover:text-amber-300" />
+                                <span>
+                                  {u.dailyAiQuota === -1 ? (
+                                    <span className="font-bold text-amber-700 group-hover:text-amber-200">
+                                      Không giới hạn
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      <strong className="text-[#9D493E] group-hover:text-white">
+                                        {u.aiUsageToday || 0}
+                                      </strong>
+                                      /{u.dailyAiQuota ?? 5} câu
+                                    </span>
+                                  )}
+                                </span>
+                              </button>
+                            </td>
+
                             {/* Info */}
                             <td className="py-3.5 px-4 text-xs text-[#315E48]">
                               {u.role === "STUDENT" && (
@@ -1632,6 +1742,21 @@ export default function AdminDashboardPage() {
                             {/* Actions */}
                             <td className="py-3.5 px-4 text-right">
                               <div className="inline-flex items-center gap-1.5">
+                                {/* Điều chỉnh Quota AI */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAiQuotaTargetUser(u);
+                                    setSelectedQuota(
+                                      u.dailyAiQuota ?? (u.role === "ADMIN" ? -1 : u.role === "TEACHER" ? 50 : 5)
+                                    );
+                                  }}
+                                  title="Điều chỉnh hạn mức AI"
+                                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-600 text-amber-700 hover:text-white transition cursor-pointer"
+                                >
+                                  <Zap className="w-3.5 h-3.5" />
+                                </button>
+
                                 {/* Reset Password */}
                                 <button
                                   onClick={() => {
@@ -2972,6 +3097,138 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL 3: ĐIỀU CHỈNH HẠN MỨC CÂU HỎI AI */}
+      {aiQuotaTargetUser && (
+        <div className="fixed inset-0 z-50 bg-[#204434]/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] w-full max-w-md rounded-3xl border border-[#BC9B6B]/40 shadow-2xl p-6 space-y-4 relative">
+            <button
+              onClick={() => setAiQuotaTargetUser(null)}
+              className="absolute top-4 right-4 p-1 rounded-full text-[#315E48] hover:bg-[#204434]/10 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                <Zap className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-base text-[#204434]">
+                  Hạn mức câu hỏi AI (Daily Quota)
+                </h3>
+                <p className="text-xs text-[#315E48]">
+                  Tài khoản: <span className="font-semibold text-[#204434]">{aiQuotaTargetUser.name}</span> (@{aiQuotaTargetUser.username})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#F8F5ED] p-3 rounded-2xl border border-[#BC9B6B]/20 text-xs space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[#315E48]">Số câu đã dùng hôm nay:</span>
+                <span className="font-bold text-[#9D493E] bg-[#9D493E]/10 px-2 py-0.5 rounded-md">
+                  {aiQuotaTargetUser.aiUsageToday || 0} câu
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[#315E48]">Hạn mức hiện tại:</span>
+                <span className="font-bold text-[#204434]">
+                  {aiQuotaTargetUser.dailyAiQuota === -1
+                    ? "✨ Không giới hạn (Unlimited)"
+                    : `${aiQuotaTargetUser.dailyAiQuota ?? 5} câu / ngày`}
+                </span>
+              </div>
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="button"
+                  disabled={updatingQuota || (aiQuotaTargetUser.aiUsageToday || 0) === 0}
+                  onClick={handleResetAiUsageToday}
+                  className="text-[11px] font-semibold text-[#315E48] hover:text-[#204434] hover:underline disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Làm mới số lượt hôm nay về 0
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-1 text-xs sm:text-sm">
+              <label className="block text-[#204434] font-semibold">
+                Chọn gói hạn mức mới cho tài khoản:
+              </label>
+
+              {/* Preset buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 5, label: "5 câu / ngày", desc: "Mặc định (Miễn phí)" },
+                  { value: 15, label: "15 câu / ngày", desc: "Học viên tích cực" },
+                  { value: 30, label: "30 câu / ngày", desc: "Học viên VIP" },
+                  { value: 50, label: "50 câu / ngày", desc: "Trợ giảng / Luyện thi" },
+                  { value: 100, label: "100 câu / ngày", desc: "Giáo viên giảng dạy" },
+                  { value: -1, label: "Không giới hạn", desc: "VIP Max / Admin" },
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setSelectedQuota(item.value)}
+                    className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                      selectedQuota === item.value
+                        ? "border-[#204434] bg-[#204434] text-[#FFFCF6] shadow-xs"
+                        : "border-[#BC9B6B]/30 bg-[#FFFCF6] hover:bg-[#F8F5ED] text-[#204434]"
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center justify-between">
+                      <span>{item.label}</span>
+                      {selectedQuota === item.value && <Check className="w-3.5 h-3.5" />}
+                    </div>
+                    <div
+                      className={`text-[10px] mt-0.5 ${
+                        selectedQuota === item.value ? "text-[#FFFCF6]/80" : "text-[#315E48]"
+                      }`}
+                    >
+                      {item.desc}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Input */}
+              <div className="pt-1">
+                <label className="block text-[#204434] font-semibold text-xs mb-1">
+                  Hoặc nhập số lượt tùy ý (-1 là không giới hạn):
+                </label>
+                <input
+                  type="number"
+                  min={-1}
+                  max={99999}
+                  value={selectedQuota}
+                  onChange={(e) => setSelectedQuota(parseInt(e.target.value, 10) || 0)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434] font-mono text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiQuotaTargetUser(null)}
+                  className="px-4 py-2 rounded-xl border border-[#BC9B6B]/30 text-[#315E48] hover:bg-[#204434]/5 font-semibold text-xs"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={updatingQuota}
+                  onClick={handleUpdateAiQuota}
+                  className="px-4 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-semibold text-xs transition shadow-md shadow-[#204434]/20 cursor-pointer disabled:opacity-70 flex items-center gap-1.5"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{updatingQuota ? "Đang lưu..." : "Lưu hạn mức"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Bottom Navigation Bar cho Admin (Phong cách Thủy Mặc Hanyu) */}
       <nav
         aria-label="Điều hướng nhanh quản trị trên điện thoại"

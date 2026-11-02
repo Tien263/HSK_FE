@@ -1,9 +1,30 @@
 import {portalUser,teacherOnly,PortalError} from "@/lib/portal-auth";
 import { NextResponse } from "next/server";
+import { checkAndConsumeAiQuota, getClientIp } from "@/lib/ai-rate-limiter";
 
 export async function POST(request: Request) {
   try {
-    teacherOnly(await portalUser(request));
+    const user = await portalUser(request);
+    teacherOnly(user);
+
+    const clientIp = getClientIp(request);
+    const quotaCheck = await checkAndConsumeAiQuota({
+      userId: user.id,
+      clientIp,
+      cost: 1,
+    });
+
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "QUOTA_EXCEEDED",
+          message: quotaCheck.errorMessage || "Bạn đã dùng hết hạn mức AI hôm nay.",
+          aiQuota: quotaCheck,
+        },
+        { status: 429 }
+      );
+    }
     const body = await request.json();
     const {
       topic = "Gia đình và Đời sống hàng ngày",

@@ -24,6 +24,7 @@ import {
   Trophy,
   Flame,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 import { LessonDialogueLine } from "@/lib/hsk1-full-lessons";
 
@@ -440,6 +441,26 @@ export default function AiDialogueRoleplayModal({
     setSpokenResult("");
   }, [initialDialogue, isOpen]);
 
+  const [aiQuota, setAiQuota] = useState<{
+    limit: number;
+    remaining: number;
+    usedToday: number;
+    resetAt: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/v1/ai/quota")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.quota) {
+            setAiQuota(data.quota);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
   const currentLine = dialogueLines[currentLineIdx] || dialogueLines[0];
   const isMyTurn = currentLine && currentLine.speaker === myRole;
 
@@ -633,6 +654,18 @@ export default function AiDialogueRoleplayModal({
       });
 
       const data = await res.json();
+      if (!res.ok || !data.success) {
+        if (data.error === "QUOTA_EXCEEDED" || res.status === 429) {
+          if (data.aiQuota) setAiQuota(data.aiQuota);
+          alert(data.message || "Bạn đã dùng hết hạn mức câu hỏi AI hôm nay.");
+        }
+        return;
+      }
+
+      if (data.aiQuota) {
+        setAiQuota(data.aiQuota);
+      }
+
       if (data.success) {
         setCheckResult(data);
 
@@ -861,6 +894,27 @@ export default function AiDialogueRoleplayModal({
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-bold">
                   Kho Từ Điển Live
                 </span>
+                {aiQuota && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold border flex items-center gap-1 ${
+                      aiQuota.remaining === 0
+                        ? "bg-red-500/15 text-red-700 border-red-300/50"
+                        : "bg-amber-500/15 text-amber-800 border-amber-300/50"
+                    }`}
+                    title={
+                      aiQuota.limit === -1
+                        ? "Tài khoản có quyền dùng AI không giới hạn"
+                        : `Đã dùng ${aiQuota.usedToday}/${aiQuota.limit} lượt. Làm mới lúc ${aiQuota.resetAt}`
+                    }
+                  >
+                    <Zap className="w-2.5 h-2.5 text-amber-600" />
+                    <span>
+                      {aiQuota.limit === -1
+                        ? "AI: Không giới hạn"
+                        : `Còn ${aiQuota.remaining}/${aiQuota.limit} lượt AI`}
+                    </span>
+                  </span>
+                )}
               </div>
               <p className="text-xs text-[#315E48]">
                 {lessonTitle} · Kết nối trực tiếp dữ liệu từ điển đối chiếu thanh điệu và từ vựng

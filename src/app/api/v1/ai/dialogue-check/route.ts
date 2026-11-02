@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth-server";
+import { checkAndConsumeAiQuota, getClientIp } from "@/lib/ai-rate-limiter";
 
 export async function POST(request: Request) {
   try {
@@ -62,6 +64,33 @@ export async function POST(request: Request) {
       grammarStructure?: string;
       explanation?: string;
     }> = [];
+
+    // Kiểm tra Hạn mức Quota AI & Chống Spam đối với chế độ trò chuyện tự do / tình huống
+    let aiQuotaInfo: any = null;
+    if (mode === "FREE_TALK" || mode === "SCENARIO") {
+      const authUser = await getAuthUser(request);
+      const effectiveUserId = authUser?.id || studentId || null;
+      const clientIp = getClientIp(request);
+
+      const quotaCheck = await checkAndConsumeAiQuota({
+        userId: effectiveUserId,
+        clientIp,
+        cost: 1,
+      });
+
+      if (!quotaCheck.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "QUOTA_EXCEEDED",
+            message: quotaCheck.errorMessage || "Bạn đã dùng hết số lượt hỏi AI hôm nay.",
+            aiQuota: quotaCheck,
+          },
+          { status: 429 }
+        );
+      }
+      aiQuotaInfo = quotaCheck;
+    }
 
     if (mode === "DIALOGUE") {
       // Chế độ luyện hội thoại theo bài học
@@ -708,6 +737,7 @@ Học viên vừa nói: "${spokenText}"`;
       suggestedReplies,
       completedMissionId,
       xpEarned,
+      aiQuota: aiQuotaInfo,
     });
   } catch (error: any) {
     console.error("POST /api/v1/ai/dialogue-check error:", error);
