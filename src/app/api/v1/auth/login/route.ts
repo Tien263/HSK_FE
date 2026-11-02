@@ -69,65 +69,16 @@ export async function POST(request: Request) {
     });
 
     if (!user) {
-      // Tự động khởi tạo tài khoản mẫu chuẩn nếu chưa tồn tại trong database mới
-      if (cleanUsername === "admin" && password === "admin123") {
-        user = await prisma.user.create({
-          data: {
-            username: "admin",
-            name: "Quản trị viên Hệ thống",
-            email: "admin@hanyu.edu.vn",
-            passwordHash: "admin123",
-            role: "ADMIN",
-            status: "ACTIVE",
-          },
-          include: {
-            enrolledClasses: { include: { class: { include: { teacher: true } } } },
-          },
-        });
-      } else if (cleanUsername === "teacher" && password === "teacher123") {
-        user = await prisma.user.create({
-          data: {
-            username: "teacher",
-            name: "Nguyễn Thảo (Cô Ning Ning)",
-            email: "coningning@ningning.edu.vn",
-            passwordHash: "teacher123",
-            role: "TEACHER",
-            status: "ACTIVE",
-            avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
-          },
-          include: {
-            enrolledClasses: { include: { class: { include: { teacher: true } } } },
-          },
-        });
-      } else if (cleanUsername === "student" && password === "student123") {
-        user = await prisma.user.create({
-          data: {
-            username: "student",
-            name: "Trần Minh Khang",
-            email: "student@ningning.edu.vn",
-            passwordHash: "student123",
-            role: "STUDENT",
-            status: "ACTIVE",
-            currentHskLevel: 1,
-            totalXp: 180,
-            streakDays: 4,
-          },
-          include: {
-            enrolledClasses: { include: { class: { include: { teacher: true } } } },
-          },
-        });
-      } else {
-        const failure = recordLoginFailure(clientIp, cleanUsername);
-        return NextResponse.json(
-          {
-            success: false,
-            message: failure.isBlocked
-              ? failure.message
-              : "Thông tin đăng nhập không hợp lệ hoặc tài khoản không tồn tại.",
-          },
-          { status: failure.isBlocked ? 429 : 401 }
-        );
-      }
+      const failure = recordLoginFailure(clientIp, cleanUsername);
+      return NextResponse.json(
+        {
+          success: false,
+          message: failure.isBlocked
+            ? failure.message
+            : "Thông tin đăng nhập không hợp lệ hoặc tài khoản không tồn tại.",
+        },
+        { status: failure.isBlocked ? 429 : 401 }
+      );
     }
 
     // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu scrypt salted và mật khẩu mẫu)

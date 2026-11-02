@@ -11,9 +11,6 @@ import {
   EyeOff,
   ArrowRight,
   Sparkles,
-  GraduationCap,
-  UserCheck,
-  ShieldCheck,
   Check,
   AlertCircle,
   Home,
@@ -91,22 +88,6 @@ export default function LoginPage() {
     }
   };
 
-  const quickDemoLogin = (type: "student" | "teacher" | "admin") => {
-    if (type === "student") {
-      setIdentifier("student");
-      setPassword("student123");
-      handleLogin("student", "student123");
-    } else if (type === "teacher") {
-      setIdentifier("teacher");
-      setPassword("teacher123");
-      handleLogin("teacher", "teacher123");
-    } else if (type === "admin") {
-      setIdentifier("admin");
-      setPassword("admin123");
-      handleLogin("admin", "admin123");
-    }
-  };
-
   return (
     <div className="min-h-screen lg:h-screen lg:max-h-screen flex flex-col justify-between bg-[#F8F5ED] text-[#204434] font-sans selection:bg-[#204434] selection:text-[#FFFCF6] relative overflow-y-auto lg:overflow-hidden">
       
@@ -170,40 +151,6 @@ export default function LoginPage() {
               <div className="pt-2 border-t border-[#BC9B6B]/25 flex items-center justify-between text-[11px] 2xl:text-xs text-[#315E48]">
                 <span>博学笃行 · 沉潜致远</span>
                 <span className="font-serif font-bold text-[#9D493E]">宁 Ning Ning</span>
-              </div>
-            </div>
-
-            {/* Quick Demo Switcher for fast test */}
-            <div className="mt-3 2xl:mt-4 p-3 2xl:p-3.5 rounded-2xl bg-[#FFFCF6]/85 border border-[#BC9B6B]/30 backdrop-blur-md flex items-center justify-between text-xs shadow-sm">
-              <span className="text-[#315E48] font-semibold flex items-center gap-1.5 text-[11px] 2xl:text-xs">
-                <span className="w-2 h-2 rounded-full bg-[#BC9B6B]" />
-                Đăng nhập mẫu:
-              </span>
-              <div className="flex gap-1.5 2xl:gap-2">
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin("student")}
-                  className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-xl bg-[#204434]/10 hover:bg-[#204434] text-[#204434] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
-                >
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  <span>Học viên</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin("teacher")}
-                  className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-xl bg-[#9D493E]/10 hover:bg-[#9D493E] text-[#9D493E] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Giáo viên</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin("admin")}
-                  className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-xl bg-[#BC9B6B]/20 hover:bg-[#BC9B6B] text-[#7A5B2E] hover:text-[#FFFCF6] font-semibold text-[11px] 2xl:text-xs transition cursor-pointer flex items-center gap-1"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Admin</span>
-                </button>
               </div>
             </div>
           </div>
@@ -341,35 +288,7 @@ export default function LoginPage() {
                 </Link>
               </form>
 
-              {/* Mobile Quick Switcher */}
-              <div className="mt-4 pt-3 border-t border-[#BC9B6B]/20 lg:hidden flex items-center justify-between text-xs">
-                <span className="text-[#315E48] font-medium text-[11px]">Mẫu thử:</span>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => quickDemoLogin("student")}
-                    className="px-2 py-0.5 rounded-lg bg-[#204434]/10 text-[#204434] font-semibold text-[11px]"
-                  >
-                    Học viên
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => quickDemoLogin("teacher")}
-                    className="px-2 py-0.5 rounded-lg bg-[#9D493E]/10 text-[#9D493E] font-semibold text-[11px]"
-                  >
-                    Giáo viên
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => quickDemoLogin("admin")}
-                    className="px-2 py-0.5 rounded-lg bg-[#BC9B6B]/20 text-[#7A5B2E] font-semibold text-[11px]"
-                  >
-                    Admin
-                  </button>
-                </div>
               </div>
-
-            </div>
           </div>
 
         </div>
