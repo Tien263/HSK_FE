@@ -6,6 +6,40 @@ import { BookOpen, Languages, MessageSquare, Volume2, BookmarkPlus, Sparkles, Gl
 import type { Hsk1FullLesson,LessonVocabItem } from "@/lib/hsk1-full-lessons";
 import styles from "./Ink.module.css";
 
+// Trích xuất phần tiếng Trung thuần túy để AI chỉ đọc tiếng Trung, loại bỏ pinyin, tiếng Việt và giải thích
+function cleanChineseForSpeech(raw: string): string {
+  if (!raw) return "";
+  const text = raw.trim();
+
+  // 1. Khối chữ Hán đứng đầu trước các ký tự ngăn cách —, –, -, :, ：, (, （, [, 【 hoặc khoảng trắng kèm pinyin/tiếng Việt
+  const matchWithSeparator = text.match(/^([\u4e00-\u9fa5]+)\s*(?:[—–\-:：(（\[【]|\s+[a-zA-Zà-ỹÀ-Ỹ])/);
+  if (matchWithSeparator && matchWithSeparator[1]) {
+    return matchWithSeparator[1].trim();
+  }
+
+  // 2. Câu tiếng Trung có ký hiệu ngắt nhịp như '//' hoặc '|' nhưng toàn bộ là chữ Hán
+  const textWithoutSlashes = text.replace(/[\/\/\s|]+/g, "");
+  if (/^[\u4e00-\u9fa5，。！？、]+$/.test(textWithoutSlashes)) {
+    return textWithoutSlashes;
+  }
+
+  // 3. Khối chữ Hán đầu tiên
+  const hanziStart = text.match(/^[\u4e00-\u9fa5]+/);
+  if (hanziStart && hanziStart[0]) {
+    return hanziStart[0];
+  }
+
+  // 4. Nếu toàn chữ Hán sau khi loại bỏ dấu cách và ký tự lạ
+  const pureHanzi = text.replace(/[^\u4e00-\u9fa5]/g, "");
+  if (pureHanzi.length > 0) {
+    return pureHanzi;
+  }
+
+  // 5. Nếu là âm tiết Pinyin thuần (như mā, má, nǐ...)
+  const pinyinWord = text.split(/[\s—–\-:：(（\[【]/)[0]?.trim();
+  return pinyinWord || text;
+}
+
 export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk1FullLesson;onSaveVocabulary?:(items:LessonVocabItem[])=>Promise<void>}){
   const [tab,setTab]=useState("vocab"),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
   function speak(text:string){if(!("speechSynthesis"in window)){setMessage("Trình duyệt chưa hỗ trợ phát âm.");return;}speechSynthesis.cancel();const sound=new SpeechSynthesisUtterance(text);sound.lang="zh-CN";speechSynthesis.speak(sound);}
@@ -207,7 +241,7 @@ export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk
           ? <LessonRichSections lesson={{...fullLesson,reading:undefined}} />
           : <p className={styles.empty}>Bài này chưa có nội dung văn hóa giao tiếp. Giáo viên có thể bổ sung trong phần soạn bài.</p>
       )}
-      {tab==="phonetics"&&<><h3 className={styles.panelTitle}>Ngữ âm</h3>{(lesson.phonetics.title||lesson.phonetics.rule||lesson.phonetics.examples.length>0)&&<article className={styles.contentItem}><h4 className="font-serif text-lg font-bold">{lesson.phonetics.title||"Ngữ âm"}</h4>{lesson.phonetics.rule&&<p className={`${styles.meaning} whitespace-pre-wrap`}>{lesson.phonetics.rule}</p>}<div className="mt-4 flex flex-wrap gap-2">{lesson.phonetics.examples.map((example,index)=><button key={`${example}:${index}`} className={`${styles.button} ${styles.secondary}`} onClick={()=>speak(example)}><Volume2 size={12}/>{example}</button>)}</div></article>}{!lesson.phonetics.title&&!lesson.phonetics.rule&&!lesson.phonetics.examples.length&&!lesson.culture&&<p className={styles.empty}>Phần ngữ âm chưa có nội dung.</p>}</>}
+      {tab==="phonetics"&&<><h3 className={styles.panelTitle}>Ngữ âm</h3>{(lesson.phonetics.title||lesson.phonetics.rule||lesson.phonetics.examples.length>0)&&<article className={styles.contentItem}><h4 className="font-serif text-lg font-bold">{lesson.phonetics.title||"Ngữ âm"}</h4>{lesson.phonetics.rule&&<p className={`${styles.meaning} whitespace-pre-wrap`}>{lesson.phonetics.rule}</p>}<div className="mt-4 flex flex-wrap gap-2">{lesson.phonetics.examples.map((example,index)=>{const targetZh=cleanChineseForSpeech(example);return <button key={`${example}:${index}`} className={`${styles.button} ${styles.secondary}`} title={`Nghe phát âm chuẩn: ${targetZh}`} aria-label={`Nghe phát âm ${targetZh}`} onClick={()=>speak(targetZh)}><Volume2 size={12}/>{example}</button>;})}</div></article>}{!lesson.phonetics.title&&!lesson.phonetics.rule&&!lesson.phonetics.examples.length&&!lesson.culture&&<p className={styles.empty}>Phần ngữ âm chưa có nội dung.</p>}</>}
     </section>
   </div>;
 }
