@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth-server";
+import { hashPassword } from "@/lib/password-security";
+import { logSystemError } from "@/lib/error-logger";
 
 // GET /api/v1/admin/users - Lấy danh sách tài khoản & thống kê
 export async function GET(request: Request) {
   try {
+    const authCheck = await requireAdmin(request);
+    if (!authCheck.ok) return authCheck.response;
+
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get("search") || "").trim().toLowerCase();
     const role = (searchParams.get("role") || "").trim().toUpperCase();
@@ -112,6 +118,9 @@ export async function GET(request: Request) {
 // POST /api/v1/admin/users - Cấp/tạo tài khoản mới
 export async function POST(request: Request) {
   try {
+    const authCheck = await requireAdmin(request);
+    if (!authCheck.ok) return authCheck.response;
+
     const body = await request.json();
     const { name, username, email, password, role } = body;
 
@@ -164,7 +173,7 @@ export async function POST(request: Request) {
         name: trimmedName,
         username: cleanUsername,
         email: cleanEmail,
-        passwordHash: cleanPassword,
+        passwordHash: hashPassword(cleanPassword),
         role: assignedRole,
         status: "ACTIVE",
         currentHskLevel: assignedRole === "STUDENT" ? 1 : 0,
@@ -197,6 +206,9 @@ export async function POST(request: Request) {
 // PATCH /api/v1/admin/users - Cập nhật trạng thái hoặc đổi mật khẩu
 export async function PATCH(request: Request) {
   try {
+    const authCheck = await requireAdmin(request);
+    if (!authCheck.ok) return authCheck.response;
+
     const body = await request.json();
     const { userId, action, newPassword, newRole } = body;
 
@@ -239,7 +251,7 @@ export async function PATCH(request: Request) {
       }
       await prisma.user.update({
         where: { id: userId },
-        data: { passwordHash: newPassword },
+        data: { passwordHash: hashPassword(newPassword) },
       });
       return NextResponse.json({
         success: true,
@@ -337,6 +349,9 @@ export async function PATCH(request: Request) {
 // DELETE /api/v1/admin/users - Xóa tài khoản
 export async function DELETE(request: Request) {
   try {
+    const authCheck = await requireAdmin(request);
+    if (!authCheck.ok) return authCheck.response;
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("id");
 

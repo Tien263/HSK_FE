@@ -11,10 +11,7 @@ export async function GET(request: Request) {
   try {
     const admin = await getDictionaryAdmin(request);
     if (!admin) {
-      const anyAdmin = await prisma.user.findFirst({ where: { role: "ADMIN", status: "ACTIVE" } });
-      if (!anyAdmin) {
-        return NextResponse.json({ success: false, message: "Vui lòng xác thực tài khoản admin." }, { status: 403, headers });
-      }
+      return NextResponse.json({ success: false, message: "Vui lòng xác thực tài khoản admin." }, { status: 403, headers });
     }
     const level = Number(new URL(request.url).searchParams.get("level") ?? 1);
     if (!Number.isInteger(level) || level < 1 || level > 9) {
@@ -31,16 +28,7 @@ export async function POST(request: Request) {
     if (!dictionarySameOrigin(request)) {
       return NextResponse.json({ success: false, message: "Nguồn yêu cầu không hợp lệ." }, { status: 403, headers });
     }
-    let admin = await getDictionaryAdmin(request);
-    if (!admin) {
-      const defaultAdmin = await prisma.user.findFirst({
-        where: { role: "ADMIN", status: "ACTIVE" },
-        select: { id: true, name: true, username: true, role: true },
-      });
-      if (defaultAdmin) {
-        admin = defaultAdmin;
-      }
-    }
+    const admin = await getDictionaryAdmin(request);
     if (!admin) {
       return NextResponse.json({ success: false, message: "Chỉ admin có quyền biên tập giáo trình." }, { status: 403, headers });
     }

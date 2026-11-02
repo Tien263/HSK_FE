@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {createDictionarySession,dictionaryCookieOptions,DICTIONARY_SESSION_COOKIE} from "@/lib/dictionary-session";
 import { getClientIp, checkRegisterRateLimit, recordRegisterSuccess } from "@/lib/auth-rate-limiter";
+import { hashPassword } from "@/lib/password-security";
 
 export async function POST(request: Request) {
   try {
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
         name: trimmedName,
         username: finalUsername,
         email: cleanEmail,
-        passwordHash: password,
+        passwordHash: hashPassword(password),
         role: "STUDENT",
         status: "ACTIVE",
         currentHskLevel: 1,

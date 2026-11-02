@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { generateAndSendOtp, getOtpLogs } from "@/lib/otp-store";
 import { checkOtpSendRateLimit, recordOtpSendSuccess } from "@/lib/auth-rate-limiter";
+import { requireAdmin } from "@/lib/auth-server";
 
 // GET /api/v1/admin/otp/send - Lấy danh sách OTP logs
-export async function GET() {
+export async function GET(request: Request) {
+  const authCheck = await requireAdmin(request);
+  if (!authCheck.ok) return authCheck.response;
+
   const logs = getOtpLogs();
   return NextResponse.json({
     success: true,
@@ -14,6 +18,9 @@ export async function GET() {
 // POST /api/v1/admin/otp/send - Phát & gửi OTP
 export async function POST(request: Request) {
   try {
+    const authCheck = await requireAdmin(request);
+    if (!authCheck.ok) return authCheck.response;
+
     const body = await request.json();
     const { email, length = 6, purpose = "Xác minh tài khoản", smtpConfig } = body;
 

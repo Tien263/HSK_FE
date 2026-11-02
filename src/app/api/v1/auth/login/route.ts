@@ -7,6 +7,11 @@ import {
   recordLoginFailure,
   recordLoginSuccess,
 } from "@/lib/auth-rate-limiter";
+import {
+  verifyPassword,
+  hashPassword,
+  isLegacyPlaintextPassword,
+} from "@/lib/password-security";
 
 export async function POST(request: Request) {
   try {
@@ -125,13 +130,23 @@ export async function POST(request: Request) {
       }
     }
 
-    // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu thường và mã hóa)
-    if (user.passwordHash && user.passwordHash !== password) {
+    // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu scrypt salted và mật khẩu mẫu)
+    if (!verifyPassword(password, user.passwordHash)) {
       const failure = recordLoginFailure(clientIp, cleanUsername);
       return NextResponse.json(
         { success: false, message: failure.message },
         { status: failure.isBlocked ? 429 : 401 }
       );
+    }
+
+    // Tự động nâng cấp mật khẩu cũ sang chuẩn mã hóa Scrypt với Salt bảo mật cao
+    if (isLegacyPlaintextPassword(user.passwordHash)) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: hashPassword(password) },
+        });
+      } catch {}
     }
 
     // Đăng nhập hợp lệ -> Xóa bộ đếm thất bại

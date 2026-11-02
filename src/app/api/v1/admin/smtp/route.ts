@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSmtpConfig, updateSmtpConfig, testSmtpConnection } from "@/lib/mailer";
+import { requireAdmin } from "@/lib/auth-server";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authCheck = await requireAdmin(request);
+  if (!authCheck.ok) return authCheck.response;
+
   const config = getSmtpConfig();
   return NextResponse.json({
     success: true,
@@ -25,6 +29,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const authCheck = await requireAdmin(request);
+    if (!authCheck.ok) return authCheck.response;
+
     const body = await request.json();
     const {
       authType,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_SELF_STUDY_ROADMAP_STAGES } from "@/lib/self-study-roadmap-constants";
+import { requireAdmin } from "@/lib/auth-server";
 
 export async function GET() {
   try {
@@ -28,6 +29,9 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
+    const authCheck = await requireAdmin(request);
+    if (!authCheck.ok) return authCheck.response;
+
     const body = await request.json();
     const { stages } = body;
 
