@@ -197,7 +197,13 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       </>}
     </>}
     <AncientSideDrawerNotes isOpen={notesOpen} onClose={() => setNotesOpen(false)} lessonNumber={current?.number || selection.lessonNumber} hskLevel={level} studentId={currentUser?.id} lessonTitle={current?.titleVi || current?.titleZh} lesson={canStudy ? current : undefined}/>
-    <VirtualStudyRoomModal isOpen={roomOpen} onClose={() => setRoomOpen(false)} studentName={currentUser?.name || "Bạn"}/>
+    <VirtualStudyRoomModal
+      isOpen={roomOpen}
+      onClose={() => setRoomOpen(false)}
+      studentName={currentUser?.name || "Bạn"}
+      initialHskLevel={level}
+      initialLessonNumber={current?.number || selection.lessonNumber}
+    />
     <ImperialPassSealModal
       isOpen={passModalOpen}
       onClose={() => setPassModalOpen(false)}

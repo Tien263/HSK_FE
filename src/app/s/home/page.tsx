@@ -3143,6 +3143,8 @@ export default function StudentHomePage() {
         isOpen={showStudyRoomModal}
         onClose={() => setShowStudyRoomModal(false)}
         studentName={studentName || currentUser?.name || "Bạn"}
+        initialHskLevel={selfStudyHskLevel || 1}
+        initialLessonNumber={selectedScrollLesson || 1}
       />
     </div>
   );

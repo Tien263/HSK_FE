@@ -2601,6 +2601,8 @@ export default function StudentPracticeWorkspace({
         isOpen={showVirtualStudyRoomModal}
         onClose={() => setShowVirtualStudyRoomModal(false)}
         studentName={currentUser?.name || "Bạn"}
+        initialHskLevel={currentHskLevel}
+        initialLessonNumber={selectedPracticeLesson}
       />
 
       {/* Modal Chiếu chỉ Thông Quan (印) */}

@@ -22,6 +22,11 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { pinyin } from "pinyin-pro";
+import CurriculumSentencePickerModal from "./CurriculumSentencePickerModal";
+import {
+  LessonSentenceItem,
+  getSentencesByHskAndLesson,
+} from "@/lib/lesson-sentence-extractor";
 
 interface RealStudentPresence {
   id: string;
@@ -37,6 +42,8 @@ interface VirtualStudyRoomModalProps {
   onClose: () => void;
   studentName?: string;
   currentLessonHanziList?: string[];
+  initialHskLevel?: number;
+  initialLessonNumber?: number;
 }
 
 // Danh sách câu luyện Shadowing kinh điển phân theo cấp HSK
@@ -90,6 +97,8 @@ export default function VirtualStudyRoomModal({
   onClose,
   studentName = "Bạn",
   currentLessonHanziList,
+  initialHskLevel = 1,
+  initialLessonNumber = 1,
 }: VirtualStudyRoomModalProps) {
   // 1. Pomodoro 25 phút (1500 giây)
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
@@ -106,7 +115,14 @@ export default function VirtualStudyRoomModal({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const noiseNodeRef = useRef<AudioNode | null>(null);
 
-  // 4. AI Speech Shadowing State
+  // 4. AI Speech Shadowing & Giáo trình HSK State
+  const [activeHskLevel, setActiveHskLevel] = useState<number>(initialHskLevel || 1);
+  const [activeLessonNumber, setActiveLessonNumber] = useState<number>(initialLessonNumber || 1);
+  const [showCurriculumPicker, setShowCurriculumPicker] = useState<boolean>(false);
+  const [lessonSentences, setLessonSentences] = useState<LessonSentenceItem[]>([]);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(0);
+  const [selectedCurriculumSentence, setSelectedCurriculumSentence] = useState<LessonSentenceItem | null>(null);
+
   const [selectedCurriculumIdx, setSelectedCurriculumIdx] = useState(0);
   const [customSentence, setCustomSentence] = useState("");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -134,6 +150,61 @@ export default function VirtualStudyRoomModal({
     isEvaluated: boolean;
   } | null>(null);
 
+  // Tải danh sách câu của HSK & Bài học đang chọn
+  useEffect(() => {
+    const list = getSentencesByHskAndLesson(activeHskLevel, activeLessonNumber);
+    setLessonSentences(list);
+    if (list.length > 0) {
+      if (!selectedCurriculumSentence || selectedCurriculumSentence.hskLevel !== activeHskLevel || selectedCurriculumSentence.lessonNumber !== activeLessonNumber) {
+        setSelectedCurriculumSentence(list[0]);
+        setCurrentSentenceIndex(0);
+      }
+    }
+  }, [activeHskLevel, activeLessonNumber]);
+
+  // Đồng bộ props initialHskLevel và initialLessonNumber khi modal mở
+  useEffect(() => {
+    if (isOpen) {
+      if (initialHskLevel) setActiveHskLevel(initialHskLevel);
+      if (initialLessonNumber) setActiveLessonNumber(initialLessonNumber);
+    }
+  }, [isOpen, initialHskLevel, initialLessonNumber]);
+
+  // Điều hướng câu trước / câu sau trong bài
+  const handlePrevSentence = () => {
+    if (lessonSentences.length === 0) return;
+    const prevIdx = Math.max(0, currentSentenceIndex - 1);
+    setCurrentSentenceIndex(prevIdx);
+    setSelectedCurriculumSentence(lessonSentences[prevIdx]);
+    setCustomSentence("");
+    setUserTranscript("");
+    setEvaluation(null);
+  };
+
+  const handleNextSentence = () => {
+    if (lessonSentences.length === 0) return;
+    const nextIdx = Math.min(lessonSentences.length - 1, currentSentenceIndex + 1);
+    setCurrentSentenceIndex(nextIdx);
+    setSelectedCurriculumSentence(lessonSentences[nextIdx]);
+    setCustomSentence("");
+    setUserTranscript("");
+    setEvaluation(null);
+  };
+
+  const handleSelectCurriculumSentence = (sentence: LessonSentenceItem) => {
+    setActiveHskLevel(sentence.hskLevel);
+    setActiveLessonNumber(sentence.lessonNumber);
+    setSelectedCurriculumSentence(sentence);
+    const list = getSentencesByHskAndLesson(sentence.hskLevel, sentence.lessonNumber);
+    setLessonSentences(list);
+    const foundIdx = list.findIndex((s) => s.id === sentence.id || s.zh === sentence.zh);
+    setCurrentSentenceIndex(foundIdx >= 0 ? foundIdx : 0);
+    setCustomSentence("");
+    setUserTranscript("");
+    setEvaluation(null);
+    setShowCurriculumPicker(false);
+  };
+
   // Câu mục tiêu hiện tại
   const targetSentence = useMemo(() => {
     if (customSentence.trim()) {
@@ -149,10 +220,37 @@ export default function VirtualStudyRoomModal({
         py,
         vi: "Câu tự luyện tùy biến của bạn",
         tip: "Hãy chú ý phát âm tròn vành rõ chữ và đúng cao độ thanh điệu.",
+        sourceTag: "Tự nhập tự do",
+        sourceCategory: "custom",
+        hskLevel: activeHskLevel,
+        lessonNumber: activeLessonNumber,
       };
     }
-    return SHADOWING_CURRICULUM[selectedCurriculumIdx] || SHADOWING_CURRICULUM[0];
-  }, [customSentence, selectedCurriculumIdx]);
+    if (selectedCurriculumSentence) {
+      return {
+        zh: selectedCurriculumSentence.zh,
+        py: selectedCurriculumSentence.pinyin || pinyin(selectedCurriculumSentence.zh),
+        vi: selectedCurriculumSentence.vi,
+        tip: selectedCurriculumSentence.tip || "Hãy chú ý phát âm tròn vành rõ chữ và đúng cao độ thanh điệu.",
+        sourceTag: `${selectedCurriculumSentence.categoryLabel} · ${selectedCurriculumSentence.detailTag}`,
+        sourceCategory: selectedCurriculumSentence.sourceCategory,
+        hskLevel: selectedCurriculumSentence.hskLevel,
+        lessonNumber: selectedCurriculumSentence.lessonNumber,
+        lessonTitleZh: selectedCurriculumSentence.lessonTitleZh,
+      };
+    }
+    const def = SHADOWING_CURRICULUM[selectedCurriculumIdx] || SHADOWING_CURRICULUM[0];
+    return {
+      zh: def.zh,
+      py: def.py,
+      vi: def.vi,
+      tip: def.tip,
+      sourceTag: `HSK ${def.level} Kinh Điển`,
+      sourceCategory: "preset",
+      hskLevel: def.level,
+      lessonNumber: 1,
+    };
+  }, [customSentence, selectedCurriculumSentence, selectedCurriculumIdx, activeHskLevel, activeLessonNumber]);
 
   // Tải dữ liệu sĩ tử đang cùng học từ API thật
   const fetchRealPresence = useCallback(async () => {
@@ -681,40 +779,67 @@ export default function VirtualStudyRoomModal({
 
                 {/* Chọn câu mẫu hoặc nhập câu tự do */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-serif font-bold text-[#BC9B6B]">
-                      Chọn câu luyện âm hoặc tự nhập câu tiếng Trung:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setCustomSentence("")}
-                      className="text-[11px] text-stone-400 hover:text-stone-200 underline"
-                    >
-                      Dùng kho câu chuẩn
-                    </button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-serif font-bold text-[#BC9B6B]">
+                        Kho câu đang chọn:
+                      </span>
+                      <span className="text-xs font-bold text-[#F3EFE6] bg-[#204434] px-2.5 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>HSK {activeHskLevel} · Bài {activeLessonNumber} ({lessonSentences.length} câu)</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCurriculumPicker(true)}
+                        className="px-3 py-1.5 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/50 hover:bg-[#D4AF37]/30 text-[#D4AF37] hover:text-[#FFF8E7] text-xs font-serif font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Dùng kho câu chuẩn giáo trình</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {SHADOWING_CURRICULUM.map((item, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setCustomSentence("");
-                          setSelectedCurriculumIdx(idx);
-                          setUserTranscript("");
-                          setEvaluation(null);
-                        }}
-                        className={`p-2.5 rounded-xl text-left border transition text-xs ${
-                          selectedCurriculumIdx === idx && !customSentence
-                            ? "bg-[#204434] border-[#D4AF37] text-white font-bold"
-                            : "bg-white/5 border-white/10 text-stone-300 hover:bg-white/10"
-                        }`}
-                      >
-                        <div className="text-[10px] text-[#D4AF37] font-mono">HSK {item.level}</div>
-                        <div className="font-serif line-clamp-1">{item.zh}</div>
-                      </button>
-                    ))}
+                  {/* Danh sách các câu nổi bật trong bài học đang chọn */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {(lessonSentences.length > 0 ? lessonSentences.slice(0, 6) : SHADOWING_CURRICULUM).map((item: any, idx) => {
+                      const isCurriculum = "sourceCategory" in item;
+                      const isSelected = isCurriculum
+                        ? selectedCurriculumSentence?.id === item.id && !customSentence
+                        : selectedCurriculumIdx === idx && !customSentence && !selectedCurriculumSentence;
+
+                      return (
+                        <button
+                          key={item.id || idx}
+                          type="button"
+                          onClick={() => {
+                            setCustomSentence("");
+                            if (isCurriculum) {
+                              setSelectedCurriculumSentence(item);
+                              setCurrentSentenceIndex(idx);
+                            } else {
+                              setSelectedCurriculumSentence(null);
+                              setSelectedCurriculumIdx(idx);
+                            }
+                            setUserTranscript("");
+                            setEvaluation(null);
+                          }}
+                          className={`p-2.5 rounded-xl text-left border transition text-xs cursor-pointer ${
+                            isSelected
+                              ? "bg-[#204434] border-[#D4AF37] text-white font-bold shadow-sm"
+                              : "bg-white/5 border-white/10 text-stone-300 hover:bg-white/10"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[10px] text-[#D4AF37] font-mono mb-0.5">
+                            <span>{isCurriculum ? item.categoryLabel : `HSK ${item.level}`}</span>
+                            {isCurriculum && <span className="text-stone-400 truncate max-w-[100px]">{item.detailTag}</span>}
+                          </div>
+                          <div className="font-serif line-clamp-1">{item.zh}</div>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Input nhập câu bất kỳ */}
@@ -734,7 +859,40 @@ export default function VirtualStudyRoomModal({
                 </div>
 
                 {/* Thẻ hiển thị câu mẫu mục tiêu */}
-                <div className="p-6 rounded-2xl bg-[#0E1512] border border-[#BC9B6B]/40 space-y-3 text-center relative">
+                <div className="p-6 rounded-2xl bg-[#0E1512] border border-[#BC9B6B]/40 space-y-3 text-center relative shadow-inner">
+                  {/* Thanh điều hướng câu trước / sau trong bài */}
+                  {selectedCurriculumSentence && lessonSentences.length > 1 && (
+                    <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-black/50 border border-[#BC9B6B]/30 text-xs mb-2">
+                      <button
+                        type="button"
+                        disabled={currentSentenceIndex <= 0}
+                        onClick={handlePrevSentence}
+                        className="text-stone-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-serif"
+                      >
+                        ◀ Câu trước
+                      </button>
+
+                      <div className="flex items-center gap-1.5 text-stone-400 font-mono text-[11px]">
+                        <span className="text-[#D4AF37] font-bold">
+                          Câu {currentSentenceIndex + 1}/{lessonSentences.length}
+                        </span>
+                        <span>•</span>
+                        <span className="truncate max-w-[180px] text-[#F3EFE6]">
+                          {targetSentence.sourceTag}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={currentSentenceIndex >= lessonSentences.length - 1}
+                        onClick={handleNextSentence}
+                        className="text-[#D4AF37] hover:text-[#FFF8E7] disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer font-serif font-bold"
+                      >
+                        Câu tiếp ▶
+                      </button>
+                    </div>
+                  )}
+
                   <div className="text-xs font-mono text-[#D4AF37] tracking-wider">
                     {targetSentence.py}
                   </div>
@@ -744,6 +902,12 @@ export default function VirtualStudyRoomModal({
                   <div className="text-xs text-stone-300">
                     &quot;{targetSentence.vi}&quot;
                   </div>
+
+                  {targetSentence.tip && (
+                    <div className="text-[11px] text-stone-400 bg-black/30 px-3 py-1.5 rounded-xl border border-white/5 inline-block mx-auto max-w-xl">
+                      💡 <span className="italic">{targetSentence.tip}</span>
+                    </div>
+                  )}
 
                   {/* Nút bấm Nghe AI Đọc & Bắt đầu thu âm */}
                   <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
@@ -918,6 +1082,16 @@ export default function VirtualStudyRoomModal({
           </div>
         </div>
       </div>
+
+      {/* Modal Chọn Câu Chuẩn Giáo Trình HSK */}
+      <CurriculumSentencePickerModal
+        isOpen={showCurriculumPicker}
+        onClose={() => setShowCurriculumPicker(false)}
+        currentHskLevel={activeHskLevel}
+        currentLessonNumber={activeLessonNumber}
+        onSelectSentence={handleSelectCurriculumSentence}
+        onPreviewSpeak={handleAiSpeak}
+      />
     </div>
   );
 }
