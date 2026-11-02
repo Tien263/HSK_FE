@@ -1,84 +1,45 @@
-import { pinyin } from "pinyin-pro";
-
 /**
- * Bảng ánh xạ âm Hán Việt chuẩn xác theo thanh điệu / ngữ cảnh đọc.
- * Giải quyết triệt để lỗi đa âm (ví dụ: 好 thanh 3 = Hảo, thanh 4 = Háo).
+ * BẢNG ÁNH XẠ ÂM HÁN VIỆT ĐA ÂM VÀ CHUYỂN ĐỔI PINYIN CHUẨN XÁC
+ * Hệ thống tự động nhận biết thanh điệu và ngữ cảnh đọc để chọn chính xác âm Hán Việt chuẩn,
+ * ví dụ:
+ * - 好: hǎo (thanh 3) -> "Hảo" (tốt, đẹp); hào (thanh 4) -> "Háo" (háo sắc, hiếu kỳ)
+ * - 搞: gǎo (thanh 3) -> "Cảo" (làm, tiến hành, sáng tác)
+ * - 您: nín (thanh 2) -> "Nễ" (ông, ngài, đại từ tôn kính)
+ * - 行: xíng -> "Hành"; háng -> "Hàng"
  */
-export const SINO_VIETNAMESE_TONE_MAP: Record<string, Record<number | string, string>> = {
-  // 好: hǎo (thanh 3) -> Hảo; hào (thanh 4) -> Háo
+
+export interface SinoVietnameseMapping {
+  [tone: string]: string;
+}
+
+export const SINO_VIETNAMESE_TONE_MAP: Record<string, SinoVietnameseMapping> = {
+  // 好: thanh 3 -> Hảo; thanh 4 -> Háo
   好: {
     3: "Hảo",
     4: "Háo",
     hǎo: "Hảo",
     hào: "Háo",
-    default: "Hảo / Háo",
+    default: "Hảo",
   },
   // 搞: gǎo (thanh 3) -> Cảo
   搞: {
     3: "Cảo",
+    gǎo: "Cảo",
     default: "Cảo",
   },
-  // 您: nín (thanh 2) -> Nễ (kính ngữ của 你)
+  // 您: nín (thanh 2) -> Nễ
   您: {
     2: "Nễ",
     nín: "Nễ",
     default: "Nễ",
   },
-  // 你: nǐ (thanh 3) -> Nễ / Nhĩ
-  你: {
-    3: "Nễ / Nhĩ",
-    default: "Nễ / Nhĩ",
-  },
-  // 得: dé (thanh 2) -> Đắc; děi (thanh 3) -> Đắc (phải); de (thanh nhẹ) -> Đắc
-  得: {
-    2: "Đắc",
-    3: "Đắc",
-    0: "Đắc",
-    5: "Đắc",
-    default: "Đắc",
-  },
-  // 地: dì (thanh 4) -> Địa; de (thanh nhẹ) -> Địa
-  地: {
-    4: "Địa",
-    0: "Địa",
-    5: "Địa",
-    default: "Địa",
-  },
   // 行: xíng (thanh 2) -> Hành; háng (thanh 2) -> Hàng
   行: {
     xíng: "Hành",
     háng: "Hàng",
-    default: "Hành / Hàng",
-  },
-  // 重: zhòng (thanh 4) -> Trọng; chóng (thanh 2) -> Trùng
-  重: {
-    zhòng: "Trọng",
-    chóng: "Trùng",
-    4: "Trọng",
-    2: "Trùng",
-    default: "Trọng / Trùng",
-  },
-  // 乐: lè (thanh 4) -> Lạc; yuè (thanh 4) -> Nhạc
-  乐: {
-    lè: "Lạc",
-    yuè: "Nhạc",
-    default: "Lạc / Nhạc",
-  },
-  // 长: cháng (thanh 2) -> Trường; zhǎng (thanh 3) -> Trưởng
-  长: {
-    cháng: "Trường",
-    zhǎng: "Trưởng",
-    2: "Trường",
-    3: "Trưởng",
-    default: "Trường / Trưởng",
-  },
-  // 少: shǎo (thanh 3) -> Thiểu; shào (thanh 4) -> Thiếu
-  少: {
-    3: "Thiểu",
-    4: "Thiếu",
-    shǎo: "Thiểu",
-    shào: "Thiếu",
-    default: "Thiểu / Thiếu",
+    xìng: "Hạnh",
+    héng: "Hoành",
+    default: "Hành",
   },
   // 会: huì (thanh 4) -> Hội; kuài (thanh 4) -> Khoái (kế toán)
   会: {
@@ -86,7 +47,46 @@ export const SINO_VIETNAMESE_TONE_MAP: Record<string, Record<number | string, st
     kuài: "Khoái",
     default: "Hội",
   },
-  // 觉: jué (thanh 2) -> Giác; jiào (thanh 4) -> Giác (ngủ)
+  // 乐: lè (thanh 4) -> Lạc (vui); yuè (thanh 4) -> Nhạc (âm nhạc)
+  乐: {
+    lè: "Lạc",
+    yuè: "Nhạc",
+    default: "Lạc / Nhạc",
+  },
+  // 得: de (thanh nhẹ), dé (thanh 2) -> Đắc; děi (thanh 3) -> Đắc (phải)
+  得: {
+    dé: "Đắc",
+    děi: "Đắc",
+    de: "Đắc",
+    default: "Đắc",
+  },
+  // 地: de (thanh nhẹ) -> Địa; dì (thanh 4) -> Địa
+  地: {
+    dì: "Địa",
+    de: "Địa",
+    default: "Địa",
+  },
+  // 重: chóng (thanh 2) -> Trùng (lặp lại); zhòng (thanh 4) -> Trọng (nặng, quan trọng)
+  重: {
+    chóng: "Trùng",
+    zhòng: "Trọng",
+    default: "Trọng / Trùng",
+  },
+  // 长: cháng (thanh 2) -> Trường (dài); zhǎng (thanh 3) -> Trưởng (lớn lên, hiệu trưởng)
+  长: {
+    cháng: "Trường",
+    zhǎng: "Trưởng",
+    default: "Trường / Trưởng",
+  },
+  // 少: shǎo (thanh 3) -> Thiểu (ít); shào (thanh 4) -> Thiếu (thiếu niên)
+  少: {
+    3: "Thiểu",
+    4: "Thiếu",
+    shǎo: "Thiểu",
+    shào: "Thiếu",
+    default: "Thiểu / Thiếu",
+  },
+  // 觉: jué (thanh 2) -> Giác (cảm giác); jiào (thanh 4) -> Giác (ngủ: shuìjiào)
   觉: {
     jué: "Giác",
     jiào: "Giác",
@@ -178,15 +178,74 @@ export function extractToneNumber(pinyinStr: string): number {
 }
 
 /**
- * Chuẩn hóa Pinyin số (như nin2, hao3, shi4) sang ký tự có dấu thanh chuẩn quốc tế (nín, hǎo, shì).
+ * Khắc phục triệt để lỗi dấu Pinyin bị tách rời hoặc dùng ký hiệu thanh điệu rời rạc
+ * (Ví dụ: yoˇu -> yǒu, koˇu -> kǒu, nüˇ'ér -> nǚ'ér, aˇ -> ǎ, oˉ -> ō, oˊ -> ó, oˋ -> ò)
  */
-export function normalizePinyinTone(input: string): string {
-  if (!input) return "";
-  const trimmed = input.trim();
-  // Nếu không chứa số thì giữ nguyên
-  if (!/\d/.test(trimmed)) return trimmed;
+export function cleanMalformedPinyin(str: string): string {
+  if (!str) return "";
 
-  // Bảng đặt dấu thanh chuẩn: ưu tiên a, e; nếu ou thì đặt ở o; còn lại đặt ở nguyên âm cuối
+  // 1. Thay thế các cặp [nguyên âm + ký tự thanh điệu rời rạc U+02C7, U+030C, U+02C9, U+02CA, U+02CB, ...]
+  const replacements: Record<string, string> = {
+    // Thanh 3 (Caron / Hacek: \u02C7, combining \u030C)
+    "a[\\u02C7\\u030C]": "ǎ", "A[\\u02C7\\u030C]": "Ǎ",
+    "e[\\u02C7\\u030C]": "ě", "E[\\u02C7\\u030C]": "Ě",
+    "o[\\u02C7\\u030C]": "ǒ", "O[\\u02C7\\u030C]": "Ǒ",
+    "i[\\u02C7\\u030C]": "ǐ", "I[\\u02C7\\u030C]": "Ǐ",
+    "u[\\u02C7\\u030C]": "ǔ", "U[\\u02C7\\u030C]": "Ǔ",
+    "ü[\\u02C7\\u030C]": "ǚ", "Ü[\\u02C7\\u030C]": "Ǚ",
+    "v[\\u02C7\\u030C]": "ǚ", "V[\\u02C7\\u030C]": "Ǚ",
+
+    // Thanh 1 (Macron / Flat: \u02C9, \u00AF, combining \u0304)
+    "a[\\u02C9\\u00AF\\u0304]": "ā", "A[\\u02C9\\u00AF\\u0304]": "Ā",
+    "e[\\u02C9\\u00AF\\u0304]": "ē", "E[\\u02C9\\u00AF\\u0304]": "Ē",
+    "o[\\u02C9\\u00AF\\u0304]": "ō", "O[\\u02C9\\u00AF\\u0304]": "Ō",
+    "i[\\u02C9\\u00AF\\u0304]": "ī", "I[\\u02C9\\u00AF\\u0304]": "Ī",
+    "u[\\u02C9\\u00AF\\u0304]": "ū", "U[\\u02C9\\u00AF\\u0304]": "Ū",
+    "ü[\\u02C9\\u00AF\\u0304]": "ǖ", "Ü[\\u02C9\\u00AF\\u0304]": "Ǖ",
+    "v[\\u02C9\\u00AF\\u0304]": "ǖ", "V[\\u02C9\\u00AF\\u0304]": "Ǖ",
+
+    // Thanh 2 (Acute: \u02CA, \u00B4, combining \u0301)
+    "a[\\u02CA\\u00B4\\u0301]": "á", "A[\\u02CA\\u00B4\\u0301]": "Á",
+    "e[\\u02CA\\u00B4\\u0301]": "é", "E[\\u02CA\\u00B4\\u0301]": "É",
+    "o[\\u02CA\\u00B4\\u0301]": "ó", "O[\\u02CA\\u00B4\\u0301]": "Ó",
+    "i[\\u02CA\\u00B4\\u0301]": "í", "I[\\u02CA\\u00B4\\u0301]": "Í",
+    "u[\\u02CA\\u00B4\\u0301]": "ú", "U[\\u02CA\\u00B4\\u0301]": "Ú",
+    "ü[\\u02CA\\u00B4\\u0301]": "ǘ", "Ü[\\u02CA\\u00B4\\u0301]": "Ǘ",
+    "v[\\u02CA\\u00B4\\u0301]": "ǘ", "V[\\u02CA\\u00B4\\u0301]": "Ǘ",
+
+    // Thanh 4 (Grave: \u02CB, \u0060, combining \u0300)
+    "a[\\u02CB\\u0060\\u0300]": "à", "A[\\u02CB\\u0060\\u0300]": "À",
+    "e[\\u02CB\\u0060\\u0300]": "è", "E[\\u02CB\\u0060\\u0300]": "È",
+    "o[\\u02CB\\u0060\\u0300]": "ò", "O[\\u02CB\\u0060\\u0300]": "Ò",
+    "i[\\u02CB\\u0060\\u0300]": "ì", "I[\\u02CB\\u0060\\u0300]": "Ì",
+    "u[\\u02CB\\u0060\\u0300]": "ù", "U[\\u02CB\\u0060\\u0300]": "Ù",
+    "ü[\\u02CB\\u0060\\u0300]": "ǜ", "Ü[\\u02CB\\u0060\\u0300]": "Ǜ",
+    "v[\\u02CB\\u0060\\u0300]": "ǜ", "V[\\u02CB\\u0060\\u0300]": "Ǜ",
+  };
+
+  let res = str;
+  for (const [pattern, rep] of Object.entries(replacements)) {
+    res = res.replace(new RegExp(pattern, "g"), rep);
+  }
+
+  // 2. Chuyển đổi pinyin số nếu có
+  res = normalizePinyinNumbers(res);
+
+  // 3. Chuẩn hóa sang dạng kết hợp Unicode chuẩn (NFC)
+  try {
+    res = res.normalize("NFC");
+  } catch {}
+
+  return res;
+}
+
+/**
+ * Xử lý Pinyin có số (nin2 -> nín, hao3 -> hǎo)
+ */
+function normalizePinyinNumbers(input: string): string {
+  if (!input) return "";
+  if (!/\d/.test(input)) return input;
+
   const toneMap: Record<string, string[]> = {
     a: ["ā", "á", "ǎ", "à"],
     e: ["ē", "é", "ě", "è"],
@@ -215,7 +274,6 @@ export function normalizePinyinTone(input: string): string {
         }
       }
     }
-    // Giữ nguyên viết hoa nếu ký tự đầu viết hoa
     if (syllable[0] === syllable[0].toUpperCase() && syllable[0] !== syllable[0].toLowerCase()) {
       res = res.charAt(0).toUpperCase() + res.slice(1);
     }
@@ -223,12 +281,19 @@ export function normalizePinyinTone(input: string): string {
   };
 
   try {
-    return trimmed.replace(/([a-zA-Z:üÜ]+)([0-5])/g, (_match, syl, tone) => {
+    return input.replace(/([a-zA-Z:üÜ]+)([0-5])/g, (_match, syl, tone) => {
       return convertSingleSyllable(syl, parseInt(tone, 10));
     });
   } catch {
-    return trimmed;
+    return input;
   }
+}
+
+/**
+ * Chuẩn hóa Pinyin toàn diện (hỗ trợ cả pinyin số và pinyin có ký tự rời rạc)
+ */
+export function normalizePinyinTone(input: string): string {
+  return cleanMalformedPinyin(input);
 }
 
 /**
@@ -258,41 +323,9 @@ export function resolveSinoVietnamese(
     if (toneMap.default) return toneMap.default;
   }
 
-  // 2. Tra cứu từ CSDL (charEntry.hanViet từ Unihan)
-  if (dbHanViet && typeof dbHanViet === "string") {
-    const rawOptions = dbHanViet
-      .split(/[\s,/]+/)
-      .map((w) => w.trim())
-      .filter(Boolean);
-
-    if (rawOptions.length > 0) {
-      // Nếu có nhiều âm trong CSDL, thử chọn âm phù hợp nhất với thanh điệu
-      const tone = extractToneNumber(pinyinStr);
-      let selected = rawOptions[0];
-
-      if (rawOptions.length > 1) {
-        if (tone === 3) {
-          // Thanh 3 thường tương ứng dấu hỏi hoặc dấu ngã (ví dụ: Hảo, Tiểu, Nhĩ...)
-          const found = rawOptions.find((w) => /[ảẻỉỏủỷãẽĩõũỹạẹịọụỵ]/.test(w.toLowerCase()));
-          if (found) selected = found;
-        } else if (tone === 4) {
-          // Thanh 4 thường tương ứng dấu sắc hoặc nặng (ví dụ: Háo, Đại, Tác, Khán...)
-          const found = rawOptions.find((w) => /[áéíóúýạẹịọụỵ]/.test(w.toLowerCase()));
-          if (found) selected = found;
-        } else if (tone === 1) {
-          // Thanh 1 thường là thanh ngang không dấu (ví dụ: Cao, Thiên, Ba, Minh...)
-          const found = rawOptions.find((w) => !/[àáảãạèéẻẽẹìíỉĩịòóỏõọùúủũụỳýỷỹỵ]/.test(w.toLowerCase()));
-          if (found) selected = found;
-        } else if (tone === 2) {
-          // Thanh 2 thường là thanh sắc hoặc huyền (ví dụ: Hành, Thần, Bình...)
-          const found = rawOptions.find((w) => /[àèìòùỳáéíóúý]/.test(w.toLowerCase()));
-          if (found) selected = found;
-        }
-      }
-
-      // Viết hoa chữ cái đầu
-      return selected.charAt(0).toUpperCase() + selected.slice(1).toLowerCase();
-    }
+  // 2. Nếu có bản dịch từ CSDL
+  if (dbHanViet && dbHanViet.trim()) {
+    return dbHanViet.trim();
   }
 
   return "Hán tự";

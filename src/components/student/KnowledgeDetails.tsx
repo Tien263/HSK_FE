@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import type { KnowledgeItem } from "@/lib/self-study-knowledge";
 import { cleanChineseForSpeech } from "@/lib/chinese-speech";
-import { normalizePinyinTone, resolveSinoVietnamese } from "@/lib/chinese-sino-vietnamese";
+import { normalizePinyinTone, resolveSinoVietnamese, cleanMalformedPinyin } from "@/lib/chinese-sino-vietnamese";
 import s from "./SelfStudyLessonDetail.module.css";
 
 // Từ điển nhãn tiếng Việt cho các trường JSON mở rộng
@@ -1154,9 +1154,9 @@ function PhoneticsKnowledgeView({ data }: { data: Record<string, unknown> }) {
                   <span className={s.exampleIndex}>{idx + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p className={s.exampleChinese} lang="zh-CN">
-                      {text}
+                      {cleanMalformedPinyin(text)}
                     </p>
-                    {isRecord(item) && !!item.vi && <p className={s.exampleMeaning}>{String(item.vi)}</p>}
+                    {isRecord(item) && !!item.vi && <p className={s.exampleMeaning}>{cleanMalformedPinyin(String(item.vi))}</p>}
                   </div>
                   {!!cleanSpeech && <AudioButton text={cleanSpeech} phonetic={true} />}
                 </article>

@@ -23,6 +23,8 @@ import {
   Building,
   Target,
 } from "lucide-react";
+import { PlacementQuestion, DEFAULT_PLACEMENT_TESTS } from "@/lib/placement-test-config";
+import { cleanMalformedPinyin } from "@/lib/chinese-sino-vietnamese";
 
 type LearningMode = "SELF" | "CLASS";
 type MainTrack = "hsk" | "topic" | "major";
@@ -41,112 +43,6 @@ interface ClassInfo {
   teacherEmail: string;
   studentCount: number;
 }
-
-interface PlacementQuestion {
-  id: number;
-  questionZh: string;
-  pinyin: string;
-  questionVi: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-}
-
-const HSK1_3_QUESTIONS: PlacementQuestion[] = [
-  {
-    id: 1,
-    questionZh: "请问，这本词典是______的？",
-    pinyin: "Qǐngwèn, zhè běn cídiǎn shì ______ de?",
-    questionVi: "Xin hỏi, cuốn từ điển này là của ______?",
-    options: ["谁 (Ai)", "哪 (Nào)", "什么 (Cái gì)", "怎么 (Thế nào)"],
-    correctIndex: 0,
-    explanation: "'谁' (shéi/shuí) là đại từ nghi vấn chỉ người, '是谁的' có nghĩa là 'của ai'."
-  },
-  {
-    id: 2,
-    questionZh: "外面下大雨了，你______带一把伞吧。",
-    pinyin: "Wàimiàn xià dàyǔ le, nǐ ______ dài yì bǎ sǎn ba.",
-    questionVi: "Ngoài trời mưa to rồi, bạn ______ mang theo một chiếc ô đi.",
-    options: ["最好 (Tốt nhất nên)", "常常 (Thường xuyên)", "正在 (Đang)", "已经 (Đã)"],
-    correctIndex: 0,
-    explanation: "'最好' dùng để đưa ra lời khuyên nhủ, đề xuất tích cực."
-  },
-  {
-    id: 3,
-    questionZh: "今天的天气比昨天______得多。",
-    pinyin: "Jīntiān de tiānqì bǐ zuótiān ______ de duō.",
-    questionVi: "Thời tiết hôm nay so với hôm qua ______ hơn nhiều.",
-    options: ["冷 (Lạnh)", "很冷 (Rất lạnh)", "太冷 (Quá lạnh)", "非常冷 (Cực kỳ lạnh)"],
-    correctIndex: 0,
-    explanation: "Trong câu so sánh chữ 比 (A + 比 + B + Tính từ + 得多), tính từ không đi kèm phó từ chỉ mức độ."
-  },
-  {
-    id: 4,
-    questionZh: "老师走进教室，把书包______桌子上。",
-    pinyin: "Lǎoshī zǒujìn jiàoshì, bǎ shūbāo ______ zhuōzi shang.",
-    questionVi: "Thầy giáo bước vào lớp, ______ cặp sách lên bàn.",
-    options: ["放在 (Đặt lên)", "坐在 (Ngồi ở)", "看着 (Nhìn)", "听见 (Nghe thấy)"],
-    correctIndex: 0,
-    explanation: "Cấu trúc câu chữ 把: 把 + Tân ngữ + Động từ + 在 + Nơi chốn."
-  },
-  {
-    id: 5,
-    questionZh: "他______汉语说得流利，______汉字也写得很漂亮。",
-    pinyin: "Tā ______ hànyǔ shuō de liúlì, ______ hànzì yě xiě de hěn piàoliang.",
-    questionVi: "Anh ấy ______ tiếng Hán nói lưu loát, ______ chữ Hán viết cũng rất đẹp.",
-    options: ["不但……而且…… (Không những... mà còn...)", "虽然……但是…… (Mặc dù... nhưng...)", "因为……所以…… (Bởi vì... cho nên...)", "如果……就…… (Nếu... thì...)"],
-    correctIndex: 0,
-    explanation: "Cặp liên từ tăng tiến '不但……而且……' (Không những... mà còn...)."
-  }
-];
-
-const HSK4_6_QUESTIONS: PlacementQuestion[] = [
-  {
-    id: 1,
-    questionZh: "请大家抓紧时间，在会议开始前把这些材料______好。",
-    pinyin: "Qǐng dàjiā zhuājǐn shíjiān, zài huìyì kāishǐ qián bǎ zhèxiē cáiliào ______ hǎo.",
-    questionVi: "Xin mọi người tranh thủ thời gian, trước khi cuộc họp bắt đầu hãy ______ tài liệu này thật tốt.",
-    options: ["准备 (Chuẩn bị)", "考虑 (Cân nhắc)", "安排 (Sắp xếp)", "打印 (In ấn)"],
-    correctIndex: 0,
-    explanation: "'准备好材料' (Chuẩn bị xong tài liệu), '好' làm bổ ngữ kết quả biểu thị hoàn thành mỹ mãn."
-  },
-  {
-    id: 2,
-    questionZh: "______工作有多忙，他每天晚上______坚持读书半小时。",
-    pinyin: "______ gōngzuò yǒu duō máng, tā měitiān wǎnshang ______ jiānchí dúshū bàn xiǎoshí.",
-    questionVi: "______ công việc có bận thế nào, anh ấy mỗi tối ______ kiên trì đọc sách nửa tiếng.",
-    options: ["不管……都…… (Cho dù... đều...)", "尽管……还是…… (Dẫu rằng... vẫn...)", "只有……才…… (Chỉ có... mới...)", "既然……就…… (Đã... thì...)"],
-    correctIndex: 0,
-    explanation: "'不管 + đại từ nghi vấn (有多忙) + 都...' biểu thị điều kiện vô điều kiện."
-  },
-  {
-    id: 3,
-    questionZh: "为了按时完成重点项目，两家公司进行了极其______的合作。",
-    pinyin: "Wèile ànshí wánchéng zhòngdiǎn xiàngmù, liǎng jiā gōngsī jìnxíng le jíqí ______ de hézuò.",
-    questionVi: "Để hoàn thành dự án trọng điểm đúng hạn, hai công ty đã tiến hành hợp tác vô cùng ______.",
-    options: ["密切 (Chặt chẽ/Mật thiết)", "亲密 (Thân mật)", "亲切 (Thân thiết/Gần gũi)", "热情 (Nhiệt tình)"],
-    correctIndex: 0,
-    explanation: "'密切合作' là cụm cố định trong văn phong công việc/kinh tế, mang nghĩa hợp tác chặt chẽ."
-  },
-  {
-    id: 4,
-    questionZh: "随着科技的飞速发展，人工智能在医疗领域发挥着______重要的作用。",
-    pinyin: "Suízhe kējì de fēisù fāzhǎn, réngōng zhìnéng zài yīliáo lǐngyù fāhuī zhe ______ zhòngyào de zuòyòng.",
-    questionVi: "Cùng với sự phát triển nhanh chóng của công nghệ, AI trong y tế phát huy vai trò ______ quan trọng.",
-    options: ["日益 (Ngày một / Ngày càng)", "常常 (Thường)", "稍微 (Hơi/Một chút)", "偶尔 (Thỉnh thoảng)"],
-    correctIndex: 0,
-    explanation: "'日益' (rìyì) là phó từ văn viết trang trọng, biểu thị mức độ gia tăng theo từng ngày."
-  },
-  {
-    id: 5,
-    questionZh: "大家集思广益，困扰团队多日的难题终于______。",
-    pinyin: "Dàjiā jísīguǎngyì, kùnrǎo tuánduì duō rì de nántí zhōngyú ______.",
-    questionVi: "Mọi người cùng nhau góp trí tuệ, câu hỏi khó làm đau đầu nhóm nhiều ngày cuối cùng cũng ______.",
-    options: ["迎刃而解 (Được giải quyết êm xuôi)", "莫名其妙 (Kỳ lạ khó hiểu)", "画蛇添足 (Vẽ rắn thêm chân)", "半途而废 (Bỏ dở giữa chừng)"],
-    correctIndex: 0,
-    explanation: "'迎刃而解' là thành ngữ 4 chữ biểu thị vấn đề nan giải được tháo gỡ dứt điểm và dễ dàng."
-  }
-];
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -171,6 +67,8 @@ export default function OnboardingPage() {
   const [dailyTime, setDailyTime] = useState<DailyTime>(30);
 
   // Placement Test State
+  const [hsk1_3Questions, setHsk1_3Questions] = useState<PlacementQuestion[]>(DEFAULT_PLACEMENT_TESTS.hsk1_3);
+  const [hsk4_6Questions, setHsk4_6Questions] = useState<PlacementQuestion[]>(DEFAULT_PLACEMENT_TESTS.hsk4_6);
   const [placementAnswers, setPlacementAnswers] = useState<Record<number, number>>({});
   const [placementSubmitted, setPlacementSubmitted] = useState(false);
   const [placementScore, setPlacementScore] = useState(0);
@@ -181,13 +79,23 @@ export default function OnboardingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [adminRoadmapStages, setAdminRoadmapStages] = useState<any[]>([]);
 
-  // Tải cấu hình lộ trình do Admin thiết lập trong CSDL
+  // Tải cấu hình lộ trình và đề kiểm tra năng lực
   useEffect(() => {
     fetch("/api/v1/self-study-roadmap")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.stages) && data.stages.length > 0) {
           setAdminRoadmapStages(data.stages);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/v1/placement-tests")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          if (Array.isArray(data.hsk1_3) && data.hsk1_3.length > 0) setHsk1_3Questions(data.hsk1_3);
+          if (Array.isArray(data.hsk4_6) && data.hsk4_6.length > 0) setHsk4_6Questions(data.hsk4_6);
         }
       })
       .catch(() => {});
@@ -251,53 +159,85 @@ export default function OnboardingPage() {
 
   // Chọn cấp độ
   const handleSelectLevel = (level: CurrentLevel) => {
+    if (currentLevel === level) return;
     setCurrentLevel(level);
-    setPlacementAnswers({});
-    setPlacementSubmitted(false);
 
     let defaultHsk = 1;
     if (level === "intermediate") defaultHsk = 2;
     if (level === "advanced") defaultHsk = 4;
     setDeterminedHskLevel(defaultHsk);
 
+    // Reset kết quả bài test chỉ khi học viên chủ động chuyển cấp độ khác
+    setPlacementAnswers({});
+    setPlacementSubmitted(false);
+    setPlacementScore(0);
+
     saveDraft({
       currentLevel: level,
       placementAnswers: {},
       placementSubmitted: false,
+      placementScore: 0,
       determinedHskLevel: defaultHsk,
     });
   };
 
-  // Nộp bài kiểm tra năng lực
-  const handleSubmitPlacementTest = () => {
-    const questions = currentLevel === "intermediate" ? HSK1_3_QUESTIONS : HSK4_6_QUESTIONS;
+  // Tính điểm và xác định cấp độ HSK tương ứng
+  const calculateScoreAndLevel = (answers: Record<number, number>, lvl: CurrentLevel = currentLevel) => {
+    const questions = lvl === "intermediate" ? hsk1_3Questions : hsk4_6Questions;
     let correct = 0;
     questions.forEach((q, idx) => {
-      if (placementAnswers[idx] === q.correctIndex) {
+      if (answers[idx] === q.correctIndex) {
         correct++;
       }
     });
 
-    setPlacementScore(correct);
-    setPlacementSubmitted(true);
-
     let assignedLevel = 1;
-    if (currentLevel === "intermediate") {
+    if (lvl === "intermediate") {
       if (correct >= 4) assignedLevel = 3;
       else if (correct >= 2) assignedLevel = 2;
       else assignedLevel = 1;
-    } else if (currentLevel === "advanced") {
+    } else if (lvl === "advanced") {
       if (correct >= 4) assignedLevel = 5;
       else if (correct >= 2) assignedLevel = 4;
       else assignedLevel = 3;
     }
 
+    return { correct, assignedLevel, total: questions.length };
+  };
+
+  // Nộp bài kiểm tra năng lực
+  const handleSubmitPlacementTest = () => {
+    const { correct, assignedLevel } = calculateScoreAndLevel(placementAnswers);
+
+    setPlacementScore(correct);
+    setPlacementSubmitted(true);
     setDeterminedHskLevel(assignedLevel);
+
     saveDraft({
       placementSubmitted: true,
       placementScore: correct,
       determinedHskLevel: assignedLevel,
     });
+  };
+
+  // Chuyển sang bước 3 (tự động chấm điểm thực tế nếu học viên chưa bấm nút Nộp)
+  const handleGoToStep3 = () => {
+    if (currentLevel !== "beginner") {
+      const { correct, assignedLevel } = calculateScoreAndLevel(placementAnswers);
+      setPlacementScore(correct);
+      setPlacementSubmitted(true);
+      setDeterminedHskLevel(assignedLevel);
+      setStep(3);
+      saveDraft({
+        step: 3,
+        placementScore: correct,
+        placementSubmitted: true,
+        determinedHskLevel: assignedLevel,
+      });
+    } else {
+      setStep(3);
+      saveDraft({ step: 3 });
+    }
   };
 
   // Check Class Code
@@ -1068,7 +1008,10 @@ export default function OnboardingPage() {
               </div>
 
               {/* KHUNG BÀI KIỂM TRA NĂNG LỰC ĐẦU VÀO CHO 2 TRÌNH ĐỘ CÓ NỀN TẢNG */}
-              {(currentLevel === "intermediate" || currentLevel === "advanced") && (
+              {(currentLevel === "intermediate" || currentLevel === "advanced") && (() => {
+                const activeQuestions = currentLevel === "intermediate" ? hsk1_3Questions : hsk4_6Questions;
+                const totalQ = activeQuestions.length;
+                return (
                 <div className="mt-6 p-5 sm:p-6 rounded-3xl bg-[#FAF7F0] border border-[#BC9B6B]/40 space-y-5 animate-fadeIn">
                   <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#BC9B6B]/30">
                     <div>
@@ -1077,8 +1020,8 @@ export default function OnboardingPage() {
                       </span>
                       <h3 className="font-serif font-bold text-base text-[#204434]">
                         {currentLevel === "intermediate"
-                          ? "Bài kiểm tra nhanh trình độ HSK 1 – HSK 3 (5 câu)"
-                          : "Bài kiểm tra nhanh trình độ HSK 4 – HSK 6 (5 câu)"}
+                          ? `Bài kiểm tra nhanh trình độ HSK 1 – HSK 3 (${totalQ} câu)`
+                          : `Bài kiểm tra nhanh trình độ HSK 4 – HSK 6 (${totalQ} câu)`}
                       </h3>
                       <p className="text-xs text-[#315E48]">
                         Chọn đáp án đúng nhất để hệ thống xếp bạn vào đúng cấp độ HSK tương ứng:
@@ -1087,21 +1030,21 @@ export default function OnboardingPage() {
 
                     <div className="text-right">
                       <span className="text-xs font-semibold text-[#8F6D3B]">
-                        Đã chọn: {Object.keys(placementAnswers).length} / 5 câu
+                        Đã chọn: {Object.keys(placementAnswers).length} / {totalQ} câu
                       </span>
                     </div>
                   </div>
 
-                  {/* Danh sách 5 câu hỏi trắc nghiệm */}
+                  {/* Danh sách các câu hỏi trắc nghiệm */}
                   <div className="space-y-4">
-                    {(currentLevel === "intermediate" ? HSK1_3_QUESTIONS : HSK4_6_QUESTIONS).map((q, qIdx) => (
+                    {activeQuestions.map((q, qIdx) => (
                       <div
                         key={q.id}
                         className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/30 space-y-3 shadow-2xs"
                       >
                         <div className="flex items-center justify-between">
                           <span className="px-2.5 py-0.5 rounded-full bg-[#204434] text-white text-[11px] font-bold">
-                            Câu {qIdx + 1} / 5
+                            Câu {qIdx + 1} / {totalQ}
                           </span>
                           {placementSubmitted && (
                             <span
@@ -1113,20 +1056,20 @@ export default function OnboardingPage() {
                             >
                               {placementAnswers[qIdx] === q.correctIndex
                                 ? "✓ Chính xác"
-                                : `✗ Đáp án đúng: ${q.options[q.correctIndex]}`}
+                                : `✗ Đáp án đúng: ${cleanMalformedPinyin(q.options[q.correctIndex])}`}
                             </span>
                           )}
                         </div>
 
                         <div>
                           <div className="font-serif text-base font-bold text-[#204434]">
-                            {q.questionZh}
+                            {cleanMalformedPinyin(q.questionZh)}
                           </div>
                           <div className="text-xs text-[#8F6D3B] font-mono mt-0.5">
-                            {q.pinyin}
+                            {cleanMalformedPinyin(q.pinyin)}
                           </div>
                           <div className="text-xs text-[#315E48] italic mt-0.5">
-                            {q.questionVi}
+                            {cleanMalformedPinyin(q.questionVi)}
                           </div>
                         </div>
 
@@ -1149,7 +1092,7 @@ export default function OnboardingPage() {
                                     : "bg-[#F8F5ED] text-[#204434] border-[#BC9B6B]/30 hover:border-[#204434]/50"
                                 }`}
                               >
-                                <span>{opt}</span>
+                                <span>{cleanMalformedPinyin(opt)}</span>
                                 {isSelected && <Check className="w-3.5 h-3.5" />}
                               </button>
                             );
@@ -1158,7 +1101,7 @@ export default function OnboardingPage() {
 
                         {placementSubmitted && (
                           <div className="text-[11px] text-[#315E48] bg-[#FAF7F0] p-2.5 rounded-xl border border-[#BC9B6B]/20">
-                            💡 <strong>Giải thích:</strong> {q.explanation}
+                            💡 <strong>Giải thích:</strong> {cleanMalformedPinyin(q.explanation)}
                           </div>
                         )}
                       </div>
@@ -1196,7 +1139,7 @@ export default function OnboardingPage() {
                         <div className="flex items-center gap-2">
                           <Sparkles className="w-5 h-5 text-[#8F6D3B]" />
                           <h4 className="font-serif font-bold text-sm text-[#204434]">
-                            Kết quả: {placementScore} / 5 câu đúng ({Math.round((placementScore / 5) * 100)}%)
+                            Kết quả: {placementScore} / {totalQ} câu đúng ({totalQ > 0 ? Math.round((placementScore / totalQ) * 100) : 0}%)
                           </h4>
                         </div>
                         <span className="px-3 py-1 rounded-full bg-[#204434] text-white text-xs font-bold">
@@ -1224,7 +1167,8 @@ export default function OnboardingPage() {
                     </div>
                   )}
                 </div>
-              )}
+              );
+              })()}
             </div>
 
             {/* 3. Chọn thời gian học mỗi ngày */}
@@ -1317,10 +1261,7 @@ export default function OnboardingPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setStep(3);
-                  saveDraft({ step: 3 });
-                }}
+                onClick={handleGoToStep3}
                 className="bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-semibold px-6 py-3 rounded-xl transition duration-200 shadow-md shadow-[#204434]/20 flex items-center gap-2 cursor-pointer"
               >
                 <span>Xem lộ trình đề xuất</span>
@@ -1393,7 +1334,9 @@ export default function OnboardingPage() {
                     HSK {determinedHskLevel}
                   </span>
                   <span className="text-xs text-[#315E48]">
-                    {currentLevel === "beginner" ? "(Nhập môn)" : `(Đạt ${placementScore}/5 điểm test)`}
+                    {currentLevel === "beginner"
+                      ? "(Nhập môn)"
+                      : `(Đạt ${placementScore}/${(currentLevel === "intermediate" ? hsk1_3Questions : hsk4_6Questions).length} điểm test)`}
                   </span>
                 </div>
               </div>
