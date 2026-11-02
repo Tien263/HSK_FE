@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bookmark, BookOpen, Check, CheckCircle2, Dumbbell, PenTool, Sparkles } from "lucide-react";
+import LessonCover from "./LessonCover";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import { lessonKnowledge, studySections, wholeLessonItem, type StudySection, type KnowledgeItem } from "@/lib/self-study-knowledge";
 import { isKnowledgeSaved, lessonKey, toggleKnowledge, updateLibrary, useLessonLibrary } from "@/lib/use-lesson-library";
@@ -28,7 +29,7 @@ export default function SelfStudyLessonDetail({ lesson, level, studentId, onPrac
   function saveButton(item: KnowledgeItem, text = false) { const saved = isKnowledgeSaved(store, item); return <button className={s.bookmark} aria-label={`${saved ? "Bỏ lưu" : "Lưu"} ${item.kind === "lesson" ? "bài học" : item.title}`} aria-pressed={saved} onClick={() => save(item)}><Bookmark size={18} fill={saved ? "currentColor" : "none"}/>{text && (saved ? "Đã lưu" : item.kind === "lesson" ? "Lưu bài học" : "Lưu nội dung")}</button>; }
   return <div className={s.layout} data-lesson-detail>
     <main className={s.main}>
-      <header className={s.hero}><div className={s.heroArt} aria-hidden="true"><span>学</span></div><div><small>HSK {level} · BÀI {lesson.number}</small><h2 lang="zh-CN">{lesson.titleZh}</h2><p className={s.pinyin}>{lesson.pinyin}</p><p>{lesson.titleVi}</p><div className={s.buttons}>{saveButton(whole, true)}<button className={s.outline} onClick={onArchive}><BookOpen size={16}/>Kho lưu trữ</button></div></div></header>
+      <header className={s.hero}><div className={s.heroArt} aria-hidden="true"><LessonCover lessonNumber={lesson.number}/></div><div><small>HSK {level} · BÀI {lesson.number}</small><h2 lang="zh-CN">{lesson.titleZh}</h2><p className={s.pinyin}>{lesson.pinyin}</p><p>{lesson.titleVi}</p><div className={s.buttons}>{saveButton(whole, true)}<button className={s.outline} onClick={onArchive}><BookOpen size={16}/>Kho lưu trữ</button></div></div></header>
       {message && <p role="status" className={s.notice}>{message}</p>}
       <nav className={s.tabs} role="tablist" aria-label="Nội dung bài học">{studySections.map((section, index) => <button key={section.id} id={`study-tab-${section.id}`} role="tab" aria-selected={tab === section.id} aria-controls="study-content-panel" tabIndex={tab === section.id ? 0 : -1} onClick={() => { setTab(section.id); setNoteOpen(false); }} onKeyDown={event => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? studySections.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + studySections.length) % studySections.length; setTab(studySections[next].id); document.getElementById(`study-tab-${studySections[next].id}`)?.focus(); }}><span>{section.label}</span><small>({items.filter(item => item.section === section.id).length})</small></button>)}</nav>
       <div id="study-content-panel" className={s.explorer} role="tabpanel" aria-labelledby={`study-tab-${tab}`}>

@@ -1,0 +1,2 @@
+.cover{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;border-radius:inherit;container-type:inline-size;background:#eef5e8 url('/theme/lesson-cover-common.svg') center/100% 100% no-repeat}
+.label{display:block;max-width:62%;text-align:center;white-space:nowrap;font-family:var(--font-serif),serif;font-size:clamp(6px,calc(52cqw / var(--cover-label-length)),34px);font-weight:600;line-height:1.4;letter-spacing:.06em;color:#285c3e}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, BookOpen, CalendarDays, Check, Flame, Headphones, MessageCircle, Moon, PenTool, Plus, Target, Trash2, TrendingUp } from "lucide-react";
+import LessonCover from "./LessonCover";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import { getTodayStudyMinutes } from "@/lib/memory-review-service";
 import styles from "./SelfStudyWorkspace.module.css";
@@ -66,7 +67,7 @@ export default function InkStudyDashboard({ lesson, level, totalLessons, openCou
   return <>
     <div className={styles.dashboardTop}>
       <section className={styles.resume} aria-label="Tiếp tục học">
-        <div className={styles.resumeArt} aria-hidden="true"><span>HSK<small>{level}</small></span><i>汉语</i></div>
+        <div className={styles.resumeArt} aria-hidden="true"><LessonCover lessonNumber={lesson.number}/></div>
         <div className={styles.resumeBody}><p className={styles.eyebrow}>BÀI ĐANG HỌC · BÀI {String(lesson.number).padStart(2, "0")}</p><h2 lang="zh-CN">{lesson.titleZh}</h2><p className={styles.cardMeaning}>{lesson.titleVi}</p><p className={styles.lessonDescription}>{lesson.desc}</p><div className={styles.meta}><span><BookOpen size={13}/>{lesson.vocabList.length} từ vựng</span><span>{lesson.grammarList.length} ngữ pháp</span><span>{lesson.durationMin} phút dự kiến</span></div>{actions}{!canStudy && <p className={styles.hint}>Chọn một bài đã mở trong cuộn thư để bắt đầu.</p>}</div>
       </section>
       <section className={styles.progressPanel} aria-label="Tổng quan tự học">

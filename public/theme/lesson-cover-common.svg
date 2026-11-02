@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" fill="none" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="paper" x2="0" y2="1000" gradientUnits="userSpaceOnUse"><stop stop-color="#fffdf8"/><stop offset="1" stop-color="#edf6e9"/></linearGradient>
+    <linearGradient id="jade" x1="0" y1="400" x2="650" y2="1000" gradientUnits="userSpaceOnUse"><stop stop-color="#dcebd5"/><stop offset="1" stop-color="#85b98d"/></linearGradient>
+    <linearGradient id="ink" x1="0" y1="800" x2="600" y2="1100" gradientUnits="userSpaceOnUse"><stop stop-color="#2e6748"/><stop offset="1" stop-color="#77a676"/></linearGradient>
+  </defs>
+  <path fill="url(#paper)" d="M0 0h800v1000H0z"/>
+  <path d="M0 250c210 70 215 188 414 152 193-35 243-156 386-210v808H0Z" fill="#e7f0e0" fill-opacity=".7"/>
+  <path d="M0 360c161 53 236 190 412 154 185-38 233-115 388-160v646H0Z" fill="#dcebd8"/>
+  <path d="M0 470c157 26 183 191 347 180 209-14 277-151 453-181v531H0Z" fill="url(#jade)" stroke="#94b58a" stroke-width="1.5"/>
+  <path d="M0 742c166 47 329-112 475-153 141-39 233-26 325-81v492H0Z" fill="#cee3ca" fill-opacity=".8" stroke="#7d9f76"/>
+  <path d="M0 813c223 80 318-49 494-88 120-27 202-17 306-95v370H0Z" fill="#add0ab" fill-opacity=".65"/>
+  <path d="M0 870c180 68 288-86 493-69 136 11 227-82 307-87v286H0Z" fill="#d9ebd3"/>
+  <path d="M0 820c122 82 254 154 415 180H0Z" fill="url(#ink)"/>
+  <path d="M0 794c130 89 294 177 450 206" stroke="#4d7953" stroke-width="2"/>
+  <g transform="translate(400 500) scale(1.4 1) translate(-400 -500)">
+  <path d="M285 393h67q48-31 96 0h67q0 22 26 22h23q31 0 31 31v108q0 31-31 31h-23q-26 0-26 22h-67q-48 31-96 0h-67q0-22-26-22h-23q-31 0-31-31V446q0-31 31-31h23q26 0 26-22Z" fill="#fcf7e5" stroke="#8d9f69" stroke-width="2.5"/>
+  <path d="M374 439q9-12 19-4-3-15 8-15 13 0 9 15 12-8 19 4m-55 122q9 12 19 4-3 15 8 15 13 0 9-15 12 8 19-4" stroke="#ccb46c" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g stroke="#719568" stroke-width="2" fill="#8fae7d" fill-opacity=".75">
+    <path d="M590 352q-8-41-58-75m23 25q20 13 56 9m-47 8q-32 4-52-8m60 22q-23 19-47 21" fill="none"/>
+    <path d="M551 300q-20-2-34-16 25-3 34 16Zm22 14q9-19 29-27-5 23-29 27Zm-29 14q-27 11-39 1 21-11 39-1Zm34 9q7 22-1 43-12-23 1-43Zm19-21q22-6 38 1-18 11-38-1Z" stroke="none"/>
+  </g>
+</svg>
