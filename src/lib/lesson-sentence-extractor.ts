@@ -1,5 +1,6 @@
 import { getLessonsByHskLevel, getLessonByNumber } from "./hsk-lessons-resolver";
 import type { Hsk1FullLesson } from "./hsk1-full-lessons";
+import { getVocabSentenceFallback } from "./hsk2-vocab-examples";
 
 export type SentenceSourceCategory = "dialogue" | "vocab" | "grammar" | "reading";
 
@@ -134,6 +135,27 @@ export function extractSentencesFromLesson(lesson: Hsk1FullLesson, hskLevel: num
             pinyin: v.examplePy || "",
             vi: v.exampleVi || "",
             tip: `Ứng dụng từ '${word}' (${wordVi}). Chú ý vị trí trong câu.`,
+          });
+        }
+      } else {
+        // Tự động đối chiếu hoặc tạo câu ví dụ chuẩn mực cho từ vựng bài học
+        const fallback = getVocabSentenceFallback(word, wordPy, wordVi, hskLevel);
+        const zh = (fallback.zh || "").trim();
+        if (zh && !seenZh.has(zh)) {
+          seenZh.add(zh);
+          result.push({
+            id: `hsk${hskLevel}-l${lesson.number}-voc-${vIdx}-fb`,
+            hskLevel,
+            lessonNumber: lesson.number,
+            lessonTitleZh: lesson.titleZh,
+            lessonTitleVi: lesson.titleVi,
+            sourceCategory: "vocab",
+            categoryLabel: "Ví dụ Từ vựng",
+            detailTag: `${word} (${wordPy})`,
+            zh,
+            pinyin: fallback.pinyin || "",
+            vi: fallback.vi || "",
+            tip: fallback.tip || `Ứng dụng từ '${word}' (${wordVi}).`,
           });
         }
       }

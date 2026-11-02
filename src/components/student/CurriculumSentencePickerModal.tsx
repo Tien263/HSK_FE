@@ -187,13 +187,19 @@ export default function CurriculumSentencePickerModal({
                   onClick={() => setSelectedLessonNum(l.number)}
                   className={`px-3 py-2 rounded-xl text-left border transition text-xs whitespace-nowrap flex-shrink-0 cursor-pointer ${
                     selectedLessonNum === l.number
-                      ? "bg-[#204434] border-[#D4AF37] text-white shadow-sm"
+                      ? "bg-[#D4AF37] border-2 border-[#F6E3A1] text-stone-950 shadow-md ring-2 ring-[#D4AF37]/30"
                       : "bg-white/5 border-white/10 text-stone-300 hover:bg-white/10"
                   }`}
                 >
-                  <div className="text-[10px] text-[#D4AF37] font-mono">Bài {String(l.number).padStart(2, "0")}</div>
-                  <div className="font-serif font-bold line-clamp-1">{l.titleZh}</div>
-                  <div className="text-[10px] text-stone-400 font-mono">{l.totalSentences} câu luyện</div>
+                  <div className={`text-[10px] font-mono ${selectedLessonNum === l.number ? "text-stone-900 font-bold" : "text-[#D4AF37]"}`}>
+                    Bài {String(l.number).padStart(2, "0")}
+                  </div>
+                  <div className={`font-serif line-clamp-1 ${selectedLessonNum === l.number ? "text-stone-950 font-black" : "text-white font-bold"}`}>
+                    {l.titleZh}
+                  </div>
+                  <div className={`text-[10px] font-mono ${selectedLessonNum === l.number ? "text-stone-900 font-semibold" : "text-stone-400"}`}>
+                    {l.totalSentences} câu luyện
+                  </div>
                 </button>
               ))}
             </div>

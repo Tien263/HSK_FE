@@ -799,8 +799,8 @@ export default function VirtualStudyRoomModal({
                       <span className="text-xs font-serif font-bold text-[#93804E]">
                         Kho câu đang chọn:
                       </span>
-                      <span className="text-xs font-bold text-[#284A39] bg-[#204434] px-2.5 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="text-xs font-bold text-[#14472A] bg-[#E8F3EB] px-2.5 py-0.5 rounded-lg border border-[#A2D4B6] flex items-center gap-1.5 shadow-2xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                         <span>HSK {activeHskLevel} · Bài {activeLessonNumber} ({lessonSentences.length} câu)</span>
                       </span>
                     </div>
@@ -843,15 +843,17 @@ export default function VirtualStudyRoomModal({
                           }}
                           className={`p-2.5 rounded-xl text-left border transition text-xs cursor-pointer ${
                             isSelected
-                              ? "bg-[#204434] border-[#D4AF37] text-white font-bold shadow-sm"
-                              : "bg-[#F8F3E7] border-[#D8CFBA] text-[#65765A] hover:bg-[#E9E2CD]"
+                              ? "bg-[#FFF9E6] border-2 border-[#C99738] text-[#1D3E2B] font-bold shadow-md ring-2 ring-[#C99738]/20"
+                              : "bg-[#F8F3E7] border-[#D8CFBA] text-[#55694C] hover:bg-[#EFE7D4] hover:border-[#BC9B6B]"
                           }`}
                         >
-                          <div className="flex items-center justify-between text-[10px] text-[#94713B] font-mono mb-0.5">
+                          <div className={`flex items-center justify-between text-[10px] font-mono mb-0.5 ${
+                            isSelected ? "text-[#875D1E] font-semibold" : "text-[#94713B]"
+                          }`}>
                             <span>{isCurriculum ? item.categoryLabel : `HSK ${item.level}`}</span>
-                            {isCurriculum && <span className="text-[#7B826C] truncate max-w-[100px]">{item.detailTag}</span>}
+                            {isCurriculum && <span className={`truncate max-w-[100px] ${isSelected ? "text-[#5C7053] font-sans" : "text-[#7B826C]"}`}>{item.detailTag}</span>}
                           </div>
-                          <div className="font-serif line-clamp-1">{item.zh}</div>
+                          <div className={`font-serif line-clamp-1 ${isSelected ? "text-[#1B3A26] font-extrabold text-sm" : "text-[#3D4C3A]"}`}>{item.zh}</div>
                         </button>
                       );
                     })}
@@ -1057,20 +1059,20 @@ export default function VirtualStudyRoomModal({
                       key={st.id || i}
                       className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs transition ${
                         st.isCurrent
-                          ? "bg-[#204434]/60 border-[#D4AF37]/60"
+                          ? "bg-[#FFF8E7] border-2 border-[#C99738] shadow-sm ring-1 ring-[#C99738]/20"
                           : "bg-[#F8F3E7] border-[#D8CFBA]"
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <span className="text-xl">🏮</span>
                         <div>
-                          <div className="font-serif font-bold text-[#2E5138] line-clamp-1">
-                            {st.name} {st.isCurrent && "(Bạn)"}
+                          <div className={`font-serif font-bold line-clamp-1 ${st.isCurrent ? "text-[#1F432B]" : "text-[#2E5138]"}`}>
+                            {st.name} {st.isCurrent && <span className="text-[#A26E17] font-sans text-[11px] font-black ml-0.5">(Bạn)</span>}
                           </div>
-                          <div className="text-[10px] text-[#93804E] flex items-center gap-1">
+                          <div className={`text-[10px] flex items-center gap-1 font-medium ${st.isCurrent ? "text-[#7A6A3E]" : "text-[#93804E]"}`}>
                             <span>{st.hsk}</span>
                             <span>·</span>
-                            <span className="text-amber-300">🔥 {st.streakDays} ngày</span>
+                            <span className="text-amber-600 font-semibold">🔥 {st.streakDays} ngày</span>
                           </div>
                         </div>
                       </div>
