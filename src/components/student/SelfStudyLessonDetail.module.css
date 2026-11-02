@@ -35,3 +35,25 @@
 .supplementaryCard h5{font-size:12px;font-weight:700;color:#2d583f;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .dynamicMediaImage{max-width:100%;max-height:360px;border-radius:10px;border:1px solid #e0d5bd;object-fit:cover;margin-top:6px;display:block}
 .dynamicMediaAudio{width:100%;margin-top:6px}
+
+/* Custom Structured Knowledge Section Blocks */
+.sectionBlock{display:grid;gap:10px;padding:16px;border:1px solid #e2d7c0;border-radius:14px;background:#fffdf6}
+.sectionBlockTitle{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#7d5e2a;text-transform:uppercase;letter-spacing:0.04em}
+.formulaCard{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border:1.5px solid #a3c293;border-radius:12px;background:linear-gradient(135deg,#f4f8ee,#eaf2e2);color:#244d38}
+.formulaText{font-family:var(--font-serif);font-size:17px;font-weight:700;letter-spacing:0.02em}
+.badgeList{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600}
+.badgePinyin{background:#f5e8d0;color:#8d6436;border:1px solid #e0c8a0}
+.badgeHanViet{background:#e8f0e0;color:#355c3a;border:1px solid #bad2aa}
+.badgeType{background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0}
+.readingZhBox{padding:18px;border:1.5px solid #dcd1ba;border-radius:14px;background:#fcfbf8;position:relative}
+.readingZhText{font-family:var(--font-serif);font-size:22px;line-height:2;color:#1e4330;text-align:justify}
+.readingPyText{font-family:monospace;font-size:13px;line-height:1.9;color:#8d6436;margin-top:10px;padding-top:10px;border-top:1px dashed #e2d7c0}
+.readingViText{font-size:13.5px;line-height:1.9;color:#3f5845;margin-top:10px;padding-top:10px;border-top:1px dashed #e2d7c0}
+.analysisGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.analysisCard{padding:12px 14px;border:1px solid #e6ded0;border-radius:10px;background:#ffffff}
+.analysisCard strong{display:block;font-size:11px;color:#8c6b32;text-transform:uppercase;margin-bottom:4px}
+.analysisCard p{font-size:12.5px;line-height:1.75;color:#32533e}
+.stepsList{display:grid;gap:6px;counter-reset:step-counter}
+.stepItem{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;line-height:1.7;color:#31543d;padding:6px 0}
+.stepNumber{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#e8e1cf;color:#6b5a38;font-size:11px;font-weight:700;display:grid;place-items:center}

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { lookupRadicalOrComponent, KANGXI_RADICALS } from "@/lib/chinese-radicals";
+import { resolveSinoVietnamese, normalizePinyinTone } from "@/lib/chinese-sino-vietnamese";
 
 // Lazy initialization for HanziJS decomposition engine (lightweight composer only)
 let hanziInitialized = false;
@@ -177,20 +178,8 @@ export async function GET(request: Request) {
       });
     }
 
-    // 5. Chuẩn hóa âm Hán Việt (Sino-Vietnamese)
-    let sinoVietnamese = "";
-    if (charEntry?.hanViet) {
-      // Viết hoa chữ cái đầu từng âm
-      sinoVietnamese = charEntry.hanViet
-        .split(/[\s,/]+/)
-        .filter(Boolean)
-        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(" / ");
-    } else if (SINO_VIETNAMESE_FALLBACK[char]) {
-      sinoVietnamese = SINO_VIETNAMESE_FALLBACK[char];
-    } else {
-      sinoVietnamese = "Hán tự";
-    }
+    // 5. Chuẩn hóa âm Hán Việt (Sino-Vietnamese) thông minh theo thanh điệu Pinyin
+    const sinoVietnamese = resolveSinoVietnamese(char, py, charEntry?.hanViet);
 
     // Nghĩa tiếng Việt
     const meaningVi = dictEntry?.definitionsVi?.slice(0, 3).join("; ") || "Ý nghĩa từ vựng Hán ngữ chuẩn";
@@ -228,7 +217,7 @@ export async function GET(request: Request) {
 
     const collocations = relatedEntries.map((e) => ({
       zh: e.simplified,
-      py: e.pinyin,
+      py: normalizePinyinTone(e.pinyin),
       vi: e.definitionsVi[0] || "",
     }));
 

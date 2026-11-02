@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { BookOpen, Sparkles, Volume2, X, Feather, Search, Loader2, PenTool, Move } from "lucide-react";
+import { normalizePinyinTone } from "@/lib/chinese-sino-vietnamese";
 
 export interface HanziEtymologyData {
   hanzi: string;
@@ -282,7 +283,7 @@ export default function AncientHanziEtymologyModal({
 
                 <div className="space-y-1.5 text-center sm:text-left flex-1">
                   <div className="flex items-center justify-center sm:justify-start gap-2">
-                    <span className="text-xl font-bold text-[#A87930]">{data.pinyin}</span>
+                    <span className="text-xl font-bold text-[#A87930]">{normalizePinyinTone(data.pinyin)}</span>
                     <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#6B5A40] font-bold">
                       Hán Việt: {data.sinoVietnamese}
                     </span>
@@ -362,7 +363,7 @@ export default function AncientHanziEtymologyModal({
                         title="Bấm để xem chiết tự từ này"
                       >
                         <span className="font-bold text-[#2B4837]">{item.zh}</span>
-                        <span className="text-[#8C7A5B]">({item.py})</span>
+                        <span className="text-[#8C7A5B]">({normalizePinyinTone(item.py)})</span>
                         <span className="text-[#245238] font-medium">: {item.vi}</span>
                       </div>
                     ))}
