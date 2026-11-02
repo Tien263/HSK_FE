@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Bookmark, BookOpen, Check, ChartNoAxesColumnIncreasing, Flame, LockKeyhole, Play, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Bookmark, BookOpen, Check, ChartNoAxesColumnIncreasing, LockKeyhole, Play, Search } from "lucide-react";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import { lessonKey, toggleKnowledge, useLessonLibrary } from "@/lib/use-lesson-library";
 import { completionPercent, wholeLessonItem } from "@/lib/self-study-knowledge";
 import styles from "./SelfStudyLessonCatalog.module.css";
 
-type Stats = { level: number; completed: { number: number; date: string }[]; days: string[]; popular: { number: number; learners: number }[] };
+type Stats = { level: number; completed: { number: number; date: string }[]; days: string[] };
 type Props = { lessons: Hsk1FullLesson[]; level: number; studentId?: string; selected: number; unlocked: number[]; savedOnly: boolean; onSavedOnly: (value: boolean) => void; onOpen: (number: number) => void };
 const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 export default function SelfStudyLessonCatalog({ lessons, level, studentId, selected, unlocked, savedOnly, onSavedOnly, onOpen }: Props) {
@@ -22,7 +22,7 @@ export default function SelfStudyLessonCatalog({ lessons, level, studentId, sele
       try {
         const res = await fetch(`/api/v1/my/self-study/library?level=${level}`, { cache: "no-store", signal: controller.signal });
         const data = await res.json();
-        if (!res.ok || !data.success || data.level !== level || !Array.isArray(data.completed) || !Array.isArray(data.days) || !Array.isArray(data.popular)) throw new Error();
+        if (!res.ok || !data.success || data.level !== level || !Array.isArray(data.completed) || !Array.isArray(data.days)) throw new Error();
         if (!controller.signal.aborted && id === requestId) { setSnapshot(data); setFailed(false); }
       } catch { if (!controller.signal.aborted && id === requestId) { setSnapshot(null); setFailed(true); } }
     }
@@ -36,8 +36,6 @@ export default function SelfStudyLessonCatalog({ lessons, level, studentId, sele
   const unfinished = lessons.filter(lesson => unlocked.includes(lesson.number) && !completed.has(lesson.number));
   const lastUnfinished = unfinished.filter(lesson => store.reading[lessonKey(level, lesson.number)]).sort((a, b) => (store.reading[lessonKey(level, b.number)].updatedAt || "").localeCompare(store.reading[lessonKey(level, a.number)].updatedAt || ""))[0];
   const resume = unfinished.find(lesson => lesson.number === store.resume[level]) || lastUnfinished || unfinished.find(lesson => lesson.number === selected) || unfinished[0] || lessons.find(lesson => unlocked.includes(lesson.number));
-  const ranked = useMemo(() => stats?.popular.flatMap(item => { const lesson = lessons.find(lesson => lesson.number === item.number); return lesson ? [lesson] : []; }) || [], [stats, lessons]);
-  const featured = (ranked.length ? ranked : lessons).slice(0, 8);
   const results = lessons.filter(lesson => (!savedOnly || store.saved.includes(lessonKey(level, lesson.number))) && (filter === "all" || (filter === "open" ? unlocked.includes(lesson.number) : !unlocked.includes(lesson.number))) && normalize(`${lesson.number} ${lesson.titleZh} ${lesson.pinyin} ${lesson.titleVi}`).includes(normalize(query.trim())));
   function save(number: number) {
     const id = lessonKey(level, number), exists = store.saved.includes(id);
@@ -61,7 +59,6 @@ export default function SelfStudyLessonCatalog({ lessons, level, studentId, sele
         {resume ? <article className={styles.resume}><div className={styles.resumeArt} aria-hidden="true"><span>学而时习之</span></div><div className={styles.resumeBody}><small>HSK {level} · BÀI {String(resume.number).padStart(2, "0")}</small><h3 lang="zh-CN">{resume.titleZh}</h3><p className={styles.pinyin}>{resume.pinyin}</p><p className={styles.meaning}>{resume.titleVi}</p><p className={styles.meta}><BookOpen size={14}/>{resume.vocabList.length} từ vựng <span>·</span>{resume.grammarList.length} ngữ pháp</p><div className={styles.meter}><progress max={100} value={percent(resume)} aria-label="Nội dung hoàn thành của bài tiếp tục học"/><span>{percent(resume)}%</span></div><p className={styles.source}>{completed.has(resume.number) ? "Đã hoàn thành bài học" : "Nội dung hoàn thành · theo mục đã đánh dấu học xong"}</p></div><div className={styles.resumeActions}><button className={styles.primary} onClick={() => onOpen(resume.number)}><Play size={15}/>Tiếp tục học</button>{saveButton(resume.number, true)}<button className={styles.outline} onClick={() => onOpen(resume.number)}><BookOpen size={15}/>Xem bài học</button></div></article> : <div className={styles.empty}>Chưa có bài đã mở ở HSK {level} để tiếp tục học.</div>}
         <aside className={styles.week} aria-label="Tiến độ tuần này"><h2><ChartNoAxesColumnIncreasing size={19}/>Tiến độ tuần này</h2><strong>{stats ? week.length : "—"}<small> bài học</small></strong><p>Đã hoàn thành · HSK {level}</p>{stats ? <div className={styles.days}>{stats.days.map((day, i) => { const count = week.filter(item => item.date === day).length; return <div key={day} title={`${day}: ${count} bài hoàn thành`}><span data-checked={count > 0}>{count > 0 && <Check size={15}/>}</span><small>{["T2", "T3", "T4", "T5", "T6", "T7", "CN"][i]}</small></div>; })}</div> : <p className={styles.source}>{failed ? "Chưa tải được lịch sử hoàn thành." : "Đang tải lịch sử…"}</p>}{failed && <button className={styles.retry} onClick={() => setRetry(n => n + 1)}>Thử lại</button>}<p className={styles.source}>Mỗi bài chỉ tính lần hoàn thành đầu tiên. Tuần từ thứ Hai đến Chủ nhật (giờ Việt Nam).</p></aside>
       </div></section>
-      <section aria-label="Bài học phổ biến"><div className={styles.sectionHeader}><h2 className={styles.heading}><Flame size={20}/>Bài học phổ biến</h2><a href="#catalog-all-lessons">Xem thêm bài học<ArrowRight size={14}/></a></div><p className={styles.source}>{ranked.length ? "Theo số người hoàn thành trong 30 ngày · tối đa 5.000 lượt gần nhất." : "Chưa có thống kê phổ biến. Khám phá các bài theo thứ tự giáo trình."}</p><div className={styles.featured}>{featured.map(card)}</div></section>
     </>}
     <section id="catalog-all-lessons" aria-label={savedOnly ? "Kho lưu trữ bài học" : "Toàn bộ bài học"}>
       <div className={styles.sectionHeader}><h2 className={styles.heading}>{savedOnly ? "Kho lưu trữ" : "Tất cả bài học"}<small>HSK {level}</small></h2><button onClick={() => onSavedOnly(!savedOnly)}>{savedOnly ? "Về kho bài học" : "Xem bài đã lưu"}<ArrowRight size={14}/></button></div>
