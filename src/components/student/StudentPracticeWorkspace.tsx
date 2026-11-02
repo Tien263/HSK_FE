@@ -369,6 +369,8 @@ export default function StudentPracticeWorkspace({
   const [showVirtualStudyRoomModal, setShowVirtualStudyRoomModal] = useState<boolean>(false);
   const [showHanziPracticeModal, setShowHanziPracticeModal] = useState<boolean>(false);
   const [hanziPracticeChar, setHanziPracticeChar] = useState<string>("你");
+  const [hanziPracticePinyin, setHanziPracticePinyin] = useState<string>("");
+  const [hanziPracticeMeaning, setHanziPracticeMeaning] = useState<string>("");
 
   // Fetch Class Lessons
   const fetchLessons = useCallback(async () => {
@@ -2629,8 +2631,10 @@ export default function StudentPracticeWorkspace({
         isOpen={showEtymologyModal}
         onClose={() => setShowEtymologyModal(false)}
         initialCharacter={etymologyChar || "你"}
-        onOpenWritingPractice={(char) => {
+        onOpenWritingPractice={(char, py, mean) => {
           setHanziPracticeChar(char);
+          setHanziPracticePinyin(py || "");
+          setHanziPracticeMeaning(mean || "");
           setShowHanziPracticeModal(true);
         }}
       />
@@ -2640,6 +2644,8 @@ export default function StudentPracticeWorkspace({
         isOpen={showHanziPracticeModal}
         onClose={() => setShowHanziPracticeModal(false)}
         initialHanzi={hanziPracticeChar}
+        initialPinyin={hanziPracticePinyin}
+        initialMeaning={hanziPracticeMeaning}
         username={currentUser?.username}
         studentId={currentUser?.id}
         words={vocabList.map((v: any) => ({

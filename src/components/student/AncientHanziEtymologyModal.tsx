@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { BookOpen, Sparkles, Volume2, X, Feather, Search, Loader2, PenTool } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { BookOpen, Sparkles, Volume2, X, Feather, Search, Loader2, PenTool, Move } from "lucide-react";
 
 export interface HanziEtymologyData {
   hanzi: string;
@@ -21,7 +21,7 @@ interface AncientHanziEtymologyModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialCharacter?: string;
-  onOpenWritingPractice?: (char: string) => void;
+  onOpenWritingPractice?: (char: string, pinyin?: string, meaning?: string) => void;
 }
 
 export default function AncientHanziEtymologyModal({
@@ -34,6 +34,75 @@ export default function AncientHanziEtymologyModal({
   const [data, setData] = useState<HanziEtymologyData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Vị trí kéo thả di chuyển modal trên màn hình
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ startX: 0, startY: 0, initX: 0, initY: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("input")) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: position.x,
+      initY: position.y,
+    };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("input")) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      initX: position.x,
+      initY: position.y,
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const dx = e.clientX - dragStartRef.current.startX;
+      const dy = e.clientY - dragStartRef.current.startY;
+      setPosition({
+        x: dragStartRef.current.initX + dx,
+        y: dragStartRef.current.initY + dy,
+      });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDraggingRef.current) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - dragStartRef.current.startX;
+      const dy = touch.clientY - dragStartRef.current.startY;
+      setPosition({
+        x: dragStartRef.current.initX + dx,
+        y: dragStartRef.current.initY + dy,
+      });
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleMouseUp);
+    };
+  }, []);
 
   const fetchEtymology = useCallback(async (charToFetch: string) => {
     const clean = [...charToFetch.trim()].filter((c) => /\p{Script=Han}/u.test(c))[0];
@@ -61,6 +130,7 @@ export default function AncientHanziEtymologyModal({
       const firstHanzi = [...initialCharacter].find((c) => /\p{Script=Han}/u.test(c)) || "你";
       setInputChar(firstHanzi);
       if (isOpen) {
+        setPosition({ x: 0, y: 0 });
         fetchEtymology(firstHanzi);
       }
     }
@@ -99,7 +169,7 @@ export default function AncientHanziEtymologyModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="etymology-modal-title"
@@ -107,33 +177,41 @@ export default function AncientHanziEtymologyModal({
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
 
       <div
-        className="relative z-10 w-full max-w-xl bg-[#FAF4E6] border-2 border-[#BC9B6B] rounded-3xl shadow-2xl overflow-hidden text-[#2B4837]"
+        className="relative z-10 w-full max-w-xl bg-[#FAF4E6] border-2 border-[#BC9B6B] rounded-3xl shadow-2xl overflow-hidden text-[#2B4837] max-h-[92vh] flex flex-col transition-shadow"
         style={{
+          transform: `translate(${position.x}px, ${position.y}px)`,
           backgroundImage: `
             radial-gradient(circle at 50% 0%, rgba(188, 155, 107, 0.15) 0%, transparent 65%),
             linear-gradient(to bottom, #FAF4E6 0%, #F5ECDA 100%)
           `,
         }}
       >
-        {/* Ancient Header */}
-        <div className="h-5 bg-gradient-to-r from-[#5B3E1F] via-[#A88755] to-[#5B3E1F] flex items-center justify-between px-4 shadow-inner">
-          <div className="w-2 h-2 rounded-full bg-[#E8D49E]" />
-          <span className="text-[10px] tracking-[0.25em] text-[#FAF4E6]/90 font-serif font-bold uppercase">
-            HANYU · THƯ ĐỒNG CHIẾT TỰ ĐỘNG · CỔ PHONG TRUNG HOA
-          </span>
+        {/* Ancient Header with Drag Handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          className="h-7 bg-gradient-to-r from-[#5B3E1F] via-[#A88755] to-[#5B3E1F] flex items-center justify-between px-4 shadow-inner cursor-grab active:cursor-grabbing select-none shrink-0"
+          title="Kéo thả thanh này để di chuyển bảng chiết tự"
+        >
+          <div className="flex items-center gap-1.5 text-[#E8D49E]">
+            <Move className="w-3 h-3" />
+            <span className="text-[10px] tracking-[0.2em] font-serif font-bold uppercase text-[#FAF4E6]/90">
+              HANYU · THƯ ĐỒNG CHIẾT TỰ ĐỘNG · KÉO ĐỂ DI CHUYỂN
+            </span>
+          </div>
           <div className="w-2 h-2 rounded-full bg-[#E8D49E]" />
         </div>
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-7 right-5 p-1.5 rounded-full text-[#8C7A5B] hover:text-[#2B4837] hover:bg-[#EAE0CA] transition cursor-pointer"
+          className="absolute top-8 right-5 p-1.5 rounded-full text-[#8C7A5B] hover:text-[#2B4837] hover:bg-[#EAE0CA] transition cursor-pointer z-20"
           aria-label="Đóng"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="p-6 sm:p-8 space-y-5">
+        <div className="p-5 sm:p-7 space-y-4 overflow-y-auto max-h-[calc(92vh-40px)] pr-2 scrollbar-thin">
           {/* Dynamic Search Input for ANY Chinese Character */}
           <form onSubmit={handleSearchSubmit} className="relative flex items-center gap-2">
             <div className="relative flex-1">
@@ -222,7 +300,7 @@ export default function AncientHanziEtymologyModal({
                     <div className="pt-1.5 flex items-center justify-center sm:justify-start">
                       <button
                         type="button"
-                        onClick={() => onOpenWritingPractice(data.hanzi)}
+                        onClick={() => onOpenWritingPractice(data.hanzi, data.pinyin, data.meaning)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#2B4837] hover:bg-[#1E3326] text-white text-xs font-bold transition shadow-xs cursor-pointer"
                         title="Mở phòng luyện viết từng nét theo quy tắc thuận bút"
                       >

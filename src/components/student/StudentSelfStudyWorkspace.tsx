@@ -60,6 +60,8 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const [showMistakesModal, setShowMistakesModal] = useState(false);
   const [showHanziPracticeModal, setShowHanziPracticeModal] = useState(false);
   const [hanziPracticeChar, setHanziPracticeChar] = useState("你");
+  const [hanziPracticePinyin, setHanziPracticePinyin] = useState("");
+  const [hanziPracticeMeaning, setHanziPracticeMeaning] = useState("");
   const topRef = useRef<HTMLDivElement>(null);
   const { lessons: apiLessons, loading, error } = useCurriculumLessons(level);
   const lessons = useMemo(() => (dedicatedRoadmap || view === "lessons") ? apiLessons : apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level, dedicatedRoadmap, view]);
@@ -280,8 +282,10 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       isOpen={showEtymologyModal}
       onClose={() => setShowEtymologyModal(false)}
       initialCharacter={current?.vocabList?.[0]?.hanzi || "你"}
-      onOpenWritingPractice={(char) => {
+      onOpenWritingPractice={(char, py, mean) => {
         setHanziPracticeChar(char);
+        setHanziPracticePinyin(py || "");
+        setHanziPracticeMeaning(mean || "");
         setShowHanziPracticeModal(true);
       }}
     />
@@ -289,6 +293,8 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       isOpen={showHanziPracticeModal}
       onClose={() => setShowHanziPracticeModal(false)}
       initialHanzi={hanziPracticeChar}
+      initialPinyin={hanziPracticePinyin}
+      initialMeaning={hanziPracticeMeaning}
       username={currentUser?.name}
       studentId={currentUser?.id}
       words={current?.vocabList?.map((v: any) => ({

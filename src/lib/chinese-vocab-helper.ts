@@ -77,6 +77,10 @@ const RADICAL_ETYMOLOGY: Record<string, { radicals: string; memo: string }> = {
     radicals: "亻 (nhân) + 十 (thập: số 10)",
     memo: "Chỉ sự vật đa dạng trong mười phương, dùng để hỏi: 'Cái gì?'.",
   },
+  搞: {
+    radicals: "扌 (thủ: bàn tay thao tác) + 高 (cao: lầu cao nguy nga)",
+    memo: "Chữ Hình Thanh: bàn tay linh hoạt (扌) phối hợp cùng phần hài thanh 'cao' (高) mang hàm nghĩa bắt tay vào làm việc, sắp đặt công việc, tạo tác vươn lên tầm cao.",
+  },
   么: {
     radicals: "丿 + 厶 (hình dáng sợi tơ nhỏ)",
     memo: "Trợ từ tinh tế đứng sau nghi vấn từ để tạo ngữ khí tự nhiên.",

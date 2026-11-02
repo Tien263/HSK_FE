@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import HanziWriter from "hanzi-writer";
+import { pinyin as getPinyin } from "pinyin-pro";
 import {
   X,
   Volume2,
@@ -19,6 +20,9 @@ import {
   AlertCircle,
   HelpCircle,
   BookOpen,
+  Move,
+  Plus,
+  Search,
 } from "lucide-react";
 import { getEtymology, getExamplesForVocab } from "@/lib/chinese-vocab-helper";
 
@@ -137,6 +141,15 @@ const DEFAULT_HSK1_WORDS: PracticeWord[] = [
   },
 ];
 
+function resolvePinyin(hz: string, py?: string) {
+  if (py && py.trim() && (py !== "nǐ" || hz === "你")) return py;
+  try {
+    return getPinyin(hz, { toneType: "symbol" }) || py || "";
+  } catch {
+    return py || "";
+  }
+}
+
 export default function HanziPracticeModal({
   isOpen,
   onClose,
@@ -147,37 +160,180 @@ export default function HanziPracticeModal({
   username = "student",
   studentId,
 }: HanziPracticeModalProps) {
-  // Chuẩn bị danh sách từ vựng luyện tập
+  // Chữ do người dùng tra cứu hoặc thêm mới trực tiếp trong studio
+  const [customWords, setCustomWords] = useState<PracticeWord[]>([]);
+  const [searchInput, setSearchInput] = useState("");
+
+  // Vị trí kéo thả di chuyển modal trên màn hình
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ startX: 0, startY: 0, initX: 0, initY: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("input")) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: position.x,
+      initY: position.y,
+    };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("input")) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      initX: position.x,
+      initY: position.y,
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const dx = e.clientX - dragStartRef.current.startX;
+      const dy = e.clientY - dragStartRef.current.startY;
+      setPosition({
+        x: dragStartRef.current.initX + dx,
+        y: dragStartRef.current.initY + dy,
+      });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDraggingRef.current) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - dragStartRef.current.startX;
+      const dy = touch.clientY - dragStartRef.current.startY;
+      setPosition({
+        x: dragStartRef.current.initX + dx,
+        y: dragStartRef.current.initY + dy,
+      });
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleMouseUp);
+    };
+  }, []);
+
+  // Chuẩn bị danh sách từ vựng luyện tập, tự động kết hợp chữ tra cứu ngoài bài khóa
   const practiceList = useMemo(() => {
-    if (words && words.length > 0) return words;
-    if (initialHanzi && initialHanzi !== "你") {
-      return [
-        {
-          hanzi: initialHanzi,
-          pinyin: initialPinyin,
-          meaning: initialMeaning,
-          meaningVi: initialMeaning,
-          strokes: 6,
-          radical: "Chữ Hán",
-          rule: "Thuận bút tiêu chuẩn",
-        },
-      ];
+    const list: PracticeWord[] = [];
+    const seen = new Set<string>();
+
+    // 1. Chữ khởi tạo hoặc tra cứu bên ngoài nếu có (e.g. 搞)
+    if (initialHanzi && initialHanzi.trim()) {
+      const hz = initialHanzi.trim();
+      seen.add(hz);
+      const computedPy = resolvePinyin(hz, initialPinyin);
+      const displayMeaning =
+        initialMeaning && initialMeaning !== "Bạn, anh, chị"
+          ? initialMeaning
+          : `Chữ Hán: ${hz}`;
+
+      list.push({
+        hanzi: hz,
+        pinyin: computedPy,
+        meaning: displayMeaning,
+        meaningVi: displayMeaning,
+        strokes: 8,
+        radical: "Chữ Hán",
+        rule: "Thuận bút tiêu chuẩn",
+      });
     }
-    return DEFAULT_HSK1_WORDS;
-  }, [words, initialHanzi, initialPinyin, initialMeaning]);
+
+    // 2. Các chữ tự tra thêm bằng thanh tìm kiếm trực tiếp trong studio
+    for (const cw of customWords) {
+      if (!seen.has(cw.hanzi)) {
+        seen.add(cw.hanzi);
+        list.push(cw);
+      }
+    }
+
+    // 3. Danh sách từ vựng bài khóa truyền vào
+    if (words && words.length > 0) {
+      for (const w of words) {
+        if (!seen.has(w.hanzi)) {
+          seen.add(w.hanzi);
+          list.push(w);
+        }
+      }
+    } else if (list.length === 0) {
+      list.push(...DEFAULT_HSK1_WORDS);
+    }
+
+    return list;
+  }, [words, initialHanzi, initialPinyin, initialMeaning, customWords]);
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [activeTab, setActiveTab] = useState<"WRITE" | "SPEAK">("WRITE");
+
+  // Tự động nhảy đến chữ được yêu cầu khi mở modal
+  useEffect(() => {
+    if (isOpen) {
+      setPosition({ x: 0, y: 0 });
+      if (initialHanzi && initialHanzi.trim()) {
+        const target = initialHanzi.trim();
+        const foundIdx = practiceList.findIndex((w) => w.hanzi === target);
+        if (foundIdx !== -1) {
+          setCurrentIdx(foundIdx);
+        } else {
+          setCurrentIdx(0);
+        }
+      }
+    }
+  }, [isOpen, initialHanzi, practiceList]);
+
+  // Thêm chữ Hán bất kỳ vào danh sách luyện tập trực tiếp
+  const handleAddCustomWord = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = searchInput.trim();
+    if (!clean) return;
+    const hanziOnly = Array.from(clean).filter((c) => /\p{Script=Han}/u.test(c)).join("");
+    if (!hanziOnly) return;
+
+    const py = resolvePinyin(hanziOnly);
+    const newWord: PracticeWord = {
+      hanzi: hanziOnly,
+      pinyin: py,
+      meaning: `Chữ Hán tra cứu: ${hanziOnly}`,
+      meaningVi: `Chữ Hán tra cứu: ${hanziOnly}`,
+      strokes: 8,
+      radical: "Chữ Hán",
+      rule: "Quy tắc thuận bút",
+    };
+
+    setCustomWords((prev) => [newWord, ...prev.filter((w) => w.hanzi !== hanziOnly)]);
+    setCurrentIdx(0);
+    setSearchInput("");
+  };
 
   // Từ vựng hiện tại
   const currentWord = practiceList[currentIdx] || practiceList[0];
 
   // Tách các chữ Hán đơn trong từ (hỗ trợ từ 1, 2, 3, 4 chữ Hán)
   const characters = useMemo(() => {
-    const raw = currentWord.hanzi || "";
+    const raw = currentWord?.hanzi || "";
     const list = Array.from(raw).filter((c) => /\p{Script=Han}/u.test(c));
     return list.length > 0 ? list : [raw || "你"];
-  }, [currentWord.hanzi]);
+  }, [currentWord?.hanzi]);
 
   // Index của chữ Hán đơn đang được chọn viết
   const [selectedCharIdx, setSelectedCharIdx] = useState(0);
@@ -592,36 +748,68 @@ export default function HanziPracticeModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
-      <div className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between space-y-4 max-h-[94vh] overflow-y-auto animate-scaleUp">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+      <div
+        className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between space-y-4 max-h-[94vh] overflow-y-auto animate-scaleUp transition-shadow"
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px)`,
+        }}
+      >
+        {/* Header with Drag Handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          className="flex items-center justify-between pb-3 border-b border-[#E5DEC9] cursor-grab active:cursor-grabbing select-none"
+          title="Kéo thả thanh này để di chuyển bảng luyện viết trên màn hình"
+        >
           <div className="flex items-center gap-3">
             <div className="px-3 py-1.5 rounded-2xl bg-[#204434] text-white flex items-center justify-center font-serif text-lg font-bold shadow-xs">
-              {currentWord.hanzi}
+              {currentWord?.hanzi}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif font-bold text-base sm:text-lg text-[#204434]">
-                  Luyện viết chữ Hán & Khẩu ngữ AI
+                <h3 className="font-serif font-bold text-base sm:text-lg text-[#204434] flex items-center gap-1.5">
+                  <Move className="w-4 h-4 text-[#8F6D3B]" />
+                  <span>Luyện viết chữ Hán & Khẩu ngữ AI</span>
                 </h3>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#BC9B6B]/20 text-[#8F6D3B] font-bold">
-                  HSK Chuẩn
+                  Kéo để di chuyển
                 </span>
               </div>
               <p className="text-xs text-[#315E48]">
-                {currentWord.hanzi} · <span className="font-mono font-bold text-[#8F6D3B]">{currentWord.pinyin}</span> ·{" "}
-                {currentWord.meaningVi || currentWord.meaning}
+                {currentWord?.hanzi} · <span className="font-mono font-bold text-[#8F6D3B]">{currentWord?.pinyin}</span> ·{" "}
+                {currentWord?.meaningVi || currentWord?.meaning}
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] hover:bg-white flex items-center justify-center cursor-pointer transition"
+            className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] hover:bg-white flex items-center justify-center cursor-pointer transition shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Quick Search & Add Any Hanzi Input */}
+        <form onSubmit={handleAddCustomWord} className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Nhập bất kỳ chữ Hán nào để luyện viết (VD: 搞, 爱, 龙, 福, 国, 难)..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] text-xs text-[#204434] placeholder:text-stone-400 focus:outline-none focus:border-[#BC9B6B]"
+            />
+            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          </div>
+          <button
+            type="submit"
+            className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#163024] text-white text-xs font-serif font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>Thêm chữ này</span>
+          </button>
+        </form>
 
         {/* Word Select Carousel Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
