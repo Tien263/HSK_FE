@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Dumbbell, FileCheck2, Lock, Moon, PenTool, Search, Sparkles } from "lucide-react";
+import { Archive, ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Dumbbell, FileCheck2, Lock, Moon, PenTool, Sparkles } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
@@ -20,7 +20,8 @@ import AiDialogueRoleplayModal from "./AiDialogueRoleplayModal";
 import MistakeNotebookModal from "./MistakeNotebookModal";
 import HanziPracticeModal from "./HanziPracticeModal";
 import HskLevelMasteryWidget from "./HskLevelMasteryWidget";
-import LessonStudyContent from "../learning/LessonStudyContent";
+import ResumableLessonReader from "./ResumableLessonReader";
+import SelfStudyLessonCatalog from "./SelfStudyLessonCatalog";
 import styles from "./SelfStudyWorkspace.module.css";
 
 export interface StudentSelfStudyWorkspaceProps {
@@ -33,7 +34,6 @@ export interface StudentSelfStudyWorkspaceProps {
   onScreenChange?: (screen: "catalog" | "reader") => void;
   home?: boolean;
 }
-const normalize = (text: string) => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 
 export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel = 1, onNavigateToTab, view = "roadmap", screen = "catalog", onScreenChange, home = false }: StudentSelfStudyWorkspaceProps) {
   const router = useRouter();
@@ -42,8 +42,10 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const selection = useSelfStudySelection(currentUser?.id, maxLevel);
   const level = Math.min(selection.level, maxLevel);
   const [unlocked, setUnlocked] = useState<number[]>([1, 2]);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [libraryUnlockScope, setLibraryUnlockScope] = useState("");
+  const unlockScope = `${level}_${currentUser?.id || "guest"}`;
+  const libraryUnlocked = libraryUnlockScope === unlockScope ? unlocked : [];
+  const [savedOnly, setSavedOnly] = useState(false);
   const [notice, setNotice] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
@@ -57,9 +59,9 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const [hanziPracticeChar, setHanziPracticeChar] = useState("你");
   const topRef = useRef<HTMLDivElement>(null);
   const { lessons: apiLessons, loading, error } = useCurriculumLessons(level);
-  const lessons = useMemo(() => dedicatedRoadmap ? apiLessons : apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level, dedicatedRoadmap]);
+  const lessons = useMemo(() => (dedicatedRoadmap || view === "lessons") ? apiLessons : apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level, dedicatedRoadmap, view]);
   const current = lessons.find(lesson => lesson.number === selection.lessonNumber) || lessons[0];
-  const canStudy = !!current && unlocked.includes(current.number);
+  const canStudy = !!current && (view === "lessons" ? libraryUnlocked : unlocked).includes(current.number);
   const reading = view === "lessons" && screen === "reader";
   const openCount = lessons.filter(lesson => unlocked.includes(lesson.number)).length;
 
@@ -83,11 +85,6 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       .reduce((acc, l) => acc + (l.grammarList?.length || (l as any).grammar?.length || 0), 0);
   }, [lessons, unlocked]);
 
-  const results = lessons.filter(lesson => {
-    const isOpen = unlocked.includes(lesson.number);
-    return (filter === "all" || (filter === "open" ? isOpen : !isOpen)) && normalize(`${lesson.number} ${lesson.titleZh} ${lesson.titleVi} ${lesson.pinyin}`).includes(normalize(query.trim()));
-  });
-
   /* eslint-disable react-hooks/set-state-in-effect -- Restore existing profile and unlock data from the browser after hydration. */
   useEffect(() => {
     try { const profile = JSON.parse(localStorage.getItem("hanyu_study_profile") || "null"); setMaxLevel(Math.max(Number(profile?.currentHskLevel || currentUser?.currentHskLevel || activeHskLevel) || 1, 1)); } catch { /* Keep the account level. */ }
@@ -95,6 +92,26 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   useEffect(() => {
     if (dedicatedRoadmap) return;
     let active = true;
+    if (view === "lessons") {
+      const controller = new AbortController();
+      const cacheKey = `hsk_self_unlocked_lvl_${unlockScope}`;
+      void (async () => {
+        let numbers: number[] = [];
+        try {
+          const response = await fetch(`/api/v1/my/self-study/progress?level=${level}`, { cache: "no-store", signal: controller.signal });
+          const data = await response.json();
+          if (!response.ok || !data.success || !Array.isArray(data.unlockedLessons) || !data.unlockedLessons.every((n: number) => Number.isInteger(n) && n > 0)) throw new Error();
+          numbers = data.unlockedLessons;
+          if (active) { try { localStorage.setItem(cacheKey, JSON.stringify(numbers)); } catch { /* Continue with server permissions. */ } }
+        } catch {
+          if (!active) return;
+          try { const stored = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (Array.isArray(stored) && stored.every(n => Number.isInteger(n) && n > 0)) numbers = stored; } catch { /* No usable cache. */ }
+          setNotice("Chưa đồng bộ được trạng thái mở bài. Đang dùng dữ liệu đã lưu trên trình duyệt nếu có.");
+        }
+        if (active) { setUnlocked(numbers); setLibraryUnlockScope(unlockScope); }
+      })();
+      return () => { active = false; controller.abort(); };
+    }
     try { const stored = JSON.parse(localStorage.getItem(`hsk_self_unlocked_lvl_${level}_${currentUser?.id || "guest"}`) || "null"); setUnlocked(Array.isArray(stored) ? stored : [1, 2]); } catch { setUnlocked([1, 2]); }
     // Đồng bộ từ đám mây (Cloud Sync)
     fetchCloudProgress(level, currentUser?.id).then(cloudUnlocked => {
@@ -103,13 +120,14 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       }
     });
     return () => { active = false; };
-  }, [level, currentUser?.id, dedicatedRoadmap]);
+  }, [level, currentUser?.id, dedicatedRoadmap, view, unlockScope]);
 
   useEffect(() => {
     function handleProgressUpdate(e: Event) {
       const customEvent = e as CustomEvent;
       if (customEvent.detail && customEvent.detail.level === level && Array.isArray(customEvent.detail.unlockedLessons)) {
         setUnlocked(customEvent.detail.unlockedLessons);
+        setLibraryUnlockScope(unlockScope);
       }
     }
     function handleLevelPromoted(e: Event) {
@@ -125,7 +143,7 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       window.removeEventListener("self-study-progress-updated", handleProgressUpdate);
       window.removeEventListener("hsk-level-promoted", handleLevelPromoted);
     };
-  }, [level, selection]);
+  }, [level, selection, unlockScope]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function navigate(tab: string) { if (onNavigateToTab) onNavigateToTab(tab); else router.push(`/s/home?tab=${tab}`); }
@@ -135,7 +153,7 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     try { if (localStorage.getItem(key) === null) localStorage.setItem(key, JSON.stringify(unlocked)); } catch { /* Keep the current in-memory permissions. */ }
   }
   function openLesson(number: number) {
-    if (!unlocked.includes(number)) return;
+    if (!(view === "lessons" ? libraryUnlocked : unlocked).includes(number)) return;
     rememberOpenLessons();
     selection.select({ level, lessonNumber: number }); onScreenChange?.("reader"); navigate("lessons");
     topRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
@@ -145,7 +163,7 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       setNotice(`HSK ${next} chưa mở khóa. Bạn cần hoàn thành tất cả các bài học và đạt điểm bài thi thử của HSK ${next - 1} để tiếp tục.`);
       return;
     }
-    selection.select({ level: next, lessonNumber: 1 }); onScreenChange?.("catalog"); setQuery(""); setNotice("");
+    selection.select({ level: next, lessonNumber: 1 }); onScreenChange?.("catalog"); setNotice("");
   }
   function practice() { if (!canStudy) return; rememberOpenLessons(); selection.select({ level, lessonNumber: current.number }); navigate("practice"); }
   async function complete() {
@@ -176,9 +194,9 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
     <button className={styles.secondary} disabled={!canStudy} onClick={() => setShowEtymologyModal(true)} title="Chiết tự chữ Hán"><Sparkles size={16}/>Chiết tự</button>
   </div>;
 
-  return <div ref={topRef} className={styles.workspace} data-self-study-view={view} data-self-study-page={home ? "home" : view}>
+  return <div ref={topRef} className={styles.workspace} data-self-study-view={view} data-self-study-page={home ? "home" : view} data-catalog={view === "lessons" && !reading}>
     <header className={styles.header}>
-      <div><p className={styles.eyebrow}>HANYU · TỰ HỌC HSK {level}</p><h1>{reading ? "Một bài học, một bước tiến." : view === "roadmap" ? home ? "Góc tự học của bạn" : "Lộ trình của tôi" : "Mở kho sách, tìm điều muốn học."}</h1><p>{dedicatedRoadmap ? "Theo dõi bài đã mở, chọn điểm bắt đầu và đi tiếp từng trang giáo trình." : view === "roadmap" ? "Tiếp tục bài đang học và nhìn lại những chặng phía trước." : "Tìm bài theo tên, chữ Hán hoặc Pinyin. Học và luyện theo cùng một bài."}</p></div>
+      <div><p className={styles.eyebrow}>HANYU · TỰ HỌC HSK {level}</p><h1>{reading ? "Một bài học, một bước tiến." : view === "roadmap" ? home ? "Góc tự học của bạn" : "Lộ trình của tôi" : "Kho bài học & Khám phá"}</h1><p>{dedicatedRoadmap ? "Theo dõi bài đã mở, chọn điểm bắt đầu và đi tiếp từng trang giáo trình." : view === "roadmap" ? "Tiếp tục bài đang học và nhìn lại những chặng phía trước." : "Tìm bài theo tên, chữ Hán hoặc Pinyin. Học và luyện theo cùng một bài."}</p></div>
       <div className={styles.headerTools} data-dashboard={view === "roadmap"}>
         <button className={styles.secondary} onClick={() => setShowVocabModal(true)} title="Sổ từ vựng cá nhân & Flashcard SRS 5 hộp Leitner Thất Nhật Ôn Tập"><BookOpen size={16}/>Thất Nhật Ôn Tập</button>
         <button className={styles.secondary} onClick={() => setShowDialogueModal(true)} title="Trợ lý Hán ngữ AI Nhập vai Tình huống"><Sparkles size={16}/>AI Đối Thoại</button>
@@ -196,6 +214,7 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
           Luyện Thuận Bút
         </button>
         <button className={styles.secondary} onClick={() => setRoomOpen(true)}><Moon size={16}/>Phòng tập trung</button>
+        {view === "lessons" && <button className={styles.secondary} aria-pressed={savedOnly && !reading} onClick={() => { setSavedOnly(true); onScreenChange?.("catalog"); }}><Archive size={16}/>Kho lưu trữ</button>}
       </div>
     </header>
 
@@ -220,11 +239,9 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
       </> : reading ? <>
         <div className={styles.readerNavigation}><button className={styles.textButton} onClick={() => onScreenChange?.("catalog")}><ArrowLeft size={15}/>Về kho bài học</button><span>HSK {level} · Bài {current.number}</span></div>
         <section className={styles.readerHeader}><div><p className={styles.eyebrow}>ĐỌC · HIỂU · THỰC HÀNH</p><h2>{current.titleVi || current.titleZh}</h2><p className={styles.pinyin}>{current.titleZh} · {current.pinyin}</p></div>{actions}</section>
-        {canStudy ? <><div className={styles.lessonContent}><LessonStudyContent key={`${level}-${current.number}`} lesson={current}/></div><footer className={styles.readerFooter}><div><h3>Khép lại bài {current.number}</h3><p>Luyện thêm một lượt hoặc ghi lại điều bạn vừa hiểu.</p></div><div className={styles.actions}><button className={styles.secondary} onClick={practice}><Dumbbell size={16}/>Luyện bài này</button><button className={styles.primary} onClick={complete}><CheckCircle2 size={16}/>Hoàn thành bài học</button></div></footer></> : <p className={styles.empty}><Lock size={22}/>Bài này chưa mở. Hãy chọn một bài đã mở trong kho bài học.</p>}
+        {canStudy ? <><div className={styles.lessonContent}><ResumableLessonReader key={`${currentUser?.id}-${level}-${current.number}`} lesson={current} level={level} studentId={currentUser?.id}/></div><footer className={styles.readerFooter}><div><h3>Khép lại bài {current.number}</h3><p>Luyện thêm một lượt hoặc ghi lại điều bạn vừa hiểu.</p></div><div className={styles.actions}><button className={styles.secondary} onClick={practice}><Dumbbell size={16}/>Luyện bài này</button><button className={styles.primary} onClick={complete}><CheckCircle2 size={16}/>Hoàn thành bài học</button></div></footer></> : <p className={styles.empty}><Lock size={22}/>Bài này chưa mở. Hãy chọn một bài đã mở trong kho bài học.</p>}
       </> : <>
-        <section className={styles.libraryTools} aria-label="Tìm và lọc bài học"><label className={styles.search}><Search size={18}/><input aria-label="Tìm bài học" value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm tên bài, chữ Hán, Pinyin…"/></label><div className={styles.filters} aria-label="Trạng thái bài học">{[{ id: "all", label: "Tất cả" }, { id: "open", label: "Đã mở" }, { id: "locked", label: "Chưa mở" }].map(item => <button key={item.id} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}</div><span className={styles.resultCount} role="status">{results.length} bài học</span></section>
-        <div className={styles.library} aria-label="Danh sách bài học">{results.map(lesson => { const available = unlocked.includes(lesson.number); return <button key={lesson.number} className={styles.lessonCard} disabled={!available} aria-label={`Mở bài ${lesson.number}`} onClick={() => openLesson(lesson.number)}><div className={styles.cardTop}><span>BÀI {String(lesson.number).padStart(2, "0")}</span>{available ? <BookOpen size={17}/> : <Lock size={16}/>}</div><h2 lang="zh-CN">{lesson.titleZh}</h2><p className={styles.pinyin}>{lesson.pinyin}</p><p className={styles.cardTitle}>{lesson.titleVi}</p><div className={styles.cardMeta}><span>{lesson.vocabList.length} từ · {lesson.grammarList.length} ngữ pháp</span><span>{available ? "Mở bài học →" : "Hoàn thành bài trước"}</span></div></button>; })}</div>
-        {!results.length && <div className={styles.empty}><Search size={26}/><h2>Chưa tìm thấy bài phù hợp</h2><p>Thử một tên khác hoặc xem toàn bộ bài học.</p><button className={styles.secondary} onClick={() => { setQuery(""); setFilter("all"); }}>Xóa bộ lọc</button></div>}
+        <SelfStudyLessonCatalog key={`${currentUser?.id}-${level}`} lessons={lessons} level={level} studentId={currentUser?.id} selected={selection.lessonNumber} unlocked={libraryUnlocked} savedOnly={savedOnly} onSavedOnly={setSavedOnly} onOpen={openLesson}/>
       </>}
     </>}
     <AncientSideDrawerNotes isOpen={notesOpen} onClose={() => setNotesOpen(false)} lessonNumber={current?.number || selection.lessonNumber} hskLevel={level} studentId={currentUser?.id} lessonTitle={current?.titleVi || current?.titleZh} lesson={canStudy ? current : undefined}/>

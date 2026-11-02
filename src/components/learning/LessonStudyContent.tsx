@@ -1,7 +1,7 @@
 "use client";
 import LessonRichSections from "@/components/teacher/LessonRichSections";
 import {teacherLibraryLesson} from "@/lib/teacher-library-adapter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, Languages, MessageSquare, Volume2, BookmarkPlus, Sparkles, Globe } from "lucide-react";
 import type { Hsk1FullLesson,LessonVocabItem } from "@/lib/hsk1-full-lessons";
 import styles from "./Ink.module.css";
@@ -40,8 +40,9 @@ function cleanChineseForSpeech(raw: string): string {
   return pinyinWord || text;
 }
 
-export default function LessonStudyContent({lesson,onSaveVocabulary}:{lesson:Hsk1FullLesson;onSaveVocabulary?:(items:LessonVocabItem[])=>Promise<void>}){
-  const [tab,setTab]=useState("vocab"),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
+export default function LessonStudyContent({lesson,onSaveVocabulary,initialTab,onSectionChange}:{lesson:Hsk1FullLesson;onSaveVocabulary?:(items:LessonVocabItem[])=>Promise<void>;initialTab?:string;onSectionChange?:(tab:string)=>void}){
+  const [tab,setTab]=useState(["vocab","grammar","dialogue","reading","culture_detail","phonetics"].includes(initialTab || "") ? initialTab! : "vocab"),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
+  useEffect(() => { onSectionChange?.(tab); }, [tab, onSectionChange]);
   function speak(text:string){if(!("speechSynthesis"in window)){setMessage("Trình duyệt chưa hỗ trợ phát âm.");return;}speechSynthesis.cancel();const sound=new SpeechSynthesisUtterance(text);sound.lang="zh-CN";speechSynthesis.speak(sound);}
   async function save(items:LessonVocabItem[]){if(!onSaveVocabulary)return;setBusy(true);setMessage("");try{await onSaveVocabulary(items);setMessage(`Đã lưu ${items.length} từ vào kho riêng của bạn.`);}catch(error){setMessage(error instanceof Error?error.message:"Chưa lưu được từ vựng.");}finally{setBusy(false);}}
   const hskLevel=Number(lesson.id.match(/hsk(\d+)/)?.[1]||1);
