@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Camera,
   Play,
+  Trash2,
 } from "lucide-react";
 
 export interface ProctorViolationItem {
@@ -79,6 +80,47 @@ export default function LiveExamProctorMonitor({
     const interval = setInterval(fetchViolations, 4000);
     return () => clearInterval(interval);
   }, [isAutoRefresh, selectedClass]);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
+
+  const handleDeleteViolation = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa bản ghi vi phạm này để giải phóng dung lượng?")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/v1/proctor/violation?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setViolations((prev) => prev.filter((v) => v.id !== id));
+        if (showToast) showToast("Đã xóa bản ghi vi phạm thành công!");
+      } else {
+        alert(data.message || "Không thể xóa vi phạm.");
+      }
+    } catch (e: any) {
+      alert("Lỗi kết nối máy chủ: " + e.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleClearAllViolations = async () => {
+    if (!confirm("CẢNH BÁO: Bạn có chắc chắn muốn dọn dẹp và xóa TOÀN BỘ ảnh bằng chứng & nhật ký vi phạm để tiết kiệm dung lượng lưu trữ?")) return;
+    setClearingAll(true);
+    try {
+      const res = await fetch("/api/v1/proctor/violation?action=CLEAR_ALL", { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setViolations([]);
+        if (showToast) showToast(data.message || "Đã dọn dẹp toàn bộ dữ liệu giám thị!");
+      } else {
+        alert(data.message || "Không thể dọn dẹp dữ liệu.");
+      }
+    } catch (e: any) {
+      alert("Lỗi kết nối máy chủ: " + e.message);
+    } finally {
+      setClearingAll(false);
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     try {
@@ -202,6 +244,17 @@ export default function LiveExamProctorMonitor({
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Làm mới ngay</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={clearingAll || violations.length === 0}
+            onClick={handleClearAllViolations}
+            className="px-3.5 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-400/40 text-red-200 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            title="Dọn dẹp và giải phóng dung lượng ảnh bằng chứng vi phạm"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{clearingAll ? "Đang dọn dẹp..." : "Dọn dẹp nhật ký"}</span>
           </button>
         </div>
       </div>
@@ -411,6 +464,16 @@ export default function LiveExamProctorMonitor({
                   >
                     <Bell className="w-3.5 h-3.5 text-amber-600" />
                     <span>Gửi nhắc nhở</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={deletingId === v.id}
+                    onClick={() => handleDeleteViolation(v.id)}
+                    className="p-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition cursor-pointer"
+                    title="Xóa bản ghi vi phạm này để tiết kiệm dung lượng"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
                   {v.count >= 3 && (

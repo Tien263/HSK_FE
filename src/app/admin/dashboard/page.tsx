@@ -217,7 +217,7 @@ export default function AdminDashboardPage() {
   };
 
   // AI Engine State
-  const [activeAiProvider, setActiveAiProvider] = useState<"QWEN" | "GROQ" | "GEMINI" | "OPENROUTER">("QWEN");
+  const [activeAiProvider, setActiveAiProvider] = useState<"DOUBAO" | "QWEN" | "GROQ" | "GEMINI" | "OPENROUTER">("DOUBAO");
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<{
     success: boolean;
@@ -1681,7 +1681,28 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Providers Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 0. ByteDance Doubao */}
+                <div
+                  onClick={() => setActiveAiProvider("DOUBAO")}
+                  className={`p-4 rounded-2xl border transition cursor-pointer ${
+                    activeAiProvider === "DOUBAO"
+                      ? "bg-[#FFFBF0] border-[#BC9B6B] shadow-xs ring-2 ring-[#BC9B6B]/40"
+                      : "bg-white border-[#E5DEC9] hover:bg-[#FAF7F0]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-[#204434]">ByteDance Doubao</span>
+                    <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                      豆包 TikTok
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#315E48] mt-1 font-medium">Model: Doubao Pro / Lite</p>
+                  <p className="text-[11px] text-[#8ea394] mt-1">
+                    Mô hình tiếng Trung bản địa ByteDance, phát âm Voice tự nhiên nhất, tặng 500k-5M tokens miễn phí.
+                  </p>
+                </div>
+
                 {/* 1. Alibaba Qwen */}
                 <div
                   onClick={() => setActiveAiProvider("QWEN")}
@@ -1697,7 +1718,7 @@ export default function AdminDashboardPage() {
                       Khuyên dùng
                     </span>
                   </div>
-                  <p className="text-xs text-[#315E48] mt-1 font-medium">Model: Qwen 2.5 72B / Qwen-Turbo</p>
+                  <p className="text-xs text-[#315E48] mt-1 font-medium">Model: Qwen 2.5 72B / Turbo</p>
                   <p className="text-[11px] text-[#8ea394] mt-1">
                     Tối ưu xuất sắc nhất cho tiếng Trung, ngữ pháp HSK, thanh điệu pinyin và viết chữ Hán.
                   </p>

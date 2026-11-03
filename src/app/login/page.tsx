@@ -71,18 +71,16 @@ export default function LoginPage() {
       } else if (data.user.role === "TEACHER") {
         router.push("/t/dashboard");
       } else {
-        const hasExistingProgress = (data.user.totalXp && data.user.totalXp > 0) || Boolean(data.user.hasEnrolledClasses);
+        const hasExistingProgress = Boolean(data.user.hasEnrolledClasses);
         const onboardingDone =
           hasExistingProgress ||
-          localStorage.getItem(`hanyu_onboarding_${data.user.id}`) ||
-          localStorage.getItem("hanyu_onboarding_completed");
+          localStorage.getItem(`hanyu_onboarding_${data.user.id}`) === "true";
 
         if (onboardingDone) {
           localStorage.setItem(`hanyu_onboarding_${data.user.id}`, "true");
-          localStorage.setItem("hanyu_onboarding_completed", "true");
           router.push("/s/home");
         } else {
-          // Chưa hoàn thành -> chuyển đến onboarding để làm tiếp đúng bước dở
+          // Chưa hoàn thành -> chuyển đến onboarding để chọn lộ trình tự học hoặc vào lớp
           router.push("/onboarding");
         }
       }

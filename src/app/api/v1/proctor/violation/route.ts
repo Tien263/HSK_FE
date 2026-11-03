@@ -188,3 +188,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: "Lỗi ghi nhận vi phạm." }, { status: 500 });
   }
 }
+
+// DELETE /api/v1/proctor/violation - Xóa một hoặc dọn dẹp toàn bộ ảnh bằng chứng vi phạm
+export async function DELETE(request: Request) {
+  try {
+    const user = await getAuthUser(request);
+    if (!user || !["TEACHER", "ADMIN"].includes(user.role)) {
+      return NextResponse.json(
+        { success: false, message: "Chỉ giáo viên và quản trị viên mới có quyền xóa dữ liệu giám thị." },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    const action = searchParams.get("action"); // "CLEAR_ALL"
+
+    if (id) {
+      await prisma.auditLog.delete({ where: { id } });
+      return NextResponse.json({ success: true, message: "Đã xóa bản ghi vi phạm thành công." });
+    }
+
+    if (action === "CLEAR_ALL") {
+      const deleted = await prisma.auditLog.deleteMany({
+        where: { entity: "EXAM_PROCTOR" },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Đã dọn dẹp thành công toàn bộ ${deleted.count} bản ghi bằng chứng vi phạm để tiết kiệm dung lượng.`,
+      });
+    }
+
+    return NextResponse.json({ success: false, message: "Thiếu ID hoặc hành động cần xóa." }, { status: 400 });
+  } catch (error: any) {
+    console.error("Delete proctor violation error:", error);
+    return NextResponse.json(
+      { success: false, message: "Lỗi máy chủ khi dọn dẹp dữ liệu giám thị." },
+      { status: 500 }
+    );
+  }
+}

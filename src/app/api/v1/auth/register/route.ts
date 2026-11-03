@@ -80,7 +80,7 @@ export async function POST(request: Request) {
         role: "STUDENT",
         status: "ACTIVE",
         currentHskLevel: 1,
-        totalXp: 50, // Thưởng 50 XP khởi đầu
+        totalXp: 0,
         streakDays: 1,
       },
     });

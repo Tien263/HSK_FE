@@ -108,10 +108,8 @@ export default function OnboardingPage() {
       if (stored) {
         const u = JSON.parse(stored);
         setCurrentUser(u);
-        // Nếu học viên đã có lịch sử học tập (đã có điểm XP hoặc đã vào lớp), tự động cho vào trang chủ học viên
-        if ((u.totalXp && u.totalXp > 0) || u.hasEnrolledClasses) {
-          localStorage.setItem(`hanyu_onboarding_${u.id}`, "true");
-          localStorage.setItem("hanyu_onboarding_completed", "true");
+        // Nếu học viên đã hoàn tất thiết lập onboarding trước đó hoặc đã tham gia lớp học, điều hướng vào trang chủ
+        if (localStorage.getItem(`hanyu_onboarding_${u.id}`) === "true" || u.hasEnrolledClasses) {
           router.push("/s/home");
           return;
         }

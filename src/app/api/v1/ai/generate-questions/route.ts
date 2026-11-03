@@ -34,7 +34,9 @@ export async function POST(request: Request) {
       contextText = "",
     } = body;
 
-    // Đọc các khóa API: Qwen (Alibaba) -> Groq (Qwen) -> OpenRouter -> Gemini -> OpenAI
+    // Đọc các khóa API: Doubao (ByteDance) -> Qwen (Alibaba) -> Groq (Qwen) -> OpenRouter -> Gemini -> OpenAI
+    const doubaoKey = process.env.DOUBAO_API_KEY || process.env.VOLCANO_API_KEY;
+    const doubaoEndpoint = process.env.DOUBAO_ENDPOINT_ID || process.env.DOUBAO_MODEL || "doubao-pro-4k";
     const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
     const openRouterKey = process.env.OPENROUTER_API_KEY;
@@ -56,6 +58,45 @@ Yêu cầu bắt buộc: Trả về duy nhất định dạng JSON thuần túy 
     "explanation": "giải thích sư phạm chi tiết"
   }
 ]`;
+
+    // -------------------------------------------------------------
+    // 0. BYTEDANCE DOUBAO (豆包 - VOLCANO ENGINE ARK)
+    // -------------------------------------------------------------
+    if (doubaoKey) {
+      try {
+        const doubaoRes = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${doubaoKey}`,
+          },
+          body: JSON.stringify({
+            model: doubaoEndpoint,
+            messages: [
+              { role: "system", content: "You are an expert Chinese HSK test creator. Respond only with raw JSON array." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.7,
+          }),
+        });
+
+        const doubaoData = await doubaoRes.json();
+        if (doubaoRes.ok) {
+          const raw = doubaoData.choices?.[0]?.message?.content || "[]";
+          const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return NextResponse.json({
+              success: true,
+              count: parsed.length,
+              questions: parsed,
+              provider: `ByteDance Doubao (${doubaoEndpoint})`,
+            });
+          }
+        }
+      } catch (doubaoErr) {
+        console.warn("Doubao Volcano Ark call failed:", doubaoErr);
+      }
+    }
 
     // -------------------------------------------------------------
     // 1. QWEN (ALIBABA CLOUD DASHSCOPE)
