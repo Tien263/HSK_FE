@@ -18,6 +18,7 @@ import {
   User,
   Shield,
   ShieldCheck,
+  ShieldAlert,
   GraduationCap,
   Briefcase,
   Search,
@@ -57,6 +58,7 @@ import {
   Palette,
   Eye,
 } from "lucide-react";
+import LiveExamProctorMonitor from "@/components/teacher/LiveExamProctorMonitor";
 
 interface UserItem {
   id: string;
@@ -126,6 +128,7 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     | "overview"
     | "users"
+    | "proctor"
     | "ai"
     | "otp"
     | "smtp"
@@ -168,6 +171,7 @@ export default function AdminDashboardPage() {
         [
           "overview",
           "users",
+          "proctor",
           "ai",
           "otp",
           "smtp",
@@ -994,6 +998,7 @@ export default function AdminDashboardPage() {
               groupTitle: "Quản trị Dạy & Học",
               items: [
                 { id: "users", label: "Học viên & Giáo viên", icon: Users },
+                { id: "proctor", label: "Giám sát thi AI (Live)", icon: ShieldAlert },
                 { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
                 { id: "roadmap", label: "Lộ trình tự học", icon: Compass },
                 { id: "tests", label: "Đề khảo sát đầu vào", icon: HelpCircle },
@@ -2144,6 +2149,17 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB GIÁM SÁT THI AI (LIVE PROCTORING MONITOR) */}
+        {activeTab === "proctor" && (
+          <div className="space-y-6">
+            <LiveExamProctorMonitor
+              currentUser={currentUser}
+              classesList={classesList}
+              showToast={(msg) => showToast(msg, "success")}
+            />
           </div>
         )}
 
