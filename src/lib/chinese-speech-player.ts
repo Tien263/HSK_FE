@@ -63,7 +63,9 @@ export async function playChineseSpeech(
     const voiceParam = options.voice ? `&voice=${encodeURIComponent(options.voice)}` : "";
     const ttsUrl = `/api/v1/tts?text=${encodeURIComponent(textToSpeak)}${voiceParam}`;
     globalAudio.src = ttsUrl;
-    globalAudio.playbackRate = options.rate && options.rate > 0 ? options.rate : 1.0;
+    const targetRate = options.rate && options.rate > 0 ? options.rate : 1.0;
+    globalAudio.defaultPlaybackRate = targetRate;
+    globalAudio.playbackRate = targetRate;
 
     let hasEnded = false;
     const handleEnd = () => {
@@ -73,7 +75,12 @@ export async function playChineseSpeech(
       }
     };
 
+    globalAudio.onloadedmetadata = () => {
+      if (globalAudio) globalAudio.playbackRate = targetRate;
+    };
+
     globalAudio.onplay = () => {
+      if (globalAudio) globalAudio.playbackRate = targetRate;
       options.onStart?.();
     };
 

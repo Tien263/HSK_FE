@@ -337,7 +337,8 @@ export default function AiDialogueRoleplayModal({
   );
   const [customTopic, setCustomTopic] = useState<string>("");
   const [isCustomTopicOpen, setIsCustomTopicOpen] = useState<boolean>(false);
-  const [showPinyin, setShowPinyin] = useState<boolean>(() => initialLvl <= 4);
+  const [showPinyin, setShowPinyin] = useState<boolean>(true);
+  const [speechRate, setSpeechRate] = useState<number>(1.0); // Tốc độ bình thường mặc định (1.0x), có thể tùy chỉnh
 
   const currentTopic = useMemo(() => {
     return (
@@ -445,7 +446,6 @@ export default function AiDialogueRoleplayModal({
     setSelectedTopicId(firstTopic.id);
     setCustomTopic("");
     setIsCustomTopicOpen(false);
-    setShowPinyin(lvl <= 4);
 
     const initialGreeting = {
       sender: "AI" as const,
@@ -587,17 +587,8 @@ export default function AiDialogueRoleplayModal({
   // Phát âm câu thoại qua giọng Doubao / phòng thu chuẩn Bắc Kinh tự nhiên
   const speakText = (text: string, onEnd?: () => void) => {
     if (!isOpenRef.current || !text) return;
-    const rate =
-      talkMode === "FREE_TALK"
-        ? currentHskConfig.speechRate || 0.95
-        : hskLevel === 1
-        ? 0.75
-        : hskLevel === 2
-        ? 0.85
-        : 0.95;
-
     playChineseSpeech(text, {
-      rate,
+      rate: speechRate, // Mặc định 1.0x nói như bình thường, người học có thể tự chỉnh 0.75x, 0.85x, 1.0x, 1.2x
       voice: aiVoiceGender,
       onEnd: () => {
         if (isOpenRef.current) {
@@ -1140,6 +1131,38 @@ export default function AiDialogueRoleplayModal({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setShowPinyin((prev) => !prev)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                    showPinyin
+                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                  }`}
+                  title="Bật hoặc ẩn phiên âm Pinyin"
+                >
+                  <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
+                </button>
+
+                <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] px-2 py-0.5 rounded-xl text-[11px] shadow-2xs">
+                  <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
+                  {[0.75, 0.85, 1.0, 1.25].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setSpeechRate(r)}
+                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer ${
+                        speechRate === r
+                          ? "bg-[#204434] text-white shadow-2xs"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                      title={r === 1.0 ? "Tốc độ tự nhiên bình thường (Mặc định)" : `Tốc độ ${r}x`}
+                    >
+                      {r === 1.0 ? "1.0x" : `${r}x`}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
                   onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
                   className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
                   title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
@@ -1147,6 +1170,38 @@ export default function AiDialogueRoleplayModal({
                   <Volume2 className="w-3 h-3 text-amber-600" />
                   <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Doubao 思思)" : "Nam (Doubao 大叔)"}</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPinyin((prev) => !prev)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                    showPinyin
+                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                  }`}
+                  title="Bật hoặc ẩn phiên âm Pinyin"
+                >
+                  <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
+                </button>
+
+                <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] px-2 py-0.5 rounded-xl text-[11px] shadow-2xs">
+                  <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
+                  {[0.75, 0.85, 1.0, 1.25].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setSpeechRate(r)}
+                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer ${
+                        speechRate === r
+                          ? "bg-[#204434] text-white shadow-2xs"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                      title={r === 1.0 ? "Tốc độ tự nhiên bình thường (Mặc định)" : `Tốc độ ${r}x`}
+                    >
+                      {r === 1.0 ? "1.0x" : `${r}x`}
+                    </button>
+                  ))}
+                </div>
 
                 <button
                   type="button"
@@ -1202,7 +1257,9 @@ export default function AiDialogueRoleplayModal({
                         >
                           {line.speaker} {isMine && "(Vai của bạn)"}
                         </span>
-                        <span className="text-[11px] font-mono text-[#8F6D3B]">{line.pinyin}</span>
+                        {showPinyin && (
+                          <span className="text-[11px] font-mono text-[#8F6D3B]">{line.pinyin}</span>
+                        )}
                       </div>
                       <p className="font-serif font-bold text-base text-[#204434]">{line.zh}</p>
                       <p className="text-xs text-[#315E48]">{line.vi}</p>
@@ -1254,9 +1311,11 @@ export default function AiDialogueRoleplayModal({
                 <span className="text-2xl sm:text-3xl font-serif font-bold text-[#204434] block">
                   {currentLine?.zh}
                 </span>
-                <span className="text-sm font-mono font-bold text-[#8F6D3B] block">
-                  {currentLine?.pinyin}
-                </span>
+                {showPinyin && (
+                  <span className="text-sm font-mono font-bold text-[#8F6D3B] block">
+                    {currentLine?.pinyin}
+                  </span>
+                )}
                 <p className="text-xs text-[#315E48]">{currentLine?.vi}</p>
               </div>
 
@@ -1486,7 +1545,7 @@ export default function AiDialogueRoleplayModal({
                       )}
                     </div>
 
-                    {msg.pinyin && (
+                    {msg.pinyin && showPinyin && (
                       <span className="font-mono text-[11px] block text-emerald-700 font-medium">
                         {msg.pinyin}
                       </span>
@@ -1527,6 +1586,38 @@ export default function AiDialogueRoleplayModal({
             {/* Thanh điều khiển âm giọng & thoại 2 chiều */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPinyin((prev) => !prev)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                    showPinyin
+                      ? "bg-amber-100 text-amber-900 border border-amber-300"
+                      : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                  }`}
+                  title="Bật hoặc ẩn phiên âm Pinyin"
+                >
+                  <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
+                </button>
+
+                <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] px-2 py-0.5 rounded-xl text-[11px] shadow-2xs">
+                  <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
+                  {[0.75, 0.85, 1.0, 1.25].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setSpeechRate(r)}
+                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer ${
+                        speechRate === r
+                          ? "bg-[#204434] text-white shadow-2xs"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                      title={r === 1.0 ? "Tốc độ tự nhiên bình thường (Mặc định)" : `Tốc độ ${r}x`}
+                    >
+                      {r === 1.0 ? "1.0x" : `${r}x`}
+                    </button>
+                  ))}
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
@@ -1597,7 +1688,9 @@ export default function AiDialogueRoleplayModal({
                           Chọn
                         </span>
                       </div>
-                      <p className="text-[10px] font-mono text-[#8F6D3B]">{sug.pinyin}</p>
+                      {showPinyin && (
+                        <p className="text-[10px] font-mono text-[#8F6D3B]">{sug.pinyin}</p>
+                      )}
                       <p className="text-[10px] text-slate-600 italic">{sug.vi}</p>
                     </button>
                   ))}
@@ -1694,11 +1787,31 @@ export default function AiDialogueRoleplayModal({
                     📏 {currentHskConfig.charRange}
                   </span>
                   <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
-                    ⚡ Tốc độ: {currentHskConfig.speechRate}x
+                    ⚡ Tốc độ: {speechRate}x
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Nút chọn tốc độ nói: Mặc định bình thường (1.0x) */}
+                  <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] px-2 py-0.5 rounded-xl text-[11px] shadow-2xs">
+                    <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
+                    {[0.75, 0.85, 1.0, 1.25].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setSpeechRate(r)}
+                        className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer ${
+                          speechRate === r
+                            ? "bg-[#204434] text-white shadow-2xs"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                        title={r === 1.0 ? "Tốc độ tự nhiên bình thường (Mặc định)" : `Tốc độ ${r}x`}
+                      >
+                        {r === 1.0 ? "1.0x (Chuẩn)" : `${r}x`}
+                      </button>
+                    ))}
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
@@ -1871,7 +1984,7 @@ export default function AiDialogueRoleplayModal({
                         )}
                       </div>
 
-                      {msg.pinyin && (showPinyin || selectedHskLevel <= 2) && (
+                      {msg.pinyin && showPinyin && (
                         <span className="font-mono text-[11px] block text-emerald-700 font-medium">
                           {msg.pinyin}
                         </span>
@@ -1989,7 +2102,9 @@ export default function AiDialogueRoleplayModal({
                                   Chọn
                                 </span>
                               </div>
-                              <p className="text-[11px] font-mono text-[#8F6D3B]">{sug.pinyin}</p>
+                              {showPinyin && (
+                                <p className="text-[11px] font-mono text-[#8F6D3B]">{sug.pinyin}</p>
+                              )}
                               <p className="text-[11px] text-slate-600 font-sans italic">{sug.vi}</p>
                             </div>
 
