@@ -222,6 +222,8 @@ export async function POST(request: Request) {
     let pedagogicalComment = "Bài viết cần chú ý rèn luyện thêm trật tự câu và cách kết hợp từ vựng chuẩn xác.";
     let llmScore: number | null = null;
 
+    const doubaoKey = process.env.DOUBAO_API_KEY || process.env.VOLCANO_API_KEY;
+    const doubaoEndpoint = process.env.DOUBAO_ENDPOINT_ID || process.env.DOUBAO_MODEL || "doubao-1.5-pro-32k";
     const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
     const deepseekKey = process.env.DEEPSEEK_API_KEY;
     const zhipuKey = process.env.ZHIPU_API_KEY;
@@ -261,7 +263,46 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
   ]
 }`;
 
-    // A. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN (DASHSCOPE HOẶC GROQ)
+    // 0. ƯU TIÊN SỐ 1: BYTEDANCE DOUBAO (豆包 - VOLCANO ENGINE ARK)
+    if (doubaoKey) {
+      try {
+        const dbRes = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${doubaoKey}` },
+          body: JSON.stringify({
+            model: doubaoEndpoint,
+            messages: [
+              { role: "system", content: "You are an expert native Chinese HSK grading teacher. Output ONLY valid JSON." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (dbRes.ok) {
+          const dbData = await dbRes.json();
+          const raw = dbData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.score === "number") llmScore = parsed.score;
+            if (parsed.correctedText) correctedText = parsed.correctedText;
+            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              parsed.issues.forEach((iss: any) => {
+                if (!issues.some((ex) => ex.original === iss.original)) {
+                  issues.push(iss);
+                }
+              });
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn("Doubao check-writing error:", dbErr);
+      }
+    }
+
+    // A. DỰ PHÒNG 1: ALIBABA CLOUD QWEN (DASHSCOPE HOẶC GROQ)
     if (qwenKey) {
       const qwenModels = ["qwen-plus", "qwen-turbo", "qwen-max"];
       for (const qModel of qwenModels) {

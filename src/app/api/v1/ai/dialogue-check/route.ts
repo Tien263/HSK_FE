@@ -126,7 +126,9 @@ export async function POST(request: Request) {
         score = Math.min(100, Math.max(70, 80 + spokenClean.length * 2));
         feedback = `🌟 Phản xạ tự nhiên rất tốt! Câu gồm ${spokenClean.length} chữ Hán với ${vocabDetected.length} từ vựng từ kho chuẩn.`;
 
-        // Kiểm tra các API Key AI khả dụng
+        // Kiểm tra các API Key AI khả dụng (Ưu tiên Doubao cho Hội thoại tự nhiên)
+        const doubaoKey = process.env.DOUBAO_API_KEY || process.env.VOLCANO_API_KEY;
+        const doubaoEndpoint = process.env.DOUBAO_ENDPOINT_ID || process.env.DOUBAO_MODEL || "doubao-1.5-pro-32k";
         const groqKey = process.env.GROQ_API_KEY;
         const qwenKey = process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY;
         const deepseekKey = process.env.DEEPSEEK_API_KEY;
@@ -262,8 +264,38 @@ Học viên vừa nói: "${spokenText}"`;
         };
 
         // -------------------------------------------------------------
-        // 1. ƯU TIÊN SỐ 1: ALIBABA CLOUD QWEN TRÊN GROQ LPUs (CỰC NHANH ~500ms)
-        // HOẶC QWEN DASHSCOPE NẾU CÓ KEY
+        // 0. ƯU TIÊN SỐ 1: BYTEDANCE DOUBAO (豆包 - VOLCANO ENGINE ARK)
+        // Mô hình hội thoại tiếng Trung tự nhiên số 1 từ ByteDance
+        // -------------------------------------------------------------
+        if (!llmSuccess && doubaoKey) {
+          try {
+            const doubaoRes = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${doubaoKey}`,
+              },
+              body: JSON.stringify({
+                model: doubaoEndpoint,
+                messages: rawChatMessages,
+                temperature: 0.7,
+              }),
+            });
+
+            if (doubaoRes.ok) {
+              const doubaoData = await doubaoRes.json();
+              const raw = doubaoData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+              if (raw) {
+                applyParsedResponse(JSON.parse(raw));
+              }
+            }
+          } catch (dbErr) {
+            console.warn("Doubao Volcano Ark dialogue error:", dbErr);
+          }
+        }
+
+        // -------------------------------------------------------------
+        // 1. DỰ PHÒNG 1: ALIBABA CLOUD QWEN TRÊN GROQ LPUs (MIỄN PHÍ ~500ms)
         // -------------------------------------------------------------
         if (!llmSuccess && groqKey) {
           try {
