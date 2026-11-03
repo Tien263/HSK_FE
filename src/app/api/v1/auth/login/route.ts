@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    const cleanPassword = password.trim();
     const clientIp = getClientIp(request);
 
     // Chống Brute-force & DDoS mật khẩu
@@ -50,8 +51,8 @@ export async function POST(request: Request) {
     let user = await prisma.user.findFirst({
       where: {
         OR: [
-          { username: cleanUsername },
-          { email: cleanUsername },
+          { username: { equals: cleanUsername, mode: "insensitive" as const } },
+          { email: { equals: cleanUsername, mode: "insensitive" as const } },
           ...(cleanUsername === "ningning" ? [{ username: "ning" }] : []),
         ],
       },
@@ -81,8 +82,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu scrypt salted và mật khẩu mẫu)
-    if (!verifyPassword(password, user.passwordHash)) {
+    // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu scrypt salted, mật khẩu mẫu, kiểm tra cả bản đã trim và bản gốc)
+    const passwordValid =
+      verifyPassword(cleanPassword, user.passwordHash) ||
+      verifyPassword(password, user.passwordHash);
+
+    if (!passwordValid) {
       const failure = recordLoginFailure(clientIp, cleanUsername);
       return NextResponse.json(
         { success: false, message: failure.message },
@@ -95,7 +100,7 @@ export async function POST(request: Request) {
       try {
         await prisma.user.update({
           where: { id: user.id },
-          data: { passwordHash: hashPassword(password) },
+          data: { passwordHash: hashPassword(cleanPassword) },
         });
       } catch {}
     }

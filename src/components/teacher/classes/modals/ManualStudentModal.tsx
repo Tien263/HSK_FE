@@ -146,7 +146,7 @@ export default function ManualStudentModal({
               />
             </div>
             <p className="text-[10px] text-[#6B766D]">
-              Nếu học sinh đã có tài khoản, hệ thống sẽ thêm vào lớp mà không đổi mật khẩu cũ.
+              💡 Nếu học sinh đã có tài khoản, hệ thống sẽ tự động gán vào lớp và đồng bộ mật khẩu mới (${password || "123456"}) để học sinh đăng nhập được ngay.
             </p>
           </div>
 

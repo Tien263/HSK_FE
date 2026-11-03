@@ -21,9 +21,9 @@ export async function GET(request: Request) {
     }
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { username: { contains: search } },
-        { email: { contains: search } },
+        { name: { contains: search, mode: "insensitive" } },
+        { username: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -184,19 +184,56 @@ export async function POST(request: Request) {
       );
     }
 
-    // Kiểm tra trùng lặp
+    // Kiểm tra trùng lặp (không phân biệt hoa/thường)
     const existing = await prisma.user.findFirst({
       where: {
         OR: [
-          { username: cleanUsername },
-          cleanEmail ? { email: cleanEmail } : { username: cleanUsername },
+          { username: { equals: cleanUsername, mode: "insensitive" as const } },
+          ...(cleanEmail ? [{ email: { equals: cleanEmail, mode: "insensitive" as const } }] : []),
         ],
       },
     });
 
     if (existing) {
+      // Nếu Admin yêu cầu đồng bộ/đặt lại mật khẩu (hoặc đã xác nhận cập nhật)
+      if (body.syncExisting || body.overwrite) {
+        const updatedUser = await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            name: trimmedName || existing.name,
+            passwordHash: hashPassword(cleanPassword),
+            status: "ACTIVE",
+            role: assignedRole || existing.role,
+          },
+        });
+        return NextResponse.json({
+          success: true,
+          message: `Tài khoản (${existing.username} - ${existing.email || "Chưa có email"}) đã tồn tại. Đã đồng bộ và cập nhật mật khẩu mới (${cleanPassword}) thành công!`,
+          user: {
+            id: updatedUser.id,
+            username: updatedUser.username,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            role: updatedUser.role,
+            status: updatedUser.status,
+          },
+          wasExisting: true,
+        });
+      }
+
       return NextResponse.json(
-        { success: false, message: "Tên đăng nhập hoặc email này đã tồn tại." },
+        {
+          success: false,
+          code: "ACCOUNT_EXISTS",
+          message: `Tên đăng nhập hoặc email này đã tồn tại trong hệ thống (Học viên: "${existing.name}", Username: "${existing.username}").`,
+          existingUser: {
+            id: existing.id,
+            name: existing.name,
+            username: existing.username,
+            email: existing.email,
+            role: existing.role,
+          },
+        },
         { status: 409 }
       );
     }

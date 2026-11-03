@@ -295,6 +295,13 @@ export default function AdminDashboardPage() {
     role: "STUDENT" as "STUDENT" | "TEACHER" | "ADMIN",
   });
   const [creatingUser, setCreatingUser] = useState(false);
+  const [existingConflict, setExistingConflict] = useState<{
+    id: string;
+    name: string;
+    username: string;
+    email: string | null;
+    role: string;
+  } | null>(null);
 
   // Reset Password Modal
   const [resetTargetUser, setResetTargetUser] = useState<UserItem | null>(null);
@@ -813,6 +820,7 @@ export default function AdminDashboardPage() {
     }
 
     setCreatingUser(true);
+    setExistingConflict(null);
     try {
       const res = await fetch("/api/v1/admin/users", {
         method: "POST",
@@ -823,6 +831,51 @@ export default function AdminDashboardPage() {
       if (data.success) {
         showToast(data.message, "success");
         setShowCreateModal(false);
+        setExistingConflict(null);
+        setRoleFilter("ALL");
+        setSearchQuery("");
+        setNewUserData({
+          name: "",
+          username: "",
+          email: "",
+          password: "",
+          role: "STUDENT",
+        });
+        fetchUsers();
+      } else if (data.code === "ACCOUNT_EXISTS" && data.existingUser) {
+        setExistingConflict(data.existingUser);
+        showToast(data.message, "error");
+      } else {
+        showToast(data.message || "Cấp tài khoản thất bại", "error");
+      }
+    } catch (err) {
+      showToast("Lỗi máy chủ khi tạo tài khoản", "error");
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  // Đồng bộ và đặt lại mật khẩu cho tài khoản đã tồn tại
+  const handleSyncExistingUser = async () => {
+    if (!newUserData.password.trim() || newUserData.password.trim().length < 6) {
+      showToast("Mật khẩu mới tối thiểu 6 ký tự", "error");
+      return;
+    }
+    setCreatingUser(true);
+    try {
+      const res = await fetch("/api/v1/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newUserData,
+          syncExisting: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setShowCreateModal(false);
+        setExistingConflict(null);
         setRoleFilter("ALL");
         setSearchQuery("");
         setNewUserData({
@@ -834,10 +887,10 @@ export default function AdminDashboardPage() {
         });
         fetchUsers();
       } else {
-        showToast(data.message || "Cấp tài khoản thất bại", "error");
+        showToast(data.message || "Đồng bộ thất bại", "error");
       }
     } catch (err) {
-      showToast("Lỗi máy chủ khi tạo tài khoản", "error");
+      showToast("Lỗi máy chủ khi đồng bộ tài khoản", "error");
     } finally {
       setCreatingUser(false);
     }
@@ -3312,6 +3365,27 @@ export default function AdminDashboardPage() {
                   ))}
                 </div>
               </div>
+
+              {existingConflict && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-2 animate-fadeIn">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Tài khoản đã tồn tại trong hệ thống!</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-800">
+                    Người dùng: <strong>{existingConflict.name}</strong> (@{existingConflict.username}) {existingConflict.email ? `• ${existingConflict.email}` : ""} (Vai trò: {existingConflict.role}).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSyncExistingUser}
+                    disabled={creatingUser}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${creatingUser ? "animate-spin" : ""}`} />
+                    <span>Đồng bộ & Đặt lại mật khẩu mới ({newUserData.password})</span>
+                  </button>
+                </div>
+              )}
 
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button

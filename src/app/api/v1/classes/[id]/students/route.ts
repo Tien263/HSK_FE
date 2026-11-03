@@ -3,6 +3,7 @@ import { classAccess, PortalError } from "@/lib/portal-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
+import { hashPassword } from "@/lib/password-security";
 
 
 // GET /api/v1/classes/[id]/students - Lấy danh sách học viên của lớp
@@ -119,19 +120,31 @@ export async function POST(
 
     const cleanUsername = username.trim().toLowerCase();
     const cleanEmail = email?.trim().toLowerCase() || null;
+    const cleanPassword = (password || "123456").trim();
 
-    // Kiểm tra học viên đã tồn tại chưa
+    // Kiểm tra học viên đã tồn tại chưa (không phân biệt hoa/thường)
     let student = await prisma.user.findFirst({
       where: {
         OR: [
-          { username: cleanUsername },
-          ...(cleanEmail ? [{ email: cleanEmail }] : []),
+          { username: { equals: cleanUsername, mode: "insensitive" as const } },
+          ...(cleanEmail ? [{ email: { equals: cleanEmail, mode: "insensitive" as const } }] : []),
         ],
       },
     });
 
     if (student) {
-      // Học viên đã có tài khoản: kiểm tra đã ở trong lớp này chưa
+      // 1. Cập nhật mật khẩu mới và kích hoạt tài khoản
+      await prisma.user.update({
+        where: { id: student.id },
+        data: {
+          name: name?.trim() || student.name,
+          passwordHash: hashPassword(cleanPassword),
+          status: "ACTIVE",
+          currentHskLevel: student.currentHskLevel || targetClass.level || 1,
+        },
+      });
+
+      // 2. Kiểm tra xem học viên đã ở trong lớp này chưa
       const alreadyEnrolled = await prisma.classStudent.findUnique({
         where: {
           classId_studentId: {
@@ -141,46 +154,44 @@ export async function POST(
         },
       });
 
-      if (alreadyEnrolled) {
-        return NextResponse.json(
-          { success: false, message: `Học sinh "${student.name}" (@${student.username}) đã có trong lớp này rồi.` },
-          { status: 400 }
-        );
+      if (!alreadyEnrolled) {
+        // Gán học sinh vào lớp
+        await prisma.classStudent.create({
+          data: {
+            classId: targetClass.id,
+            studentId: student.id,
+            status: "APPROVED",
+          },
+        });
       }
-
-      // Gán học sinh vào lớp
-      await prisma.classStudent.create({
-        data: {
-          classId: targetClass.id,
-          studentId: student.id,
-        },
-      });
 
       return NextResponse.json({
         success: true,
-        message: `Đã thêm học viên "${student.name}" vào lớp thành công!`,
+        message: alreadyEnrolled
+          ? `Học sinh "${student.name}" (@${student.username}) đã có trong lớp. Đã đồng bộ mật khẩu mới (${cleanPassword}) thành công!`
+          : `Đã thêm học viên "${student.name}" vào lớp và đồng bộ mật khẩu mới (${cleanPassword}) thành công!`,
         student: {
           id: student.id,
-          name: student.name,
+          name: name?.trim() || student.name,
           username: student.username,
           email: student.email,
-          status: student.status,
+          status: "ACTIVE",
           totalXp: student.totalXp,
           streakDays: student.streakDays,
         },
       });
     }
 
-    // Nếu chưa có tài khoản: Tạo tài khoản học sinh mới
+    // Nếu chưa có tài khoản: Tạo tài khoản học sinh mới với mã hóa Scrypt chuẩn
     const newStudent = await prisma.user.create({
       data: {
         name: (name || cleanUsername).trim(),
         username: cleanUsername,
         email: cleanEmail,
-        passwordHash: password || "123456",
+        passwordHash: hashPassword(cleanPassword),
         role: "STUDENT",
         status: "ACTIVE",
-        currentHskLevel: targetClass.level,
+        currentHskLevel: targetClass.level || 1,
         totalXp: 50,
         streakDays: 1,
       },
@@ -191,19 +202,20 @@ export async function POST(
       data: {
         classId: targetClass.id,
         studentId: newStudent.id,
+        status: "APPROVED",
       },
     });
 
     return NextResponse.json(
       {
         success: true,
-        message: `Đã cấp tài khoản thành công cho em ${newStudent.name}!`,
+        message: `Đã cấp tài khoản thành công cho em ${newStudent.name} (Mật khẩu: ${cleanPassword})!`,
         student: {
           id: newStudent.id,
           name: newStudent.name,
           username: newStudent.username,
           email: newStudent.email,
-          password: password || "123456",
+          password: cleanPassword,
           totalXp: 50,
           streakDays: 1,
           status: newStudent.status,
