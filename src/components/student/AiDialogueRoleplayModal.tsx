@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { LessonDialogueLine } from "@/lib/hsk1-full-lessons";
 import { playChineseSpeech } from "@/lib/chinese-speech-player";
+import { HSK_LEVEL_CONFIG, HskTopicOption } from "@/lib/hsk-dialogue-config";
 
 export interface RoleplayScenario {
   id: string;
@@ -327,18 +328,25 @@ export default function AiDialogueRoleplayModal({
   const [editPinyin, setEditPinyin] = useState("");
   const [editVi, setEditVi] = useState("");
 
-  // Lời chào mở đầu mặc định của AI Tiểu Ngữ để cuộc hội thoại có khởi đầu hai chiều tự nhiên
-  const defaultAiIntro = useMemo(
-    () => ({
-      sender: "AI" as const,
-      zh: "你好！我是你的中文语伴小语。很高兴今天能和你聊天！你今天过得怎么样？",
-      pinyin: "Nǐ hǎo! Wǒ shì nǐ de Zhōngwén yǔbàn Xiǎo Yǔ. Hěn gāoxìng jīntiān néng hé nǐ liáotiān! Nǐ jīntiān guò de zěnmeyàng?",
-      vi: "Chào bạn! Mình là bạn học tiếng Trung Tiểu Ngữ. Rất vui hôm nay được trò chuyện cùng bạn! Hôm nay bạn thế nào?",
-    }),
-    []
+  // Lựa chọn cấp độ HSK 1 đến HSK 9 và chủ đề đối thoại tự do
+  const initialLvl = Math.max(1, Math.min(9, Number(hskLevel) || 1));
+  const [selectedHskLevel, setSelectedHskLevel] = useState<number>(initialLvl);
+  const currentHskConfig = HSK_LEVEL_CONFIG[selectedHskLevel] || HSK_LEVEL_CONFIG[1];
+  const [selectedTopicId, setSelectedTopicId] = useState<string>(
+    () => (HSK_LEVEL_CONFIG[initialLvl] || HSK_LEVEL_CONFIG[1]).topics[0]?.id || "hsk1_greeting"
   );
+  const [customTopic, setCustomTopic] = useState<string>("");
+  const [isCustomTopicOpen, setIsCustomTopicOpen] = useState<boolean>(false);
+  const [showPinyin, setShowPinyin] = useState<boolean>(() => initialLvl <= 4);
 
-  // Free talk chat history
+  const currentTopic = useMemo(() => {
+    return (
+      currentHskConfig.topics.find((t) => t.id === selectedTopicId) ||
+      currentHskConfig.topics[0]
+    );
+  }, [currentHskConfig, selectedTopicId]);
+
+  // Free talk chat history khởi tạo theo chủ đề của cấp độ HSK
   const [freeChatHistory, setFreeChatHistory] = useState<
     Array<{
       sender: "STUDENT" | "AI";
@@ -348,12 +356,12 @@ export default function AiDialogueRoleplayModal({
       score?: number;
       vocab?: any[];
     }>
-  >([
+  >(() => [
     {
       sender: "AI",
-      zh: "你好！我是你的中文语伴小语。很高兴今天能和你聊天！你今天过得怎么样？",
-      pinyin: "Nǐ hǎo! Wǒ shì nǐ de Zhōngwén yǔbàn Xiǎo Yǔ. Hěn gāoxìng jīntiān néng hé nǐ liáotiān! Nǐ jīntiān guò de zěnmeyàng?",
-      vi: "Chào bạn! Mình là bạn học tiếng Trung Tiểu Ngữ. Rất vui hôm nay được trò chuyện cùng bạn! Hôm nay bạn thế nào?",
+      zh: (HSK_LEVEL_CONFIG[initialLvl] || HSK_LEVEL_CONFIG[1]).topics[0]?.initialAiPromptZh || "你好！我叫小语。你叫什么？",
+      pinyin: (HSK_LEVEL_CONFIG[initialLvl] || HSK_LEVEL_CONFIG[1]).topics[0]?.initialAiPromptPinyin || "Nǐ hǎo! Wǒ jiào Xiǎo Yǔ. Nǐ jiào shénme?",
+      vi: (HSK_LEVEL_CONFIG[initialLvl] || HSK_LEVEL_CONFIG[1]).topics[0]?.initialAiPromptVi || "Chào bạn! Mình tên là Tiểu Ngữ. Bạn tên là gì?",
     },
   ]);
 
@@ -363,6 +371,52 @@ export default function AiDialogueRoleplayModal({
   const [autoListen, setAutoListen] = useState<boolean>(true);
   const autoListenRef = useRef<boolean>(true);
   const [aiVoiceGender, setAiVoiceGender] = useState<"female" | "male">("female");
+
+  // Xử lý chuyển cấp độ HSK (1 đến 9)
+  const handleSelectHskLevel = (lvl: number) => {
+    setSelectedHskLevel(lvl);
+    const cfg = HSK_LEVEL_CONFIG[lvl] || HSK_LEVEL_CONFIG[1];
+    const firstTopic = cfg.topics[0];
+    setSelectedTopicId(firstTopic.id);
+    setCustomTopic("");
+    setIsCustomTopicOpen(false);
+    setShowPinyin(lvl <= 4);
+
+    const initialGreeting = {
+      sender: "AI" as const,
+      zh: firstTopic.initialAiPromptZh,
+      pinyin: firstTopic.initialAiPromptPinyin,
+      vi: firstTopic.initialAiPromptVi,
+    };
+    setFreeChatHistory([initialGreeting]);
+    setCurrentSuggestions(firstTopic.initialSuggestions);
+    setCheckResult(null);
+
+    setTimeout(() => {
+      speakText(firstTopic.initialAiPromptZh);
+    }, 300);
+  };
+
+  // Xử lý chuyển chủ đề trong cấp độ HSK
+  const handleSelectTopic = (topic: HskTopicOption) => {
+    setSelectedTopicId(topic.id);
+    setCustomTopic("");
+    setIsCustomTopicOpen(false);
+
+    const initialGreeting = {
+      sender: "AI" as const,
+      zh: topic.initialAiPromptZh,
+      pinyin: topic.initialAiPromptPinyin,
+      vi: topic.initialAiPromptVi,
+    };
+    setFreeChatHistory([initialGreeting]);
+    setCurrentSuggestions(topic.initialSuggestions);
+    setCheckResult(null);
+
+    setTimeout(() => {
+      speakText(topic.initialAiPromptZh);
+    }, 300);
+  };
 
   useEffect(() => {
     autoListenRef.current = autoListen;
@@ -467,8 +521,17 @@ export default function AiDialogueRoleplayModal({
 
   // Phát âm câu thoại qua giọng Doubao / phòng thu chuẩn Bắc Kinh tự nhiên
   const speakText = (text: string, onEnd?: () => void) => {
+    const rate =
+      talkMode === "FREE_TALK"
+        ? currentHskConfig.speechRate || 0.95
+        : hskLevel === 1
+        ? 0.75
+        : hskLevel === 2
+        ? 0.85
+        : 0.95;
+
     playChineseSpeech(text, {
-      rate: 0.95,
+      rate,
       voice: aiVoiceGender,
       onEnd: () => onEnd?.(),
       onError: () => {
@@ -611,7 +674,11 @@ export default function AiDialogueRoleplayModal({
           mode: talkMode === "LESSON" ? "DIALOGUE" : talkMode === "SCENARIO" ? "SCENARIO" : "FREE_TALK",
           speaker: talkMode === "SCENARIO" ? selectedScenario.studentRole : myRole,
           lessonNumber,
-          hskLevel,
+          hskLevel: talkMode === "FREE_TALK" ? selectedHskLevel : hskLevel,
+          selectedTopic:
+            talkMode === "FREE_TALK"
+              ? customTopic.trim() || currentTopic?.titleVi || ""
+              : "",
           studentId,
           history: historyPayload,
           scenarioTitle: selectedScenario.title,
@@ -1489,55 +1556,171 @@ export default function AiDialogueRoleplayModal({
         )}
 
         {/* =================================================================== */}
-        {/* CHẾ ĐỘ 3: TRÒ CHUYỆN TỰ DO KHÔNG GIỚI HẠN CHỦ ĐỀ                    */}
+        {/* CHẾ ĐỘ 3: TRÒ CHUYỆN TỰ DO KHÔNG GIỚI HẠN CHỦ ĐỀ (HSK 1 - 9)       */}
         {/* =================================================================== */}
         {talkMode === "FREE_TALK" && (
-          <div className="space-y-3.5">
-            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-[#8F6D3B] flex flex-wrap items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 shrink-0 text-amber-600" />
-                <span>
-                  Trò chuyện tự nhiên cùng <strong>AI Tiểu Ngữ (Qwen/Gemini)</strong>: Đối đáp linh hoạt 2 chiều, phân tích ngữ pháp và sửa lỗi chi tiết.
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
-                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
-                  title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
-                >
-                  <Volume2 className="w-3 h-3 text-amber-600" />
-                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Doubao 思思)" : "Nam (Doubao 大叔)"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAutoListen((prev) => !prev)}
-                  className={`px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
-                    autoListen
-                      ? "bg-emerald-700 text-white"
-                      : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
-                  }`}
-                  title="Khi AI nói xong, micro sẽ tự động mở để bạn tiếp tục trò chuyện rảnh tay mà không cần bấm nút"
-                >
-                  <Headphones className="w-3 h-3" />
-                  <span>Thoại 2 chiều: {autoListen ? "Tự động nghe (BẬT)" : "Bấm nút (TẮT)"}</span>
-                </button>
-
-                {freeChatHistory.length > 0 && (
+          <div className="space-y-3">
+            {/* Thanh chọn cấp độ HSK 1 đến 9 chuẩn bản xứ */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-[11px] font-bold text-[#8F6D3B] shrink-0 mr-1 flex items-center gap-1">
+                <Award className="w-3.5 h-3.5 text-amber-600" /> Trình độ:
+              </span>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => {
+                const cfg = HSK_LEVEL_CONFIG[lvl];
+                const isActive = selectedHskLevel === lvl;
+                return (
                   <button
-                    onClick={() => {
-                      setFreeChatHistory([]);
-                      setCheckResult(null);
-                    }}
-                    className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
-                    title="Xóa lịch sử và bắt đầu cuộc trò chuyện mới"
+                    key={lvl}
+                    type="button"
+                    onClick={() => handleSelectHskLevel(lvl)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                      isActive
+                        ? "bg-[#204434] text-white shadow-sm ring-1 ring-[#204434]"
+                        : "bg-white text-slate-700 hover:bg-[#FAF7F0] border border-[#E5DEC9]"
+                    }`}
+                    title={`${cfg.title} (${cfg.charRange})`}
                   >
-                    <RotateCcw className="w-3 h-3" /> Bắt đầu lại
+                    <span className="font-mono">{cfg.badge}</span>
+                    <span className="text-[10px] hidden sm:inline opacity-90">{cfg.title.split(" ")[0]}</span>
                   </button>
-                )}
+                );
+              })}
+            </div>
+
+            {/* HUD Thông tin Cấp độ & Thanh điều khiển */}
+            <div className="p-3 bg-gradient-to-r from-amber-50/90 via-white to-amber-50/60 border border-amber-200 rounded-2xl text-xs space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-lg bg-[#204434] text-white font-mono font-bold text-[11px] shadow-2xs">
+                    {currentHskConfig.badge}
+                  </span>
+                  <span className="font-bold text-[#204434]">{currentHskConfig.title}</span>
+                  <span className="text-[10px] text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full font-medium">
+                    📏 {currentHskConfig.charRange}
+                  </span>
+                  <span className="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
+                    ⚡ Tốc độ: {currentHskConfig.speechRate}x
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
+                    className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
+                    title="Đổi giọng đọc Doubao (Nữ 思思 / Nam 大叔)"
+                  >
+                    <Volume2 className="w-3 h-3 text-amber-600" />
+                    <span>Giọng: {aiVoiceGender === "female" ? "Doubao 思思 (Nữ)" : "Doubao 大叔 (Nam)"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPinyin((prev) => !prev)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                      showPinyin
+                        ? "bg-amber-100 text-amber-900 border border-amber-300"
+                        : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                    }`}
+                    title="Bật hoặc ẩn phiên âm Pinyin"
+                  >
+                    <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAutoListen((prev) => !prev)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                      autoListen
+                        ? "bg-emerald-700 text-white"
+                        : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                    }`}
+                    title="Khi AI nói xong, micro sẽ tự động mở để bạn tiếp tục trò chuyện rảnh tay mà không cần bấm nút"
+                  >
+                    <Headphones className="w-3 h-3" />
+                    <span>Thoại 2 chiều: {autoListen ? "Tự động" : "Bấm nút"}</span>
+                  </button>
+
+                  {freeChatHistory.length > 0 && (
+                    <button
+                      onClick={() => handleSelectHskLevel(selectedHskLevel)}
+                      className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs"
+                      title="Bắt đầu lại cuộc trò chuyện từ đầu"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Bắt đầu lại
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Danh sách chủ đề gợi ý theo cấp độ HSK */}
+              <div className="pt-1 border-t border-amber-200/60 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-[#8F6D3B] flex items-center gap-1 mr-1 shrink-0">
+                  <Target className="w-3.5 h-3.5 text-amber-700" /> Chủ đề:
+                </span>
+                {currentHskConfig.topics.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handleSelectTopic(t)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] transition cursor-pointer flex items-center gap-1 ${
+                      selectedTopicId === t.id && !customTopic
+                        ? "bg-[#204434] text-white font-bold shadow-2xs ring-1 ring-[#204434]"
+                        : "bg-white hover:bg-amber-50 text-slate-700 border border-[#E5DEC9]"
+                    }`}
+                    title={t.desc}
+                  >
+                    <span className="font-medium">{t.titleZh}</span>
+                    <span className="text-[10px] opacity-80">({t.titleVi})</span>
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setIsCustomTopicOpen(!isCustomTopicOpen)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                    customTopic || isCustomTopicOpen
+                      ? "bg-amber-700 text-white"
+                      : "bg-white hover:bg-amber-50 text-amber-900 border border-amber-300"
+                  }`}
+                >
+                  <Edit3 className="w-3 h-3" />
+                  <span>Tùy chọn chủ đề...</span>
+                </button>
+              </div>
+
+              {/* Form nhập chủ đề tự chọn */}
+              {isCustomTopicOpen && (
+                <div className="flex items-center gap-2 pt-1 animate-fadeIn">
+                  <input
+                    type="text"
+                    placeholder="Nhập chủ đề bạn muốn đối đáp (VD: Phỏng vấn xin việc, đàm phán hợp đồng, văn hóa trà đạo...)"
+                    value={customTopic}
+                    onChange={(e) => setCustomTopic(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customTopic.trim()) {
+                        setFreeChatHistory([]);
+                        setCheckResult(null);
+                        verifySpeechWithBackend("你好！我们今天聊一聊这个话题。");
+                      }
+                    }}
+                    className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-white border border-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-inner"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customTopic.trim()) {
+                        setFreeChatHistory([]);
+                        setCheckResult(null);
+                        verifySpeechWithBackend("你好！我们今天聊一聊这个话题。");
+                      }
+                    }}
+                    className="px-3.5 py-1.5 text-xs bg-[#204434] text-white font-bold rounded-xl cursor-pointer hover:bg-[#163024] shadow-2xs"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Khung chat cuộn mượt mà */}
@@ -1549,7 +1732,7 @@ export default function AiDialogueRoleplayModal({
                 <div className="text-center py-10 text-xs text-[#315E48] space-y-2">
                   <div className="text-3xl">🤖💬</div>
                   <p className="font-bold text-sm text-[#204434]">
-                    Chào bạn! Tôi là Tiểu Ngữ, rất vui được luyện khẩu ngữ cùng bạn.
+                    Chào bạn! Tôi là Tiểu Ngữ (AI Doubao), rất vui được đồng hành cùng bạn ở cấp độ {currentHskConfig.badge}.
                   </p>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
                     Bạn có thể bấm vào Micro để nói chuyện trực tiếp, hoặc gõ phím bên dưới. AI sẽ tự động lắng nghe và phản hồi liên tục!
@@ -1593,7 +1776,7 @@ export default function AiDialogueRoleplayModal({
                         )}
                       </div>
 
-                      {msg.pinyin && (
+                      {msg.pinyin && (showPinyin || selectedHskLevel <= 2) && (
                         <span className="font-mono text-[11px] block text-emerald-700 font-medium">
                           {msg.pinyin}
                         </span>
