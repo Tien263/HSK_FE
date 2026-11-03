@@ -554,7 +554,26 @@ export default function GuidePage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSynthesisAvailable, setSpeechSynthesisAvailable] = useState(false);
 
-  const steps = role === "STUDENT" ? STUDENT_STEPS : TEACHER_STEPS;
+  const [studentSteps, setStudentSteps] = useState<GuideStep[]>(STUDENT_STEPS);
+  const [teacherSteps, setTeacherSteps] = useState<GuideStep[]>(TEACHER_STEPS);
+
+  useEffect(() => {
+    fetch("/api/v1/admin/guide")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          if (json.data.studentSteps && json.data.studentSteps.length > 0) {
+            setStudentSteps(json.data.studentSteps);
+          }
+          if (json.data.teacherSteps && json.data.teacherSteps.length > 0) {
+            setTeacherSteps(json.data.teacherSteps);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const steps = role === "STUDENT" ? studentSteps : teacherSteps;
   const currentStep = steps[activeStepIndex] || steps[0];
 
   useEffect(() => {

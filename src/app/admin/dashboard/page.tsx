@@ -8,6 +8,8 @@ import CurriculumBuilderWorkspace from "@/components/admin/CurriculumBuilderWork
 import SelfStudyRoadmapAdminWorkspace from "@/components/admin/SelfStudyRoadmapAdminWorkspace";
 import AdminSeoSettings from "@/components/admin/AdminSeoSettings";
 import AdminPlacementTestSettings from "@/components/admin/AdminPlacementTestSettings";
+import AdminBrandingSettings from "@/components/admin/AdminBrandingSettings";
+import AdminGuideEditor from "@/components/admin/AdminGuideEditor";
 import AvatarUpload from "@/components/common/AvatarUpload";
 import {
   Users,
@@ -51,6 +53,7 @@ import {
   Zap,
   Database,
   Menu,
+  Palette,
 } from "lucide-react";
 
 interface UserItem {
@@ -119,9 +122,22 @@ export default function AdminDashboardPage() {
   // State
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "ai" | "otp" | "smtp" | "curriculum" | "roadmap" | "seo" | "tests" | "profile"
+    | "overview"
+    | "users"
+    | "ai"
+    | "otp"
+    | "smtp"
+    | "curriculum"
+    | "roadmap"
+    | "seo"
+    | "tests"
+    | "profile"
+    | "branding"
+    | "guide_editor"
   >("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [runningDiagnostics, setRunningDiagnostics] = useState(false);
+  const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
 
   // Admin Profile & Security State
   const [adminName, setAdminName] = useState("");
@@ -143,10 +159,55 @@ export default function AdminDashboardPage() {
     window.history.replaceState(null, "", url);
   }
   useEffect(() => {
-    const sync = () => { const tab = window.location.hash.slice(1); if (["overview","users","ai","otp","smtp","curriculum","roadmap","seo","tests","profile"].includes(tab)) setActiveTab(tab as typeof activeTab); };
-    const timer = setTimeout(sync, 0); window.addEventListener("hashchange", sync);
-    return () => { clearTimeout(timer); window.removeEventListener("hashchange", sync); };
+    const sync = () => {
+      const tab = window.location.hash.slice(1);
+      if (
+        [
+          "overview",
+          "users",
+          "ai",
+          "otp",
+          "smtp",
+          "curriculum",
+          "roadmap",
+          "seo",
+          "tests",
+          "profile",
+          "branding",
+          "guide_editor",
+        ].includes(tab)
+      ) {
+        setActiveTab(tab as typeof activeTab);
+      }
+    };
+    const timer = setTimeout(sync, 0);
+    window.addEventListener("hashchange", sync);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("hashchange", sync);
+    };
   }, []);
+
+  const handleRunDiagnostics = async () => {
+    setRunningDiagnostics(true);
+    setDiagnosticMessage(null);
+    try {
+      const res = await fetch("/api/v1/admin/diagnostics", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        const details = data.results
+          .map((r: any) => `• ${r.fileName}: ${r.status === "HEALTHY" ? "✓ Khỏe mạnh" : "⚡ Đã tự vá lỗi"}`)
+          .join("\n");
+        alert(`Kiểm tra & Tự vá lỗi cấu hình thành công!\n\n${details}`);
+      } else {
+        alert(data.message || "Kiểm tra thất bại.");
+      }
+    } catch (err: any) {
+      alert("Lỗi kết nối máy chủ khi chạy chẩn đoán: " + err.message);
+    } finally {
+      setRunningDiagnostics(false);
+    }
+  };
 
   // AI Engine State
   const [activeAiProvider, setActiveAiProvider] = useState<"QWEN" | "GROQ" | "GEMINI" | "OPENROUTER">("QWEN");
@@ -865,34 +926,61 @@ export default function AdminDashboardPage() {
             <X size={18} />
           </button>
         </div>
-        <nav className="relative flex-1 space-y-2 px-4 overflow-y-auto">
-          {(
-            [
-              { id: "overview", label: "Tổng quan", icon: BarChart3 },
-              { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
-              { id: "roadmap", label: "Lộ trình tự học", icon: Compass },
-              { id: "tests", label: "Đề khảo sát đầu vào", icon: HelpCircle },
-              { id: "seo", label: "Cấu hình SEO & Google", icon: Globe },
-              { id: "users", label: "Tài khoản & phân quyền", icon: Users },
-              { id: "profile", label: "Hồ sơ & Tài khoản của tôi", icon: User },
-              { id: "ai", label: "Trợ lý AI", icon: Sparkles },
-              { id: "otp", label: "Xác thực OTP", icon: Mail },
-              { id: "smtp", label: "Cấu hình email", icon: Server },
-            ] as const
-          ).map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => selectAdminTab(id)}
-              aria-current={activeTab === id ? "page" : undefined}
-              className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-xs font-semibold transition cursor-pointer ${
-                activeTab === id
-                  ? "bg-[#204434] text-white shadow-sm"
-                  : "text-[#526c50] hover:bg-[#204434]/5"
-              }`}
-            >
-              <Icon size={17} />
-              {label}
-            </button>
+        <nav className="relative flex-1 space-y-4 px-3 overflow-y-auto">
+          {[
+            {
+              groupTitle: "Báo cáo & Tổng quan",
+              items: [
+                { id: "overview", label: "Bảng điều khiển KPIs", icon: BarChart3 },
+              ],
+            },
+            {
+              groupTitle: "Quản trị Dạy & Học",
+              items: [
+                { id: "users", label: "Học viên & Giáo viên", icon: Users },
+                { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
+                { id: "roadmap", label: "Lộ trình tự học", icon: Compass },
+                { id: "tests", label: "Đề khảo sát đầu vào", icon: HelpCircle },
+              ],
+            },
+            {
+              groupTitle: "Giao diện & Nội dung (No-Code)",
+              items: [
+                { id: "branding", label: "Đổi Icon App & Ảnh SEO", icon: Palette },
+                { id: "guide_editor", label: "Quản lý Cẩm nang /guide", icon: BookOpen },
+              ],
+            },
+            {
+              groupTitle: "Hệ thống & Kỹ thuật",
+              items: [
+                { id: "seo", label: "Cấu hình SEO & Google", icon: Globe },
+                { id: "ai", label: "Trợ lý AI Gemini", icon: Sparkles },
+                { id: "smtp", label: "Cấu hình Email & SMTP", icon: Server },
+                { id: "otp", label: "Lịch sử mã OTP", icon: Mail },
+                { id: "profile", label: "Hồ sơ Quản trị viên", icon: User },
+              ],
+            },
+          ].map((group, gIdx) => (
+            <div key={gIdx} className="space-y-1">
+              <div className="px-3 py-1 text-[10px] font-bold tracking-wider text-[#8F6D3B] uppercase">
+                {group.groupTitle}
+              </div>
+              {group.items.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => selectAdminTab(id as any)}
+                  aria-current={activeTab === id ? "page" : undefined}
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition cursor-pointer ${
+                    activeTab === id
+                      ? "bg-[#204434] text-white shadow-sm font-bold"
+                      : "text-[#526c50] hover:bg-[#204434]/5"
+                  }`}
+                >
+                  <Icon size={16} className={activeTab === id ? "text-[#BC9B6B]" : "text-[#526c50]"} />
+                  <span className="truncate">{label}</span>
+                </button>
+              ))}
+            </div>
           ))}
           <div className="my-5 border-t border-[#D7C9AB]/60" />
           <Link
@@ -1027,6 +1115,18 @@ export default function AdminDashboardPage() {
                 <div className="text-[10px] text-[#315E48] leading-tight">Hồ sơ & Tài khoản</div>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-[#8F6D3B] group-hover:translate-y-0.5 transition-transform hidden sm:block" />
+            </button>
+
+            {/* Nút Tự động kiểm tra & Tự vá lỗi cấu hình */}
+            <button
+              type="button"
+              onClick={handleRunDiagnostics}
+              disabled={runningDiagnostics}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-600/30 bg-emerald-50 hover:bg-emerald-100 text-[#204434] text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Quét toàn bộ file cấu hình JSON và tự động sửa chữa nếu phát hiện lỗi"
+            >
+              <ShieldCheck className={`w-3.5 h-3.5 text-emerald-700 ${runningDiagnostics ? "animate-spin" : ""}`} />
+              <span className="hidden xl:inline">{runningDiagnostics ? "Đang quét..." : "Tự vá lỗi hệ thống"}</span>
             </button>
 
             <Link
@@ -1257,6 +1357,30 @@ export default function AdminDashboardPage() {
             >
               <Globe className="w-4 h-4 text-emerald-600" />
               <span>Cấu hình SEO</span>
+            </button>
+
+            <button
+              onClick={() => selectAdminTab("branding")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "branding"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <Palette className="w-4 h-4 text-amber-600" />
+              <span>Đổi Icon & Ảnh</span>
+            </button>
+
+            <button
+              onClick={() => selectAdminTab("guide_editor")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "guide_editor"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-[#9D493E]" />
+              <span>Sửa Cẩm nang</span>
             </button>
 
             <Link
@@ -2780,6 +2904,16 @@ export default function AdminDashboardPage() {
         {/* TAB: QUẢN LÝ ĐỀ KHẢO SÁT ĐẦU VÀO */}
         {activeTab === "tests" && (
           <AdminPlacementTestSettings />
+        )}
+
+        {/* TAB: GIAO DIỆN, THƯƠNG HIỆU & ĐỔI ẢNH NO-CODE */}
+        {activeTab === "branding" && (
+          <AdminBrandingSettings />
+        )}
+
+        {/* TAB: QUẢN LÝ CẨM NANG HƯỚNG DẪN (/guide) */}
+        {activeTab === "guide_editor" && (
+          <AdminGuideEditor />
         )}
 
         {/* =================================================================== */}

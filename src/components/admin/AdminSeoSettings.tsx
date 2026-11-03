@@ -367,16 +367,62 @@ export default function AdminSeoSettings() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#204434] mb-1">
-              Ảnh xem trước khi chia sẻ mạng xã hội (OpenGraph Image URL)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-[#204434]">
+                Ảnh xem trước khi chia sẻ mạng xã hội (OpenGraph Image)
+              </label>
+              <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#204434] hover:bg-[#183629] text-white text-[11px] font-bold cursor-pointer transition shadow-xs">
+                <span>📁 Tải ảnh từ máy tính</span>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("targetAsset", "OG_IMAGE");
+                    try {
+                      const res = await fetch("/api/v1/admin/branding/upload", {
+                        method: "POST",
+                        body: fd,
+                      });
+                      const json = await res.json();
+                      if (json.success && json.url) {
+                        const baseUrl = (formData.canonicalUrl || "https://ninjistudy.click").replace(/\/$/, "");
+                        const fullUrl = json.url.startsWith("http") ? json.url : `${baseUrl}${json.url}`;
+                        setFormData({ ...formData, ogImage: fullUrl });
+                        setMessage({ type: "success", text: "Đã tải ảnh SEO thành công!" });
+                      } else {
+                        setMessage({ type: "error", text: json.message || "Tải ảnh thất bại." });
+                      }
+                    } catch (err: any) {
+                      setMessage({ type: "error", text: err.message || "Lỗi tải ảnh." });
+                    } finally {
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </label>
+            </div>
             <input
               type="text"
               value={formData.ogImage}
               onChange={(e) => setFormData({ ...formData, ogImage: e.target.value })}
-              placeholder="https://ninjistudy.click/theme/bg-auth-master.jpg"
+              placeholder="https://ninjistudy.click/theme/og-social-preview.png"
               className="w-full px-3 py-2 text-xs rounded-xl border border-[#BC9B6B]/30 focus:border-[#204434] focus:ring-1 focus:ring-[#204434] outline-none text-[#204434] bg-[#FAF7EE]/50"
             />
+            {formData.ogImage && (
+              <div className="mt-2 relative w-full aspect-[1200/630] max-h-36 rounded-xl overflow-hidden border border-[#BC9B6B]/30 bg-gray-50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={formData.ogImage}
+                  alt="OpenGraph Thumbnail"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
           </div>
 
           {/* Công tắc Bọ tìm kiếm */}
