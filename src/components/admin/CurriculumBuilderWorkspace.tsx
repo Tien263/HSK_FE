@@ -170,18 +170,47 @@ export default function CurriculumBuilderWorkspace({
   const [isRevisionHistoryOpen, setIsRevisionHistoryOpen] = useState(false);
   const [autoFillingNewVocab, setAutoFillingNewVocab] = useState(false);
 
+  // Lấy header xác thực Quản trị viên / Giáo viên từ phiên đăng nhập
+  const getCurriculumAuthHeaders = () => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
+        if (stored) {
+          const u = JSON.parse(stored);
+          if (u?.id) headers["x-user-id"] = u.id;
+        }
+      } catch {}
+    }
+    return headers;
+  };
+
   // Tải giáo trình khi đổi level
   useEffect(() => {
     async function loadCurriculum() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`);
+        const res = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
+          credentials: "include",
+          headers: getCurriculumAuthHeaders(),
+        });
         const data = await res.json();
         if (data.success && Array.isArray(data.items) && data.items.length > 0) {
           setLessons(data.items);
         } else {
-          const localLessons = getLessonsByHskLevel(selectedLevel);
-          setLessons(localLessons);
+          let customLocal: any = null;
+          if (typeof window !== "undefined") {
+            const raw = localStorage.getItem(`hsk_admin_custom_curriculum_level_${selectedLevel}`);
+            if (raw) {
+              try { customLocal = JSON.parse(raw); } catch {}
+            }
+          }
+          if (Array.isArray(customLocal) && customLocal.length > 0) {
+            setLessons(customLocal);
+          } else {
+            const localLessons = getLessonsByHskLevel(selectedLevel);
+            setLessons(localLessons);
+          }
         }
       } catch {
         const localLessons = getLessonsByHskLevel(selectedLevel);
@@ -918,7 +947,10 @@ export default function CurriculumBuilderWorkspace({
 
       let revision = 0;
       try {
-        const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`);
+        const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
+          credentials: "include",
+          headers: getCurriculumAuthHeaders(),
+        });
         const curData = await curRes.json();
         if (curData && typeof curData.revision === "number") {
           revision = curData.revision;
@@ -927,7 +959,8 @@ export default function CurriculumBuilderWorkspace({
 
       const res = await fetch("/api/v1/admin/curriculum", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: getCurriculumAuthHeaders(),
         body: JSON.stringify({
           level: selectedLevel,
           revision: revision,
@@ -942,18 +975,18 @@ export default function CurriculumBuilderWorkspace({
         showToast(`🎉 Đã lưu & xuất bản thành công toàn bộ ${sanitizedLessons.length} bài học HSK ${selectedLevel} vào cơ sở dữ liệu!`);
       } else {
         const errMsg = resData?.message || `Lỗi máy chủ (${res.status}): Không thể lưu giáo trình.`;
-        showToast(errMsg);
+        showToast(errMsg, "error");
       }
     } catch (err: any) {
       console.error("Save curriculum error:", err);
-      showToast(`Lỗi kết nối máy chủ: ${err?.message || "Không thể gửi dữ liệu"}`);
+      showToast(`Lỗi kết nối máy chủ: ${err?.message || "Không thể gửi dữ liệu"}`, "error");
     } finally {
       setSaving(false);
     }
   };
 
-  // 6. LƯU THAY ĐỔI CỦA MỘT BÀI HỌC TRONG MODAL
-  const handleSaveEditingLesson = () => {
+  // 6. LƯU THAY ĐỔI CỦA MỘT BÀI HỌC TRONG MODAL (HỖ TRỢ ĐỒNG BỘ MÁY CHỦ NGAY)
+  const handleSaveEditingLesson = async (syncToServer = false) => {
     if (!editingLesson) return;
 
     const updatedLessons = lessons.map((l) =>
@@ -968,14 +1001,69 @@ export default function CurriculumBuilderWorkspace({
     setLessons(updatedLessons);
 
     if (typeof window !== "undefined") {
+      saveCurriculumSnapshot(selectedLevel, `Sửa Bài ${editingLesson.number} - HSK ${selectedLevel}`, updatedLessons);
       localStorage.setItem(
         `hsk_admin_custom_curriculum_level_${selectedLevel}`,
         JSON.stringify(updatedLessons)
       );
     }
 
-    setEditingLesson(null);
-    showToast(`Đã cập nhật xong nội dung Bài ${editingLesson.number}!`);
+    if (!syncToServer) {
+      setEditingLesson(null);
+      showToast(`Đã lưu xong nội dung Bài ${editingLesson.number} vào bộ nhớ tạm! Bấm "Lưu & Xuất bản" khi muốn đồng bộ lên máy chủ.`);
+      return;
+    }
+
+    // Lưu trực tiếp lên DB máy chủ
+    setSaving(true);
+    try {
+      const sanitizedLessons = updatedLessons.map((les) => ({
+        ...les,
+        vocabList: Array.isArray(les.vocabList) ? les.vocabList : [],
+        grammarList: Array.isArray(les.grammarList) ? les.grammarList : [],
+        dialogue: Array.isArray(les.dialogue) ? les.dialogue : [],
+        phonetics: les.phonetics || { title: "", rule: "", examples: [] },
+        culture: les.culture || "",
+        grammarExercises: Array.isArray(les.grammarExercises) ? les.grammarExercises : [],
+      }));
+
+      let revision = 0;
+      try {
+        const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
+          credentials: "include",
+          headers: getCurriculumAuthHeaders(),
+        });
+        const curData = await curRes.json();
+        if (curData && typeof curData.revision === "number") revision = curData.revision;
+      } catch {}
+
+      const res = await fetch("/api/v1/admin/curriculum", {
+        method: "POST",
+        credentials: "include",
+        headers: getCurriculumAuthHeaders(),
+        body: JSON.stringify({
+          level: selectedLevel,
+          revision,
+          isDeleted: false,
+          lessons: sanitizedLessons,
+        }),
+      });
+
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setLessons(sanitizedLessons);
+        setEditingLesson(null);
+        showToast(`🎉 Đã lưu & xuất bản thành công Bài ${editingLesson.number} vào cơ sở dữ liệu!`);
+      } else {
+        const errMsg = resData?.message || `Lỗi máy chủ (${res.status}): Không thể lưu giáo trình.`;
+        showToast(errMsg, "error");
+      }
+    } catch (err: any) {
+      console.error("Save single lesson error:", err);
+      showToast(`Lỗi kết nối máy chủ: ${err?.message || "Không thể gửi dữ liệu"}`, "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleResetToOfficial = () => {
@@ -1538,8 +1626,15 @@ export default function CurriculumBuilderWorkspace({
                         </span>
                       </div>
 
-                      <div>
-                        <h3 className="font-serif font-bold text-lg text-[#204434] leading-snug">
+                      <div
+                        onClick={() => {
+                          setEditingLesson(JSON.parse(JSON.stringify(les)));
+                          setEditorTab("info");
+                        }}
+                        className="cursor-pointer group"
+                        title="Bấm để mở chỉnh sửa chi tiết bài này"
+                      >
+                        <h3 className="font-serif font-bold text-lg text-[#204434] group-hover:text-[#8F6D3B] transition leading-snug">
                           {les.titleZh}
                         </h3>
                         {les.pinyin && (
@@ -1578,10 +1673,10 @@ export default function CurriculumBuilderWorkspace({
                           setEditingLesson(JSON.parse(JSON.stringify(les)));
                           setEditorTab("info");
                         }}
-                        className="flex-1 py-2 px-3 rounded-xl bg-white border border-[#BC9B6B]/40 hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        className="flex-1 py-2 px-3 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
                       >
-                        <Edit3 className="w-3.5 h-3.5 text-[#8F6D3B]" />
-                        <span>Sửa chi tiết bài</span>
+                        <Edit3 className="w-3.5 h-3.5 text-[#BC9B6B]" />
+                        <span>✏️ Sửa chi tiết bài</span>
                       </button>
 
                       <button
@@ -3237,21 +3332,37 @@ export default function CurriculumBuilderWorkspace({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 sm:p-5 bg-[#FAF7F0] border-t border-[#E5DEC9] flex items-center justify-between">
+            <div className="p-4 sm:p-5 bg-[#FAF7F0] border-t border-[#E5DEC9] flex flex-wrap items-center justify-between gap-3">
               <button
+                type="button"
                 onClick={() => setEditingLesson(null)}
-                className="px-4 py-2 rounded-xl border border-[#E5DEC9] bg-white text-slate-600 text-xs font-bold hover:bg-[#FAF7F0] transition cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-[#E5DEC9] bg-white text-slate-600 text-xs font-bold hover:bg-[#FAF7F0] transition cursor-pointer"
               >
                 Hủy bỏ
               </button>
 
-              <button
-                onClick={handleSaveEditingLesson}
-                className="px-6 py-2.5 rounded-xl bg-[#204434] text-white text-xs font-bold hover:bg-[#17382F] transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4 text-[#BC9B6B]" />
-                <span>Hoàn tất & Cập nhật bài học</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveEditingLesson(false)}
+                  className="px-4 py-2.5 rounded-xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Cập nhật vào danh sách bài học trên giao diện (chưa lưu lên máy chủ)"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#8F6D3B]" />
+                  <span>Hoàn tất (Tạm lưu)</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => handleSaveEditingLesson(true)}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] hover:from-[#17382F] hover:to-[#204434] text-white text-xs font-bold transition shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  title="Lưu ngay lập tức toàn bộ thay đổi của bài học này vào cơ sở dữ liệu trên máy chủ"
+                >
+                  <Save className="w-4 h-4 text-[#BC9B6B]" />
+                  <span>{saving ? "Đang lưu lên máy chủ..." : "💾 Lưu & Xuất bản máy chủ ngay"}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -28,7 +28,8 @@ export function dictionarySameOrigin(request: Request) {
     const serverHost = rawHost.split(":")[0].toLowerCase();
     if (originHost === serverHost) return true;
     if (origin.hostname === "localhost" || origin.hostname === "127.0.0.1") return true;
-    if (origin.hostname.endsWith(".onrender.com")) return true;
+    if (origin.hostname.endsWith(".onrender.com") || origin.hostname.endsWith(".vercel.app")) return true;
+    if (/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(origin.hostname)) return true;
     return false;
   } catch { return true; }
 }
