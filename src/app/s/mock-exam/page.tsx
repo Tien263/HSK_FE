@@ -28,6 +28,7 @@ import {
   Calendar,
   Layers,
   Flame,
+  ShieldAlert,
 } from "lucide-react";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { normalizeGrammarList } from "@/lib/chinese-grammar-helper";
@@ -518,6 +519,26 @@ export default function MockExamPage() {
                 <p className="text-xs text-[#315E48] leading-relaxed">
                   Đánh giá toàn diện 3 kỹ năng Nghe hiểu, Đọc hiểu và Viết. Đề thi được kết nối trực tiếp với Thầy Cô biên soạn và CSDL khảo thí của nhà trường.
                 </p>
+              </div>
+
+              {/* Huy hiệu Giám thị AI tự động */}
+              <div className="max-w-xl mx-auto p-3.5 rounded-2xl bg-emerald-900/5 border border-emerald-700/30 text-xs text-[#204434] flex flex-col sm:flex-row items-center justify-between gap-3 text-left shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#204434] text-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="font-bold block text-[#204434]">
+                      Phòng thi chuẩn hóa tự động kích hoạt Giám Thị AI 24/7
+                    </span>
+                    <span className="text-[11px] text-[#526c50]">
+                      Camera & Mic quét vật thể phát hiện điện thoại, người thứ hai, tiếng ồn và rời tab. Ảnh chụp vi phạm được gửi trực tiếp đến màn hình Giáo viên.
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-xl bg-[#204434] text-amber-300 font-bold text-[10px] shrink-0 border border-emerald-600/40">
+                  Auto AI Proctoring
+                </span>
               </div>
 
               {/* Bộ chọn cấp độ HSK 1 - 6 và HSK 7-9 */}
