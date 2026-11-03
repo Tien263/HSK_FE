@@ -29,6 +29,9 @@ import {
   BookMarked,
   Globe2,
   Headphones,
+  ShieldCheck,
+  Printer,
+  History,
 } from "lucide-react";
 import {
   Hsk1FullLesson,
@@ -45,6 +48,12 @@ import {
   GrammarItemEditModal,
   DialogueItemEditModal,
 } from "@/components/admin/CurriculumItemEditModals";
+import CurriculumQualityAuditorModal from "@/components/admin/CurriculumQualityAuditorModal";
+import CurriculumPrintExportModal from "@/components/admin/CurriculumPrintExportModal";
+import CurriculumRevisionHistoryModal, {
+  saveCurriculumSnapshot,
+} from "@/components/admin/CurriculumRevisionHistoryModal";
+import { lookupDictionaryAuto, getAutoPinyin } from "@/lib/pinyin-helper";
 
 interface CurriculumBuilderWorkspaceProps {
   showToast: (msg: string, type?: "success" | "error") => void;
@@ -154,6 +163,12 @@ export default function CurriculumBuilderWorkspace({
 
   const [isDialogueModalOpen, setIsDialogueModalOpen] = useState(false);
   const [editingDialogueIndex, setEditingDialogueIndex] = useState<number | null>(null);
+
+  // State các tính năng mở rộng mới: Kiểm định chất lượng, In ấn đề cương, Lịch sử hoàn tác
+  const [isAuditorOpen, setIsAuditorOpen] = useState(false);
+  const [isPrintExportOpen, setIsPrintExportOpen] = useState(false);
+  const [isRevisionHistoryOpen, setIsRevisionHistoryOpen] = useState(false);
+  const [autoFillingNewVocab, setAutoFillingNewVocab] = useState(false);
 
   // Tải giáo trình khi đổi level
   useEffect(() => {
@@ -894,6 +909,7 @@ export default function CurriculumBuilderWorkspace({
       });
 
       if (typeof window !== "undefined") {
+        saveCurriculumSnapshot(selectedLevel, `Lưu & Xuất bản HSK ${selectedLevel}`, sanitizedLessons);
         localStorage.setItem(
           `hsk_admin_custom_curriculum_level_${selectedLevel}`,
           JSON.stringify(sanitizedLessons)
@@ -964,8 +980,9 @@ export default function CurriculumBuilderWorkspace({
 
   const handleResetToOfficial = () => {
     if (typeof window !== "undefined") {
-      const ok = window.confirm(`Bạn có chắc chắn muốn khôi phục lại dữ liệu gốc chuẩn HSK ${selectedLevel}? Toàn bộ bài học sẽ được đưa về dữ liệu chuẩn chính thức.`);
+      const ok = window.confirm(`Bạn có chắc chắn muốn khôi phục lại dữ liệu gốc chuẩn HSK ${selectedLevel}? Toàn bộ bài học sẽ được đưa về dữ liệu chuẩn chính thức. Bản hiện tại sẽ được lưu vào lịch sử hoàn tác.`);
       if (!ok) return;
+      saveCurriculumSnapshot(selectedLevel, `Trước khi khôi phục chuẩn gốc HSK ${selectedLevel}`, lessons);
     }
     resetCustomCurriculum(selectedLevel);
     const defaults = getDefaultLessons(selectedLevel);
@@ -1355,6 +1372,39 @@ export default function CurriculumBuilderWorkspace({
                 onChange={handleImportReplaceLessonsFile}
               />
             </label>
+
+            {/* Kiểm định chất lượng giáo trình */}
+            <button
+              type="button"
+              onClick={() => setIsAuditorOpen(true)}
+              className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              title="Quét toàn bộ bài học để tìm thiếu sót Pinyin, nghĩa, ví dụ"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+              <span>🛡️ Quét lỗi giáo trình</span>
+            </button>
+
+            {/* In ấn & Xuất đề cương PDF */}
+            <button
+              type="button"
+              onClick={() => setIsPrintExportOpen(true)}
+              className="px-3 py-2 rounded-xl bg-white hover:bg-[#FAF7F0] border border-[#BC9B6B]/40 text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              title="Xuất đề cương in ấn A4 hoặc lưu file PDF"
+            >
+              <Printer className="w-3.5 h-3.5 text-[#8F6D3B]" />
+              <span>🖨️ Xuất đề cương in ấn</span>
+            </button>
+
+            {/* Lịch sử phiên bản & Hoàn tác */}
+            <button
+              type="button"
+              onClick={() => setIsRevisionHistoryOpen(true)}
+              className="px-3 py-2 rounded-xl bg-white hover:bg-[#FAF7F0] border border-[#BC9B6B]/40 text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              title="Xem lịch sử các bản sửa và khôi phục khi cần"
+            >
+              <History className="w-3.5 h-3.5 text-[#8F6D3B]" />
+              <span>↩️ Lịch sử hoàn tác</span>
+            </button>
 
             {/* Khôi phục dữ liệu gốc HSK */}
             <button
@@ -1987,9 +2037,36 @@ export default function CurriculumBuilderWorkspace({
                 <div className="space-y-5">
                   {/* Form thêm từ vựng mới */}
                   <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
-                    <span className="text-xs font-bold text-[#204434] block">
-                      + Thêm từ vựng mới:
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#204434] block">
+                        + Thêm từ vựng mới:
+                      </span>
+                      <button
+                        type="button"
+                        disabled={autoFillingNewVocab}
+                        onClick={async () => {
+                          if (!newVocabHanzi.trim()) {
+                            showToast("Vui lòng nhập Hán tự trước!", "error");
+                            return;
+                          }
+                          setAutoFillingNewVocab(true);
+                          try {
+                            const res = await lookupDictionaryAuto(newVocabHanzi);
+                            if (res.pinyin) setNewVocabPinyin(res.pinyin);
+                            if (res.meaningVi) setNewVocabMeaning(res.meaningVi);
+                            if (res.type) setNewVocabType(res.type);
+                            showToast(`Đã tự động điền Pinyin & nghĩa cho "${newVocabHanzi}"!`);
+                          } finally {
+                            setAutoFillingNewVocab(false);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="Tự động điền Pinyin có dấu và dịch nghĩa tiếng Việt"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                        <span>{autoFillingNewVocab ? "Đang tra cứu..." : "✨ Tự điền Pinyin & Nghĩa"}</span>
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <input
                         type="text"
@@ -3244,6 +3321,7 @@ export default function CurriculumBuilderWorkspace({
           currentLessons={lessons}
           level={selectedLevel}
           onConfirmApply={(mode, appliedLessons) => {
+            saveCurriculumSnapshot(selectedLevel, `Trước khi nạp ${importPreviewFileName}`, lessons);
             setLessons(appliedLessons);
             if (typeof window !== "undefined") {
               localStorage.setItem(
@@ -3253,6 +3331,52 @@ export default function CurriculumBuilderWorkspace({
             }
             showToast(
               `Đã áp dụng thành công ${appliedLessons.length} bài vào giáo trình HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản" để đồng bộ lên máy chủ.`
+            );
+          }}
+        />
+      )}
+
+      {/* MODAL KIỂM ĐỊNH CHẤT LƯỢNG GIÁO TRÌNH */}
+      {isAuditorOpen && (
+        <CurriculumQualityAuditorModal
+          isOpen={isAuditorOpen}
+          onClose={() => setIsAuditorOpen(false)}
+          lessons={lessons}
+          level={selectedLevel}
+          onSelectLessonForEdit={(lesson, tab) => {
+            setEditingLesson(lesson);
+            setEditorTab(tab);
+          }}
+        />
+      )}
+
+      {/* MODAL XUẤT ĐỀ CƯƠNG IN ẤN & GIÁO ÁN PDF */}
+      {isPrintExportOpen && (
+        <CurriculumPrintExportModal
+          isOpen={isPrintExportOpen}
+          onClose={() => setIsPrintExportOpen(false)}
+          lessons={lessons}
+          level={selectedLevel}
+        />
+      )}
+
+      {/* MODAL LỊCH SỬ PHIÊN BẢN & HOÀN TÁC */}
+      {isRevisionHistoryOpen && (
+        <CurriculumRevisionHistoryModal
+          isOpen={isRevisionHistoryOpen}
+          onClose={() => setIsRevisionHistoryOpen(false)}
+          level={selectedLevel}
+          onRestoreSnapshot={(restoredLessons) => {
+            saveCurriculumSnapshot(selectedLevel, "Trước khi hoàn tác phiên bản cũ", lessons);
+            setLessons(restoredLessons);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(
+                `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+                JSON.stringify(restoredLessons)
+              );
+            }
+            showToast(
+              `Đã khôi phục thành công ${restoredLessons.length} bài học từ lịch sử! Bấm "Lưu & Xuất bản" để đồng bộ.`
             );
           }}
         />
