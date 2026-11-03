@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ? seo.sitemapUrls
     : [
         { path: "/", changeFrequency: "daily" as const, priority: 1.0 },
+        { path: "/guide", changeFrequency: "weekly" as const, priority: 0.9 },
         { path: "/login", changeFrequency: "monthly" as const, priority: 0.8 },
         { path: "/register", changeFrequency: "monthly" as const, priority: 0.8 },
         { path: "/onboarding", changeFrequency: "monthly" as const, priority: 0.7 },
