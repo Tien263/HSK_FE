@@ -27,7 +27,7 @@ import {
   Zap,
 } from "lucide-react";
 import { LessonDialogueLine } from "@/lib/hsk1-full-lessons";
-import { playChineseSpeech } from "@/lib/chinese-speech-player";
+import { playChineseSpeech, stopChineseSpeech } from "@/lib/chinese-speech-player";
 import { HSK_LEVEL_CONFIG, HskTopicOption } from "@/lib/hsk-dialogue-config";
 
 export interface RoleplayScenario {
@@ -372,6 +372,71 @@ export default function AiDialogueRoleplayModal({
   const autoListenRef = useRef<boolean>(true);
   const [aiVoiceGender, setAiVoiceGender] = useState<"female" | "male">("female");
 
+  // Quản lý triệt để vòng đời âm thanh và hủy tác vụ ngay khi đóng Modal
+  const isOpenRef = useRef<boolean>(isOpen);
+  const activeTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const recognitionRef = useRef<any>(null);
+
+  const safeSetTimeout = (fn: () => void, ms: number): NodeJS.Timeout => {
+    const timer = setTimeout(() => {
+      activeTimersRef.current = activeTimersRef.current.filter((t) => t !== timer);
+      if (isOpenRef.current) {
+        fn();
+      }
+    }, ms);
+    activeTimersRef.current.push(timer);
+    return timer;
+  };
+
+  const stopAllAudioAndTimers = () => {
+    // 1. Dừng ngay lập tức âm thanh Doubao / Cloud / WebSpeech và ngắt luồng tải âm
+    stopChineseSpeech();
+
+    // 2. Hủy toàn bộ hàng đợi phát âm / nhận diện giọng nói
+    if (activeTimersRef.current && activeTimersRef.current.length > 0) {
+      activeTimersRef.current.forEach((t) => clearTimeout(t));
+      activeTimersRef.current = [];
+    }
+
+    // 3. Dừng thu âm micro nếu đang mở
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+
+    setIsRecording(false);
+    setChecking(false);
+  };
+
+  // Đồng bộ trạng thái mở/đóng và tự động dập tắt mọi âm thanh khi đóng modal
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+    if (!isOpen) {
+      stopAllAudioAndTimers();
+    }
+    return () => {
+      stopAllAudioAndTimers();
+    };
+  }, [isOpen]);
+
+  const handleCloseModal = () => {
+    stopAllAudioAndTimers();
+    onClose();
+  };
+
+  // Lắng nghe phím ESC để đóng modal an toàn
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   // Xử lý chuyển cấp độ HSK (1 đến 9)
   const handleSelectHskLevel = (lvl: number) => {
     setSelectedHskLevel(lvl);
@@ -392,7 +457,7 @@ export default function AiDialogueRoleplayModal({
     setCurrentSuggestions(firstTopic.initialSuggestions);
     setCheckResult(null);
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       speakText(firstTopic.initialAiPromptZh);
     }, 300);
   };
@@ -413,7 +478,7 @@ export default function AiDialogueRoleplayModal({
     setCurrentSuggestions(topic.initialSuggestions);
     setCheckResult(null);
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       speakText(topic.initialAiPromptZh);
     }, 300);
   };
@@ -521,6 +586,7 @@ export default function AiDialogueRoleplayModal({
 
   // Phát âm câu thoại qua giọng Doubao / phòng thu chuẩn Bắc Kinh tự nhiên
   const speakText = (text: string, onEnd?: () => void) => {
+    if (!isOpenRef.current || !text) return;
     const rate =
       talkMode === "FREE_TALK"
         ? currentHskConfig.speechRate || 0.95
@@ -533,9 +599,15 @@ export default function AiDialogueRoleplayModal({
     playChineseSpeech(text, {
       rate,
       voice: aiVoiceGender,
-      onEnd: () => onEnd?.(),
+      onEnd: () => {
+        if (isOpenRef.current) {
+          onEnd?.();
+        }
+      },
       onError: () => {
-        onEnd?.();
+        if (isOpenRef.current) {
+          onEnd?.();
+        }
       },
     });
   };
@@ -552,7 +624,13 @@ export default function AiDialogueRoleplayModal({
     }
 
     try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
       const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
       recognition.lang = "zh-CN";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
@@ -562,6 +640,7 @@ export default function AiDialogueRoleplayModal({
       setCheckResult(null);
 
       recognition.onresult = async (event: any) => {
+        if (!isOpenRef.current) return;
         const spoken = event.results[0][0].transcript || "";
         setSpokenResult(spoken);
         setIsRecording(false);
@@ -569,31 +648,34 @@ export default function AiDialogueRoleplayModal({
       };
 
       recognition.onerror = () => {
-        setIsRecording(false);
+        if (isOpenRef.current) setIsRecording(false);
       };
 
       recognition.onend = () => {
-        setIsRecording(false);
+        if (isOpenRef.current) setIsRecording(false);
       };
 
       recognition.start();
     } catch (e) {
-      setIsRecording(false);
-      alert("Lỗi khởi tạo micro. Vui lòng cấp quyền truy cập micro cho trình duyệt.");
+      if (isOpenRef.current) {
+        setIsRecording(false);
+        alert("Lỗi khởi tạo micro. Vui lòng cấp quyền truy cập micro cho trình duyệt.");
+      }
     }
   };
 
   // Cho AI tự động đọc câu hiện tại (khi đến lượt AI nói trong bài học) và chuyển lượt cho học sinh
   const handleAiSpeakCurrentLine = () => {
-    if (!currentLine) return;
+    if (!currentLine || !isOpenRef.current) return;
     speakText(currentLine.zh, () => {
+      if (!isOpenRef.current) return;
       const nextIdx = currentLineIdx + 1;
       if (nextIdx < dialogueLines.length) {
         setCurrentLineIdx(nextIdx);
         setCheckResult(null);
         setSpokenResult("");
         if (autoListenRef.current) {
-          setTimeout(() => {
+          safeSetTimeout(() => {
             handleStartRecording();
           }, 600);
         }
@@ -626,10 +708,10 @@ export default function AiDialogueRoleplayModal({
         },
       ]);
     }
-    setTimeout(() => {
+    safeSetTimeout(() => {
       speakText(sc.initialGreeting.zh, () => {
         if (autoListenRef.current) {
-          setTimeout(() => {
+          safeSetTimeout(() => {
             handleStartRecording();
           }, 700);
         }
@@ -639,6 +721,8 @@ export default function AiDialogueRoleplayModal({
 
   // Gửi âm thanh lên backend đối chiếu kho từ điển và chấm điểm
   const verifySpeechWithBackend = async (spokenText: string) => {
+    if (!isOpenRef.current) return;
+
     const historyPayload =
       talkMode === "SCENARIO"
         ? scenarioChatHistory.map((m) => ({ sender: m.sender, zh: m.zh }))
@@ -689,6 +773,8 @@ export default function AiDialogueRoleplayModal({
       });
 
       const data = await res.json();
+      if (!isOpenRef.current) return;
+
       if (!res.ok || !data.success) {
         if (data.error === "QUOTA_EXCEEDED" || res.status === 429) {
           if (data.aiQuota) setAiQuota(data.aiQuota);
@@ -746,10 +832,10 @@ export default function AiDialogueRoleplayModal({
           }
 
           if (data.aiReplyZh) {
-            setTimeout(() => {
+            safeSetTimeout(() => {
               speakText(data.aiReplyZh, () => {
                 if (autoListenRef.current) {
-                  setTimeout(() => {
+                  safeSetTimeout(() => {
                     handleStartRecording();
                   }, 700);
                 }
@@ -786,10 +872,10 @@ export default function AiDialogueRoleplayModal({
 
           // Tự động phát âm câu đối đáp của AI & Khi đọc xong tự động mở lại micro nếu bật autoListen
           if (data.aiReplyZh) {
-            setTimeout(() => {
+            safeSetTimeout(() => {
               speakText(data.aiReplyZh, () => {
                 if (autoListenRef.current) {
-                  setTimeout(() => {
+                  safeSetTimeout(() => {
                     handleStartRecording();
                   }, 700);
                 }
@@ -804,7 +890,7 @@ export default function AiDialogueRoleplayModal({
               const nextLine = dialogueLines[nextIdx];
               if (nextLine.speaker !== myRole) {
                 // AI tự động phát âm câu thoại của mình rồi nhường lượt tiếp theo cho học sinh và mở micro
-                setTimeout(() => {
+                safeSetTimeout(() => {
                   setCurrentLineIdx(nextIdx);
                   speakText(nextLine.zh, () => {
                     const afterNextIdx = nextIdx + 1;
@@ -813,7 +899,7 @@ export default function AiDialogueRoleplayModal({
                       setCheckResult(null);
                       setSpokenResult("");
                       if (autoListenRef.current) {
-                        setTimeout(() => {
+                        safeSetTimeout(() => {
                           handleStartRecording();
                         }, 700);
                       }
@@ -821,7 +907,7 @@ export default function AiDialogueRoleplayModal({
                   });
                 }, 1000);
               } else {
-                setTimeout(() => {
+                safeSetTimeout(() => {
                   setCurrentLineIdx(nextIdx);
                   setCheckResult(null);
                   setSpokenResult("");
@@ -834,7 +920,9 @@ export default function AiDialogueRoleplayModal({
     } catch (e) {
       console.warn("verifySpeechWithBackend error:", e);
     } finally {
-      setChecking(false);
+      if (isOpenRef.current) {
+        setChecking(false);
+      }
     }
   };
 
@@ -913,7 +1001,14 @@ export default function AiDialogueRoleplayModal({
   const allSpeakers = Array.from(new Set(dialogueLines.map((l) => l.speaker)));
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleCloseModal();
+        }
+      }}
+    >
       <div className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-3xl rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between space-y-4 max-h-[94vh] overflow-y-auto animate-scaleUp">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
@@ -958,7 +1053,7 @@ export default function AiDialogueRoleplayModal({
           </div>
 
           <button
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer transition"
           >
             <X className="w-4 h-4" />
@@ -2168,7 +2263,7 @@ export default function AiDialogueRoleplayModal({
             HSK {hskLevel} · Bài {lessonNumber} · Luyện tập phản xạ trực tiếp
           </span>
           <button
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="px-5 py-2 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold shadow-xs cursor-pointer transition"
           >
             Đóng

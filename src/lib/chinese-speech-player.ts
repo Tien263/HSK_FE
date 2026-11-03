@@ -15,8 +15,12 @@ export interface PlaySpeechOptions {
 export function stopChineseSpeech() {
   if (globalAudio) {
     try {
+      globalAudio.onplay = null;
+      globalAudio.onended = null;
+      globalAudio.onerror = null;
       globalAudio.pause();
       globalAudio.currentTime = 0;
+      globalAudio.src = "";
     } catch {}
   }
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
