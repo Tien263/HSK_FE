@@ -6,6 +6,7 @@ let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 export interface PlaySpeechOptions {
   rate?: number;
+  voice?: "female" | "male" | string;
   onStart?: () => void;
   onEnd?: () => void;
   onError?: (err: unknown) => void;
@@ -55,7 +56,8 @@ export async function playChineseSpeech(
       globalAudio = new Audio();
     }
 
-    const ttsUrl = `/api/v1/tts?text=${encodeURIComponent(textToSpeak)}`;
+    const voiceParam = options.voice ? `&voice=${encodeURIComponent(options.voice)}` : "";
+    const ttsUrl = `/api/v1/tts?text=${encodeURIComponent(textToSpeak)}${voiceParam}`;
     globalAudio.src = ttsUrl;
     globalAudio.playbackRate = options.rate && options.rate > 0 ? options.rate : 1.0;
 

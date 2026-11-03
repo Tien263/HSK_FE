@@ -465,61 +465,16 @@ export default function AiDialogueRoleplayModal({
   const currentLine = dialogueLines[currentLineIdx] || dialogueLines[0];
   const isMyTurn = currentLine && currentLine.speaker === myRole;
 
-  // Phát âm câu thoại qua Web SpeechSynthesis hoặc Audio fallback nếu trên điện thoại không có voice
+  // Phát âm câu thoại qua giọng Doubao / phòng thu chuẩn Bắc Kinh tự nhiên
   const speakText = (text: string, onEnd?: () => void) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const voices = window.speechSynthesis.getVoices();
-      const zhVoices = voices.filter((v) => /^zh/i.test(v.lang));
-
-      // Nếu không có voice tiếng Trung trong máy (rất phổ biến trên mobile), dùng bộ player chuyên dụng
-      if (zhVoices.length === 0) {
-        playChineseSpeech(text, {
-          rate: 0.9,
-          onEnd: () => onEnd?.(),
-          onError: () => onEnd?.(),
-        });
-        return;
-      }
-
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.9;
-
-      let selectedVoice = null;
-      if (aiVoiceGender === "female") {
-        selectedVoice =
-          zhVoices.find((v) => /xiaoxiao/i.test(v.name)) ||
-          zhVoices.find((v) => /natural|online|neural/i.test(v.name) && /female|xiaoxiao|yaoyao|huihui/i.test(v.name)) ||
-          zhVoices.find((v) => /google.*(cmn|zh|mandarin)/i.test(v.name)) ||
-          zhVoices.find((v) => /female|yaoyao|xiaoxiao/i.test(v.name)) ||
-          zhVoices.find((v) => /natural|online/i.test(v.name)) ||
-          zhVoices[0];
-      } else {
-        selectedVoice =
-          zhVoices.find((v) => /yunxi/i.test(v.name)) ||
-          zhVoices.find((v) => /natural|online|neural/i.test(v.name) && /male|yunxi|yunjian|kangkang/i.test(v.name)) ||
-          zhVoices.find((v) => /male|yunxi|yunjian/i.test(v.name)) ||
-          zhVoices.find((v) => /natural|online/i.test(v.name)) ||
-          zhVoices[0];
-      }
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
-
-      if (onEnd) {
-        utterance.onend = () => onEnd();
-        utterance.onerror = () => onEnd();
-      }
-      window.speechSynthesis.speak(utterance);
-    } else {
-      playChineseSpeech(text, {
-        rate: 0.9,
-        onEnd: () => onEnd?.(),
-        onError: () => onEnd?.(),
-      });
-    }
+    playChineseSpeech(text, {
+      rate: 0.95,
+      voice: aiVoiceGender,
+      onEnd: () => onEnd?.(),
+      onError: () => {
+        onEnd?.();
+      },
+    });
   };
 
   // Thu âm qua Web Speech Recognition
@@ -1025,10 +980,10 @@ export default function AiDialogueRoleplayModal({
                   type="button"
                   onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
                   className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
-                  title="Đổi giọng đọc AI (Giọng Nữ Xiaoxiao / Giọng Nam Yunxi)"
+                  title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
                 >
                   <Volume2 className="w-3 h-3 text-amber-600" />
-                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Tiểu Ngữ)" : "Nam (Tiểu Hi)"}</span>
+                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Doubao 思思)" : "Nam (Doubao 大叔)"}</span>
                 </button>
 
                 <button
@@ -1414,10 +1369,10 @@ export default function AiDialogueRoleplayModal({
                   type="button"
                   onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
                   className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
-                  title="Đổi giọng đọc AI (Giọng Nữ Xiaoxiao / Giọng Nam Yunxi)"
+                  title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
                 >
                   <Volume2 className="w-3 h-3 text-amber-600" />
-                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Tiểu Ngữ)" : "Nam (Tiểu Hi)"}</span>
+                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Doubao 思思)" : "Nam (Doubao 大叔)"}</span>
                 </button>
 
                 <button
@@ -1550,10 +1505,10 @@ export default function AiDialogueRoleplayModal({
                   type="button"
                   onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
                   className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
-                  title="Đổi giọng đọc AI (Giọng Nữ Xiaoxiao / Giọng Nam Yunxi)"
+                  title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
                 >
                   <Volume2 className="w-3 h-3 text-amber-600" />
-                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Tiểu Ngữ)" : "Nam (Tiểu Hi)"}</span>
+                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Doubao 思思)" : "Nam (Doubao 大叔)"}</span>
                 </button>
 
                 <button
