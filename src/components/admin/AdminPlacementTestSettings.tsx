@@ -14,7 +14,7 @@ import {
   Eye,
   Layers,
 } from "lucide-react";
-import { PlacementQuestion, DEFAULT_PLACEMENT_TESTS } from "@/lib/placement-test-config";
+import { PlacementQuestion, DEFAULT_PLACEMENT_TESTS } from "@/lib/placement-test-types";
 
 export default function AdminPlacementTestSettings() {
   const [activeLevel, setActiveLevel] = useState<"hsk1_3" | "hsk4_6">("hsk1_3");

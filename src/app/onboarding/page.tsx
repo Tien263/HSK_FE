@@ -23,7 +23,7 @@ import {
   Building,
   Target,
 } from "lucide-react";
-import { PlacementQuestion, DEFAULT_PLACEMENT_TESTS } from "@/lib/placement-test-config";
+import { PlacementQuestion, DEFAULT_PLACEMENT_TESTS } from "@/lib/placement-test-types";
 import { cleanMalformedPinyin } from "@/lib/chinese-sino-vietnamese";
 
 type LearningMode = "SELF" | "CLASS";

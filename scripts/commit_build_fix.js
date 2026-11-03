@@ -13,7 +13,7 @@ const treeHash = execSync('git write-tree', { env }).toString().trim();
 console.log('Tree hash:', treeHash);
 
 const parentHash = execSync('git rev-parse HEAD').toString().trim();
-const commitMsg = 'fix(home): remove floating quick-role switcher pill and error alert from landing page';
+const commitMsg = 'fix(build): isolate placement-test-types from server fs module to fix Turbopack client bundle error';
 const commitHash = execSync(`git commit-tree ${treeHash} -p ${parentHash} -m "${commitMsg}"`, { env }).toString().trim();
 console.log('New commit:', commitHash);
 
@@ -23,4 +23,4 @@ fs.writeFileSync(path.join('.git', 'refs', 'heads', 'feat', 'clean-architecture'
 try { fs.unlinkSync(tempIndex); } catch (e) {}
 console.log('Pushing to origin...');
 execSync('git push origin main feat/clean-architecture', { stdio: 'inherit' });
-console.log('Successfully pushed to both branches!');
+console.log('Successfully pushed build fix to both branches!');
