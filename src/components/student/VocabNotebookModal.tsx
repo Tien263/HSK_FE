@@ -20,6 +20,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 interface VocabItem {
   progressId: string;
@@ -121,13 +122,7 @@ export default function VocabNotebookModal({
 
   // Handle Speech
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    }
+    playChineseSpeech(text);
   };
 
   // Handle Answer in Flashcards

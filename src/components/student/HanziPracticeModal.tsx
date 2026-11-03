@@ -25,6 +25,7 @@ import {
   Search,
 } from "lucide-react";
 import { getEtymology, getExamplesForVocab } from "@/lib/chinese-vocab-helper";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 export interface PracticeWord {
   hanzi: string;
@@ -601,15 +602,9 @@ export default function HanziPracticeModal({
     }
   };
 
-  // Phát âm chữ mẫu qua TTS
+  // Phát âm chữ mẫu qua TTS (hỗ trợ toàn diện mobile & desktop)
   const handleSpeakText = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    }
+    playChineseSpeech(text);
   };
 
   // AI Chấm điểm phát âm thông minh & chuẩn xác

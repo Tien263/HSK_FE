@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { KnowledgeItem } from "@/lib/self-study-knowledge";
 import { cleanChineseForSpeech } from "@/lib/chinese-speech";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import { normalizePinyinTone, resolveSinoVietnamese, cleanMalformedPinyin } from "@/lib/chinese-sino-vietnamese";
 import s from "./SelfStudyLessonDetail.module.css";
 
@@ -131,25 +132,32 @@ const isRecord = (val: unknown): val is Record<string, unknown> =>
   Boolean(val && typeof val === "object" && !Array.isArray(val));
 
 export function AudioButton({ text, phonetic = false }: { text: string; phonetic?: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false);
   const [status, setStatus] = useState("");
-  function play() {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setStatus("Trình duyệt chưa hỗ trợ phát âm.");
-      return;
-    }
-    const target = phonetic ? cleanChineseForSpeech(text) : text;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(target);
-    utterance.lang = "zh-CN";
-    utterance.rate = 0.85;
-    utterance.onerror = () => setStatus("Chưa phát được âm thanh.");
+
+  const play = async (e?: React.MouseEvent) => {
+    e?.stopPropagation?.();
     setStatus("");
-    window.speechSynthesis.speak(utterance);
-  }
+    setIsPlaying(true);
+    await playChineseSpeech(text, {
+      onStart: () => setIsPlaying(true),
+      onEnd: () => setIsPlaying(false),
+      onError: () => {
+        setIsPlaying(false);
+        setStatus("Chưa phát được âm thanh.");
+      },
+    });
+  };
+
   return (
     <span className={s.audio}>
-      <button type="button" aria-label={`Nghe ${text}`} onClick={play}>
-        <Volume2 size={17} />
+      <button
+        type="button"
+        aria-label={`Nghe ${text}`}
+        onClick={play}
+        title={`Nghe phát âm: ${text}`}
+      >
+        <Volume2 size={17} className={isPlaying ? "animate-pulse text-emerald-600" : ""} />
       </button>
       {status && <small role="status">{status}</small>}
     </span>

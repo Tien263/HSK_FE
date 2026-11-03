@@ -6,44 +6,17 @@ import { BookOpen, Languages, MessageSquare, Volume2, BookmarkPlus, Sparkles, Gl
 import type { Hsk1FullLesson,LessonVocabItem } from "@/lib/hsk1-full-lessons";
 import styles from "./Ink.module.css";
 
-// Trích xuất phần tiếng Trung thuần túy để AI chỉ đọc tiếng Trung, loại bỏ pinyin, tiếng Việt và giải thích
-function cleanChineseForSpeech(raw: string): string {
-  if (!raw) return "";
-  const text = raw.trim();
-
-  // 1. Khối chữ Hán đứng đầu trước các ký tự ngăn cách —, –, -, :, ：, (, （, [, 【 hoặc khoảng trắng kèm pinyin/tiếng Việt
-  const matchWithSeparator = text.match(/^([\u4e00-\u9fa5]+)\s*(?:[—–\-:：(（\[【]|\s+[a-zA-Zà-ỹÀ-Ỹ])/);
-  if (matchWithSeparator && matchWithSeparator[1]) {
-    return matchWithSeparator[1].trim();
-  }
-
-  // 2. Câu tiếng Trung có ký hiệu ngắt nhịp như '//' hoặc '|' nhưng toàn bộ là chữ Hán
-  const textWithoutSlashes = text.replace(/[\/\/\s|]+/g, "");
-  if (/^[\u4e00-\u9fa5，。！？、]+$/.test(textWithoutSlashes)) {
-    return textWithoutSlashes;
-  }
-
-  // 3. Khối chữ Hán đầu tiên
-  const hanziStart = text.match(/^[\u4e00-\u9fa5]+/);
-  if (hanziStart && hanziStart[0]) {
-    return hanziStart[0];
-  }
-
-  // 4. Nếu toàn chữ Hán sau khi loại bỏ dấu cách và ký tự lạ
-  const pureHanzi = text.replace(/[^\u4e00-\u9fa5]/g, "");
-  if (pureHanzi.length > 0) {
-    return pureHanzi;
-  }
-
-  // 5. Nếu là âm tiết Pinyin thuần (như mā, má, nǐ...)
-  const pinyinWord = text.split(/[\s—–\-:：(（\[【]/)[0]?.trim();
-  return pinyinWord || text;
-}
+import { cleanChineseForSpeech } from "@/lib/chinese-speech";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 export default function LessonStudyContent({lesson,onSaveVocabulary,initialTab,onSectionChange}:{lesson:Hsk1FullLesson;onSaveVocabulary?:(items:LessonVocabItem[])=>Promise<void>;initialTab?:string;onSectionChange?:(tab:string)=>void}){
   const [tab,setTab]=useState(["vocab","grammar","dialogue","reading","culture_detail","phonetics"].includes(initialTab || "") ? initialTab! : "vocab"),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
   useEffect(() => { onSectionChange?.(tab); }, [tab, onSectionChange]);
-  function speak(text:string){if(!("speechSynthesis"in window)){setMessage("Trình duyệt chưa hỗ trợ phát âm.");return;}speechSynthesis.cancel();const sound=new SpeechSynthesisUtterance(text);sound.lang="zh-CN";speechSynthesis.speak(sound);}
+  function speak(text: string) {
+    playChineseSpeech(text, {
+      onError: () => setMessage("Chưa phát được âm thanh."),
+    });
+  }
   async function save(items:LessonVocabItem[]){if(!onSaveVocabulary)return;setBusy(true);setMessage("");try{await onSaveVocabulary(items);setMessage(`Đã lưu ${items.length} từ vào kho riêng của bạn.`);}catch(error){setMessage(error instanceof Error?error.message:"Chưa lưu được từ vựng.");}finally{setBusy(false);}}
   const hskLevel=Number(lesson.id.match(/hsk(\d+)/)?.[1]||1);
   const fullLesson=teacherLibraryLesson(lesson,hskLevel);

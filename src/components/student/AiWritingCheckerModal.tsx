@@ -16,6 +16,7 @@ import {
   Layers,
   Zap,
 } from "lucide-react";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 interface AiWritingCheckerModalProps {
   isOpen: boolean;
@@ -68,13 +69,7 @@ export default function AiWritingCheckerModal({
 
   // Phát âm câu văn
   const speakText = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    }
+    playChineseSpeech(text);
   };
 
   const handleCheckWriting = async () => {

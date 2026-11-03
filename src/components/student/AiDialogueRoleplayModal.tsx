@@ -27,6 +27,7 @@ import {
   Zap,
 } from "lucide-react";
 import { LessonDialogueLine } from "@/lib/hsk1-full-lessons";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 export interface RoleplayScenario {
   id: string;
@@ -464,20 +465,29 @@ export default function AiDialogueRoleplayModal({
   const currentLine = dialogueLines[currentLineIdx] || dialogueLines[0];
   const isMyTurn = currentLine && currentLine.speaker === myRole;
 
-  // Phát âm câu thoại qua Web SpeechSynthesis ưu tiên các giọng Neural / Natural bản xứ cao cấp
+  // Phát âm câu thoại qua Web SpeechSynthesis hoặc Audio fallback nếu trên điện thoại không có voice
   const speakText = (text: string, onEnd?: () => void) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.9; // Tốc độ đàm thoại tự nhiên của người bản xứ
-
       const voices = window.speechSynthesis.getVoices();
       const zhVoices = voices.filter((v) => /^zh/i.test(v.lang));
 
+      // Nếu không có voice tiếng Trung trong máy (rất phổ biến trên mobile), dùng bộ player chuyên dụng
+      if (zhVoices.length === 0) {
+        playChineseSpeech(text, {
+          rate: 0.9,
+          onEnd: () => onEnd?.(),
+          onError: () => onEnd?.(),
+        });
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "zh-CN";
+      utterance.rate = 0.9;
+
       let selectedVoice = null;
       if (aiVoiceGender === "female") {
-        // Ưu tiên giọng nữ tự nhiên chuẩn Bắc Kinh (Xiaoxiao, Yaoyao, Google)
         selectedVoice =
           zhVoices.find((v) => /xiaoxiao/i.test(v.name)) ||
           zhVoices.find((v) => /natural|online|neural/i.test(v.name) && /female|xiaoxiao|yaoyao|huihui/i.test(v.name)) ||
@@ -486,7 +496,6 @@ export default function AiDialogueRoleplayModal({
           zhVoices.find((v) => /natural|online/i.test(v.name)) ||
           zhVoices[0];
       } else {
-        // Ưu tiên giọng nam ấm áp chuẩn phát thanh viên (Yunxi, Yunjian, Kangkang)
         selectedVoice =
           zhVoices.find((v) => /yunxi/i.test(v.name)) ||
           zhVoices.find((v) => /natural|online|neural/i.test(v.name) && /male|yunxi|yunjian|kangkang/i.test(v.name)) ||
@@ -504,8 +513,12 @@ export default function AiDialogueRoleplayModal({
         utterance.onerror = () => onEnd();
       }
       window.speechSynthesis.speak(utterance);
-    } else if (onEnd) {
-      onEnd();
+    } else {
+      playChineseSpeech(text, {
+        rate: 0.9,
+        onEnd: () => onEnd?.(),
+        onError: () => onEnd?.(),
+      });
     }
   };
 

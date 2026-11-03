@@ -3,8 +3,12 @@ import type {FullLessonDetail, CulturalNoteItem, ReadingItem} from "@/lib/lesson
 import {getCulturalSelectionItems} from "@/lib/lesson-data";
 import {pinyin} from "pinyin-pro";
 import {Volume2} from "lucide-react";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
-function speak(text: string) {if (!text || !window.speechSynthesis) return;window.speechSynthesis.cancel();const voice = new SpeechSynthesisUtterance(text);voice.lang = "zh-CN";window.speechSynthesis.speak(voice);}
+function speak(text: string) {
+  if (!text) return;
+  playChineseSpeech(text);
+}
 const card = "rounded-2xl border border-[#E5DEC9] bg-[#FFFCF6] p-5 space-y-3 min-w-0";
 function Audio({text}: {text: string}) {return <button type="button" aria-label={`Nghe ${text}`} onClick={() => speak(text)} className="inline-flex items-center gap-2 rounded-xl border border-[#E5DEC9] px-3 py-2 text-xs"><Volume2 size={14}/>Nghe phát âm</button>;}
 type Props = {lesson: FullLessonDetail; readingSelected?: boolean; onReadingChange?: (value:boolean)=>void; wordIds?:string[]; onWordsChange?:(ids:string[])=>void; cultureIds?:string[]; onCultureChange?:(id:string)=>void};

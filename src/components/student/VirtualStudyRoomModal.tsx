@@ -28,6 +28,7 @@ import {
   LessonSentenceItem,
   getSentencesByHskAndLesson,
 } from "@/lib/lesson-sentence-extractor";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 interface RealStudentPresence {
   id: string;
@@ -378,19 +379,14 @@ export default function VirtualStudyRoomModal({
     };
   }, []);
 
-  // 5. AI Đọc mẫu câu tiếng Trung
+  // 5. AI Đọc mẫu câu tiếng Trung (hỗ trợ toàn diện mobile & desktop)
   const handleAiSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      setIsAiSpeaking(true);
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = speechRate;
-      utterance.onend = () => setIsAiSpeaking(false);
-      utterance.onerror = () => setIsAiSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-    }
+    setIsAiSpeaking(true);
+    playChineseSpeech(text, {
+      rate: speechRate,
+      onEnd: () => setIsAiSpeaking(false),
+      onError: () => setIsAiSpeaking(false),
+    });
   };
 
   // 6. Ghi âm học sinh đọc theo (Web Speech Recognition)

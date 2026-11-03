@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Trophy, RotateCcw, Sparkles, CheckCircle2, Flame, Volume2, Award } from "lucide-react";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 interface PairItem {
   id: string;
@@ -79,13 +80,7 @@ export default function GameCenterPage() {
   }, []);
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
+    playChineseSpeech(text);
   };
 
   const handleSelectHanzi = (item: PairItem) => {

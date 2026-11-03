@@ -63,6 +63,7 @@ import AiWritingCheckerModal from "./AiWritingCheckerModal";
 import VocabNotebookModal from "./VocabNotebookModal";
 import MistakeNotebookModal from "./MistakeNotebookModal";
 import DailyQuestsModal from "./DailyQuestsModal";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import HskRadarAnalyticsModal from "./HskRadarAnalyticsModal";
 import AncientScrollPathway from "./AncientScrollPathway";
 import AncientSideDrawerNotes from "./AncientSideDrawerNotes";
@@ -482,15 +483,9 @@ export default function StudentPracticeWorkspace({
 
   const currentVocab = vocabList[activeCardIndex] || vocabList[0];
 
-  // Phát âm chữ Hán
+  // Phát âm chữ Hán (hỗ trợ 100% điện thoại và máy tính)
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    }
+    playChineseSpeech(text);
   };
 
   // Tạo câu hỏi trắc nghiệm kiểm tra nhanh cho thẻ từ vựng hiện tại

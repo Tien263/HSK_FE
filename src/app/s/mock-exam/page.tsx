@@ -34,6 +34,7 @@ import { normalizeGrammarList } from "@/lib/chinese-grammar-helper";
 import { isMockAnswerCorrect } from "@/lib/mock-exam-matcher";
 import { recordLevelMockExamScore } from "@/lib/self-study-progression";
 import ExamAntiCheatProctor from "@/components/common/ExamAntiCheatProctor";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 interface MockQuestion {
   id: string;
@@ -95,15 +96,9 @@ export default function MockExamPage() {
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [publishSuccessMsg, setPublishSuccessMsg] = useState<string | null>(null);
 
-  // Phát âm chữ Hán
+  // Phát âm chữ Hán (hỗ trợ toàn diện mobile & desktop)
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.85;
-      window.speechSynthesis.speak(utterance);
-    }
+    playChineseSpeech(text);
   };
 
   // Tải danh sách đề thi thử chính thức do Giáo viên / Admin biên soạn từ CSDL

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { BookOpen, Sparkles, Volume2, X, Feather, Search, Loader2, PenTool, Move } from "lucide-react";
 import { normalizePinyinTone } from "@/lib/chinese-sino-vietnamese";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 export interface HanziEtymologyData {
   hanzi: string;
@@ -155,12 +156,7 @@ export default function AncientHanziEtymologyModal({
 
   const playAudio = () => {
     if (!data?.hanzi) return;
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const u = new SpeechSynthesisUtterance(data.hanzi);
-      u.lang = "zh-CN";
-      u.rate = 0.85;
-      window.speechSynthesis.speak(u);
-    }
+    playChineseSpeech(data.hanzi);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {

@@ -11,6 +11,7 @@ import DictionarySentencePanel from "./DictionarySentencePanel";
 import styles from "./Dictionary.module.css";
 import {useDraggableDictionaryLauncher} from "./use-draggable-dictionary-launcher";
 import { isDictionarySentence, type DictionarySentenceResult } from "@/lib/dictionary-input";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 type ConnectedEntry = DictionaryEntry & { key: string; meaningEn: string[]; meaningsVi: string[]; traditional: string };
 
@@ -172,15 +173,12 @@ export default function HanziiDictionaryDrawer() {
     persist(next, recent);
   }
   function speak(text: string) {
-    if (!("speechSynthesis" in window)) { setNotice("Trình duyệt này chưa hỗ trợ đọc phát âm."); return; }
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "zh-CN";
-    utterance.rate = 0.8;
-    const voice = window.speechSynthesis.getVoices().find((item) => /^zh(-|_)/i.test(item.lang));
-    if (voice) utterance.voice = voice;
-    utterance.onerror = (event) => { if (event.error !== "interrupted" && event.error !== "canceled") setNotice("Chưa phát được âm thanh. Hãy kiểm tra giọng đọc tiếng Trung trên thiết bị."); };
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    setNotice("");
+    playChineseSpeech(text, {
+      onError: () => {
+        setNotice("Chưa phát được âm thanh. Hãy kiểm tra kết nối mạng.");
+      },
+    });
   }
   function changeView(next: View) {
     sentenceRequestRef.current?.abort();
