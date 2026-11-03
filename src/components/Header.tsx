@@ -26,25 +26,41 @@ export default function Header() {
 
         {/* Center Navigation Links */}
         <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-[#3b4e42]">
-          <a href="#courses" className="hover:text-[#173d2d] transition">
+          <a href="/#courses" className="hover:text-[#173d2d] transition">
             HSK 3.0
           </a>
-          <a href="#courses" className="hover:text-[#173d2d] transition">
+          <a href="/#courses" className="hover:text-[#173d2d] transition">
             Theo chủ đề
           </a>
-          <a href="#courses" className="hover:text-[#173d2d] transition">
+          <a href="/#courses" className="hover:text-[#173d2d] transition">
             Chuyên ngành
           </a>
-          <a href="#roadmap" className="hover:text-[#173d2d] transition">
+          <a href="/#roadmap" className="hover:text-[#173d2d] transition">
             Lộ trình
           </a>
-          <a href="#practice" className="hover:text-[#173d2d] transition">
+          <a href="/#practice" className="hover:text-[#173d2d] transition">
             Luyện tập
           </a>
+          <Link
+            href="/guide"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#9D493E]/10 hover:bg-[#9D493E]/20 text-[#9D493E] font-bold border border-[#9D493E]/30 transition shadow-xs"
+            title="Xem hướng dẫn sử dụng chi tiết cho Học sinh và Giáo viên"
+          >
+            <span>📖</span>
+            <span>Hướng dẫn</span>
+          </Link>
         </nav>
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Mobile Guide Link */}
+          <Link
+            href="/guide"
+            className="md:hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#9D493E]/10 text-[#9D493E] font-bold text-xs border border-[#9D493E]/30"
+          >
+            <span>📖</span>
+            <span className="hidden xs:inline">Hướng dẫn</span>
+          </Link>
           {/* Search Icon Ghost Button */}
           <button
             type="button"

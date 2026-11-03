@@ -84,6 +84,9 @@ export default function Footer() {
             <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
               Hỗ trợ
             </h4>
+            <Link href="/guide" className="block hover:text-white text-emerald-300 font-semibold transition">
+              📖 Hướng dẫn sử dụng
+            </Link>
             <p className="hover:text-white cursor-pointer transition">Trung tâm trợ giúp</p>
             <p className="hover:text-white cursor-pointer transition">Liên hệ</p>
             <p className="hover:text-white cursor-pointer transition">Chính sách bảo mật</p>

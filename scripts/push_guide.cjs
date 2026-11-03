@@ -12,7 +12,7 @@ const treeHash = execSync("git write-tree", { env }).toString().trim();
 console.log("Tree hash:", treeHash);
 
 const parentHash = execSync("git rev-parse HEAD").toString().trim();
-const commitMsg = "feat: remove quick-role switcher from home, deliver full pwa suite, seo metadata, streak guardian and ai pronunciation";
+const commitMsg = "feat: add Shanshui interactive User Guide with annotated callout mockups and voiceover for students and teachers";
 
 const commitHash = execSync(`git commit-tree ${treeHash} -p ${parentHash} -m "${commitMsg}"`, { env }).toString().trim();
 console.log("Commit hash:", commitHash);
