@@ -62,6 +62,7 @@ import AncientScrollPathway from "@/components/student/AncientScrollPathway";
 import AncientSideDrawerNotes from "@/components/student/AncientSideDrawerNotes";
 import VirtualStudyRoomModal from "@/components/student/VirtualStudyRoomModal";
 import StudentSelfStudyWorkspace from "@/components/student/StudentSelfStudyWorkspace";
+import StreakGuardianModal from "@/components/student/StreakGuardianModal";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
@@ -157,6 +158,7 @@ export default function StudentHomePage() {
   // Settings & Notification State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
+  const [showStreakGuardianModal, setShowStreakGuardianModal] = useState(false);
   const [showVocabNotebookModal, setShowVocabNotebookModal] = useState(false);
   const [showMistakeNotebookModal, setShowMistakeNotebookModal] = useState(false);
   const [showHskRadarModal, setShowHskRadarModal] = useState(false);
@@ -1352,11 +1354,11 @@ export default function StudentHomePage() {
                   </div>
                 </div>
 
-                {/* 4. Chuỗi học tập */}
+                {/* 4. Chuỗi học tập & Khiên bảo vệ */}
                 <div
-                  onClick={() => setShowDailyQuestsModal(true)}
+                  onClick={() => setShowStreakGuardianModal(true)}
                   className="p-3.5 rounded-2xl bg-[#FFFCF6] border border-[#E5DEC9] shadow-2xs flex items-center gap-3 cursor-pointer hover:border-orange-400 transition"
-                  title="Bấm để xem nhiệm vụ nhận XP hôm nay"
+                  title="Bấm để xem chuỗi học & kích hoạt khiên bảo vệ (Streak Freeze)"
                 >
                   <div className="w-9 h-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
                     <Flame className="w-4 h-4" />
@@ -3131,6 +3133,20 @@ export default function StudentHomePage() {
         studentId={currentUser?.id}
         studentUsername={currentUser?.username}
         onXpClaimed={(newXp) => {
+          if (currentUser) {
+            setCurrentUser({ ...currentUser, totalXp: newXp });
+          }
+        }}
+      />
+
+      {/* Modal Bảo Vệ Chuỗi Học & Nhắc Nhở Hàng Ngày */}
+      <StreakGuardianModal
+        isOpen={showStreakGuardianModal}
+        onClose={() => setShowStreakGuardianModal(false)}
+        currentStreak={data?.student?.streakDays || currentUser?.streakDays || 1}
+        userXp={data?.student?.totalXp || currentUser?.totalXp || 0}
+        studentId={currentUser?.id}
+        onXpChange={(newXp) => {
           if (currentUser) {
             setCurrentUser({ ...currentUser, totalXp: newXp });
           }

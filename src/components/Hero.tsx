@@ -20,6 +20,8 @@ export default function Hero() {
           loop
           muted
           playsInline
+          preload="metadata"
+          poster="/theme/banner-lake-morning.webp"
           className="w-full h-full object-cover object-right lg:object-center opacity-70 lg:opacity-80 scale-105"
         >
           <source src="/main-background.mp4" type="video/mp4" />

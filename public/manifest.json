@@ -1,0 +1,54 @@
+{
+  "name": "Hanyu - Học Tiếng Trung HSK 3.0",
+  "short_name": "Hanyu",
+  "description": "Nền tảng học và luyện thi HSK 3.0 chuẩn quốc tế với lộ trình tự học, bài giảng giáo viên và AI đàm thoại.",
+  "start_url": "/s/home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFFCF6",
+  "theme_color": "#204434",
+  "orientation": "portrait-primary",
+  "lang": "vi",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/brand/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "books", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Luyện tập tự học",
+      "short_name": "Tự học",
+      "url": "/s/home#practice",
+      "icons": [{ "src": "/brand/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Thi thử HSK",
+      "short_name": "Thi thử",
+      "url": "/s/mock-exam",
+      "icons": [{ "src": "/brand/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Từ điển Hán-Việt",
+      "short_name": "Từ điển",
+      "url": "/s/home#dictionary",
+      "icons": [{ "src": "/brand/app-icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

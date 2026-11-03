@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   Volume2,
+  Mic,
   Sparkles,
   MessageCircle,
   FileText,
@@ -20,6 +21,7 @@ import type { KnowledgeItem } from "@/lib/self-study-knowledge";
 import { cleanChineseForSpeech } from "@/lib/chinese-speech";
 import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import { normalizePinyinTone, resolveSinoVietnamese, cleanMalformedPinyin } from "@/lib/chinese-sino-vietnamese";
+import AiPronunciationModal from "./AiPronunciationModal";
 import s from "./SelfStudyLessonDetail.module.css";
 
 // Từ điển nhãn tiếng Việt cho các trường JSON mở rộng
@@ -131,9 +133,22 @@ function isPresent(value: unknown): boolean {
 const isRecord = (val: unknown): val is Record<string, unknown> =>
   Boolean(val && typeof val === "object" && !Array.isArray(val));
 
-export function AudioButton({ text, phonetic = false }: { text: string; phonetic?: boolean }) {
+export function AudioButton({
+  text,
+  phonetic = false,
+  allowPractice = true,
+  pinyin,
+  meaning,
+}: {
+  text: string;
+  phonetic?: boolean;
+  allowPractice?: boolean;
+  pinyin?: string;
+  meaning?: string;
+}) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [status, setStatus] = useState("");
+  const [showPronounceModal, setShowPronounceModal] = useState(false);
 
   const play = async (e?: React.MouseEvent) => {
     e?.stopPropagation?.();
@@ -149,18 +164,46 @@ export function AudioButton({ text, phonetic = false }: { text: string; phonetic
     });
   };
 
+  const openPractice = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowPronounceModal(true);
+  };
+
   return (
-    <span className={s.audio}>
-      <button
-        type="button"
-        aria-label={`Nghe ${text}`}
-        onClick={play}
-        title={`Nghe phát âm: ${text}`}
-      >
-        <Volume2 size={17} className={isPlaying ? "animate-pulse text-emerald-600" : ""} />
-      </button>
-      {status && <small role="status">{status}</small>}
-    </span>
+    <>
+      <span className={s.audio}>
+        <button
+          type="button"
+          aria-label={`Nghe ${text}`}
+          onClick={play}
+          title={`Nghe phát âm chuẩn: ${text}`}
+        >
+          <Volume2 size={16} className={isPlaying ? "animate-pulse text-emerald-600" : ""} />
+        </button>
+        {allowPractice && (
+          <button
+            type="button"
+            aria-label={`Luyện phát âm ${text}`}
+            onClick={openPractice}
+            title="Luyện nói & Chấm điểm phát âm AI"
+            className="hover:text-emerald-700 transition"
+          >
+            <Mic size={14} className="text-[#315E48] hover:text-emerald-700" />
+          </button>
+        )}
+        {status && <small role="status">{status}</small>}
+      </span>
+
+      {showPronounceModal && (
+        <AiPronunciationModal
+          isOpen={showPronounceModal}
+          onClose={() => setShowPronounceModal(false)}
+          targetText={text}
+          pinyin={pinyin}
+          meaning={meaning}
+        />
+      )}
+    </>
   );
 }
 
