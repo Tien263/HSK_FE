@@ -15,8 +15,47 @@ export async function GET(request: NextRequest) {
   // Giới hạn độ dài tối đa 200 ký tự để tránh lạm dụng
   const safeText = text.slice(0, 200);
 
-  // 1. Thử nguồn Doubao TTS (ByteDance Volcano Engine Speech Synthesis nếu có token)
-  const doubaoToken = process.env.DOUBAO_TTS_TOKEN || process.env.VOLCANO_TTS_TOKEN;
+  // Hỗ trợ chọn giọng: female (Nữ hoạt bát tự nhiên) hoặc male (Nam trầm ấm)
+  const voiceParam = searchParams.get("voice") || "female";
+  const selectedVoice = voiceParam === "male" ? "zh_male_chunhou" : "zh_female_shuangkuai";
+
+  // 1. Thử nguồn ModelArk Speech của Doubao (nếu có DOUBAO_API_KEY)
+  const arkApiKey = process.env.DOUBAO_API_KEY || process.env.VOLCANO_API_KEY;
+  if (arkApiKey) {
+    try {
+      const arkRes = await fetch("https://ark.cn-beijing.volces.com/api/v3/audio/speech", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${arkApiKey}`,
+        },
+        body: JSON.stringify({
+          model: process.env.DOUBAO_TTS_MODEL || "doubao-tts-1",
+          input: safeText,
+          voice: selectedVoice,
+        }),
+      });
+
+      if (arkRes.ok) {
+        const audioBuf = await arkRes.arrayBuffer();
+        if (audioBuf.byteLength > 200) {
+          return new NextResponse(audioBuf, {
+            status: 200,
+            headers: {
+              "Content-Type": "audio/mpeg",
+              "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+              "Content-Length": audioBuf.byteLength.toString(),
+            },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[TTS] ModelArk audio/speech note:", e);
+    }
+  }
+
+  // 2. Thử nguồn ByteDance OpenSpeech (Doubao TTS chuẩn phòng thu)
+  const doubaoToken = process.env.DOUBAO_TTS_TOKEN || process.env.VOLCANO_TTS_TOKEN || arkApiKey;
   if (doubaoToken) {
     try {
       const doubaoRes = await fetch("https://openspeech.bytedance.com/api/v1/tts", {
@@ -33,9 +72,9 @@ export async function GET(request: NextRequest) {
           },
           user: { uid: "hsk_user" },
           audio: {
-            voice_type: "zh_female_shuangkuai",
+            voice_type: selectedVoice,
             encoding: "mp3",
-            speed_ratio: 0.9,
+            speed_ratio: 0.95,
           },
           request: {
             reqid: `hsk_${Date.now()}`,
@@ -64,7 +103,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2. Thử nguồn Youdao Mandarin (giọng chuẩn Bắc Kinh chuyên cho phát âm tiếng Trung)
+  // 3. Thử nguồn Youdao Mandarin (giọng chuẩn Bắc Kinh chuyên cho phát âm tiếng Trung)
   try {
     const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(safeText)}&le=zh`;
     const res = await fetch(youdaoUrl, {
