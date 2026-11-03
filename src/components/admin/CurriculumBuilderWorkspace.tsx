@@ -39,6 +39,12 @@ import { getLessonsByHskLevel, getDefaultLessons, resetCustomCurriculum } from "
 import { RichReadingEditor, RichCultureEditor } from "@/components/teacher/LessonRichSections";
 import type { ReadingItem, CulturalNoteItem } from "@/lib/lesson-data";
 import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
+import CurriculumJsonPreviewModal from "@/components/admin/CurriculumJsonPreviewModal";
+import {
+  VocabItemEditModal,
+  GrammarItemEditModal,
+  DialogueItemEditModal,
+} from "@/components/admin/CurriculumItemEditModals";
 
 interface CurriculumBuilderWorkspaceProps {
   showToast: (msg: string, type?: "success" | "error") => void;
@@ -133,6 +139,21 @@ export default function CurriculumBuilderWorkspace({
   const [filterLessonNumber, setFilterLessonNumber] = useState<number | "ALL">("ALL");
   const [filterExerciseMode, setFilterExerciseMode] = useState<string>("ALL");
   const [exerciseSearch, setExerciseSearch] = useState<string>("");
+
+  // State modal xem trước JSON nhập giáo trình (Smart Preview)
+  const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
+  const [importPreviewLessons, setImportPreviewLessons] = useState<Hsk1FullLesson[]>([]);
+  const [importPreviewFileName, setImportPreviewFileName] = useState("");
+
+  // State modal sửa chi tiết từng từ vựng / ngữ pháp / hội thoại (Full JSON & Form)
+  const [isVocabModalOpen, setIsVocabModalOpen] = useState(false);
+  const [editingVocabIndex, setEditingVocabIndex] = useState<number | null>(null);
+
+  const [isGrammarModalOpen, setIsGrammarModalOpen] = useState(false);
+  const [editingGrammarIndex, setEditingGrammarIndex] = useState<number | null>(null);
+
+  const [isDialogueModalOpen, setIsDialogueModalOpen] = useState(false);
+  const [editingDialogueIndex, setEditingDialogueIndex] = useState<number | null>(null);
 
   // Tải giáo trình khi đổi level
   useEffect(() => {
@@ -577,7 +598,7 @@ export default function CurriculumBuilderWorkspace({
     showToast(`Đã tải template mẫu câu hỏi bài tập HSK ${selectedLevel} thành công!`);
   };
 
-  // 2A. NHẬP THÊM BÀI MỚI (MERGE / APPEND - GIỮ NGUYÊN CÁC BÀI CŨ 1..8)
+  // 2A. NHẬP THÊM BÀI MỚI (MỞ MÀN HÌNH XEM TRƯỚC TRỰC QUAN CHO GIÁO VIÊN)
   const handleImportAppendLessonsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -602,31 +623,18 @@ export default function CurriculumBuilderWorkspace({
           return;
         }
 
-        // Ghép thông minh: Giữ nguyên tất cả các bài cũ, bài nào mới thì thêm vào, bài nào trùng số bài thì cập nhật
-        const lessonMap = new Map<number, Hsk1FullLesson>();
-        lessons.forEach((l) => lessonMap.set(l.number, l));
-        incomingLessons.forEach((l) => lessonMap.set(l.number, l));
-
-        const merged = Array.from(lessonMap.values()).sort((a, b) => a.number - b.number);
-        setLessons(merged);
-
-        if (typeof window !== "undefined") {
-          localStorage.setItem(
-            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-            JSON.stringify(merged)
-          );
-        }
-
-        showToast(`Đã ghép thành công ${incomingLessons.length} bài mới vào giáo trình! Hiện có ${merged.length} bài. Hãy bấm "Lưu & Xuất bản" để đồng bộ.`);
+        setImportPreviewFileName(file.name);
+        setImportPreviewLessons(incomingLessons);
+        setIsImportPreviewOpen(true);
       } catch (err) {
-        showToast("Lỗi định dạng file JSON!", "error");
+        showToast("Lỗi định dạng file JSON! Vui lòng kiểm tra lại file.", "error");
       }
     };
     reader.readAsText(file, "UTF-8");
     e.target.value = "";
   };
 
-  // 2B. NHẬP ĐÈ TOÀN BỘ GIÁO TRÌNH (.JSON)
+  // 2B. NHẬP ĐÈ TOÀN BỘ GIÁO TRÌNH (.JSON - CŨNG MỞ MÀN HÌNH XEM TRƯỚC TRỰC QUAN)
   const handleImportReplaceLessonsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -642,6 +650,8 @@ export default function CurriculumBuilderWorkspace({
           incomingLessons = parsed;
         } else if (Array.isArray(parsed.lessons)) {
           incomingLessons = parsed.lessons;
+        } else if (parsed && typeof parsed === "object" && parsed.number) {
+          incomingLessons = [parsed as Hsk1FullLesson];
         }
 
         if (incomingLessons.length === 0) {
@@ -649,20 +659,9 @@ export default function CurriculumBuilderWorkspace({
           return;
         }
 
-        if (!confirm(`Hành động này sẽ thay thế TOÀN BỘ bài học hiện tại bằng ${incomingLessons.length} bài trong file. Bạn có chắc chắn không?`)) {
-          return;
-        }
-
-        setLessons(incomingLessons);
-
-        if (typeof window !== "undefined") {
-          localStorage.setItem(
-            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-            JSON.stringify(incomingLessons)
-          );
-        }
-
-        showToast(`Đã thay thế toàn bộ bằng ${incomingLessons.length} bài học mới! Bấm "Lưu & Xuất bản" để đồng bộ.`);
+        setImportPreviewFileName(file.name);
+        setImportPreviewLessons(incomingLessons);
+        setIsImportPreviewOpen(true);
       } catch {
         showToast("Lỗi định dạng file JSON!", "error");
       }
@@ -2094,17 +2093,32 @@ export default function CurriculumBuilderWorkspace({
                           <span className="text-[#315E48]">({v.type || "Từ vựng"}):</span>
                           <span className="font-semibold text-slate-800">{v.meaning}</span>
                         </div>
-                        <button
-                          onClick={() => {
-                            setEditingLesson({
-                              ...editingLesson,
-                              vocabList: editingLesson.vocabList?.filter((_, idx) => idx !== i),
-                            });
-                          }}
-                          className="text-red-500 hover:text-red-700 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingVocabIndex(i);
+                              setIsVocabModalOpen(true);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-[#204434]/10 hover:bg-[#204434]/20 text-[#204434] transition cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                            title="Sửa tất cả các trường trong JSON của từ này (Ví dụ, mẫu câu, cách dùng, bẫy lỗi...)"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                            <span>Sửa</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingLesson({
+                                ...editingLesson,
+                                vocabList: editingLesson.vocabList?.filter((_, idx) => idx !== i),
+                              });
+                            }}
+                            className="p-1 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                            title="Xóa từ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2186,17 +2200,32 @@ export default function CurriculumBuilderWorkspace({
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[#204434]">{g.title}</span>
-                          <button
-                            onClick={() => {
-                              setEditingLesson({
-                                ...editingLesson,
-                                grammarList: editingLesson.grammarList?.filter((_, idx) => idx !== i),
-                              });
-                            }}
-                            className="text-red-500 hover:text-red-700 cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingGrammarIndex(i);
+                                setIsGrammarModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-[#204434]/10 hover:bg-[#204434]/20 text-[#204434] transition cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                              title="Sửa tất cả các trường trong JSON của điểm ngữ pháp này"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-[#8F6D3B]" />
+                              <span>Sửa</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingLesson({
+                                  ...editingLesson,
+                                  grammarList: editingLesson.grammarList?.filter((_, idx) => idx !== i),
+                                });
+                              }}
+                              className="p-1 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                              title="Xóa ngữ pháp"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                         <p className="font-mono text-[#8F6D3B]">{g.structure}</p>
                         <p className="text-slate-700 italic">Ví dụ: {g.example}</p>
@@ -2420,6 +2449,21 @@ export default function CurriculumBuilderWorkspace({
                                 <div className="flex items-center gap-1 shrink-0 pt-0.5">
                                   <button
                                     type="button"
+                                    onClick={() => {
+                                      setEditingDialogueIndex(i);
+                                      setIsDialogueModalOpen(true);
+                                    }}
+                                    className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                      isEven
+                                        ? "text-[#8F6D3B] hover:bg-[#FAF7F0]"
+                                        : "text-amber-200 hover:bg-white/10"
+                                    }`}
+                                    title="Sửa nội dung câu thoại này"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => handleSpeak(d.zh)}
                                     className={`p-1.5 rounded-lg transition cursor-pointer ${
                                       isEven
@@ -2501,6 +2545,70 @@ export default function CurriculumBuilderWorkspace({
                       }
                       className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs"
                     />
+
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-[#204434]">
+                          Danh sách âm / Ví dụ luyện phát âm:
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const curEx = editingLesson.phonetics?.examples || [];
+                            setEditingLesson({
+                              ...editingLesson,
+                              phonetics: {
+                                ...(editingLesson.phonetics || { title: "", rule: "", examples: [] }),
+                                examples: [...curEx, ""],
+                              },
+                            });
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-[#204434]/10 hover:bg-[#204434]/20 text-[#204434] text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Thêm âm ví dụ</span>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {editingLesson.phonetics?.examples?.map((exStr, exIdx) => (
+                          <div key={exIdx} className="flex items-center gap-1 bg-[#FAF7F0] border border-[#E5DEC9] px-2.5 py-1 rounded-xl">
+                            <input
+                              type="text"
+                              value={exStr}
+                              onChange={(e) => {
+                                const curEx = [...(editingLesson.phonetics?.examples || [])];
+                                curEx[exIdx] = e.target.value;
+                                setEditingLesson({
+                                  ...editingLesson,
+                                  phonetics: {
+                                    ...(editingLesson.phonetics || { title: "", rule: "", examples: [] }),
+                                    examples: curEx,
+                                  },
+                                });
+                              }}
+                              placeholder="VD: d - dà, t - tā"
+                              className="w-28 text-xs font-mono font-bold text-[#8F6D3B] bg-transparent outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const curEx = (editingLesson.phonetics?.examples || []).filter((_, i) => i !== exIdx);
+                                setEditingLesson({
+                                  ...editingLesson,
+                                  phonetics: {
+                                    ...(editingLesson.phonetics || { title: "", rule: "", examples: [] }),
+                                    examples: curEx,
+                                  },
+                                });
+                              }}
+                              className="text-rose-500 hover:text-rose-700 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-white border border-[#E5DEC9] space-y-3">
@@ -3070,6 +3178,84 @@ export default function CurriculumBuilderWorkspace({
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL SỬA CHI TIẾT TỪ VỰNG (FULL JSON & FORM) */}
+      {isVocabModalOpen && editingLesson && editingVocabIndex !== null && editingLesson.vocabList?.[editingVocabIndex] && (
+        <VocabItemEditModal
+          isOpen={isVocabModalOpen}
+          onClose={() => setIsVocabModalOpen(false)}
+          vocab={editingLesson.vocabList[editingVocabIndex]}
+          onSave={(updated) => {
+            const list = [...(editingLesson.vocabList || [])];
+            list[editingVocabIndex] = updated;
+            setEditingLesson({
+              ...editingLesson,
+              vocabList: list,
+            });
+            showToast(`Đã cập nhật từ vựng "${updated.hanzi}" thành công!`);
+          }}
+        />
+      )}
+
+      {/* MODAL SỬA CHI TIẾT NGỮ PHÁP (FULL JSON & FORM) */}
+      {isGrammarModalOpen && editingLesson && editingGrammarIndex !== null && editingLesson.grammarList?.[editingGrammarIndex] && (
+        <GrammarItemEditModal
+          isOpen={isGrammarModalOpen}
+          onClose={() => setIsGrammarModalOpen(false)}
+          grammar={editingLesson.grammarList[editingGrammarIndex]}
+          onSave={(updated) => {
+            const list = [...(editingLesson.grammarList || [])];
+            list[editingGrammarIndex] = updated;
+            setEditingLesson({
+              ...editingLesson,
+              grammarList: list,
+            });
+            showToast(`Đã cập nhật điểm ngữ pháp "${updated.title}" thành công!`);
+          }}
+        />
+      )}
+
+      {/* MODAL SỬA CHI TIẾT CÂU THOẠI HỘI THOẠI */}
+      {isDialogueModalOpen && editingLesson && editingDialogueIndex !== null && editingLesson.dialogue?.[editingDialogueIndex] && (
+        <DialogueItemEditModal
+          isOpen={isDialogueModalOpen}
+          onClose={() => setIsDialogueModalOpen(false)}
+          dialogue={editingLesson.dialogue[editingDialogueIndex]}
+          onSave={(updated) => {
+            const list = [...(editingLesson.dialogue || [])];
+            list[editingDialogueIndex] = updated;
+            setEditingLesson({
+              ...editingLesson,
+              dialogue: list,
+            });
+            showToast("Đã cập nhật câu thoại thành công!");
+          }}
+        />
+      )}
+
+      {/* MODAL XEM TRƯỚC GIÁO TRÌNH JSON THÔNG MINH CHO GIÁO VIÊN */}
+      {isImportPreviewOpen && (
+        <CurriculumJsonPreviewModal
+          isOpen={isImportPreviewOpen}
+          onClose={() => setIsImportPreviewOpen(false)}
+          fileName={importPreviewFileName}
+          incomingLessons={importPreviewLessons}
+          currentLessons={lessons}
+          level={selectedLevel}
+          onConfirmApply={(mode, appliedLessons) => {
+            setLessons(appliedLessons);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(
+                `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+                JSON.stringify(appliedLessons)
+              );
+            }
+            showToast(
+              `Đã áp dụng thành công ${appliedLessons.length} bài vào giáo trình HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản" để đồng bộ lên máy chủ.`
+            );
+          }}
+        />
       )}
     </div>
   );
