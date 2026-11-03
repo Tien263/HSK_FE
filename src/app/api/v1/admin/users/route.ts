@@ -52,11 +52,27 @@ export async function GET(request: Request) {
             attempts: true,
           },
         },
+        enrolledClasses: {
+          select: {
+            classId: true,
+            status: true,
+            class: {
+              select: {
+                id: true,
+                name: true,
+                level: true,
+                teacher: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    // Thống kê tổng hợp toàn hệ thống
+    // Thống kê tổng hợp toàn hệ thống và danh sách lớp học
     const [
       totalUsers,
       studentCount,
@@ -66,6 +82,7 @@ export async function GET(request: Request) {
       totalClasses,
       totalAssignments,
       totalAttempts,
+      availableClasses,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: "STUDENT" } }),
@@ -75,6 +92,21 @@ export async function GET(request: Request) {
       prisma.class.count(),
       prisma.assignment.count(),
       prisma.attempt.count(),
+      prisma.class.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          teacher: {
+            select: { name: true },
+          },
+          _count: {
+            select: { students: true },
+          },
+        },
+        orderBy: [{ level: "asc" }, { name: "asc" }],
+      }),
     ]);
 
     return NextResponse.json(
@@ -91,6 +123,7 @@ export async function GET(request: Request) {
           totalAssignments,
           totalAttempts,
         },
+        classes: availableClasses,
         users: users.map((u) => ({
           ...u,
           enrolledCount: u._count.enrolledClasses,
@@ -333,6 +366,101 @@ export async function PATCH(request: Request) {
       return NextResponse.json({
         success: true,
         message: `Đã làm mới số lượt AI hôm nay của ${user.username} về 0.`,
+      });
+    }
+
+    // Cập nhật cấp độ HSK và/hoặc Lớp học cho học sinh tự học
+    if (action === "UPDATE_STUDENT_LEVEL" || action === "UPDATE_STUDENT_LEVEL_AND_CLASS") {
+      const { hskLevel, classId } = body;
+      const parsedLevel = parseInt(String(hskLevel), 10);
+      if (isNaN(parsedLevel) || parsedLevel < 1 || parsedLevel > 6) {
+        return NextResponse.json(
+          { success: false, message: "Cấp độ HSK phải từ 1 đến 6." },
+          { status: 400 }
+        );
+      }
+
+      await prisma.$transaction(async (tx) => {
+        // 1. Cập nhật cấp độ HSK học viên
+        await tx.user.update({
+          where: { id: userId },
+          data: { currentHskLevel: parsedLevel },
+        });
+
+        // 2. Xử lý lớp học (nếu có chọn xếp lớp hoặc chuyển về tự học)
+        if (classId !== undefined) {
+          if (classId && typeof classId === "string" && classId !== "NONE" && classId !== "SELF") {
+            const targetClass = await tx.class.findUnique({ where: { id: classId } });
+            if (targetClass) {
+              await tx.classStudent.upsert({
+                where: {
+                  classId_studentId: {
+                    classId,
+                    studentId: userId,
+                  },
+                },
+                create: {
+                  classId,
+                  studentId: userId,
+                  status: "APPROVED",
+                },
+                update: {
+                  status: "APPROVED",
+                },
+              });
+            }
+          } else if (classId === "NONE" || classId === "SELF") {
+            await tx.classStudent.deleteMany({
+              where: { studentId: userId },
+            });
+          }
+        }
+
+        // 3. Ghi log kiểm toán
+        await tx.auditLog.create({
+          data: {
+            userId: authCheck.user.id,
+            action: "UPDATE_STUDENT_LEVEL",
+            entity: "User",
+            details: JSON.stringify({
+              targetUserId: userId,
+              targetUsername: user.username,
+              previousLevel: user.currentHskLevel,
+              newLevel: parsedLevel,
+              classId: classId || null,
+            }),
+          },
+        });
+      });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          currentHskLevel: true,
+          enrolledClasses: {
+            select: {
+              classId: true,
+              status: true,
+              class: {
+                select: {
+                  id: true,
+                  name: true,
+                  level: true,
+                  teacher: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã cập nhật cấp độ HSK ${parsedLevel} thành công cho học viên ${user.name} (@${user.username})!`,
+        user: updatedUser,
       });
     }
 

@@ -71,6 +71,24 @@ interface UserItem {
   enrolledCount?: number;
   taughtCount?: number;
   attemptCount?: number;
+  enrolledClasses?: Array<{
+    classId: string;
+    status: string;
+    class: {
+      id: string;
+      name: string;
+      level: number;
+      teacher?: { name: string };
+    };
+  }>;
+}
+
+interface ClassItem {
+  id: string;
+  name: string;
+  level: number;
+  teacher?: { name: string };
+  _count?: { students: number };
 }
 
 interface Stats {
@@ -223,6 +241,13 @@ export default function AdminDashboardPage() {
   const [aiQuotaTargetUser, setAiQuotaTargetUser] = useState<UserItem | null>(null);
   const [selectedQuota, setSelectedQuota] = useState<number>(5);
   const [updatingQuota, setUpdatingQuota] = useState(false);
+
+  // Phân Cấp độ HSK & Xếp lớp cho học viên
+  const [levelTargetUser, setLevelTargetUser] = useState<UserItem | null>(null);
+  const [selectedHskLevel, setSelectedHskLevel] = useState<number>(1);
+  const [selectedClassId, setSelectedClassId] = useState<string>("SELF");
+  const [updatingLevel, setUpdatingLevel] = useState(false);
+  const [classesList, setClassesList] = useState<ClassItem[]>([]);
 
   // OTP Tool State
   const [otpEmail, setOtpEmail] = useState("");
@@ -419,6 +444,7 @@ export default function AdminDashboardPage() {
       if (data.success) {
         setUsers(data.users || []);
         if (data.stats) setStats(data.stats);
+        if (data.classes) setClassesList(data.classes || []);
       } else if (!isBackground) {
         showToast(data.message || "Không thể tải danh sách tài khoản", "error");
       }
@@ -636,6 +662,55 @@ export default function AdminDashboardPage() {
       showToast("Lỗi kết nối khi làm mới lượt AI", "error");
     } finally {
       setUpdatingQuota(false);
+    }
+  };
+
+  // Mở modal phân cấp độ HSK & xếp lớp cho học sinh
+  const openLevelModal = (u: UserItem) => {
+    setLevelTargetUser(u);
+    setSelectedHskLevel(u.currentHskLevel || 1);
+    const existingClassId = u.enrolledClasses?.[0]?.classId || "SELF";
+    setSelectedClassId(existingClassId);
+  };
+
+  // Lưu cấp độ HSK và/hoặc lớp học mới cho học sinh
+  const handleUpdateStudentLevelAndClass = async () => {
+    if (!levelTargetUser) return;
+    setUpdatingLevel(true);
+    try {
+      const res = await fetch("/api/v1/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: levelTargetUser.id,
+          action: "UPDATE_STUDENT_LEVEL_AND_CLASS",
+          hskLevel: selectedHskLevel,
+          classId: selectedClassId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === levelTargetUser.id
+              ? {
+                  ...u,
+                  currentHskLevel: selectedHskLevel,
+                  enrolledClasses: data.user?.enrolledClasses || u.enrolledClasses,
+                  enrolledCount: selectedClassId === "SELF" ? 0 : 1,
+                }
+              : u
+          )
+        );
+        setLevelTargetUser(null);
+      } else {
+        showToast(data.message || "Cập nhật cấp độ học sinh thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối khi cập nhật cấp độ học sinh", "error");
+    } finally {
+      setUpdatingLevel(false);
     }
   };
 
@@ -1758,12 +1833,30 @@ export default function AdminDashboardPage() {
                             {/* Info */}
                             <td className="py-3.5 px-4 text-xs text-[#315E48]">
                               {u.role === "STUDENT" && (
-                                <div className="space-y-0.5">
-                                  <div>
-                                    HSK {u.currentHskLevel || 1} · {u.totalXp} XP
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => openLevelModal(u)}
+                                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-600/10 hover:bg-emerald-700 text-emerald-800 hover:text-white border border-emerald-600/30 text-xs font-bold transition cursor-pointer group shadow-2xs"
+                                      title="Bấm để chọn lớp / đẩy cấp độ HSK cho học sinh"
+                                    >
+                                      <GraduationCap className="w-3.5 h-3.5 text-emerald-700 group-hover:text-white" />
+                                      <span>HSK {u.currentHskLevel || 1}</span>
+                                      <span className="text-[10px] font-normal underline opacity-80">Đổi</span>
+                                    </button>
+                                    <span className="text-[#315E48]/80 text-[11px] font-medium">{u.totalXp} XP</span>
                                   </div>
                                   <div className="text-[11px] text-[#315E48]/80">
-                                    Lớp: {u.enrolledCount || 0} · Luyện tập: {u.attemptCount || 0}
+                                    {u.enrolledClasses && u.enrolledClasses.length > 0 ? (
+                                      <span className="text-emerald-700 font-semibold">
+                                        Lớp: {u.enrolledClasses[0].class.name}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[#7A5B2E] font-medium">Tự học chủ động</span>
+                                    )}
+                                    {" · "}
+                                    <span>Luyện tập: {u.attemptCount || 0}</span>
                                   </div>
                                 </div>
                               )}
@@ -1783,6 +1876,18 @@ export default function AdminDashboardPage() {
                             {/* Actions */}
                             <td className="py-3.5 px-4 text-right">
                               <div className="inline-flex items-center gap-1.5">
+                                {/* Chọn lớp & Đẩy cấp độ HSK cho học sinh */}
+                                {u.role === "STUDENT" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openLevelModal(u)}
+                                    title="Chọn lớp / Đẩy cấp độ HSK cho học sinh"
+                                    className="p-1.5 rounded-lg bg-emerald-600/10 hover:bg-emerald-600 text-emerald-700 hover:text-white transition cursor-pointer"
+                                  >
+                                    <GraduationCap className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+
                                 {/* Điều chỉnh Quota AI */}
                                 <button
                                   type="button"
@@ -3275,6 +3380,183 @@ export default function AdminDashboardPage() {
                   <span>{updatingQuota ? "Đang lưu..." : "Lưu hạn mức"}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: PHÂN CẤP ĐỘ & XẾP LỚP CHO HỌC SINH TỰ HỌC */}
+      {levelTargetUser && (
+        <div className="fixed inset-0 z-50 bg-[#204434]/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFCF6] w-full max-w-lg rounded-3xl border border-[#BC9B6B]/40 shadow-2xl p-6 space-y-5 relative animate-in fade-in zoom-in-95 duration-150">
+            <button
+              onClick={() => setLevelTargetUser(null)}
+              className="absolute top-4 right-4 p-1 rounded-full text-[#315E48] hover:bg-[#204434]/10 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-6 h-6 text-emerald-700" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-lg text-[#204434]">
+                  Phân cấp độ HSK & Xếp lớp học viên
+                </h3>
+                <p className="text-xs text-[#315E48]">
+                  Học sinh: <span className="font-bold text-[#204434]">{levelTargetUser.name}</span> (@{levelTargetUser.username})
+                </p>
+              </div>
+            </div>
+
+            {/* Current Status Banner */}
+            <div className="bg-[#F8F5ED] p-3.5 rounded-2xl border border-[#BC9B6B]/20 text-xs space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[#315E48]">Cấp độ hiện tại:</span>
+                <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-md">
+                  HSK {levelTargetUser.currentHskLevel || 1}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[#315E48]">Hình thức học hiện tại:</span>
+                <span className="font-semibold text-[#204434]">
+                  {levelTargetUser.enrolledClasses && levelTargetUser.enrolledClasses.length > 0
+                    ? `Lớp ${levelTargetUser.enrolledClasses[0].class.name} (${levelTargetUser.enrolledClasses[0].class.teacher?.name || "Giáo viên"})`
+                    : "🌟 Tự học chủ động (Chưa vào lớp)"}
+                </span>
+              </div>
+            </div>
+
+            {/* Section 1: Chọn Cấp độ HSK */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#204434] uppercase tracking-wider">
+                  1. Chọn cấp độ HSK muốn đẩy lên:
+                </label>
+                {selectedHskLevel !== (levelTargetUser.currentHskLevel || 1) && (
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    Sẽ chuyển: HSK {levelTargetUser.currentHskLevel || 1} ➔ HSK {selectedHskLevel}
+                  </span>
+                )}
+              </div>
+
+              {/* 6 Cấp độ HSK */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { level: 1, title: "HSK 1", desc: "Sơ cấp 1 (150 từ)" },
+                  { level: 2, title: "HSK 2", desc: "Sơ cấp 2 (300 từ)" },
+                  { level: 3, title: "HSK 3", desc: "Trung cấp 1 (600 từ)" },
+                  { level: 4, title: "HSK 4", desc: "Trung cấp 2 (1200 từ)" },
+                  { level: 5, title: "HSK 5", desc: "Cao cấp 1 (2500 từ)" },
+                  { level: 6, title: "HSK 6", desc: "Cao cấp 2 (5000 từ)" },
+                ].map((item) => {
+                  const isSelected = selectedHskLevel === item.level;
+                  const isCurrent = (levelTargetUser.currentHskLevel || 1) === item.level;
+                  return (
+                    <button
+                      key={item.level}
+                      type="button"
+                      onClick={() => setSelectedHskLevel(item.level)}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer relative ${
+                        isSelected
+                          ? "bg-emerald-700 text-white border-emerald-700 shadow-md"
+                          : "bg-white hover:bg-emerald-50/50 text-[#204434] border-[#BC9B6B]/30"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm">{item.title}</span>
+                        {isCurrent && (
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+                              isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            Hiện tại
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-[10px] mt-0.5 line-clamp-1 ${isSelected ? "text-emerald-100" : "text-[#315E48]"}`}>
+                        {item.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Nút gợi ý nhanh */}
+              {(levelTargetUser.currentHskLevel || 1) < 6 && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[11px] text-[#315E48]">Phím tắt:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedHskLevel((levelTargetUser.currentHskLevel || 1) + 1)}
+                    className="text-[11px] font-semibold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer inline-flex items-center gap-1"
+                  >
+                    ⚡ Đẩy thẳng lên HSK {(levelTargetUser.currentHskLevel || 1) + 1}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Section 2: Chọn Lớp học */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#204434] uppercase tracking-wider block">
+                2. Xếp vào Lớp học (hoặc Tự học chủ động):
+              </label>
+              <select
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="w-full text-xs sm:text-sm bg-white border border-[#BC9B6B]/40 rounded-xl px-3 py-2.5 text-[#204434] focus:outline-emerald-600 cursor-pointer"
+              >
+                <option value="SELF">🌟 Tự học chủ động (Không gắn vào lớp của giáo viên)</option>
+                {classesList && classesList.length > 0 && (
+                  <optgroup label="Danh sách lớp học của các giáo viên">
+                    {classesList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        Lớp {c.name} (HSK {c.level}) — GV: {c.teacher?.name || "Chưa gán"} ({c._count?.students || 0} học viên)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              <p className="text-[11px] text-[#7A5B2E]">
+                * Học viên tự học vẫn có thể hoàn thành trọn bộ bài tập, luyện thi thử và tích lũy XP bình thường.
+              </p>
+            </div>
+
+            {/* Note box */}
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+              💡 <strong>Lưu ý quyền lực Admin:</strong> Khi bạn nâng cấp độ HSK (ví dụ đẩy học sinh lên HSK 2), toàn bộ giáo trình, lộ trình bài học, ngân hàng đề thi thử HSK 2 sẽ được mở khóa trực tiếp trên tài khoản của học sinh mà không yêu cầu làm lại bài kiểm tra đầu vào.
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-[#BC9B6B]/20">
+              <button
+                type="button"
+                onClick={() => setLevelTargetUser(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#315E48] hover:bg-[#204434]/10 transition cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={updatingLevel}
+                onClick={handleUpdateStudentLevelAndClass}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 transition cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              >
+                {updatingLevel ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Xác nhận xếp lớp & Đẩy cấp độ
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

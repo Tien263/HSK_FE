@@ -10,6 +10,7 @@ export interface AuthUser {
   role: string;
   status: string;
   avatar: string | null;
+  currentHskLevel?: number;
 }
 
 export async function getAuthUser(request: Request): Promise<AuthUser | null> {
@@ -25,6 +26,7 @@ export async function getAuthUser(request: Request): Promise<AuthUser | null> {
       role: true,
       status: true,
       avatar: true,
+      currentHskLevel: true,
     },
   });
 }

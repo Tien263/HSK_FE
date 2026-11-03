@@ -438,6 +438,30 @@ export default function StudentHomePage() {
           if (json.data.student?.name) {
             setStudentName(json.data.student.name);
           }
+          if (json.data.student?.currentHskLevel) {
+            const serverLvl = Number(json.data.student.currentHskLevel);
+            if (serverLvl >= 1 && serverLvl <= 6) {
+              setStudyProfile((prev) => (prev ? { ...prev, currentHskLevel: serverLvl } : { currentHskLevel: serverLvl } as any));
+              try {
+                const uStr = localStorage.getItem("currentUser");
+                if (uStr) {
+                  const uObj = JSON.parse(uStr);
+                  if (uObj.currentHskLevel !== serverLvl) {
+                    uObj.currentHskLevel = serverLvl;
+                    localStorage.setItem("currentUser", JSON.stringify(uObj));
+                  }
+                }
+                const pStr = localStorage.getItem("hanyu_study_profile");
+                if (pStr) {
+                  const pObj = JSON.parse(pStr);
+                  if (pObj.currentHskLevel !== serverLvl) {
+                    pObj.currentHskLevel = serverLvl;
+                    localStorage.setItem("hanyu_study_profile", JSON.stringify(pObj));
+                  }
+                }
+              } catch {}
+            }
+          }
         }
         setLoading(false);
       })
