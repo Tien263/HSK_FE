@@ -10,6 +10,7 @@ import AdminSeoSettings from "@/components/admin/AdminSeoSettings";
 import AdminPlacementTestSettings from "@/components/admin/AdminPlacementTestSettings";
 import AdminBrandingSettings from "@/components/admin/AdminBrandingSettings";
 import AdminGuideEditor from "@/components/admin/AdminGuideEditor";
+import StudentAnalyticsModal from "@/components/admin/StudentAnalyticsModal";
 import AvatarUpload from "@/components/common/AvatarUpload";
 import {
   Users,
@@ -54,6 +55,7 @@ import {
   Database,
   Menu,
   Palette,
+  Eye,
 } from "lucide-react";
 
 interface UserItem {
@@ -138,6 +140,7 @@ export default function AdminDashboardPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [runningDiagnostics, setRunningDiagnostics] = useState(false);
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
+  const [analyticsUserId, setAnalyticsUserId] = useState<string | null>(null);
 
   // Admin Profile & Security State
   const [adminName, setAdminName] = useState("");
@@ -2012,6 +2015,16 @@ export default function AdminDashboardPage() {
                                   </button>
                                 )}
 
+                                {/* Xem chi tiết học tập & thời gian truy cập */}
+                                <button
+                                  type="button"
+                                  onClick={() => setAnalyticsUserId(u.id)}
+                                  title="Xem chi tiết học tập, bài nộp & thời gian truy cập"
+                                  className="p-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-700 hover:text-white transition cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+
                                 {/* Điều chỉnh Quota AI */}
                                 <button
                                   type="button"
@@ -3695,6 +3708,12 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Chi tiết Hồ sơ Học tập & Hoạt động của Học sinh */}
+      <StudentAnalyticsModal
+        userId={analyticsUserId}
+        onClose={() => setAnalyticsUserId(null)}
+      />
 
       {/* Mobile Bottom Navigation Bar cho Admin (Phong cách Thủy Mặc Hanyu) */}
       <nav

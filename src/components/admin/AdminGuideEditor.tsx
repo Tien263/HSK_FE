@@ -98,6 +98,64 @@ export default function AdminGuideEditor() {
     }
   };
 
+  const handleAddStep = () => {
+    const newStepNumber = currentSteps.length + 1;
+    const newStep: GuideStep = {
+      id: `${role === "STUDENT" ? "s" : "t"}-step-${Date.now()}`,
+      stepNumber: newStepNumber,
+      title: `Bước ${newStepNumber}: Hướng dẫn tính năng mới`,
+      subtitle: "Mô tả ngắn gọn về tính năng và lợi ích khi sử dụng",
+      voiceText: `Bước ${newStepNumber}: Hướng dẫn cách sử dụng tính năng mới. Bạn bấm vào nút chức năng trên màn hình để bắt đầu trải nghiệm.`,
+      tips: ["Thao tác cẩn thận theo từng bước.", "Liên hệ giáo viên nếu gặp khó khăn."],
+      mockup: {
+        title: `Mô phỏng Bước ${newStepNumber}`,
+        description: "Màn hình giao diện thao tác",
+        screenType: "custom",
+        highlights: [
+          {
+            id: `h-${Date.now()}`,
+            badge: "❶ Bấm vào đây",
+            label: "Nút tính năng",
+            description: "Bấm để mở bảng điều khiển tính năng mới.",
+            color: "emerald",
+          },
+        ],
+      },
+    };
+
+    if (role === "STUDENT") {
+      setStudentSteps((prev) => [...prev, newStep]);
+    } else {
+      setTeacherSteps((prev) => [...prev, newStep]);
+    }
+    setSelectedStepIdx(currentSteps.length);
+    setMessage({ type: "success", text: `Đã thêm Bước ${newStepNumber} mới! Hãy chỉnh sửa nội dung và bấm 'Lưu Cẩm nang'.` });
+  };
+
+  const handleDeleteStep = (index: number) => {
+    if (currentSteps.length <= 1) {
+      alert("Cẩm nang cần giữ lại ít nhất 1 bước!");
+      return;
+    }
+    const stepToDelete = currentSteps[index];
+    if (!confirm(`Bạn có chắc chắn muốn xóa Bước ${stepToDelete.stepNumber}: "${stepToDelete.title}" không?`)) {
+      return;
+    }
+
+    const updater = (prev: GuideStep[]) => {
+      const filtered = prev.filter((_, i) => i !== index);
+      return filtered.map((st, i) => ({ ...st, stepNumber: i + 1 }));
+    };
+
+    if (role === "STUDENT") {
+      setStudentSteps(updater);
+    } else {
+      setTeacherSteps(updater);
+    }
+    setSelectedStepIdx(Math.max(0, index - 1));
+    setMessage({ type: "success", text: `Đã xóa bước thành công! Bấm 'Lưu Cẩm nang' để áp dụng.` });
+  };
+
   const currentSteps = role === "STUDENT" ? studentSteps : teacherSteps;
   const currentStep = currentSteps[selectedStepIdx] || currentSteps[0];
 
@@ -235,34 +293,62 @@ export default function AdminGuideEditor() {
         </span>
       </div>
 
-      {/* Steps Pill Selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-        {currentSteps.map((st, i) => (
+      {/* Steps Pill Selector & Add Step Button */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-[#204434]">
+            Danh sách các bước (Tổng cộng {currentSteps.length} bước):
+          </span>
           <button
-            key={st.id}
             type="button"
-            onClick={() => setSelectedStepIdx(i)}
-            className={`p-3 rounded-2xl text-left border transition cursor-pointer ${
-              i === selectedStepIdx
-                ? role === "STUDENT"
-                  ? "bg-[#204434] text-white border-[#204434] shadow-sm font-bold"
-                  : "bg-[#9D493E] text-white border-[#9D493E] shadow-sm font-bold"
-                : "bg-[#FFFCF6] hover:bg-white text-[#204434] border-[#BC9B6B]/30"
-            }`}
+            onClick={handleAddStep}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition shadow-xs cursor-pointer"
           >
-            <div className="text-[10px] uppercase opacity-75">Bước {st.stepNumber}</div>
-            <div className="text-xs truncate font-semibold mt-0.5">{st.title.split("&")[0].trim()}</div>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm bước hướng dẫn mới</span>
           </button>
-        ))}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+          {currentSteps.map((st, i) => (
+            <button
+              key={st.id}
+              type="button"
+              onClick={() => setSelectedStepIdx(i)}
+              className={`p-3 rounded-2xl text-left border transition cursor-pointer relative ${
+                i === selectedStepIdx
+                  ? role === "STUDENT"
+                    ? "bg-[#204434] text-white border-[#204434] shadow-sm font-bold"
+                    : "bg-[#9D493E] text-white border-[#9D493E] shadow-sm font-bold"
+                  : "bg-[#FFFCF6] hover:bg-white text-[#204434] border-[#BC9B6B]/30"
+              }`}
+            >
+              <div className="text-[10px] uppercase opacity-75">Bước {st.stepNumber}</div>
+              <div className="text-xs truncate font-semibold mt-0.5">{st.title.split("&")[0].trim()}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Detailed Form for Current Step */}
       <div className="p-6 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/35 shadow-sm space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-[#BC9B6B]/25">
-          <h3 className="font-serif font-bold text-lg text-[#204434]">
-            Chỉnh sửa Nội dung: Bước {currentStep.stepNumber}
-          </h3>
-          <span className="text-xs font-mono text-[#526c50]">ID: {currentStep.id}</span>
+          <div className="flex items-center gap-3">
+            <h3 className="font-serif font-bold text-lg text-[#204434]">
+              Chỉnh sửa Nội dung: Bước {currentStep.stepNumber}
+            </h3>
+            <span className="text-xs font-mono text-[#526c50]">ID: {currentStep.id}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleDeleteStep(selectedStepIdx)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition cursor-pointer"
+            title="Xóa bước hướng dẫn này"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Xóa bước này</span>
+          </button>
         </div>
 
         {/* Step Title & Subtitle */}
