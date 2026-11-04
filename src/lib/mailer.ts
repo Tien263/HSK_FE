@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 
 export interface SmtpOptions {
-  authType?: "PASSWORD" | "OAUTH2";
+  authType?: "RESEND" | "PASSWORD" | "OAUTH2" | "CUSTOM";
   host?: string;
   port?: number;
   user?: string;
@@ -13,6 +13,8 @@ export interface SmtpOptions {
   clientId?: string;
   clientSecret?: string;
   refreshToken?: string;
+  // Resend API (HTTP Transactional - Siêu tốc 1-2s)
+  resendApiKey?: string;
 }
 
 const CONFIG_FILE = path.join(process.cwd(), "prisma", "smtp-config.json");
@@ -51,6 +53,7 @@ let activeSmtpConfig: SmtpOptions = {
   clientId: stored.clientId || process.env.GMAIL_CLIENT_ID || "",
   clientSecret: stored.clientSecret || process.env.GMAIL_CLIENT_SECRET || "",
   refreshToken: stored.refreshToken || process.env.GMAIL_REFRESH_TOKEN || "",
+  resendApiKey: stored.resendApiKey || process.env.RESEND_API_KEY || "",
 };
 
 export function updateSmtpConfig(config: SmtpOptions) {
@@ -118,6 +121,11 @@ function createTransporter() {
         user,
         pass,
       },
+      pool: true,
+      maxConnections: 3,
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 15000,
     });
   }
 
@@ -144,40 +152,83 @@ export async function sendOtpEmail(
   const from = config.from || `"Hanyu Tiếng Trung" <${user || "support@hanyu.edu.vn"}>`;
   const transporter = createTransporter();
 
-  // Kiểm tra nếu có transporter hợp lệ
+  const htmlContent = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #FFFCF6; border: 1px solid #BC9B6B40; border-radius: 16px; overflow: hidden; color: #204434;">
+      <div style="background-color: #204434; padding: 24px; text-align: center; color: #FFFCF6;">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 1px;">宁 HANYU</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13px; color: #BC9B6B;">Nền tảng Học Tiếng Trung & Luyện Thi HSK 3.0</p>
+      </div>
+      
+      <div style="padding: 32px 24px; text-align: center;">
+        <h2 style="margin: 0 0 12px 0; color: #204434; font-size: 20px;">Mã xác thực OTP của bạn</h2>
+        <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #315E48;">
+          Bạn vừa thực hiện yêu cầu: <strong>${purpose}</strong>.<br />
+          Dưới đây là mã xác thực 6 chữ số để hoàn tất thao tác:
+        </p>
+        
+        <div style="display: inline-block; background-color: #F8F5ED; border: 2px dashed #204434; border-radius: 12px; padding: 14px 28px; margin: 12px 0 24px 0;">
+          <span style="font-family: monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #9D493E;">${otpCode}</span>
+        </div>
+        
+        <p style="margin: 0 0 16px 0; font-size: 13px; color: #315E48;">
+          ⏱️ Mã có hiệu lực trong vòng <strong>5 phút</strong>.<br />
+          Tuyệt đối không chia sẻ mã xác thực này cho người khác để bảo vệ tài khoản.
+        </p>
+      </div>
+      
+      <div style="background-color: #F8F5ED; padding: 16px 24px; text-align: center; font-size: 11px; color: #315E48; border-top: 1px solid #BC9B6B25;">
+        <p style="margin: 0;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email hoặc liên hệ với giáo viên.</p>
+        <p style="margin: 4px 0 0 0;">© 2026 Hanyu · Lớp Tiếng Trung Cô Ning Ning</p>
+      </div>
+    </div>
+  `;
+
+  // 1. Chế độ RESEND API (HTTP REST API Siêu tốc 1-2s - Khuyên dùng nhất cho OTP)
+  const resendApiKey = (config.resendApiKey || process.env.RESEND_API_KEY || "").trim();
+  if (config.authType === "RESEND" || (resendApiKey && resendApiKey.startsWith("re_"))) {
+    try {
+      const fromEmail = (config.from || "").trim();
+      const sender = fromEmail && fromEmail.includes("@") 
+        ? fromEmail 
+        : "Hanyu Tiếng Trung <onboarding@resend.dev>";
+
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: sender,
+          to: [toEmail],
+          subject: `[Hanyu] Mã xác thực OTP của bạn: ${otpCode}`,
+          html: htmlContent,
+          text: `Mã xác thực OTP của bạn là: ${otpCode}. Mã có hiệu lực trong 5 phút.`,
+        }),
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      if (res.ok && resData.id) {
+        console.log(`[MAILER] ✓ Đã gửi email OTP siêu tốc qua Resend API đến ${toEmail}. MessageId: ${resData.id}`);
+        return { sent: true, message: `Email OTP đã được gửi thành công đến ${toEmail} qua Resend siêu tốc.` };
+      }
+      throw new Error(resData.message || `Resend API trả về mã lỗi ${res.status}`);
+    } catch (err: any) {
+      console.error("[MAILER] ❌ Lỗi gửi email qua Resend API:", err);
+      if (!transporter || !user) {
+        return {
+          sent: false,
+          message: `Lỗi kết nối dịch vụ Resend: ${err.message || String(err)}`,
+          errorDetail: err.message || String(err),
+        };
+      }
+      console.log("[MAILER] Đang thử gửi chuyển tiếp qua SMTP dự phòng...");
+    }
+  }
+
+  // 2. Chế độ SMTP / Google OAuth 2.0 dự phòng
   if (transporter && user) {
     try {
-      const htmlContent = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #FFFCF6; border: 1px solid #BC9B6B40; border-radius: 16px; overflow: hidden; color: #204434;">
-          <div style="background-color: #204434; padding: 24px; text-align: center; color: #FFFCF6;">
-            <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 1px;">宁 HANYU</h1>
-            <p style="margin: 4px 0 0 0; font-size: 13px; color: #BC9B6B;">Nền tảng Học Tiếng Trung & Luyện Thi HSK 3.0</p>
-          </div>
-          
-          <div style="padding: 32px 24px; text-align: center;">
-            <h2 style="margin: 0 0 12px 0; color: #204434; font-size: 20px;">Mã xác thực OTP của bạn</h2>
-            <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #315E48;">
-              Bạn vừa thực hiện yêu cầu: <strong>${purpose}</strong>.<br />
-              Dưới đây là mã xác thực 6 chữ số để hoàn tất thao tác:
-            </p>
-            
-            <div style="display: inline-block; background-color: #F8F5ED; border: 2px dashed #204434; border-radius: 12px; padding: 14px 28px; margin: 12px 0 24px 0;">
-              <span style="font-family: monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #9D493E;">${otpCode}</span>
-            </div>
-            
-            <p style="margin: 0 0 16px 0; font-size: 13px; color: #315E48;">
-              ⏱️ Mã có hiệu lực trong vòng <strong>5 phút</strong>.<br />
-              Tuyệt đối không chia sẻ mã xác thực này cho người khác để bảo vệ tài khoản.
-            </p>
-          </div>
-          
-          <div style="background-color: #F8F5ED; padding: 16px 24px; text-align: center; font-size: 11px; color: #315E48; border-top: 1px solid #BC9B6B25;">
-            <p style="margin: 0;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email hoặc liên hệ với giáo viên.</p>
-            <p style="margin: 4px 0 0 0;">© 2026 Hanyu · Lớp Tiếng Trung Cô Ning Ning</p>
-          </div>
-        </div>
-      `;
-
       const info = await transporter.sendMail({
         from,
         to: toEmail,

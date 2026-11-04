@@ -395,9 +395,9 @@ export default function AdminDashboardPage() {
   const [otpLogs, setOtpLogs] = useState<OtpLog[]>([]);
   const [loadingOtpLogs, setLoadingOtpLogs] = useState(false);
 
-  // SMTP / Google OAuth 2.0 Settings State
+  // SMTP / Google OAuth 2.0 / Resend API Settings State
   const [smtpConfig, setSmtpConfig] = useState({
-    authType: "OAUTH2" as "OAUTH2" | "PASSWORD" | "CUSTOM",
+    authType: "OAUTH2" as "RESEND" | "OAUTH2" | "PASSWORD" | "CUSTOM",
     host: "smtp.gmail.com",
     port: "465",
     user: "",
@@ -407,6 +407,7 @@ export default function AdminDashboardPage() {
     clientId: "",
     clientSecret: "",
     refreshToken: "",
+    resendApiKey: "",
   });
   const [showOauthGuide, setShowOauthGuide] = useState(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -415,15 +416,15 @@ export default function AdminDashboardPage() {
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Tải cấu hình SMTP / OAuth đã lưu
+  // Tải cấu hình SMTP / OAuth / Resend đã lưu
   const fetchSmtpConfig = async () => {
     try {
       const res = await fetch("/api/v1/admin/smtp");
       const data = await res.json();
       if (data.success && data.config) {
         const detectedAuthType =
-          (data.config.authType as "OAUTH2" | "PASSWORD" | "CUSTOM") ||
-          (data.config.clientId ? "OAUTH2" : "PASSWORD");
+          (data.config.authType as "RESEND" | "OAUTH2" | "PASSWORD" | "CUSTOM") ||
+          (data.config.resendApiKey ? "RESEND" : data.config.clientId ? "OAUTH2" : "PASSWORD");
         setSmtpConfig({
           authType: detectedAuthType,
           host: data.config.host || "smtp.gmail.com",
@@ -435,6 +436,7 @@ export default function AdminDashboardPage() {
           clientId: data.config.clientId || "",
           clientSecret: data.config.clientSecret || "",
           refreshToken: data.config.refreshToken || "",
+          resendApiKey: data.config.resendApiKey || "",
         });
         if (data.config.user) setTestEmailRecipient(data.config.user);
       }
@@ -2583,7 +2585,12 @@ export default function AdminDashboardPage() {
 
               {/* Status Badge */}
               <div className="flex items-center">
-                {smtpConfig.authType === "OAUTH2" && smtpConfig.user && smtpConfig.clientId && smtpConfig.refreshToken ? (
+                {smtpConfig.authType === "RESEND" && smtpConfig.resendApiKey ? (
+                  <span className="px-3 py-1.5 rounded-full bg-[#315E48]/15 border border-[#315E48]/30 text-[#204434] font-bold text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#315E48] animate-pulse" />
+                    ⚡ Đã sẵn sàng Resend API (1-2s)
+                  </span>
+                ) : smtpConfig.authType === "OAUTH2" && smtpConfig.user && smtpConfig.clientId && smtpConfig.refreshToken ? (
                   <span className="px-3 py-1.5 rounded-full bg-[#315E48]/15 border border-[#315E48]/30 text-[#204434] font-bold text-xs flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-[#315E48] animate-pulse" />
                     ✓ Đã sẵn sàng Google OAuth 2.0
@@ -2612,7 +2619,37 @@ export default function AdminDashboardPage() {
               <label className="block text-xs font-bold text-[#204434] uppercase tracking-wider">
                 Chọn phương thức kết nối gửi email:
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Mode 0: Resend API (Khuyên dùng nhất - Siêu tốc 1-2s) */}
+                <button
+                  type="button"
+                  onClick={() => setSmtpConfig({ ...smtpConfig, authType: "RESEND" })}
+                  className={`p-3.5 rounded-2xl border text-left transition relative cursor-pointer ${
+                    smtpConfig.authType === "RESEND"
+                      ? "bg-[#204434] text-[#FFFCF6] border-[#204434] shadow-md shadow-[#204434]/15"
+                      : "bg-[#FFFCF6] text-[#204434] border-[#BC9B6B]/30 hover:border-[#204434]/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Zap className={`w-3.5 h-3.5 ${smtpConfig.authType === "RESEND" ? "text-[#BC9B6B]" : "text-[#7A5B2E]"}`} />
+                      <span>Resend API (Siêu tốc)</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        smtpConfig.authType === "RESEND"
+                          ? "bg-[#BC9B6B] text-[#204434]"
+                          : "bg-[#BC9B6B]/20 text-[#7A5B2E]"
+                      }`}
+                    >
+                      1–2 Giây
+                    </span>
+                  </div>
+                  <div className={`text-[11px] leading-tight ${smtpConfig.authType === "RESEND" ? "text-[#FFFCF6]/85" : "text-[#315E48]"}`}>
+                    Gửi qua HTTPS API, không bao giờ bị trễ, miễn phí 3.000 mail/tháng.
+                  </div>
+                </button>
+
                 {/* Mode 1: OAuth 2.0 */}
                 <button
                   type="button"
@@ -2635,7 +2672,7 @@ export default function AdminDashboardPage() {
                           : "bg-[#BC9B6B]/20 text-[#7A5B2E]"
                       }`}
                     >
-                      Khuyên dùng
+                      Google Cloud
                     </span>
                   </div>
                   <div className={`text-[11px] leading-tight ${smtpConfig.authType === "OAUTH2" ? "text-[#FFFCF6]/85" : "text-[#315E48]"}`}>
@@ -2665,7 +2702,7 @@ export default function AdminDashboardPage() {
                           : "bg-[#204434]/10 text-[#204434]"
                       }`}
                     >
-                      30 giây
+                      Gmail SMTP
                     </span>
                   </div>
                   <div className={`text-[11px] leading-tight ${smtpConfig.authType === "PASSWORD" ? "text-[#FFFCF6]/85" : "text-[#315E48]"}`}>
@@ -2704,6 +2741,79 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </div>
+
+            {/* FORM 0: RESEND API (SIÊU TỐC 1-2S) */}
+            {smtpConfig.authType === "RESEND" && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-[#F7F4EB] border border-[#BC9B6B]/30 space-y-2 text-xs">
+                  <div className="font-bold text-[#204434] flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-[#BC9B6B]" />
+                    <span>Tại sao Resend API là giải pháp gửi OTP nhanh nhất (1-2 giây)?</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-[#315E48] leading-relaxed">
+                    <li>
+                      Gửi qua giao thức HTTPS API (Port 443), <strong>hoàn toàn không bị Render hay máy chủ Cloud chặn cổng SMTP</strong>.
+                    </li>
+                    <li>
+                      Không bị bộ lọc spam của Google tạm giữ hay xếp hàng đợi 15–30 phút như gửi từ tài khoản Gmail cá nhân.
+                    </li>
+                    <li>
+                      <strong>Hoàn toàn MIỄN PHÍ 3.000 email/tháng (100 email/ngày)</strong> — Tạo tài khoản miễn phí chỉ 30 giây tại{" "}
+                      <a
+                        href="https://resend.com/signup"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#204434] underline font-bold"
+                      >
+                        resend.com
+                      </a>
+                      .
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Resend API Key <span className="text-[#9D493E]">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={smtpConfig.resendApiKey}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, resendApiKey: e.target.value })}
+                      placeholder="re_123456789_abcdef..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] font-mono focus:outline-hidden focus:border-[#204434]"
+                    />
+                    <p className="text-[11px] text-[#526058] mt-1">
+                      Lấy tại: <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="underline font-semibold text-[#204434]">resend.com/api-keys</a> (Sao chép mã bắt đầu bằng `re_`).
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">
+                      Địa chỉ người gửi (From)
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpConfig.senderName}
+                      onChange={(e) => setSmtpConfig({ ...smtpConfig, senderName: e.target.value })}
+                      placeholder="Hanyu Tiếng Trung <onboarding@resend.dev>"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
+                    />
+                    <p className="text-[11px] text-[#526058] mt-1">
+                      Mặc định dùng domain kiểm thử có sẵn của Resend: <code className="bg-[#FAF7F0] px-1 py-0.5 rounded text-[#204434]">onboarding@resend.dev</code> (hoặc điền email domain riêng của bạn).
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#204434] font-semibold mb-1">Tốc độ & Cổng kết nối</label>
+                    <div className="px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/40 border border-[#BC9B6B]/25 text-[#315E48] font-mono text-xs">
+                      HTTPS REST API (api.resend.com:443) · Tốc độ: ~1.2 giây
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* FORM 1: GOOGLE OAUTH 2.0 */}
             {smtpConfig.authType === "OAUTH2" && (

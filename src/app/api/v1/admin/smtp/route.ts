@@ -19,9 +19,12 @@ export async function GET(request: Request) {
       clientId: config.clientId || "",
       clientSecret: config.clientSecret ? "••••••••••••••••" : "",
       refreshToken: config.refreshToken ? "••••••••••••••••" : "",
+      resendApiKey: config.resendApiKey ? "••••••••••••••••" : "",
       isConfigured: !!(
+        (config.authType === "RESEND" && config.resendApiKey) ||
         (config.authType === "OAUTH2" && config.user && config.clientId && config.refreshToken) ||
-        (config.user && config.pass)
+        (config.user && config.pass) ||
+        (config.resendApiKey && config.resendApiKey.startsWith("re_"))
       ),
     },
   });
@@ -43,6 +46,7 @@ export async function POST(request: Request) {
       clientId,
       clientSecret,
       refreshToken,
+      resendApiKey,
       action,
       testRecipient,
     } = body;
@@ -62,6 +66,8 @@ export async function POST(request: Request) {
         clientSecret && !clientSecret.includes("••••") ? clientSecret.trim() : current.clientSecret,
       refreshToken:
         refreshToken && !refreshToken.includes("••••") ? refreshToken.trim() : current.refreshToken,
+      resendApiKey:
+        resendApiKey && !resendApiKey.includes("••••") ? resendApiKey.trim() : current.resendApiKey,
     });
 
     // Nếu yêu cầu kiểm thử gửi email ngay
