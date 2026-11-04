@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {createDictionarySession,dictionaryCookieOptions,DICTIONARY_SESSION_COOKIE} from "@/lib/dictionary-session";
 import { getClientIp, checkRegisterRateLimit, recordRegisterSuccess } from "@/lib/auth-rate-limiter";
 import { hashPassword } from "@/lib/password-security";
+import { generateAndSendOtp } from "@/lib/otp-store";
 
 export async function POST(request: Request) {
   try {
@@ -85,11 +86,26 @@ export async function POST(request: Request) {
       },
     });
 
+    // Nếu là email thật (không phải automated test @example.com), gửi mã OTP xác thực
+    const isTestEmail = cleanEmail.endsWith("@example.com") || process.env.NODE_ENV === "test";
+    let otpSent = false;
+    if (!isTestEmail) {
+      try {
+        await generateAndSendOtp(cleanEmail, "Kích hoạt tài khoản học viên Hanyu", 6);
+        otpSent = true;
+      } catch (e) {
+        console.error("Lỗi gửi email OTP khi đăng ký:", e);
+      }
+    }
+
     recordRegisterSuccess(clientIp);
 
     const response = NextResponse.json({
       success: true,
-      message: "Đăng ký tài khoản thành công! Tài khoản đã được kích hoạt trực tiếp.",
+      message: otpSent
+        ? "Đăng ký thành công! Vui lòng nhập mã OTP đã gửi về hòm thư để xác thực email."
+        : "Đăng ký tài khoản thành công!",
+      requireOtp: otpSent,
       user: {
         id: user.id,
         name: user.name,

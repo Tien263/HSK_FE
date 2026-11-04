@@ -109,8 +109,13 @@ export default function RegisterPage() {
         localStorage.removeItem(`hanyu_onboarding_${data.user.id}`);
       }
 
-      // Chuyển sang Màn hình Thiết lập mục tiêu học tập (Onboarding)
-      router.push("/onboarding");
+      // Nếu hệ thống yêu cầu xác thực OTP qua Email
+      if (data.requireOtp) {
+        router.push(`/verify-email?email=${encodeURIComponent(cleanEmail)}`);
+      } else {
+        // Chuyển sang Màn hình Thiết lập mục tiêu học tập (Onboarding)
+        router.push("/onboarding");
+      }
     } catch {
       setError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.");
       setLoading(false);
