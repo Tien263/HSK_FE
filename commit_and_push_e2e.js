@@ -13,7 +13,7 @@ console.log("Tree hash:", treeHash);
 const parentCommit = fs.readFileSync('.git/refs/heads/main', 'utf-8').trim();
 console.log("Parent commit:", parentCommit);
 
-const commitMsg = "test: Khac phuc CI dictionary session test va dam bao security cho admin session";
+const commitMsg = "fix: Reject spoofed x-user-id header and strictly enforce signed session cookie";
 const commitHash = execSync(`git commit-tree ${treeHash} -p ${parentCommit} -m "${commitMsg}"`, { env }).toString().trim();
 console.log("New commit hash:", commitHash);
 
@@ -27,5 +27,5 @@ console.log("Pushing to origin feat/clean-architecture...");
 execSync(`git push origin ${commitHash}:refs/heads/feat/clean-architecture`, { env, stdio: 'inherit' });
 
 // Clean up temporary script
-try { fs.unlinkSync('commit_and_push_ci.js'); } catch (e) {}
+try { fs.unlinkSync('commit_and_push_e2e.js'); } catch (e) {}
 console.log("Successfully committed and pushed!");

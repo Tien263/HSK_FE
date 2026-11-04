@@ -45,69 +45,6 @@ export function createDictionarySession(userId: string) {
 
 export async function getDictionaryUser(request: Request) {
   const secret = signingSecret();
-  let userId: string | null = null;
-
-  // 1. Try DICTIONARY_SESSION_COOKIE
-  const token = request.headers.get("cookie")?.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${DICTIONARY_SESSION_COOKIE}=`))?.slice(DICTIONARY_SESSION_COOKIE.length + 1);
-  if (token) {
-    const [payload, signature, extra] = token.split(".");
-    if (payload && signature && !extra) {
-      try {
-        const expected = createHmac("sha256", secret).update(payload).digest();
-        const actual = Buffer.from(signature, "base64url");
-        if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
-          const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-          if (typeof data.userId === "string" && typeof data.expires === "number" && data.expires > Date.now() / 1000) {
-            userId = data.userId;
-          }
-        }
-      } catch {
-        // Fallback to headers
-      }
-    }
-  }
-
-  // 2. Fallback to x-user-id header
-  if (!userId) {
-    const xUserId = request.headers.get("x-user-id");
-    if (xUserId && xUserId.trim()) {
-      userId = xUserId.trim();
-    }
-  }
-
-  // 3. Fallback to Authorization Bearer token
-  if (!userId) {
-    const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const rawToken = authHeader.replace(/^Bearer\s+/i, "").trim();
-      if (rawToken.startsWith("mock-jwt-token-")) {
-        userId = rawToken.replace("mock-jwt-token-", "").trim();
-      } else if (rawToken && !rawToken.includes(".")) {
-        userId = rawToken;
-      }
-    }
-  }
-
-  if (!userId) return null;
-
-  return prisma.user.findFirst({
-    where: { id: userId, status: "ACTIVE" },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      email: true,
-      role: true,
-      status: true,
-      avatar: true,
-      currentHskLevel: true,
-      mustChangePassword: true,
-    },
-  });
-}
-
-export async function getDictionaryAdmin(request: Request) {
-  const secret = signingSecret();
   if (!secret) return null;
   const token = request.headers.get("cookie")?.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${DICTIONARY_SESSION_COOKIE}=`))?.slice(DICTIONARY_SESSION_COOKIE.length + 1);
   if (!token) return null;
@@ -119,7 +56,7 @@ export async function getDictionaryAdmin(request: Request) {
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     if (typeof data.userId !== "string" || typeof data.expires !== "number" || data.expires <= Date.now() / 1000) return null;
-    const user = await prisma.user.findFirst({
+    return prisma.user.findFirst({
       where: { id: data.userId, status: "ACTIVE" },
       select: {
         id: true,
@@ -133,8 +70,12 @@ export async function getDictionaryAdmin(request: Request) {
         mustChangePassword: true,
       },
     });
-    return user?.role === "ADMIN" ? user : null;
   } catch {
     return null;
   }
+}
+
+export async function getDictionaryAdmin(request: Request) {
+  const user = await getDictionaryUser(request);
+  return user?.role === "ADMIN" ? user : null;
 }
