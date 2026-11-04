@@ -27,7 +27,7 @@ try {
   const parent = run('git rev-parse HEAD').trim();
   console.log('Parent:', parent);
 
-  const commitMsg = 'fix(exam-center): allow admin view across attempts, support infinite retakes and improve error boundaries';
+  const commitMsg = 'fix(exam-player): fix React hook order error #310 by moving useMemo to top level';
   const commit = run(`git commit-tree ${tree} -p ${parent} -m "${commitMsg}"`).trim();
   console.log('New commit:', commit);
 

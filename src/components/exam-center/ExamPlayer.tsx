@@ -274,7 +274,60 @@ export default function ExamPlayer({
     }
   };
 
-  // Loading state
+  // Memoized question lists and skill groupings - Called unconditionally at top level (Rules of Hooks)
+  const questions = useMemo(() => {
+    return Array.isArray(attempt?.questions) ? attempt.questions : [];
+  }, [attempt?.questions]);
+
+  const skillGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { skill: ExamSkill; startIndex: number; endIndex: number; questions: typeof questions }
+    >();
+    questions.forEach((q, idx) => {
+      if (!map.has(q.skill)) {
+        map.set(q.skill, { skill: q.skill, startIndex: idx, endIndex: idx, questions: [q] });
+      } else {
+        const entry = map.get(q.skill)!;
+        entry.endIndex = idx;
+        entry.questions.push(q);
+      }
+    });
+    return Array.from(map.values());
+  }, [questions]);
+
+  // Derived state
+  const finished = attempt ? attempt.status !== "IN_PROGRESS" : false;
+  const totalQuestions = questions.length;
+  const currentQ = questions[index] || questions[0] || null;
+  const answeredCount = questions.filter((q) => hasAnswer(answers[q.id])).length;
+  const unansweredCount = totalQuestions - answeredCount;
+  const completionPercent = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+  const isUrgentTime = remainingSec !== null && remainingSec <= 300 && remainingSec > 0;
+
+  // Current skill info
+  const currentSkillGroup = skillGroups.find((g) => g.skill === currentQ?.skill);
+  const currentSkillIndex = currentSkillGroup ? currentSkillGroup.questions.findIndex((q) => q.id === currentQ?.id) + 1 : index + 1;
+  const currentSkillTotal = currentSkillGroup ? currentSkillGroup.questions.length : totalQuestions;
+
+  // Toggle Accordion
+  const toggleSection = (skill: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [skill]: !prev[skill] }));
+  };
+
+  // Audio Playback Handler
+  const toggleAudio = () => {
+    if (!audioRef.current) return;
+    if (isPlayingAudio) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioRef.current.play().catch(() => {});
+      setIsPlayingAudio(true);
+    }
+  };
+
+  // 1. Loading state
   if (!attempt) {
     return (
       <div className={s.playerWrapper} style={{ justifyContent: "center", alignItems: "center" }}>
@@ -312,10 +365,7 @@ export default function ExamPlayer({
     );
   }
 
-  const finished = attempt.status !== "IN_PROGRESS";
-  const questions = Array.isArray(attempt.questions) ? attempt.questions : [];
-  const totalQuestions = questions.length;
-
+  // 2. Empty questions state
   if (totalQuestions === 0) {
     return (
       <div className={s.playerWrapper} style={{ justifyContent: "center", alignItems: "center" }}>
@@ -335,7 +385,7 @@ export default function ExamPlayer({
     );
   }
 
-  const currentQ = questions[index] || questions[0] || null;
+  // 3. Question not ready
   if (!currentQ) {
     return (
       <div className={s.playerWrapper} style={{ justifyContent: "center", alignItems: "center" }}>
@@ -345,47 +395,6 @@ export default function ExamPlayer({
       </div>
     );
   }
-  const answeredCount = questions.filter((q) => hasAnswer(answers[q.id])).length;
-  const unansweredCount = totalQuestions - answeredCount;
-  const completionPercent = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
-  const isUrgentTime = remainingSec !== null && remainingSec <= 300 && remainingSec > 0;
-
-  // Group questions by skill for Accordion Question Palette and Skill Tabs
-  const skillGroups = useMemo(() => {
-    const map = new Map<string, { skill: ExamSkill; startIndex: number; endIndex: number; questions: typeof questions }>();
-    questions.forEach((q, idx) => {
-      if (!map.has(q.skill)) {
-        map.set(q.skill, { skill: q.skill, startIndex: idx, endIndex: idx, questions: [q] });
-      } else {
-        const entry = map.get(q.skill)!;
-        entry.endIndex = idx;
-        entry.questions.push(q);
-      }
-    });
-    return Array.from(map.values());
-  }, [questions]);
-
-  // Current skill info
-  const currentSkillGroup = skillGroups.find((g) => g.skill === currentQ?.skill);
-  const currentSkillIndex = currentSkillGroup ? currentSkillGroup.questions.findIndex((q) => q.id === currentQ?.id) + 1 : index + 1;
-  const currentSkillTotal = currentSkillGroup ? currentSkillGroup.questions.length : totalQuestions;
-
-  // Toggle Accordion
-  const toggleSection = (skill: string) => {
-    setCollapsedSections((prev) => ({ ...prev, [skill]: !prev[skill] }));
-  };
-
-  // Audio Playback Handler
-  const toggleAudio = () => {
-    if (!audioRef.current) return;
-    if (isPlayingAudio) {
-      audioRef.current.pause();
-      setIsPlayingAudio(false);
-    } else {
-      audioRef.current.play().catch(() => {});
-      setIsPlayingAudio(true);
-    }
-  };
 
   return (
     <div className={s.playerWrapper} data-exam-player>
