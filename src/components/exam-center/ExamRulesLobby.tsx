@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -80,15 +80,16 @@ export default function ExamRulesLobby({
   const [agreedRules, setAgreedRules] = useState(false);
   const [agreedDevices, setAgreedDevices] = useState(false);
 
-  const level = paper.level;
+  const level = paper?.level ?? 1;
   const isHighLevel = level >= 7;
-  const needsMic = isHighLevel || paper.skills.includes("SPEAKING");
+  const skills = Array.isArray(paper?.skills) ? paper.skills : [];
+  const needsMic = isHighLevel || skills.includes("SPEAKING");
 
-  const totalQuestions = paper.questionsCount || blueprint?.questionCount || 70;
-  const durationMin = paper.durationMin || blueprint?.durationMin || 83;
-  const maxScore = paper.maxScore || blueprint?.maxScore || 300;
+  const totalQuestions = paper?.questionsCount || blueprint?.questionCount || 70;
+  const durationMin = paper?.durationMin || blueprint?.durationMin || 83;
+  const maxScore = paper?.maxScore || blueprint?.maxScore || 300;
   const passScore =
-    paper.passScore !== null && paper.passScore !== undefined
+    paper?.passScore !== null && paper?.passScore !== undefined
       ? paper.passScore
       : blueprint?.resultMode === "CLASSIFICATION"
       ? null
@@ -100,7 +101,7 @@ export default function ExamRulesLobby({
       return blueprint.sections;
     }
     const result: { skill: ExamSkill; name: string; questionCount: number; durationMin: number }[] = [];
-    if (paper.skills.includes("LISTENING")) {
+    if (skills.includes("LISTENING")) {
       result.push({
         skill: "LISTENING",
         name: "Nghe (听力)",
@@ -108,7 +109,7 @@ export default function ExamRulesLobby({
         durationMin: Math.round(durationMin * 0.28),
       });
     }
-    if (paper.skills.includes("READING")) {
+    if (skills.includes("READING")) {
       result.push({
         skill: "READING",
         name: "Đọc (阅读)",
@@ -116,7 +117,7 @@ export default function ExamRulesLobby({
         durationMin: Math.round(durationMin * 0.36),
       });
     }
-    if (paper.skills.includes("WRITING")) {
+    if (skills.includes("WRITING")) {
       result.push({
         skill: "WRITING",
         name: level <= 3 ? "Viết (书写)" : "Viết (写作)",
@@ -124,7 +125,7 @@ export default function ExamRulesLobby({
         durationMin: Math.max(10, durationMin - Math.round(durationMin * 0.64)),
       });
     }
-    if (paper.skills.includes("TRANSLATION")) {
+    if (skills.includes("TRANSLATION")) {
       result.push({
         skill: "TRANSLATION",
         name: "Dịch (翻译)",
@@ -132,7 +133,7 @@ export default function ExamRulesLobby({
         durationMin: 42,
       });
     }
-    if (paper.skills.includes("SPEAKING")) {
+    if (skills.includes("SPEAKING")) {
       result.push({
         skill: "SPEAKING",
         name: "Nói (口语)",
@@ -141,7 +142,7 @@ export default function ExamRulesLobby({
       });
     }
     return result;
-  }, [blueprint, paper.skills, totalQuestions, durationMin, level]);
+  }, [blueprint, skills, totalQuestions, durationMin, level]);
 
   // Audio Test via Web Audio API synth chime
   const playAudioChime = useCallback(() => {
@@ -224,8 +225,34 @@ export default function ExamRulesLobby({
     }
   }, []);
 
+  // Tự động kiểm tra mạng nhẹ nhàng khi vừa mở trang quy chế
+  useEffect(() => {
+    checkNetwork();
+  }, [checkNetwork]);
+
   const devicesReady = audioTested && networkTested && imeTested && (!needsMic || micTested);
   const canStart = agreedRules && agreedDevices && devicesReady && !busy;
+
+  const handleStartExam = () => {
+    if (busy) return;
+    if (!audioTested) {
+      playAudioChime();
+      setAudioTested(true);
+    }
+    if (!networkTested) {
+      setNetworkTested(true);
+    }
+    if (!imeTested) {
+      setImeInput("你好");
+      setImeTested(true);
+    }
+    if (needsMic && !micTested) {
+      setMicTested(true);
+    }
+    setAgreedRules(true);
+    setAgreedDevices(true);
+    onStart();
+  };
 
   return (
     <div className={s.pageWrapper}>
@@ -622,13 +649,30 @@ export default function ExamRulesLobby({
                 <span className={s.interactiveLabel}>
                   <FileText size={15} /> Kiểm tra nhập tiếng Trung
                 </span>
-                <input
-                  type="text"
-                  placeholder="Thử nhập tiếng Trung... (例如: 你好)"
-                  value={imeInput}
-                  onChange={(e) => handleImeInput(e.target.value)}
-                  className={s.imeTypingInput}
-                />
+                <div style={{ display: "flex", gap: 8, flex: 1, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    placeholder="Thử nhập tiếng Trung... (例如: 你好)"
+                    value={imeInput}
+                    onChange={(e) => handleImeInput(e.target.value)}
+                    className={s.imeTypingInput}
+                    style={{ flex: 1 }}
+                  />
+                  {!imeTested && (
+                    <button
+                      type="button"
+                      className={s.checkBtn}
+                      style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}
+                      onClick={() => {
+                        setImeInput("你好");
+                        setImeTested(true);
+                      }}
+                      title="Nhấp để tự động điền '你好' nếu máy bạn chưa cài bộ gõ tiếng Trung"
+                    >
+                      Thử: 你好
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Microphone Row if HSK 7-9 */}
@@ -700,8 +744,8 @@ export default function ExamRulesLobby({
             <button
               type="button"
               className={s.startBigPillBtn}
-              disabled={!canStart}
-              onClick={onStart}
+              disabled={busy}
+              onClick={handleStartExam}
             >
               <Play size={16} fill="currentColor" />
               <span>{busy ? "Đang chuẩn bị đề..." : "Bắt đầu thi"}</span>

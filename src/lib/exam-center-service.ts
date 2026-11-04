@@ -36,7 +36,7 @@ export async function officialPapers(){
  for(const log of logs)if(!publications.has(log.entity))publications.set(log.entity,parse(log.details));
  const papers:ExamPaper[]=[];
  for(const set of sets){
-  const config=publications.get(set.id);if(config? !config.approved : set.teacher?.role!=="ADMIN")continue;
+  const config=publications.get(set.id);if(config? !config.approved : (set.mode!=="MOCK_EXAM"&&set.teacher?.role!=="ADMIN"))continue;
   const durations=[...new Set(set.assignments.map(a=>a.durationMin).filter(n=>Number.isInteger(n)&&n>0))];
   const blueprint=examBlueprint.levels.find(row=>row.level===levelGroup(set.hskLevel));
   const durationMin=config?.durationMin||(durations.length===1?durations[0]:blueprint?.durationMin??null);

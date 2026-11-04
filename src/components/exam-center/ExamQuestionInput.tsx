@@ -18,16 +18,17 @@ const decode = (value: string, fallback: unknown) => {
 
 export default function ExamQuestionInput({
   question: q,
-  value,
+  value = "",
   onChange,
   disabled = false,
 }: {
   question: Question;
-  value: string;
+  value?: string;
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
   const [error, setError] = useState("");
+  const strVal = value || "";
 
   const media = async (file: File | undefined) => {
     if (!file) return;
@@ -43,26 +44,46 @@ export default function ExamQuestionInput({
     reader.readAsDataURL(file);
   };
 
-  // Detect whether options have image URLs (like in HSK 1, 2, 3 image selection questions)
-  const hasImageOptions = useMemo(() => {
-    return (
-      Array.isArray(q.options) &&
-      q.options.some((opt: unknown) => {
-        if (typeof opt === "object" && opt && "imageUrl" in opt) {
-          const url = (opt as { imageUrl?: string }).imageUrl;
-          return typeof url === "string" && url.length > 0;
-        }
-        return false;
-      })
-    );
+  // Chuẩn hóa danh sách lựa chọn Options luôn là một mảng an toàn
+  const rawOptions = useMemo(() => {
+    if (Array.isArray(q.options)) return q.options;
+    if (typeof q.options === "string") {
+      const parsed = decode(q.options, []);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    return [];
   }, [q.options]);
 
-  // Live Chinese character counter for essay / writing
+  const normalizedOptions = useMemo(() => {
+    return rawOptions.map((opt: any, idx: number) => {
+      if (typeof opt === "object" && opt !== null) {
+        return {
+          id: String(opt.id || String.fromCharCode(65 + idx)),
+          text: String(opt.text || opt.content || ""),
+          imageUrl: opt.imageUrl ? String(opt.imageUrl) : undefined,
+        };
+      }
+      return {
+        id: String.fromCharCode(65 + idx),
+        text: String(opt ?? ""),
+        imageUrl: undefined,
+      };
+    });
+  }, [rawOptions]);
+
+  // Nhận diện câu hỏi có hình ảnh lựa chọn (như trong HSK 1, 2, 3)
+  const hasImageOptions = useMemo(() => {
+    return normalizedOptions.some(
+      (opt) => typeof opt.imageUrl === "string" && opt.imageUrl.length > 0
+    );
+  }, [normalizedOptions]);
+
+  // Đếm ký tự chữ Hán cho phần tự luận / viết
   const hanziCharCount = useMemo(() => {
-    if (!value || typeof value !== "string") return 0;
-    const match = value.match(/[\u4e00-\u9fa5]/g);
+    if (!strVal || typeof strVal !== "string") return 0;
+    const match = strVal.match(/[\u4e00-\u9fa5]/g);
     return match ? match.length : 0;
-  }, [value]);
+  }, [strVal]);
 
   let inputContent = null;
 
@@ -87,22 +108,22 @@ export default function ExamQuestionInput({
           />
         </label>
 
-        {value.startsWith("data:audio/") ? (
-          <audio controls src={value} style={{ maxWidth: "100%" }} />
-        ) : value.startsWith("data:image/") ? (
+        {strVal.startsWith("data:audio/") ? (
+          <audio controls src={strVal} style={{ maxWidth: "100%" }} />
+        ) : strVal.startsWith("data:image/") ? (
           <Image
             unoptimized
             width={720}
             height={480}
-            src={value}
+            src={strVal}
             alt="Bài viết của bạn"
             style={{ maxWidth: "100%", maxHeight: 380, objectFit: "contain", borderRadius: 12 }}
           />
         ) : (
-          value && <p style={{ fontSize: 13, color: "#4f6844" }}>{value}</p>
+          strVal && <p style={{ fontSize: 13, color: "#4f6844" }}>{strVal}</p>
         )}
 
-        {value && !disabled && (
+        {strVal && !disabled && (
           <button
             type="button"
             onClick={() => onChange("")}
@@ -125,12 +146,12 @@ export default function ExamQuestionInput({
   // 2. Picture Multiple Choice Options (Khớp 100% Ảnh mẫu HSK 3)
   else if (hasImageOptions) {
     const multiple = q.selectionMode === "MULTIPLE";
-    const chosen = multiple ? decode(value, []) : [value];
+    const chosen = multiple ? decode(strVal, []) : [strVal];
 
     inputContent = (
       <div className={s.imageOptionsGrid}>
-        {q.options.map((option: any) => {
-          const optId = option.id || "";
+        {normalizedOptions.map((option) => {
+          const optId = option.id;
           const isSelected = Array.isArray(chosen) && chosen.includes(optId);
           const imgSrc = option.imageUrl || "/theme/exam-bamboo-depth.png";
 
@@ -191,9 +212,9 @@ export default function ExamQuestionInput({
             { id: "true", text: "Đúng (√)" },
             { id: "false", text: "Sai (×)" },
           ]
-        : q.options;
+        : normalizedOptions;
     const multiple = q.selectionMode === "MULTIPLE";
-    const chosen = multiple ? decode(value, []) : [value];
+    const chosen = multiple ? decode(strVal, []) : [strVal];
 
     inputContent = (
       <div className={s.textOptionsList}>
@@ -237,7 +258,7 @@ export default function ExamQuestionInput({
   }
   // 4. Fill-in-the-Blank with blanks
   else if (["fill_blank", "listening_fill"].includes(q.type) && Array.isArray(q.blanks) && q.blanks.length) {
-    const values = decode(value, {}) as Record<string, string>;
+    const values = decode(strVal, {}) as Record<string, string>;
     inputContent = (
       <div style={{ display: "grid", gap: 14 }}>
         {q.blanks.map((blank: { id: string }, i: number) => (
@@ -265,7 +286,7 @@ export default function ExamQuestionInput({
   }
   // 5. Matching Pairs
   else if (q.type === "matching" && Array.isArray(q.matchingLeftItems)) {
-    const matches = decode(value, {}) as Record<string, string>;
+    const matches = decode(strVal, {}) as Record<string, string>;
     inputContent = (
       <div style={{ display: "grid", gap: 12 }}>
         {q.matchingLeftItems.map((left: { id: string; text: string }) => (
@@ -311,7 +332,7 @@ export default function ExamQuestionInput({
   }
   // 6. Sentence Word Ordering (Sắp xếp từ tạo câu - Click tokens)
   else if (q.type === "sentence_order" && Array.isArray(q.tokenItems) && q.tokenItems.length) {
-    const selected = decode(value, []) as string[];
+    const selected = decode(strVal, []) as string[];
     const tokens = q.tokenItems as { id: string; text: string }[];
 
     inputContent = (
@@ -401,7 +422,7 @@ export default function ExamQuestionInput({
           disabled={disabled}
           rows={["essay", "translation", "writing"].includes(q.type) ? 8 : 4}
           maxLength={30000}
-          value={value}
+          value={strVal}
           onChange={(e) => onChange(e.target.value)}
           placeholder={
             q.type === "fill_blank"

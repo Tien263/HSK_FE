@@ -275,9 +275,29 @@ export default function ExamPlayer({
   }
 
   const finished = attempt.status !== "IN_PROGRESS";
-  const questions = attempt.questions;
-  const currentQ = questions[index] || questions[0];
+  const questions = Array.isArray(attempt.questions) ? attempt.questions : [];
   const totalQuestions = questions.length;
+
+  if (totalQuestions === 0) {
+    return (
+      <div className={s.playerWrapper} style={{ justifyContent: "center", alignItems: "center" }}>
+        <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 18, border: "1px solid #d4decb" }}>
+          <p style={{ color: "#a23c21", marginBottom: 16, fontSize: 16, fontWeight: 600 }}>
+            Đề thi hiện chưa có câu hỏi nào sẵn sàng để làm bài.
+          </p>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{ padding: "10px 20px", borderRadius: 10, background: "#27492c", color: "#fff", fontWeight: 600, cursor: "pointer" }}
+          >
+            ← Quay lại danh sách đề thi
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQ = questions[index] || questions[0];
   const answeredCount = questions.filter((q) => hasAnswer(answers[q.id])).length;
   const unansweredCount = totalQuestions - answeredCount;
   const completionPercent = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
@@ -299,8 +319,8 @@ export default function ExamPlayer({
   }, [questions]);
 
   // Current skill info
-  const currentSkillGroup = skillGroups.find((g) => g.skill === currentQ.skill);
-  const currentSkillIndex = currentSkillGroup ? currentSkillGroup.questions.findIndex((q) => q.id === currentQ.id) + 1 : index + 1;
+  const currentSkillGroup = skillGroups.find((g) => g.skill === currentQ?.skill);
+  const currentSkillIndex = currentSkillGroup ? currentSkillGroup.questions.findIndex((q) => q.id === currentQ?.id) + 1 : index + 1;
   const currentSkillTotal = currentSkillGroup ? currentSkillGroup.questions.length : totalQuestions;
 
   // Toggle Accordion

@@ -12,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import { safeLocalStorageSet } from "@/lib/safe-storage";
 
 export interface CurriculumSnapshot {
   id: string;
@@ -27,7 +28,7 @@ export interface CurriculumSnapshot {
 const STORAGE_KEY_PREFIX = "hsk_curriculum_snapshots_level_";
 
 /**
- * Lưu 1 snapshot phiên bản giáo trình vào localStorage (tối đa giữ 10 bản gần nhất)
+ * Lưu 1 snapshot phiên bản giáo trình vào localStorage (tối đa giữ 3 bản gần nhất để tránh tràn 5MB quota)
  */
 export function saveCurriculumSnapshot(
   level: number,
@@ -59,9 +60,9 @@ export function saveCurriculumSnapshot(
       lessons,
     };
 
-    // Giữ tối đa 10 bản ghi gần nhất
-    const updatedList = [newSnapshot, ...list.slice(0, 9)];
-    localStorage.setItem(key, JSON.stringify(updatedList));
+    // Giữ tối đa 3 bản ghi gần nhất để tránh vượt quota trình duyệt
+    const updatedList = [newSnapshot, ...list.slice(0, 2)];
+    safeLocalStorageSet(key, JSON.stringify(updatedList));
   } catch (err) {
     console.warn("Could not save curriculum snapshot to localStorage:", err);
   }

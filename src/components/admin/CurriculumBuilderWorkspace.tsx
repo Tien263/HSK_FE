@@ -53,6 +53,7 @@ import CurriculumPrintExportModal from "@/components/admin/CurriculumPrintExport
 import CurriculumRevisionHistoryModal, {
   saveCurriculumSnapshot,
 } from "@/components/admin/CurriculumRevisionHistoryModal";
+import { safeLocalStorageSet } from "@/lib/safe-storage";
 import { lookupDictionaryAuto, getAutoPinyin } from "@/lib/pinyin-helper";
 
 interface CurriculumBuilderWorkspaceProps {
@@ -843,7 +844,7 @@ export default function CurriculumBuilderWorkspace({
         setLessons(updatedLessons);
 
         if (typeof window !== "undefined") {
-          localStorage.setItem(
+          safeLocalStorageSet(
             `hsk_admin_custom_curriculum_level_${selectedLevel}`,
             JSON.stringify(updatedLessons)
           );
@@ -1008,11 +1009,15 @@ export default function CurriculumBuilderWorkspace({
       });
 
       if (typeof window !== "undefined") {
-        saveCurriculumSnapshot(selectedLevel, `Lưu & Xuất bản HSK ${selectedLevel}`, sanitizedLessons);
-        localStorage.setItem(
-          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-          JSON.stringify(sanitizedLessons)
-        );
+        try {
+          saveCurriculumSnapshot(selectedLevel, `Lưu & Xuất bản HSK ${selectedLevel}`, sanitizedLessons);
+          safeLocalStorageSet(
+            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+            JSON.stringify(sanitizedLessons)
+          );
+        } catch (localErr) {
+          console.warn("Bỏ qua lỗi bộ nhớ đệm trình duyệt, tiếp tục lưu CSDL máy chủ:", localErr);
+        }
       }
 
       let revision = 0;
@@ -1071,11 +1076,13 @@ export default function CurriculumBuilderWorkspace({
     setLessons(updatedLessons);
 
     if (typeof window !== "undefined") {
-      saveCurriculumSnapshot(selectedLevel, `Sửa Bài ${editingLesson.number} - HSK ${selectedLevel}`, updatedLessons);
-      localStorage.setItem(
-        `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-        JSON.stringify(updatedLessons)
-      );
+      try {
+        saveCurriculumSnapshot(selectedLevel, `Sửa Bài ${editingLesson.number} - HSK ${selectedLevel}`, updatedLessons);
+        safeLocalStorageSet(
+          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+          JSON.stringify(updatedLessons)
+        );
+      } catch {}
     }
 
     if (!syncToServer) {
@@ -1449,7 +1456,7 @@ export default function CurriculumBuilderWorkspace({
     });
     setLessons(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem(
+      safeLocalStorageSet(
         `hsk_admin_custom_curriculum_level_${selectedLevel}`,
         JSON.stringify(updated)
       );
@@ -3502,13 +3509,15 @@ export default function CurriculumBuilderWorkspace({
           currentLessons={lessons}
           level={selectedLevel}
           onConfirmApply={async (mode, appliedLessons) => {
-            saveCurriculumSnapshot(selectedLevel, `Trước khi nạp ${importPreviewFileName}`, lessons);
             setLessons(appliedLessons);
             if (typeof window !== "undefined") {
-              localStorage.setItem(
-                `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-                JSON.stringify(appliedLessons)
-              );
+              try {
+                saveCurriculumSnapshot(selectedLevel, `Trước khi nạp ${importPreviewFileName}`, lessons);
+                safeLocalStorageSet(
+                  `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+                  JSON.stringify(appliedLessons)
+                );
+              } catch {}
             }
             // Tự động đồng bộ và lưu ngay vào máy chủ cho cấp độ HSK đang chọn
             try {
@@ -3585,13 +3594,15 @@ export default function CurriculumBuilderWorkspace({
           onClose={() => setIsRevisionHistoryOpen(false)}
           level={selectedLevel}
           onRestoreSnapshot={(restoredLessons) => {
-            saveCurriculumSnapshot(selectedLevel, "Trước khi hoàn tác phiên bản cũ", lessons);
             setLessons(restoredLessons);
             if (typeof window !== "undefined") {
-              localStorage.setItem(
-                `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-                JSON.stringify(restoredLessons)
-              );
+              try {
+                saveCurriculumSnapshot(selectedLevel, "Trước khi hoàn tác phiên bản cũ", lessons);
+                safeLocalStorageSet(
+                  `hsk_admin_custom_curriculum_level_${selectedLevel}`,
+                  JSON.stringify(restoredLessons)
+                );
+              } catch {}
             }
             showToast(
               `Đã khôi phục thành công ${restoredLessons.length} bài học từ lịch sử! Bấm "Lưu & Xuất bản" để đồng bộ.`
