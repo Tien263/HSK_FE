@@ -20,6 +20,7 @@ import {
   Leaf,
   Lock,
   Mic,
+  Pause,
   PenTool,
   Play,
   RotateCcw,
@@ -590,22 +591,10 @@ export default function ExamPlayer({
                 ref={audioRef}
                 src={
                   currentQ.audioUrl ||
-                  `/HSK3.0/HSK/音频/HSK（${
-                    attempt.level === 1
-                      ? "一"
-                      : attempt.level === 2
-                      ? "二"
-                      : attempt.level === 3
-                      ? "三"
-                      : attempt.level === 4
-                      ? "四"
-                      : attempt.level === 5
-                      ? "五"
-                      : attempt.level === 6
-                      ? "六"
-                      : "七—九"
-                  }级）样卷.mp3`
+                  `/audio/hsk${attempt.level <= 6 ? attempt.level : 7}_exam.mp3`
                 }
+                onPlay={() => setIsPlayingAudio(true)}
+                onPause={() => setIsPlayingAudio(false)}
                 onTimeUpdate={() => {
                   if (audioRef.current) {
                     const cur = audioRef.current.currentTime;
@@ -621,9 +610,13 @@ export default function ExamPlayer({
                 type="button"
                 className={s.audioPlayBtn}
                 onClick={toggleAudio}
-                title="Phát / Dừng Audio"
+                title={isPlayingAudio ? "Tạm dừng Audio" : "Phát Audio"}
               >
-                <Play size={16} fill="currentColor" />
+                {isPlayingAudio ? (
+                  <Pause size={16} fill="currentColor" />
+                ) : (
+                  <Play size={16} fill="currentColor" />
+                )}
               </button>
 
               <span className={s.audioTimeText}>
@@ -631,7 +624,19 @@ export default function ExamPlayer({
                 {timeText(Math.round(audioDuration))}
               </span>
 
-              <div className={s.audioTrackWrap}>
+              <div
+                className={s.audioTrackWrap}
+                style={{ cursor: "pointer" }}
+                onClick={(e) => {
+                  if (!audioRef.current || !audioDuration) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickX = e.clientX - rect.left;
+                  const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+                  audioRef.current.currentTime = ratio * audioDuration;
+                  setAudioProgress(ratio * 100);
+                }}
+                title="Tua đến vị trí này"
+              >
                 <div className={s.audioProgressFill} style={{ width: `${audioProgress}%` }} />
               </div>
 

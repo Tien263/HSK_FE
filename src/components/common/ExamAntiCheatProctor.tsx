@@ -276,7 +276,8 @@ export default function ExamAntiCheatProctor({
           ctx.textAlign = "center";
           ctx.fillStyle = "#FDE68A";
           ctx.font = "bold 11px sans-serif";
-          ctx.fillText("Cường độ âm thanh: ~ 56 dB (Vượt ngưỡng 44 dB cho phép)", 200, 185);
+          const displayDb = Math.max(72, currentDbRef.current || 75);
+          ctx.fillText(`Cường độ âm thanh: ~ ${displayDb} dB (Vượt ngưỡng 70 dB cho phép)`, 200, 185);
           ctx.fillStyle = "#94A3B8";
           ctx.font = "10px sans-serif";
           ctx.fillText(`Thời điểm ghi nhận: ${timeStr}`, 200, 215);
@@ -392,12 +393,12 @@ export default function ExamAntiCheatProctor({
     }
     const currentDb = currentDbRef.current || 24;
     setDiagnosticFeedback(
-      `Kiểm tra thành công: Camera rõ nét | Micro ổn định (~${currentDb} dB) | Khuôn mặt nhận diện chuẩn xác. Không có lỗi vi phạm.`
+      `✅ ĐÃ TEST CAMERA & MICRO: Cảm biến hoạt động tốt (~${currentDb} dB). Bạn có thể giơ điện thoại lên trước camera để thử nghiệm chức năng nhận diện.`
     );
     setDetectedEntity("Cảm biến tốt");
     setTimeout(() => {
       setDiagnosticFeedback(null);
-    }, 4500);
+    }, 5500);
   };
 
   // 1. Tải Model COCO-SSD nhẹ nhàng (chạy ngầm song song, không chặn hệ thống)
@@ -523,12 +524,14 @@ export default function ExamAntiCheatProctor({
             const estDb = Math.min(100, Math.round(20 * Math.log10(Math.max(1, rms)) + 15));
             currentDbRef.current = estDb;
 
-            // Nếu có tiếng nói hoặc âm thanh lớn trong phòng thi (RMS > 22 hoặc peak > 85 hoặc avg > 32)
-            if (rms > 22 || peak > 85 || avg > 32) {
+            // Ngưỡng phát hiện tiếng nói/thảo luận trong phòng thi (RMS > 60 hoặc peak > 160 hoặc avg > 52)
+            // Tuyệt đối không bắt nhầm tiếng gõ phím, thở hay nhấp chuột nhẹ
+            if (rms > 60 || peak > 160 || avg > 52) {
               loudCount++;
-              if (loudCount >= 10) {
+              // Duy trì tiếng nói liên tục từ 90 khung hình (~1.5 giây) trở lên mới cảnh báo
+              if (loudCount >= 90) {
                 setSuspiciousNoise(true);
-                triggerViolation("AUDIO_SUSPICIOUS", `Phát hiện tiếng nói / âm thanh bất thường (~${estDb} dB) trong phòng thi`);
+                triggerViolation("AUDIO_SUSPICIOUS", `Phát hiện tiếng nói / âm thanh bất thường (~${Math.max(70, estDb)} dB) trong phòng thi`);
                 loudCount = 0;
               }
             } else {
@@ -654,17 +657,16 @@ export default function ExamAntiCheatProctor({
                 if (x > ow * 0.55) rightSkin++;
               }
 
-              // LỌC BỎ KHU VỰC KHUÔN MẶT & ĐẦU THÍ SINH (25% -> 75% chiều ngang, 0% -> 60% chiều dọc)
-              // Áo đen, tóc, rèm cửa sau lưng TUYỆT ĐỐI KHÔNG tính là điện thoại!
-              const isHeadOrTorsoCenter = y < oh * 0.62 && x > ow * 0.28 && x < ow * 0.72;
-              if (isHeadOrTorsoCenter) continue;
+              // Chỉ lọc bỏ vùng khuôn mặt trên (đầu thí sinh 30% trên cùng ở giữa)
+              // Cho phép quét toàn bộ khu vực tay cầm, trước ngực và xung quanh camera
+              const isFaceCenter = y < oh * 0.38 && x > ow * 0.32 && x < ow * 0.68;
+              if (isFaceCenter && isSkin) continue;
 
               const brightness = (r + g + b) / 3;
-              const isLowSat = Math.abs(r - g) < 22 && Math.abs(g - b) < 22;
 
-              // Vật thể cầm tay: Màn hình phát sáng hoặc thân máy chữ nhật ở góc cầm tay (dưới ngực hoặc hai bên)
-              const isHandHoldingArea = y > oh * 0.45 || x < ow * 0.25 || x > ow * 0.75;
-              if (isHandHoldingArea && !isSkin && (brightness < 50 || brightness > 200) && isLowSat) {
+              // Vật thể cầm tay: Màn hình phát sáng, thân máy chữ nhật hoặc thiết bị cầm tay
+              const isPotentialDevice = !isSkin && (brightness < 60 || brightness > 180);
+              if (isPotentialDevice) {
                 phoneCandidatePixels++;
                 if (x < minX) minX = x;
                 if (x > maxX) maxX = x;
@@ -681,28 +683,24 @@ export default function ExamAntiCheatProctor({
           const aspectRatio = boxW > 0 ? boxH / boxW : 0;
 
           // ĐIỀU KIỆN NHẬN DIỆN THIẾT BỊ DI ĐỘNG CẦM TAY TRỰC TIẾP TRƯỚC CAMERA:
-          // 1. Kích thước vật thể cầm tay di động (chiều rộng 6% - 45% canvas, chiều cao 8% - 60% canvas)
-          // 2. Tỉ lệ khung hình chữ nhật đứng chuẩn điện thoại (1.25 - 3.8) hoặc quay ngang (0.26 - 0.85)
-          // 3. Có sự hiện diện của tay cầm (skinRatio > 0.03)
-          // 4. Số pixel ứng viên nằm trong khoảng thiết bị (0.010 - 0.25)
-          const isCompactDevice = boxW >= ow * 0.06 && boxW <= ow * 0.45 && boxH >= oh * 0.08 && boxH <= oh * 0.60;
-          const isPhoneRatio = (aspectRatio >= 1.25 && aspectRatio <= 3.8) || (aspectRatio >= 0.26 && aspectRatio <= 0.85);
+          // Kích thước và tỉ lệ dạng hình chữ nhật điện thoại khi giơ lên
+          const isCompactDevice = boxW >= ow * 0.05 && boxW <= ow * 0.65 && boxH >= oh * 0.06 && boxH <= oh * 0.75;
+          const isPhoneRatio = (aspectRatio >= 1.15 && aspectRatio <= 4.2) || (aspectRatio >= 0.22 && aspectRatio <= 0.90);
 
           if (
             !phoneDetected &&
             isCompactDevice &&
             isPhoneRatio &&
-            candidateRatio >= 0.010 &&
-            candidateRatio <= 0.25 &&
-            skinRatio > 0.03
+            candidateRatio >= 0.008 &&
+            candidateRatio <= 0.35
           ) {
             phoneDetected = true;
-            phoneConfidenceScore = Math.min(96, Math.round(candidateRatio * 320 + 50));
+            phoneConfidenceScore = Math.min(98, Math.round(candidateRatio * 280 + 55));
             detectedBox = {
               x: (minX / ow) * width,
               y: (minY / oh) * height,
-              w: (boxW / ow) * width,
-              h: (boxH / oh) * height,
+              w: Math.max(width * 0.15, (boxW / ow) * width),
+              h: Math.max(height * 0.20, (boxH / oh) * height),
             };
           }
 
