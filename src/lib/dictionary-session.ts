@@ -33,10 +33,8 @@ export function dictionarySameOrigin(request: Request) {
     if (origin.hostname === "localhost" || origin.hostname === "127.0.0.1") return true;
     if (origin.hostname.endsWith(".onrender.com") || origin.hostname.endsWith(".vercel.app")) return true;
     if (/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(origin.hostname)) return true;
-    // Fallback: If request has an explicit user identification header, treat as authenticated
-    if (request.headers.get("x-user-id") || request.headers.get("authorization")) return true;
-    return true; // Avoid blocking valid user requests on proxy or CDN domain changes
-  } catch { return true; }
+    return false;
+  } catch { return false; }
 }
 
 export function createDictionarySession(userId: string) {
@@ -109,6 +107,34 @@ export async function getDictionaryUser(request: Request) {
 }
 
 export async function getDictionaryAdmin(request: Request) {
-  const user = await getDictionaryUser(request);
-  return user?.role === "ADMIN" ? user : null;
+  const secret = signingSecret();
+  if (!secret) return null;
+  const token = request.headers.get("cookie")?.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${DICTIONARY_SESSION_COOKIE}=`))?.slice(DICTIONARY_SESSION_COOKIE.length + 1);
+  if (!token) return null;
+  const [payload, signature, extra] = token.split(".");
+  if (!payload || !signature || extra) return null;
+  try {
+    const expected = createHmac("sha256", secret).update(payload).digest();
+    const actual = Buffer.from(signature, "base64url");
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (typeof data.userId !== "string" || typeof data.expires !== "number" || data.expires <= Date.now() / 1000) return null;
+    const user = await prisma.user.findFirst({
+      where: { id: data.userId, status: "ACTIVE" },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        role: true,
+        status: true,
+        avatar: true,
+        currentHskLevel: true,
+        mustChangePassword: true,
+      },
+    });
+    return user?.role === "ADMIN" ? user : null;
+  } catch {
+    return null;
+  }
 }
