@@ -1,12 +1,15 @@
+import { getAuthUser } from "@/lib/auth-server";
+import { examWriteOrigin } from "@/lib/exam-center-service";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userIdHeader = request.headers.get("x-user-id");
-    const studentIdParam = searchParams.get("studentId");
-    const username = searchParams.get("username");
+    const auth = await getAuthUser(request);
+    if (!auth) return NextResponse.json({ success: false, message: "Vui lòng đăng nhập." }, { status: 401 });
+    const userIdHeader = auth.id;
+    const studentIdParam = auth.id;
+    const username = auth.username;
 
     let student = null;
     if (studentIdParam || userIdHeader) {
@@ -79,18 +82,21 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthUser(request);
+    if (!auth) return NextResponse.json({ success: false, message: "Vui lòng đăng nhập." }, { status: 401 });
+    if (!examWriteOrigin(request)) return NextResponse.json({ success: false, message: "Nguồn yêu cầu không hợp lệ." }, { status: 403 });
     const body = await request.json();
-    const { wrongQuestionId, isCorrect, username } = body;
+    const { wrongQuestionId, isCorrect } = body;
 
     const student = await prisma.user.findFirst({
-      where: { username: username || "student" },
+      where: { id: auth.id },
     });
     if (!student) {
       return NextResponse.json({ success: false, message: "Không tìm thấy học sinh" }, { status: 404 });
     }
 
-    const wrongItem = await prisma.wrongQuestion.findUnique({
-      where: { id: wrongQuestionId },
+    const wrongItem = await prisma.wrongQuestion.findFirst({
+      where: { id: wrongQuestionId, studentId: auth.id },
     });
     if (!wrongItem) {
       return NextResponse.json({ success: false, message: "Không tìm thấy bản ghi câu sai" }, { status: 404 });

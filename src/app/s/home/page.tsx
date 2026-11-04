@@ -804,7 +804,7 @@ export default function StudentHomePage() {
               </button>
             ) : (
               <Link
-                href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                href={`/s/mock-exam?level=${selfStudyHskLevel}`} target="_blank" rel="noopener noreferrer"
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-xl transition cursor-pointer text-left text-[#315E48] hover:bg-[#204434]/10 hover:text-[#204434]"
               >
@@ -1606,7 +1606,7 @@ export default function StudentHomePage() {
 
                       <div className="flex items-center gap-2">
                         <Link
-                          href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                          href={`/s/mock-exam?level=${selfStudyHskLevel}`} target="_blank" rel="noopener noreferrer"
                           className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs flex items-center gap-1.5 transition"
                         >
                           <FileCheck2 className="w-3.5 h-3.5 text-amber-700" />
@@ -2390,7 +2390,7 @@ export default function StudentHomePage() {
                       <h3 className="font-bold text-sm text-[#204434]">Phòng thi thử HSK 3.0</h3>
                     </div>
                     <Link
-                      href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                      href={`/s/mock-exam?level=${selfStudyHskLevel}`} target="_blank" rel="noopener noreferrer"
                       className="text-xs text-[#315E48] hover:text-[#204434] flex items-center gap-1 font-medium cursor-pointer"
                     >
                       <span>Vào phòng thi</span>
@@ -2409,7 +2409,7 @@ export default function StudentHomePage() {
                       Làm quen với áp lực phòng thi thật gồm 3 phần: Nghe hiểu, Đọc hiểu và Viết theo cấu trúc Hanban CTI mới nhất.
                     </p>
                     <Link
-                      href={`/s/mock-exam?level=${selfStudyHskLevel}`}
+                      href={`/s/mock-exam?level=${selfStudyHskLevel}`} target="_blank" rel="noopener noreferrer"
                       className="w-full py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-[#BC9B6B]" />

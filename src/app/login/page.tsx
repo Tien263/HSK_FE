@@ -65,6 +65,9 @@ export default function LoginPage() {
         sessionStorage.setItem("currentUser", JSON.stringify(data.user));
       }
 
+      const returnToExam = new URLSearchParams(window.location.search).get("next") === "/s/mock-exam";
+      if (returnToExam && !data.user.mustChangePassword) { router.push("/s/mock-exam"); return; }
+
       // Điều hướng theo vai trò và trạng thái thiết lập
       if (data.user.role === "ADMIN") {
         router.push("/admin/dashboard");

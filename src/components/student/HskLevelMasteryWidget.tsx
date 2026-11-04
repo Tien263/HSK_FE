@@ -205,7 +205,7 @@ export default function HskLevelMasteryWidget({
 
         <div className="flex items-center gap-2.5 shrink-0">
           <Link
-            href={`/s/mock-exam?level=${level}`}
+            href={`/s/mock-exam?level=${level}`} target="_blank" rel="noopener noreferrer"
             className="px-4 py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-[#FAF5E6] text-xs font-serif font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
           >
             <FileCheck2 className="w-4 h-4 text-[#D4AF37]" />

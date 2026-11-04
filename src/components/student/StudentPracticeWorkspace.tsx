@@ -792,7 +792,7 @@ export default function StudentPracticeWorkspace({
             </button>
             <div className="w-px h-4 bg-[#E5DEC9]" />
             <Link
-              href="/s/mock-exam"
+              href="/s/mock-exam" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-[#FAF7F0] text-[#204434] text-xs font-semibold transition cursor-pointer"
               title="Vào phòng thi thử mô phỏng HSK chuẩn quốc tế"
             >
@@ -2267,7 +2267,7 @@ export default function StudentPracticeWorkspace({
               </button>
             ) : (
               <Link
-                href="/s/mock-exam"
+                href="/s/mock-exam" target="_blank" rel="noopener noreferrer"
                 className="px-5 py-2.5 rounded-2xl bg-[#BC9B6B] hover:bg-[#a88755] text-white text-xs font-bold transition shadow-sm flex items-center gap-2 cursor-pointer"
               >
                 <span>Làm đề thi thử HSK {currentHskLevel}</span>

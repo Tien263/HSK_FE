@@ -1,3 +1,5 @@
+import { getAuthUser } from "@/lib/auth-server";
+import { examWriteOrigin } from "@/lib/exam-center-service";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
@@ -5,10 +7,13 @@ import { normalizeGrammarList } from "@/lib/chinese-grammar-helper";
 
 export async function GET(request: Request) {
   try {
+    const auth = await getAuthUser(request);
+    if (!auth || auth.status !== "ACTIVE") return NextResponse.json({ success: false, message: "Vui lòng đăng nhập." }, { status: 401 });
+    if (!["ADMIN", "TEACHER"].includes(auth.role)) return NextResponse.json({ success: false, message: "Dùng phòng thi được bảo vệ tại /s/mock-exam." }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const levelStr = searchParams.get("level") || "1";
     const level = parseInt(levelStr, 10) || 1;
-    const studentId = searchParams.get("studentId") || undefined;
+    const studentId = auth.id;
 
     // HSK 7, 8, 9 gộp chung thành HSK 7–9 (level >= 7)
     const levelCondition = level >= 7 ? { in: [7, 8, 9] } : level;
@@ -16,6 +21,7 @@ export async function GET(request: Request) {
     // 1. Lấy danh sách các đề thi thử do Giáo viên hoặc Admin biên soạn từ CSDL (mode: MOCK_EXAM hoặc EXAM với status READY)
     const officialSets = await prisma.quizSet.findMany({
       where: {
+        ...(auth.role === "TEACHER" ? { OR: [{ teacherId: auth.id }, { teacher: { role: "ADMIN" } }] } : {}),
         hskLevel: levelCondition,
         mode: { in: ["MOCK_EXAM", "EXAM"] },
         status: "READY",
@@ -132,27 +138,23 @@ export async function GET(request: Request) {
 // POST: Giáo viên hoặc Admin biên soạn hoặc tự động xuất bản đề thi thử HSK vào phòng thi
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthUser(request);
+    if (!auth || auth.status !== "ACTIVE") return NextResponse.json({ success: false, message: "Vui lòng đăng nhập." }, { status: 401 });
+    if (!["TEACHER", "ADMIN"].includes(auth.role) || !examWriteOrigin(request)) return NextResponse.json({ success: false, message: "Không có quyền xuất bản đề." }, { status: 403 });
     const body = await request.json();
     const {
       title,
       description,
       hskLevel = 1,
       totalScore = 200,
-      teacherId,
       autoGenerate = false,
       questions: customQuestions = [],
     } = body;
 
     const level = parseInt(hskLevel, 10) || 1;
 
-    // Tìm giáo viên nếu có, hoặc lấy tài khoản teacher/admin đầu tiên
-    let authorId = teacherId;
-    if (!authorId) {
-      const defaultTeacher = await prisma.user.findFirst({
-        where: { role: { in: ["TEACHER", "ADMIN"] } },
-      });
-      authorId = defaultTeacher?.id;
-    }
+    // Người xuất bản lấy từ phiên đăng nhập đã xác thực
+    const authorId = auth.id;
 
     let examTitle = title || `Đề thi thử HSK ${level} Chuẩn CTI - Kỳ thi Mô phỏng Quốc tế`;
     let examDesc = description || `Đề thi thử chuẩn cấu trúc HSK 3.0 do Thầy Cô biên soạn gồm 3 phần: Nghe hiểu, Đọc hiểu và Viết.`;
