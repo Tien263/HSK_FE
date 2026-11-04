@@ -190,11 +190,17 @@ export async function sendOtpEmail(
   const resendApiKey = (config.resendApiKey || process.env.RESEND_API_KEY || "").trim();
   if (config.authType === "RESEND" || (resendApiKey && resendApiKey.startsWith("re_"))) {
     try {
-      let sender = "Hanyu Tiếng Trung <onboarding@resend.dev>";
+      let sender = "Hanyu Tiếng Trung <ningning@ninjistudy.click>";
       const rawFrom = (config.from || "").trim();
-      // Resend không cho phép gửi từ @gmail.com nếu chưa verify domain riêng, tự động dùng onboarding@resend.dev
-      if (rawFrom && !/@(gmail|googlemail|yahoo|hotmail|outlook)\.com/i.test(rawFrom) && rawFrom.includes("@")) {
-        sender = rawFrom;
+
+      if (rawFrom.includes("@")) {
+        if (/@(gmail|googlemail|yahoo|hotmail|outlook)\.com/i.test(rawFrom)) {
+          sender = `Hanyu Tiếng Trung <ningning@ninjistudy.click>`;
+        } else {
+          sender = rawFrom.includes("<") ? rawFrom : `Hanyu Tiếng Trung <${rawFrom}>`;
+        }
+      } else if (rawFrom) {
+        sender = `${rawFrom} <ningning@ninjistudy.click>`;
       }
 
       const res = await fetch("https://api.resend.com/emails", {

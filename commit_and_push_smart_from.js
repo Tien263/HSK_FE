@@ -13,7 +13,7 @@ console.log("Tree hash:", treeHash);
 const parentCommit = fs.readFileSync('.git/refs/heads/main', 'utf-8').trim();
 console.log("Parent commit:", parentCommit);
 
-const commitMsg = "feat: Bat buoc xac thuc OTP qua email khi hoc vien dang ky tai khoan moi";
+const commitMsg = "fix: Tu dong gan email ningning@ninjistudy.click khi nguoi dung chi nhap ten hien thi";
 const commitHash = execSync(`git commit-tree ${treeHash} -p ${parentCommit} -m "${commitMsg}"`, { env }).toString().trim();
 console.log("New commit hash:", commitHash);
 
@@ -27,5 +27,5 @@ console.log("Pushing to origin feat/clean-architecture...");
 execSync(`git push origin ${commitHash}:refs/heads/feat/clean-architecture`, { env, stdio: 'inherit' });
 
 // Clean up temporary script
-try { fs.unlinkSync('commit_and_push_reg_otp.js'); } catch (e) {}
+try { fs.unlinkSync('commit_and_push_smart_from.js'); } catch (e) {}
 console.log("Successfully committed and pushed!");

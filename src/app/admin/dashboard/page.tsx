@@ -2803,7 +2803,7 @@ export default function AdminDashboardPage() {
                       className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] focus:outline-hidden focus:border-[#204434]"
                     />
                     <p className="text-[11px] text-[#526058] mt-1">
-                      Đã xác thực tên miền: <code className="bg-[#FAF7F0] px-1 py-0.5 rounded text-[#204434]">ningning@ninjistudy.click</code> (Gửi thẳng vào Hộp thư chính 100%, không bị vào thư rác).
+                      ✅ Đã xác thực tên miền: <code className="bg-[#FAF7F0] px-1 py-0.5 rounded text-[#204434]">ningning@ninjistudy.click</code> (Bạn có thể chỉ điền tên như &quot;Hanyu - Tiếng Trung Cô Ning Ning&quot;, hệ thống tự động gắn địa chỉ email tên miền này).
                     </p>
                   </div>
 
