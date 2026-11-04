@@ -27,7 +27,7 @@ try {
   const parent = run('git rev-parse HEAD').trim();
   console.log('Parent:', parent);
 
-  const commitMsg = 'fix(exam-player): fix React hook order error #310 by moving useMemo to top level';
+  const commitMsg = process.argv[2] || 'feat: update mock exam and proctor';
   const commit = run(`git commit-tree ${tree} -p ${parent} -m "${commitMsg}"`).trim();
   console.log('New commit:', commit);
 
@@ -35,6 +35,10 @@ try {
   const refPath = '.git/refs/heads/main';
   fs.writeFileSync(refPath, commit + '\n', 'utf8');
   console.log('Updated refs/heads/main');
+
+  // Copy tempIndex back to .git/index to keep index synced
+  fs.copyFileSync(tempIndex, '.git/index');
+  console.log('Synced .git/index');
 
   // Push to origin
   run('git push origin main');
