@@ -152,6 +152,7 @@ export async function POST(request: Request) {
         username: user.username,
         email: user.email,
         role: user.role,
+        mustChangePassword: Boolean(user.mustChangePassword),
         avatar: user.avatar,
         currentHskLevel: user.currentHskLevel,
         totalXp: user.totalXp,

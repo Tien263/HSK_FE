@@ -13,13 +13,14 @@ import TeacherClassicOverview from "./TeacherClassicOverview";
 import TeacherProfile from "./TeacherProfile";
 import TeacherMockExamsWorkspace from "./TeacherMockExamsWorkspace";
 import LiveExamProctorMonitor from "./LiveExamProctorMonitor";
+import MandatoryPasswordChangeModal from "@/components/common/MandatoryPasswordChangeModal";
 import {portalFetch,usePortalData} from "@/components/learning/use-portal-data";
 import {addDays,vietnamToday} from "@/lib/schedule-core";
 const navigation=[{id:"overview",label:"Tổng quan",icon:Home},{id:"proctor",label:"Giám sát thi AI",icon:ShieldAlert},{id:"classes",label:"Lớp học",icon:Users},{id:"lessons",label:"Kho bài học",icon:BookOpen},{id:"mock-exams",label:"Đề thi thử HSK",icon:Award},{id:"assignments",label:"Bài tập & Kiểm tra",icon:FileCheck2},{id:"questions",label:"Kho câu hỏi của tôi",icon:HelpCircle},{id:"reports",label:"Báo cáo học tập",icon:BarChart3},{id:"schedule",label:"Lịch dạy & Hạn nộp",icon:Calendar},{id:"settings",label:"Hồ sơ & Cài đặt",icon:Settings}];
 export default function TeacherClassicDashboard(){
  const [questionBankTab,setQuestionBankTab]=useState<"ALL"|"DRAFT"|"READY"|"USED">("ALL");
  const [activeTab,setActiveTab]=useState("overview"),[mobileMenu,setMobileMenu]=useState(false),[search,setSearch]=useState(""),[showBell,setShowBell]=useState(false),[showProfile,setShowProfile]=useState(false),[toast,setToast]=useState(""),[selectedClass,setSelectedClass]=useState<string|undefined>(),[createClass,setCreateClass]=useState(false),[assignmentPayload,setAssignmentPayload]=useState<any>(),[examId,setExamId]=useState<string|null>(null);
- const session=usePortalData<{user:{id:string;name:string;username:string;role:string;email?:string;avatar?:string}}>("/api/v1/auth/session"),currentUser=session.data?.user;
+ const session=usePortalData<{user:{id:string;name:string;username:string;role:string;email?:string;avatar?:string;mustChangePassword?:boolean}}>("/api/v1/auth/session"),currentUser=session.data?.user;
  const classes=usePortalData<{items:any[]}>(currentUser?"/api/v1/classes":null),bank=usePortalData<{items:any[]}>(currentUser?"/api/v1/questions?mine=1":null),assignments=usePortalData<{items:any[]}>(currentUser?"/api/v1/assignments":null),notifications=usePortalData<{items:any[];unreadCount:number}>(currentUser?"/api/v1/notifications":null),catalog=usePortalData<{levels:any[]}>(currentUser?"/api/v1/curriculum":null);
  const today=vietnamToday(),schedule=usePortalData<{items:any[]}>(currentUser?"/api/v1/schedules?from="+today+"&to="+addDays(today,6):null);
  const classRows=useMemo(()=>(classes.data?.items||[]).map(row=>({...row,studentCount:row.totalStudents,levelText:"HSK "+row.level})),[classes.data]);
@@ -56,5 +57,13 @@ export default function TeacherClassicDashboard(){
  {activeTab==="reports"&&<ClassReportWorkspace classes={classRows} currentUser={currentUser} showToast={setToast} onNavigateToTab={navigate}/>}
  {activeTab==="schedule"&&<div className="space-y-5"><div><h2 className="font-serif text-2xl font-bold">Lịch dạy & Hạn nộp</h2><p className="mt-1 text-xs text-[#6B766D]">Lịch tháng, tuần và danh sách ca dạy. Lặp theo tuần hoặc điều chỉnh riêng từng buổi học.</p></div><AppleScheduleCalendar classes={classRows}/></div>}
  {activeTab==="settings"&&<TeacherProfile onSaved={()=>session.reload()}/>}
+ <MandatoryPasswordChangeModal
+   isOpen={Boolean(currentUser?.mustChangePassword)}
+   userRole={currentUser?.role}
+   userName={currentUser?.name}
+   onSuccess={() => {
+     session.reload();
+   }}
+ />
  </main></div>{toast&&<div role="status" className="fixed right-5 bottom-5 z-[100] max-w-sm rounded-2xl border border-[#BC9B6B]/40 bg-[#204434] px-5 py-3 text-xs leading-6 text-white shadow-xl">{toast}<button aria-label="Đóng thông báo" className="ml-4" onClick={()=>setToast("")}><X size={12}/></button></div>}</div>;
 }

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!authCheck.ok) return authCheck.response;
 
     const body = await request.json();
-    const { enabled, bankCode, accountNumber, accountHolder, apiToken, transferPrefix, qrTemplate } = body;
+    const { enabled, bankCode, accountNumber, accountHolder, apiToken, transferPrefix, qrTemplate, placements } = body;
 
     const current = getSepayConfig();
     const updated = saveSepayConfig({
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       apiToken: apiToken && !apiToken.includes("••••") ? apiToken.trim() : current.apiToken,
       transferPrefix: transferPrefix ? transferPrefix.trim().toUpperCase() : current.transferPrefix,
       qrTemplate: qrTemplate || current.qrTemplate,
+      placements: placements || current.placements,
     });
 
     return NextResponse.json({

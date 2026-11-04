@@ -38,6 +38,12 @@ export default function AdminSepayWorkspace() {
     apiToken: "",
     transferPrefix: "HSK",
     qrTemplate: "compact" as "compact" | "compact2" | "qr_only" | "print",
+    placements: {
+      showInStudentSidebar: false,
+      showInStudentHomeQuickActions: false,
+      showInStudentLessonCatalog: false,
+      showOnAiQuotaExceeded: false,
+    },
   });
   const [webhookUrl, setWebhookUrl] = useState("");
   const [loadingConfig, setLoadingConfig] = useState(false);
@@ -68,6 +74,10 @@ export default function AdminSepayWorkspace() {
         setConfig((prev) => ({
           ...prev,
           ...data.config,
+          placements: {
+            ...prev.placements,
+            ...(data.config.placements || {}),
+          },
           apiToken: data.config.apiTokenMasked || "",
         }));
         setWebhookUrl(data.webhookUrl || "");
@@ -467,6 +477,88 @@ export default function AdminSepayWorkspace() {
                   </a>{" "}
                   &gt; Cấu hình Webhook &gt; Dán đường link trên vào &gt; Chọn kiểu xác thực Bearer Token (dùng Token ở trên).
                 </p>
+              </div>
+
+              {/* Vị trí hiển thị do Admin quyết định */}
+              <div className="rounded-2xl border border-[#D7C9AB]/80 bg-[#FAF7F0] p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Eye size={16} className="text-[#8F6D3B]" />
+                  <h4 className="font-bold text-xs text-[#1A3D2F]">
+                    Vị Trí Hiển Thị Nút Nâng Cấp & Mã QR (Admin tự chọn)
+                  </h4>
+                </div>
+                <p className="text-[11px] text-[#526c50] leading-relaxed">
+                  Chỉ khi bạn tích chọn vị trí nào thì nút/khung Nâng cấp gói học mới hiển thị tại vị trí đó trên giao diện học viên. Mặc định sẽ không hiện ở đâu nếu bạn chưa bật.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-[#D7C9AB]/50 cursor-pointer hover:border-[#204434] transition">
+                    <input
+                      type="checkbox"
+                      checked={config.placements?.showInStudentSidebar || false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          placements: { ...config.placements, showInStudentSidebar: e.target.checked },
+                        })
+                      }
+                      className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-[#1A3D2F]">
+                      Menu bên trái (Sidebar) học viên
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-[#D7C9AB]/50 cursor-pointer hover:border-[#204434] transition">
+                    <input
+                      type="checkbox"
+                      checked={config.placements?.showInStudentHomeQuickActions || false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          placements: { ...config.placements, showInStudentHomeQuickActions: e.target.checked },
+                        })
+                      }
+                      className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-[#1A3D2F]">
+                      Khung thao tác nhanh Trang chủ học viên
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-[#D7C9AB]/50 cursor-pointer hover:border-[#204434] transition">
+                    <input
+                      type="checkbox"
+                      checked={config.placements?.showInStudentLessonCatalog || false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          placements: { ...config.placements, showInStudentLessonCatalog: e.target.checked },
+                        })
+                      }
+                      className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-[#1A3D2F]">
+                      Banner trong Kho bài học & Khám phá
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-[#D7C9AB]/50 cursor-pointer hover:border-[#204434] transition">
+                    <input
+                      type="checkbox"
+                      checked={config.placements?.showOnAiQuotaExceeded || false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          placements: { ...config.placements, showOnAiQuotaExceeded: e.target.checked },
+                        })
+                      }
+                      className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-[#1A3D2F]">
+                      Gợi ý nâng cấp khi dùng hết hạn mức AI
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <div className="pt-2 flex justify-end">

@@ -26,6 +26,12 @@ const DEFAULT_SEPAY_CONFIG: SepayConfig = {
   apiToken: "SEPAY_API_TOKEN_KEY",
   transferPrefix: "HSK",
   qrTemplate: "compact",
+  placements: {
+    showInStudentSidebar: false,
+    showInStudentHomeQuickActions: false,
+    showInStudentLessonCatalog: false,
+    showOnAiQuotaExceeded: false,
+  },
 };
 
 // Default commercial study packages
@@ -120,6 +126,10 @@ export function saveSepayConfig(config: Partial<SepayConfig>): SepayConfig {
   const updated: SepayConfig = {
     ...current,
     ...config,
+    placements: {
+      ...current.placements,
+      ...(config.placements || {}),
+    },
     updatedAt: new Date().toISOString(),
   };
   fs.writeFileSync(SEPAY_CONFIG_FILE, JSON.stringify(updated, null, 2), "utf-8");

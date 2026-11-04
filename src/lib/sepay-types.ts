@@ -1,3 +1,10 @@
+export interface QrPlacements {
+  showInStudentSidebar: boolean;          // Hiển thị nút trên Menu bên trái học viên
+  showInStudentHomeQuickActions: boolean; // Hiển thị ô thao tác nhanh trên Trang chủ học viên
+  showInStudentLessonCatalog: boolean;    // Hiển thị banner trong Kho bài học
+  showOnAiQuotaExceeded: boolean;        // Hiển thị popup gợi ý khi hết hạn mức AI
+}
+
 export interface SepayConfig {
   enabled: boolean;
   bankCode: string; // e.g. "MBBank", "VCB", "ACB", "TPBank", "Techcombank", "VPBank", "BIDV", "VietinBank"
@@ -6,6 +13,7 @@ export interface SepayConfig {
   apiToken: string; // SePay Webhook Token / API Key
   transferPrefix: string; // default "HSK"
   qrTemplate: "compact" | "compact2" | "qr_only" | "print";
+  placements: QrPlacements;
   updatedAt?: string;
 }
 

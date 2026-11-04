@@ -127,6 +127,18 @@ export default function StudentHomePage() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Tải cấu hình vị trí hiển thị mã QR & Nâng cấp VIP do Admin quyết định
+  useEffect(() => {
+    fetch("/api/v1/packages")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.placements) {
+          setSepayPlacements(data.placements);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [activeNav, setActiveNav] = useState("home");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [practiceSubMode, setPracticeSubMode] = useState<"vocab" | "grammar" | "game" | "saved" | "wrong">("vocab");
@@ -159,6 +171,12 @@ export default function StudentHomePage() {
   // Settings & Notification State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [sepayPlacements, setSepayPlacements] = useState<{
+    showInStudentSidebar?: boolean;
+    showInStudentHomeQuickActions?: boolean;
+    showInStudentLessonCatalog?: boolean;
+    showOnAiQuotaExceeded?: boolean;
+  } | null>(null);
   const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
   const [showStreakGuardianModal, setShowStreakGuardianModal] = useState(false);
   const [showVocabNotebookModal, setShowVocabNotebookModal] = useState(false);
@@ -920,23 +938,25 @@ export default function StudentHomePage() {
               <span>Kết quả học tập</span>
             </button>
 
-            {/* 8. Nâng cấp VIP & Mua gói học */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowUpgradeModal(true);
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-600/15 border border-amber-300 text-amber-900 hover:border-amber-500 hover:shadow-xs transition cursor-pointer text-left group"
-            >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-amber-600 shrink-0 group-hover:rotate-12 transition-transform" />
-                <span className="font-bold text-xs text-[#1A3D2F]">Nâng cấp VIP / Gói học</span>
-              </div>
-              <span className="rounded-full bg-amber-500 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-2xs">
-                Mới
-              </span>
-            </button>
+            {/* Nâng cấp VIP & Mua gói học (Chỉ hiển thị khi Admin cấu hình bật) */}
+            {sepayPlacements?.showInStudentSidebar && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUpgradeModal(true);
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-600/15 border border-amber-300 text-amber-900 hover:border-amber-500 hover:shadow-xs transition cursor-pointer text-left group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0 group-hover:rotate-12 transition-transform" />
+                  <span className="font-bold text-xs text-[#1A3D2F]">Nâng cấp VIP / Gói học</span>
+                </div>
+                <span className="rounded-full bg-amber-500 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-2xs">
+                  Mới
+                </span>
+              </button>
+            )}
 
             {/* 9. Hồ sơ & Cài đặt */}
             <button
@@ -1461,8 +1481,8 @@ export default function StudentHomePage() {
                 );
               })()}
 
-              {/* QUICK ACTIONS BAR: NHIỆM VỤ, SỔ TỪ VỰNG SRS, SỔ CÂU SAI, RADAR NĂNG LỰC, NÂNG CẤP VIP */}
-              <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {/* QUICK ACTIONS BAR: NHIỆM VỤ, SỔ TỪ VỰNG SRS, SỔ CÂU SAI, RADAR NĂNG LỰC */}
+              <section className={`grid grid-cols-2 ${sepayPlacements?.showInStudentHomeQuickActions ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"} gap-3`}>
                 <button
                   type="button"
                   onClick={() => setShowDailyQuestsModal(true)}
@@ -1519,19 +1539,22 @@ export default function StudentHomePage() {
                   <span className="text-base group-hover:scale-110 transition">📈</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowUpgradeModal(true)}
-                  className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-400/20 to-amber-600/15 border border-amber-300 hover:border-amber-500 hover:shadow-sm text-left transition group cursor-pointer flex items-center justify-between col-span-2 sm:col-span-1"
-                >
-                  <div>
-                    <div className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
-                      <span>💎 Nâng cấp VIP</span>
+                {/* Nâng cấp VIP (Chỉ hiển thị khi Admin cấu hình bật) */}
+                {sepayPlacements?.showInStudentHomeQuickActions && (
+                  <button
+                    type="button"
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-400/20 to-amber-600/15 border border-amber-300 hover:border-amber-500 hover:shadow-sm text-left transition group cursor-pointer flex items-center justify-between col-span-2 sm:col-span-1"
+                  >
+                    <div>
+                      <div className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+                        <span>💎 Nâng cấp VIP</span>
+                      </div>
+                      <div className="text-xs text-amber-800 font-semibold mt-0.5">Quét QR SePay 24/7</div>
                     </div>
-                    <div className="text-xs text-amber-800 font-semibold mt-0.5">Quét QR SePay 24/7</div>
-                  </div>
-                  <span className="text-base group-hover:scale-110 transition">👑</span>
-                </button>
+                    <span className="text-base group-hover:scale-110 transition">👑</span>
+                  </button>
+                )}
               </section>
 
               {/* PHÂN NHÁNH GIAO DIỆN CHÍNH: TỰ HỌC CHỦ ĐỘNG (CHƯA VÀO LỚP) VS ĐÃ VÀO LỚP */}

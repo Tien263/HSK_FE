@@ -197,13 +197,15 @@ export async function POST(request: Request) {
     if (existing) {
       // Nếu Admin yêu cầu đồng bộ/đặt lại mật khẩu (hoặc đã xác nhận cập nhật)
       if (body.syncExisting || body.overwrite) {
+        const targetRole = assignedRole || existing.role;
         const updatedUser = await prisma.user.update({
           where: { id: existing.id },
           data: {
             name: trimmedName || existing.name,
             passwordHash: hashPassword(cleanPassword),
             status: "ACTIVE",
-            role: assignedRole || existing.role,
+            role: targetRole,
+            mustChangePassword: targetRole === "TEACHER",
           },
         });
         return NextResponse.json({
@@ -246,6 +248,7 @@ export async function POST(request: Request) {
         passwordHash: hashPassword(cleanPassword),
         role: assignedRole,
         status: "ACTIVE",
+        mustChangePassword: assignedRole === "TEACHER",
         currentHskLevel: assignedRole === "STUDENT" ? 1 : 0,
         totalXp: assignedRole === "STUDENT" ? 50 : 0,
         streakDays: 1,
@@ -321,7 +324,10 @@ export async function PATCH(request: Request) {
       }
       await prisma.user.update({
         where: { id: userId },
-        data: { passwordHash: hashPassword(newPassword) },
+        data: {
+          passwordHash: hashPassword(newPassword),
+          mustChangePassword: user.role === "TEACHER",
+        },
       });
       return NextResponse.json({
         success: true,

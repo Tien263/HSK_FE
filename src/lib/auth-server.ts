@@ -10,7 +10,8 @@ export interface AuthUser {
   role: string;
   status: string;
   avatar: string | null;
-  currentHskLevel?: number;
+  currentHskLevel: number;
+  mustChangePassword: boolean;
 }
 
 export async function getAuthUser(request: Request): Promise<AuthUser | null> {
@@ -27,6 +28,7 @@ export async function getAuthUser(request: Request): Promise<AuthUser | null> {
       status: true,
       avatar: true,
       currentHskLevel: true,
+      mustChangePassword: true,
     },
   });
 }
@@ -46,6 +48,28 @@ export async function requireAdmin(
         {
           success: false,
           message: "Quyền truy cập bị từ chối. Thao tác này yêu cầu tài khoản Quản trị viên (Admin).",
+        },
+        { status: 403 }
+      ),
+    };
+  }
+  return { ok: true, user };
+}
+
+/**
+ * Kiểm tra quyền Giáo Viên hoặc Quản Trị Viên
+ */
+export async function requireTeacherOrAdmin(
+  request: Request
+): Promise<{ ok: true; user: AuthUser } | { ok: false; response: NextResponse }> {
+  const user = await getAuthUser(request);
+  if (!user || !["ADMIN", "TEACHER"].includes(user.role) || user.status !== "ACTIVE") {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          message: "Quyền truy cập bị từ chối. Thao tác này yêu cầu tài khoản Giáo viên hoặc Quản trị viên.",
         },
         { status: 403 }
       ),
