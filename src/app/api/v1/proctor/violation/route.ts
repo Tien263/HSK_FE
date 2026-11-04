@@ -2,26 +2,34 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-server";
 
-// GET /api/v1/proctor/violation - Lấy danh sách vi phạm thi cử cho Giáo viên & Admin
+// GET /api/v1/proctor/violation - Lấy danh sách vi phạm thi cử cho Học sinh (bài của mình) & Giáo viên / Admin (toàn bộ)
 export async function GET(request: Request) {
   try {
     const user = await getAuthUser(request);
-    if (!user || !["TEACHER", "ADMIN"].includes(user.role)) {
+    if (!user) {
       return NextResponse.json(
-        { success: false, message: "Chỉ giáo viên và quản trị viên mới có quyền xem nhật ký giám thị." },
-        { status: 403 }
+        { success: false, message: "Vui lòng đăng nhập để xem nhật ký giám thị." },
+        { status: 401 }
       );
     }
 
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get("classId");
-    const take = Math.min(60, Number(searchParams.get("take") || 40));
+    const examTitle = searchParams.get("examTitle");
+    const take = Math.min(100, Number(searchParams.get("take") || 50));
+
+    // Phân quyền: Học sinh chỉ xem được vi phạm của chính mình; Giáo viên & Admin xem được của lớp hoặc toàn hệ thống
+    const isStaff = ["TEACHER", "ADMIN"].includes(user.role);
+    const whereCondition: any = {
+      entity: "EXAM_PROCTOR",
+    };
+    if (!isStaff) {
+      whereCondition.userId = user.id;
+    }
 
     // Lấy danh sách auditLog giám thị
     const logs = await prisma.auditLog.findMany({
-      where: {
-        entity: "EXAM_PROCTOR",
-      },
+      where: whereCondition,
       orderBy: { createdAt: "desc" },
       take,
       include: {

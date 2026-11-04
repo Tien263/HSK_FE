@@ -68,12 +68,36 @@ export default function CurriculumJsonPreviewModal({
     (l) => l.culture || l.culturalNote?.context
   ).length;
 
-  // Tính toán kết quả sau khi áp dụng
+  // Tính toán kết quả sau khi áp dụng (Chuẩn hóa number & id cho mọi cấp độ HSK 1 - 9)
+  const normalizeLessonItem = (l: any, fallbackNum: number): Hsk1FullLesson => {
+    const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? fallbackNum) || fallbackNum;
+    const baseId = `hsk${level}-${String(num).padStart(2, "0")}`;
+    const id = l?.id && typeof l.id === "string" && l.id.trim() ? l.id.trim() : baseId;
+    return {
+      ...l,
+      id,
+      number: num,
+      vocabList: Array.isArray(l?.vocabList) ? l.vocabList : [],
+      grammarList: Array.isArray(l?.grammarList) ? l.grammarList : [],
+      dialogue: Array.isArray(l?.dialogue) ? l.dialogue : [],
+      phonetics: l?.phonetics || { title: "", rule: "", examples: [] },
+      culture: l?.culture || "",
+      reading: l?.reading || null,
+      grammarExercises: Array.isArray(l?.grammarExercises) ? l.grammarExercises : [],
+    } as Hsk1FullLesson;
+  };
+
   const lessonMap = new Map<number, Hsk1FullLesson>();
   if (importMode === "merge") {
-    currentLessons.forEach((l) => lessonMap.set(l.number, l));
+    currentLessons.forEach((l, idx) => {
+      const norm = normalizeLessonItem(l, idx + 1);
+      lessonMap.set(norm.number, norm);
+    });
   }
-  incomingLessons.forEach((l) => lessonMap.set(l.number, l));
+  incomingLessons.forEach((l, idx) => {
+    const norm = normalizeLessonItem(l, idx + 1);
+    lessonMap.set(norm.number, norm);
+  });
   const finalMergedLessons = Array.from(lessonMap.values()).sort(
     (a, b) => a.number - b.number
   );

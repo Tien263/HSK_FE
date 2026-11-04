@@ -48,6 +48,11 @@ yarn-error.log*
 /src/generated/
 
 # database backups
+*.sql
+*.tar.gz
+
+# large audio files in sample folder
+HSK3.0/**/*.mp3
 /backups/
 
 # typescript

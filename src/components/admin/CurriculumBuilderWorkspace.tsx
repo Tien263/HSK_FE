@@ -653,17 +653,52 @@ export default function CurriculumBuilderWorkspace({
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
 
-        let incomingLessons: Hsk1FullLesson[] = [];
+        let rawList: any[] = [];
         if (Array.isArray(parsed)) {
-          incomingLessons = parsed;
-        } else if (Array.isArray(parsed.lessons)) {
-          incomingLessons = parsed.lessons;
-        } else if (parsed && typeof parsed === "object" && parsed.number) {
-          incomingLessons = [parsed as Hsk1FullLesson];
+          rawList = parsed;
+        } else if (Array.isArray(parsed?.lessons)) {
+          rawList = parsed.lessons;
+        } else if (Array.isArray(parsed?.items)) {
+          rawList = parsed.items;
+        } else if (Array.isArray(parsed?.data)) {
+          rawList = parsed.data;
+        } else if (Array.isArray(parsed?.curriculum)) {
+          rawList = parsed.curriculum;
+        } else if (parsed && typeof parsed === "object") {
+          if (parsed.number || parsed.lessonNumber || parsed.titleZh || parsed.vocabList || parsed.titleVi) {
+            rawList = [parsed];
+          }
         }
 
+        const incomingLessons: Hsk1FullLesson[] = rawList.map((l: any, idx: number) => {
+          const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? idx + 1) || (idx + 1);
+          const baseId = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
+          const id = l?.id && typeof l.id === "string" && l.id.trim() ? l.id.trim() : baseId;
+          return {
+            ...l,
+            id,
+            number: num,
+            titleZh: l?.titleZh || `第${num}课`,
+            titleVi: l?.titleVi || `Bài ${num}`,
+            pinyin: l?.pinyin || "",
+            desc: l?.desc || "",
+            durationMin: Number(l?.durationMin) || 45,
+            vocabCount: Array.isArray(l?.vocabList) ? l.vocabList.length : 0,
+            grammarCount: Array.isArray(l?.grammarList) ? l.grammarList.length : 0,
+            isUnlockedDefault: l?.isUnlockedDefault !== false,
+            unlockedScheduleText: l?.unlockedScheduleText || "Đã mở",
+            vocabList: Array.isArray(l?.vocabList) ? l.vocabList : [],
+            grammarList: Array.isArray(l?.grammarList) ? l.grammarList : [],
+            dialogue: Array.isArray(l?.dialogue) ? l.dialogue : [],
+            phonetics: l?.phonetics || { title: "", rule: "", examples: [] },
+            culture: l?.culture || "",
+            reading: l?.reading || null,
+            grammarExercises: Array.isArray(l?.grammarExercises) ? l.grammarExercises : [],
+          } as Hsk1FullLesson;
+        });
+
         if (incomingLessons.length === 0) {
-          showToast("File không chứa danh sách bài học hợp lệ!", "error");
+          showToast("File không chứa danh sách bài học hợp lệ! Vui lòng kiểm tra lại cấu trúc file JSON.", "error");
           return;
         }
 
@@ -689,14 +724,49 @@ export default function CurriculumBuilderWorkspace({
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
 
-        let incomingLessons: Hsk1FullLesson[] = [];
+        let rawList: any[] = [];
         if (Array.isArray(parsed)) {
-          incomingLessons = parsed;
-        } else if (Array.isArray(parsed.lessons)) {
-          incomingLessons = parsed.lessons;
-        } else if (parsed && typeof parsed === "object" && parsed.number) {
-          incomingLessons = [parsed as Hsk1FullLesson];
+          rawList = parsed;
+        } else if (Array.isArray(parsed?.lessons)) {
+          rawList = parsed.lessons;
+        } else if (Array.isArray(parsed?.items)) {
+          rawList = parsed.items;
+        } else if (Array.isArray(parsed?.data)) {
+          rawList = parsed.data;
+        } else if (Array.isArray(parsed?.curriculum)) {
+          rawList = parsed.curriculum;
+        } else if (parsed && typeof parsed === "object") {
+          if (parsed.number || parsed.lessonNumber || parsed.titleZh || parsed.vocabList || parsed.titleVi) {
+            rawList = [parsed];
+          }
         }
+
+        const incomingLessons: Hsk1FullLesson[] = rawList.map((l: any, idx: number) => {
+          const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? idx + 1) || (idx + 1);
+          const baseId = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
+          const id = l?.id && typeof l.id === "string" && l.id.trim() ? l.id.trim() : baseId;
+          return {
+            ...l,
+            id,
+            number: num,
+            titleZh: l?.titleZh || `第${num}课`,
+            titleVi: l?.titleVi || `Bài ${num}`,
+            pinyin: l?.pinyin || "",
+            desc: l?.desc || "",
+            durationMin: Number(l?.durationMin) || 45,
+            vocabCount: Array.isArray(l?.vocabList) ? l.vocabList.length : 0,
+            grammarCount: Array.isArray(l?.grammarList) ? l.grammarList.length : 0,
+            isUnlockedDefault: l?.isUnlockedDefault !== false,
+            unlockedScheduleText: l?.unlockedScheduleText || "Đã mở",
+            vocabList: Array.isArray(l?.vocabList) ? l.vocabList : [],
+            grammarList: Array.isArray(l?.grammarList) ? l.grammarList : [],
+            dialogue: Array.isArray(l?.dialogue) ? l.dialogue : [],
+            phonetics: l?.phonetics || { title: "", rule: "", examples: [] },
+            culture: l?.culture || "",
+            reading: l?.reading || null,
+            grammarExercises: Array.isArray(l?.grammarExercises) ? l.grammarExercises : [],
+          } as Hsk1FullLesson;
+        });
 
         if (incomingLessons.length === 0) {
           showToast("File không chứa danh sách bài học hợp lệ!", "error");
@@ -3431,7 +3501,7 @@ export default function CurriculumBuilderWorkspace({
           incomingLessons={importPreviewLessons}
           currentLessons={lessons}
           level={selectedLevel}
-          onConfirmApply={(mode, appliedLessons) => {
+          onConfirmApply={async (mode, appliedLessons) => {
             saveCurriculumSnapshot(selectedLevel, `Trước khi nạp ${importPreviewFileName}`, lessons);
             setLessons(appliedLessons);
             if (typeof window !== "undefined") {
@@ -3440,9 +3510,46 @@ export default function CurriculumBuilderWorkspace({
                 JSON.stringify(appliedLessons)
               );
             }
-            showToast(
-              `Đã áp dụng thành công ${appliedLessons.length} bài vào giáo trình HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản" để đồng bộ lên máy chủ.`
-            );
+            // Tự động đồng bộ và lưu ngay vào máy chủ cho cấp độ HSK đang chọn
+            try {
+              let revision = 0;
+              try {
+                const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
+                  credentials: "include",
+                  headers: getCurriculumAuthHeaders(),
+                });
+                const curData = await curRes.json();
+                if (curData && typeof curData.revision === "number") {
+                  revision = curData.revision;
+                }
+              } catch {}
+
+              const res = await fetch("/api/v1/admin/curriculum", {
+                method: "POST",
+                credentials: "include",
+                headers: getCurriculumAuthHeaders(),
+                body: JSON.stringify({
+                  level: selectedLevel,
+                  revision,
+                  isDeleted: false,
+                  lessons: appliedLessons,
+                }),
+              });
+              const resData = await res.json();
+              if (res.ok && resData.success) {
+                showToast(
+                  `🎉 Đã nhập và áp dụng thành công ${appliedLessons.length} bài vào giáo trình HSK ${selectedLevel} trên máy chủ!`
+                );
+              } else {
+                showToast(
+                  `Đã cập nhật ${appliedLessons.length} bài học HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản" nếu cần đồng bộ thêm.`
+                );
+              }
+            } catch {
+              showToast(
+                `Đã áp dụng ${appliedLessons.length} bài vào giao diện HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản" để ghi lên máy chủ.`
+              );
+            }
           }}
         />
       )}

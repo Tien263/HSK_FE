@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Cấu hình phòng thi mô phỏng theo yêu cầu sản phẩm. HSK 7–9 phân loại theo quy tắc riêng; chưa cấu hình các dải phân loại.",
+  "version": 2,
+  "description": "Cấu hình chuẩn HSK 3.0 Blueprint cho kỳ thi mô phỏng HSK 1 đến HSK 7–9.",
   "levels": [
     {
       "level": 1,
@@ -13,7 +13,23 @@
         "READING"
       ],
       "resultMode": "TARGET",
-      "classificationBands": []
+      "classificationBands": [],
+      "sections": [
+        {
+          "skill": "LISTENING",
+          "name": "Nghe (听力)",
+          "questionCount": 20,
+          "durationMin": 15,
+          "description": "4 phần: nối tranh đúng sai, trắc nghiệm tranh A/B/C, ghép cặp tranh A-F, đối thoại ngắn."
+        },
+        {
+          "skill": "READING",
+          "name": "Đọc (阅读)",
+          "questionCount": 20,
+          "durationMin": 20,
+          "description": "4 phần: phán đoán đúng sai tranh-từ, ghép tranh A-E với câu, nối câu tương ứng, điền từ vào câu."
+        }
+      ]
     },
     {
       "level": 2,
@@ -23,10 +39,34 @@
       "targetScore": 120,
       "skills": [
         "LISTENING",
-        "READING"
+        "READING",
+        "WRITING"
       ],
       "resultMode": "TARGET",
-      "classificationBands": []
+      "classificationBands": [],
+      "sections": [
+        {
+          "skill": "LISTENING",
+          "name": "Nghe (听力)",
+          "questionCount": 25,
+          "durationMin": 20,
+          "description": "3 phần: phán đoán đúng sai hình ảnh, chọn tranh tương ứng A-F, đối thoại và trả lời câu hỏi."
+        },
+        {
+          "skill": "READING",
+          "name": "Đọc (阅读)",
+          "questionCount": 25,
+          "durationMin": 25,
+          "description": "4 phần: ghép tranh A-E, điền từ vào chỗ trống, phán đoán logic câu, đối thoại hỏi đáp."
+        },
+        {
+          "skill": "WRITING",
+          "name": "Viết (书写)",
+          "questionCount": 10,
+          "durationMin": 10,
+          "description": "2 phần: sắp xếp từ ngữ tạo câu hoàn chỉnh, điền chữ Hán đúng theo pinyin."
+        }
+      ]
     },
     {
       "level": 3,
@@ -40,7 +80,30 @@
         "WRITING"
       ],
       "resultMode": "TARGET",
-      "classificationBands": []
+      "classificationBands": [],
+      "sections": [
+        {
+          "skill": "LISTENING",
+          "name": "Nghe (听力)",
+          "questionCount": 30,
+          "durationMin": 28,
+          "description": "3 phần: chọn tranh A-F, phán đoán đúng sai theo hội thoại, chọn đáp án đúng A/B/C."
+        },
+        {
+          "skill": "READING",
+          "name": "Đọc (阅读)",
+          "questionCount": 30,
+          "durationMin": 30,
+          "description": "3 phần: ghép cặp câu logic A-F, điền từ thích hợp vào đoạn hội thoại, đọc hiểu đoạn văn chọn A/B/C."
+        },
+        {
+          "skill": "WRITING",
+          "name": "Viết (书写)",
+          "questionCount": 10,
+          "durationMin": 20,
+          "description": "2 phần: sắp xếp từ tạo câu hoàn chỉnh, viết chữ Hán theo phiên âm pinyin cho trước."
+        }
+      ]
     },
     {
       "level": 4,
@@ -54,7 +117,30 @@
         "WRITING"
       ],
       "resultMode": "TARGET",
-      "classificationBands": []
+      "classificationBands": [],
+      "sections": [
+        {
+          "skill": "LISTENING",
+          "name": "Nghe (听力)",
+          "questionCount": 32,
+          "durationMin": 25,
+          "description": "3 phần: phán đoán đúng sai, đối thoại ngắn chọn A/B/C/D, đối thoại dài chọn A/B/C/D."
+        },
+        {
+          "skill": "READING",
+          "name": "Đọc (阅读)",
+          "questionCount": 32,
+          "durationMin": 30,
+          "description": "3 phần: điền từ vào chỗ trống A-E, sắp xếp thứ tự 3 phân câu A-B-C, đọc hiểu chọn A/B/C/D."
+        },
+        {
+          "skill": "WRITING",
+          "name": "Viết (写作)",
+          "questionCount": 6,
+          "durationMin": 25,
+          "description": "2 phần: sắp xếp từ tạo câu (5 câu), nhìn tranh và dùng từ cho sẵn viết câu (1 câu)."
+        }
+      ]
     },
     {
       "level": 5,
@@ -68,7 +154,30 @@
         "WRITING"
       ],
       "resultMode": "TARGET",
-      "classificationBands": []
+      "classificationBands": [],
+      "sections": [
+        {
+          "skill": "LISTENING",
+          "name": "Nghe (听力)",
+          "questionCount": 35,
+          "durationMin": 30,
+          "description": "2 phần: hội thoại chọn đáp án đúng, đoạn văn tự sự/thuyết minh chọn đáp án."
+        },
+        {
+          "skill": "READING",
+          "name": "Đọc (阅读)",
+          "questionCount": 35,
+          "durationMin": 35,
+          "description": "3 phần: điền từ vào chỗ trống trong đoạn văn, đọc hiểu đoạn văn chọn ý đúng nhất."
+        },
+        {
+          "skill": "WRITING",
+          "name": "Viết (写作)",
+          "questionCount": 2,
+          "durationMin": 40,
+          "description": "2 bài viết: viết đoạn văn ~80 từ với các từ cho sẵn, nhìn tranh viết đoạn văn ~80 từ."
+        }
+      ]
     },
     {
       "level": 6,
@@ -82,7 +191,30 @@
         "WRITING"
       ],
       "resultMode": "TARGET",
-      "classificationBands": []
+      "classificationBands": [],
+      "sections": [
+        {
+          "skill": "LISTENING",
+          "name": "Nghe (听力)",
+          "questionCount": 40,
+          "durationMin": 35,
+          "description": "3 phần: đoạn phỏng vấn, đoạn tin tức, thuyết trình học thuật."
+        },
+        {
+          "skill": "READING",
+          "name": "Đọc (阅读)",
+          "questionCount": 40,
+          "durationMin": 40,
+          "description": "3 phần: tìm câu sai ngữ pháp (bệnh cú), điền từ vào chỗ trống đoạn văn dài, đọc hiểu nâng cao."
+        },
+        {
+          "skill": "WRITING",
+          "name": "Viết (写作)",
+          "questionCount": 2,
+          "durationMin": 45,
+          "description": "Rút gọn văn bản (đọc bài văn 1000 từ trong 10 phút, tóm tắt lại khoảng 400 từ không tra cứu)."
+        }
+      ]
     },
     {
       "level": 7,
@@ -98,7 +230,44 @@
         "SPEAKING"
       ],
       "resultMode": "CLASSIFICATION",
-      "classificationBands": []
+      "classificationBands": [],
+      "sections": [
+        {
+          "skill": "LISTENING",
+          "name": "Nghe (听力)",
+          "questionCount": 40,
+          "durationMin": 33,
+          "description": "Phán đoán đúng/sai/không đề cập (√/×/〇), phỏng vấn chuyên sâu, bài nói học thuật."
+        },
+        {
+          "skill": "READING",
+          "name": "Đọc (阅读)",
+          "questionCount": 40,
+          "durationMin": 50,
+          "description": "Sắp xếp đoạn văn loại bỏ đoạn nhiễu, đọc hiểu văn phong cổ văn & hiện đại, trả lời ngắn."
+        },
+        {
+          "skill": "WRITING",
+          "name": "Viết (写作)",
+          "questionCount": 2,
+          "durationMin": 55,
+          "description": "Biểu đồ phân tích luận điểm, bài nghị luận xã hội/học thuật chuyên sâu."
+        },
+        {
+          "skill": "TRANSLATION",
+          "name": "Dịch (翻译)",
+          "questionCount": 4,
+          "durationMin": 42,
+          "description": "Dịch xuôi và dịch ngược khẩu ngữ & văn bản chính luận."
+        },
+        {
+          "skill": "SPEAKING",
+          "name": "Nói (口语)",
+          "questionCount": 5,
+          "durationMin": 20,
+          "description": "Nghe nhắc lại, thuyết trình theo chủ đề, tranh biện và trả lời câu hỏi trực tiếp."
+        }
+      ]
     }
   ]
 }

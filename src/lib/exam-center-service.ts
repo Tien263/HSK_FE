@@ -118,6 +118,63 @@ export async function publishPaper(user:AuthUser,body:Record<string,unknown>){
  if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>paper.totalScore))throw new ExamError(400,"Ngưỡng đạt phải nằm trong thang điểm của đề.");
  await prisma.auditLog.create({data:{userId:user.id,action:PUBLICATION,entity:paper.id,details:JSON.stringify({approved:body.approved!==false,durationMin,passScore})}});return{success:true};
 }
+export async function importPaper(user:AuthUser,body:Record<string,unknown>){
+ if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin được nhập và tạo đề chính thức.");
+ const level=integer(body.level,1,9,"Cấp độ HSK"),titleStr=title(body.title);
+ const description=typeof body.description==="string"?body.description.trim():"Đề thi mô phỏng chuẩn HSK 3.0";
+ const durationMin=integer(body.durationMin,1,600,"Thời gian làm bài");
+ const passScore=body.passScore===null||body.passScore===""?null:Number(body.passScore);
+ const rawQuestions=Array.isArray(body.questions)?body.questions:[];
+ if(!rawQuestions.length)throw new ExamError(400,"Đề thi phải có ít nhất 1 câu hỏi.");
+ const totalScore=rawQuestions.reduce((sum,q:Record<string,unknown>)=>sum+(Number(q.points)||1),0);
+ const createdSet=await prisma.quizSet.create({
+  data:{
+   title:titleStr,
+   description,
+   hskLevel:level,
+   mode:"MOCK_EXAM",
+   status:"READY",
+   totalScore,
+   teacherId:user.id,
+   questions:{
+    create:rawQuestions.map((q:Record<string,unknown>,idx:number)=>({
+     orderIndex:idx+1,
+     points:Number(q.points)||1,
+     question:{
+      create:{
+       type:String(q.type||"multiple_choice"),
+       content:String(q.content||`Câu ${idx+1}`),
+       skill:String(q.skill||"READING"),
+       hskLevel:level,
+       correctAnswer:String(q.correctAnswer||""),
+       explanation:String(q.explanation||""),
+       options:Array.isArray(q.options)?JSON.stringify(q.options):typeof q.options==="string"?q.options:"[]",
+       audioUrl:typeof q.audioUrl==="string"?q.audioUrl:null,
+       imageUrl:typeof q.imageUrl==="string"?q.imageUrl:null,
+       editorData:{
+        status:"READY",
+        pinyin:q.pinyin||q.pinyinPrompt||"",
+        rubric:q.rubric||"",
+        audioUrl:q.audioUrl||"",
+        imageUrl:q.imageUrl||"",
+        ...(typeof q.editorData==="object"&&q.editorData?q.editorData:{})
+       }
+      }
+     }
+    }))
+   }
+  }
+ });
+ await prisma.auditLog.create({
+  data:{
+   userId:user.id,
+   action:PUBLICATION,
+   entity:createdSet.id,
+   details:JSON.stringify({approved:body.approved!==false,durationMin,passScore})
+  }
+ });
+ return {success:true,paperId:createdSet.id};
+}
 export async function reviewData(user:AuthUser){
  const [attempts,bookmark,legacy]=await Promise.all([ownAttempts(user),prisma.auditLog.findFirst({where:{id:`exam-review:${user.id}`,userId:user.id,action:REVIEW}}),prisma.wrongQuestion.findMany({where:{studentId:user.id,consecutiveRight:{lt:3}},include:{question:true}})]);
  const saved=new Set(parse<{keys?:string[]}>(bookmark?.details||null).keys||[]);

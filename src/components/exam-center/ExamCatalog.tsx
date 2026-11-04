@@ -5,6 +5,7 @@ import { ArrowRight, ChartNoAxesColumnIncreasing, CheckCircle2, Clock, FileCheck
 import type { dashboard, reviewData } from "@/lib/exam-center-service";
 import { levelGroup, levelLabel } from "@/lib/exam-center-core";
 import { dateText, resultNames, skillNames, typeNames } from "./exam-client";
+import ExamRulesLobby from "./ExamRulesLobby";
 import s from "./ExamCenter.module.css";
 
 type Dashboard = Awaited<ReturnType<typeof dashboard>>;
@@ -78,11 +79,34 @@ export default function ExamCatalog({ data, review, level, search, source, go, l
   </>;
 }
 
-export function ExamIntroduction({ paper, onStart, onBack, busy }: { paper: Paper; onStart: () => void; onBack: () => void; busy: boolean }) {
-  const [accepted, setAccepted] = useState(false);
-  return <section className={`${s.panel} ${s.introduction}`} aria-label="Giới thiệu và quy chế thi"><button className={s.textButton} onClick={onBack}>← Danh sách đề thi</button><small>{levelLabel(paper.level)} · {paper.source === "CUSTOM" ? "Đề tùy chỉnh của bạn" : "Đề mô phỏng do Admin xuất bản"}</small><h1>{paper.title}</h1><p>{paper.description}</p><div className={s.introFacts}><span><Layers />{paper.questionsCount} câu</span><span><Clock />{paper.mode === "PRACTICE" ? `Luyện tập · gợi ý ${paper.durationMin} phút` : `${paper.durationMin} phút`}</span><span><Trophy />{paper.maxScore} điểm</span><span><Headphones />{paper.skills.map(key => skillNames[key]).join(" · ")}</span></div>
-    {paper.source === "CUSTOM" && <div className={s.configSummary}><h2>Cấu hình đề cá nhân</h2><p>Chế độ: {paper.mode === "EXAM" ? "Thi mô phỏng có đếm ngược" : "Luyện tập không giới hạn thời gian"}</p><p>Số câu: {paper.customConfig?.count ?? paper.questionsCount} · Kỹ năng: {(paper.customConfig?.skills || paper.skills).map(key => skillNames[key]).join(" · ")}</p>{paper.customConfig && <p>Dạng bài: {paper.customConfig.types.map(key => typeNames[key] || key).join(" · ")}</p>}</div>}
-    <h2>Quy chế & lưu ý làm bài</h2><ul><li>Bài làm tự lưu theo tài khoản. Bạn có thể quay lại đúng lượt thi đang làm.</li><li>{paper.mode === "EXAM" ? "Đồng hồ tính theo máy chủ và vẫn chạy khi đóng tab. Hết giờ, hệ thống chấm phần trả lời đã lưu." : "Chế độ luyện tập không có đồng hồ kết thúc; thời gian trên đề là gợi ý."}</li><li>Điểm chỉ tính sau khi nộp. Câu viết, dịch hoặc nói cần chấm tay sẽ hiển thị chờ chấm khi phù hợp.</li><li>Tránh mở cùng một bài trên nhiều tab để không ghi đè câu trả lời.</li></ul><p>{paper.passScore === null ? "Đề chưa có ngưỡng đạt tự động. HSK 7–9 dùng quy tắc phân loại riêng khi được cấu hình." : `Mốc mục tiêu của đề: ≥ ${paper.passScore} / ${paper.maxScore} điểm.`}</p><label className={s.acceptRules}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />Tôi đã đọc quy chế và sẵn sàng làm bài</label><button className={s.primary} disabled={!accepted || !paper.available || busy} onClick={onStart}>{busy ? "Đang mở…" : "Vào làm bài"}<ArrowRight size={17} /></button>{!paper.available && <p role="alert">Đề chưa đủ cấu hình để mở thi.</p>}</section>;
+export function ExamIntroduction({
+  paper,
+  onStart,
+  onBack,
+  busy,
+  blueprint,
+  activeAttempt,
+  onContinueAttempt,
+}: {
+  paper: Paper;
+  onStart: () => void;
+  onBack: () => void;
+  busy: boolean;
+  blueprint?: Dashboard["blueprints"][number];
+  activeAttempt?: Dashboard["attempts"][number] | null;
+  onContinueAttempt?: (attemptId: string) => void;
+}) {
+  return (
+    <ExamRulesLobby
+      paper={paper}
+      blueprint={blueprint}
+      activeAttempt={activeAttempt}
+      onStart={onStart}
+      onContinueAttempt={onContinueAttempt}
+      onBack={onBack}
+      busy={busy}
+    />
+  );
 }
 
 export function ScoreTrend({ history }: { history: History }) {

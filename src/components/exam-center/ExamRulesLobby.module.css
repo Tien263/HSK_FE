@@ -1,0 +1,846 @@
+/* Exam Rules Lobby - Khớp 100% Ảnh Mẫu Cổ Phong Thủy Mặc */
+
+.pageWrapper {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background-color: #f4f6ee;
+  background-image:
+    linear-gradient(180deg, rgba(244, 246, 238, 0.2) 0%, rgba(244, 246, 238, 0.55) 260px, rgba(244, 246, 238, 0.9) 600px, #f4f6ee 100%),
+    url('/theme/exam-shanshui-depth.png');
+  background-size: 100% 100%, 1280px auto;
+  background-position: top center, top right;
+  background-repeat: no-repeat;
+  color: #273e2b;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Decorative Hanging Bamboo Branch in Top Left Corner (Khớp Ảnh Mẫu) */
+.topBambooDecor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 190px;
+  height: 250px;
+  background: url('/theme/clean-bamboo-branch.svg') top left / contain no-repeat;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* =========================================================================
+    TOP NAVIGATION BAR
+   ========================================================================= */
+.topNav {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px clamp(18px, 4vw, 56px);
+  background: rgba(253, 254, 250, 0.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(216, 225, 208, 0.7);
+}
+
+.brandCluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bambooLogo {
+  color: #3b6133;
+  display: flex;
+  align-items: center;
+}
+
+.brandTexts {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandEn {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e3621;
+  line-height: 1.2;
+}
+
+.brandZh {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #5c6f52;
+  line-height: 1.2;
+}
+
+.navTabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navTabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  background: transparent;
+  color: #4b6144;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.navTabBtn:hover {
+  background: rgba(226, 235, 218, 0.6);
+  color: #223c21;
+}
+
+.navTabActive {
+  background: #2b5735 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(43, 87, 53, 0.25);
+}
+
+.navRightCluster {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: #ffffff;
+  border: 1px solid #d5decb;
+  border-radius: 20px;
+  width: 240px;
+}
+
+.searchIcon {
+  color: #8b9b82;
+  flex-shrink: 0;
+}
+
+.searchInput {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  color: #2b4428;
+  width: 100%;
+}
+
+.searchInput::placeholder {
+  color: #92a289;
+}
+
+.bellBtn {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: #486041;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.redDot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d64527;
+}
+
+.avatarWrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.avatarImg {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid #a8c199;
+  object-fit: cover;
+}
+
+.avatarChevron {
+  color: #556c4e;
+}
+
+/* =========================================================================
+    MAIN INNER CONTAINER
+   ========================================================================= */
+.innerContent {
+  position: relative;
+  z-index: 2;
+  max-width: 1320px;
+  width: calc(100% - 40px);
+  margin: 16px auto 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Breadcrumb Navigation */
+.breadcrumbBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #72866b;
+}
+
+.crumbLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #556c4e;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.crumbLink:hover {
+  text-decoration: underline;
+  color: #264024;
+}
+
+.crumbSep {
+  color: #9ab092;
+  user-select: none;
+}
+
+.crumbText {
+  color: #5d7455;
+}
+
+.crumbActive {
+  font-weight: 600;
+  color: #243e23;
+}
+
+/* Title Block */
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.examBadge {
+  align-self: flex-start;
+  padding: 4px 14px;
+  border-radius: 16px;
+  background: #e2ecd9;
+  border: 1px solid #c9dac0;
+  color: #3b5a34;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mainTitle {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: clamp(34px, 3.8vw, 46px);
+  font-weight: 700;
+  color: #1a341e;
+  margin: 2px 0 0;
+  line-height: 1.15;
+}
+
+.subtitleLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inkLine {
+  width: 46px;
+  height: 2px;
+  background: #395c32;
+  border-radius: 1px;
+}
+
+.subtitleText {
+  font-size: 13px;
+  color: #617757;
+}
+
+/* =========================================================================
+    STATS BAR (SINGLE UNIFIED GLASS CONTAINER)
+   ========================================================================= */
+.statsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 36px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(218, 228, 210, 0.85);
+  border-radius: 18px;
+  box-shadow: 0 3px 12px rgba(40, 60, 35, 0.04);
+}
+
+.statUnit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statIconBox {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eef4e8;
+  color: #3e6334;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statBigText {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f3721;
+}
+
+.statColText {
+  display: flex;
+  flex-direction: column;
+}
+
+.statSubText {
+  font-size: 11px;
+  color: #73886b;
+  margin-top: 1px;
+}
+
+/* =========================================================================
+    ROW 1: 3-COLUMN GRID
+   ========================================================================= */
+.topGridRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+/* Common Glass Card */
+.glassCard {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(216, 226, 208, 0.85);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 14px rgba(40, 62, 36, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #203922;
+  margin: 0 0 14px 0;
+}
+
+.cardHead svg {
+  color: #3e6835;
+}
+
+.cardIntroText {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #556c4f;
+  margin: 0 0 14px 0;
+}
+
+/* 01. Info Points */
+.infoPointList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.infoPoint {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #395233;
+}
+
+.pointIcon {
+  color: #547847;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* 02. Structure Table */
+.structureTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.structureTable th {
+  background: #eef3e8;
+  color: #3f5d37;
+  font-weight: 600;
+  padding: 9px 12px;
+  border-bottom: 1px solid #d8e3cc;
+  text-align: left;
+}
+
+.structureTable th:nth-child(2),
+.structureTable th:nth-child(3),
+.structureTable td:nth-child(2),
+.structureTable td:nth-child(3) {
+  text-align: center;
+}
+
+.structureTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5ecd9;
+  color: #344d2d;
+}
+
+.sectionNameCell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #2b4725;
+}
+
+.sectionNameCell svg {
+  color: #527546;
+}
+
+.totalTableRow td {
+  background: #f1f7eb;
+  font-weight: 700;
+  color: #1f3a1f;
+  border-bottom: none;
+}
+
+/* 03. Device Status Lines */
+.deviceStatusLines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.deviceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.deviceLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b6244;
+}
+
+.deviceLabel svg {
+  color: #547746;
+}
+
+.tagReady {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: #e5f3dc;
+  border: 1px solid #badbaa;
+  color: #2c5e26;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tagWaiting {
+  font-size: 11px;
+  color: #8c9b83;
+  background: #f0f2eb;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.deviceSummaryBanner {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.bannerReady {
+  background: #eaf5e3;
+  border: 1px solid #b8ddaa;
+  color: #285422;
+}
+
+.bannerWaiting {
+  background: #f7f9f2;
+  border: 1px solid #dce4d2;
+  color: #63765c;
+}
+
+/* =========================================================================
+    ROW 2: 2-COLUMN GRID (RULES ON LEFT | INTERACTIVE TESTS ON RIGHT)
+   ========================================================================= */
+.middleGridRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+/* Rules Stack */
+.rulesListStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ruleLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #3b5435;
+}
+
+.ruleIcon {
+  color: #527546;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Interactive Device Tests Stack */
+.interactiveTestsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.interactiveRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #f8faf4;
+  border: 1px solid #e1e9d8;
+  border-radius: 12px;
+}
+
+.interactiveLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2f492a;
+  min-width: 170px;
+}
+
+.interactiveLabel svg {
+  color: #4a703f;
+}
+
+/* Audio Mini Bar */
+.audioMiniBar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #d7e2cb;
+  border-radius: 20px;
+}
+
+.miniPlayBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #2b5735;
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.miniTime {
+  font-size: 11px;
+  color: #64785b;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.miniWaveTrack {
+  flex: 1;
+  height: 4px;
+  background: #d8e2cf;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.miniWaveFill {
+  height: 100%;
+  background: #3e6835;
+  transition: width 0.15s ease-out;
+}
+
+.miniSpeaker {
+  color: #6e8464;
+  flex-shrink: 0;
+}
+
+.checkBtn {
+  padding: 6px 16px;
+  border-radius: 14px;
+  border: 1px solid #b6ccab;
+  background: #e5f0dc;
+  color: #2b5025;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.checkBtn:hover:not(:disabled) {
+  background: #d4e7c7;
+}
+
+.statusPillMiddle {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2f5c29;
+}
+
+.imeTypingInput {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #c8d6be;
+  background: #ffffff;
+  font-size: 13px;
+  color: #223c21;
+  outline: none;
+}
+
+.imeTypingInput:focus {
+  border-color: #4a743b;
+  box-shadow: 0 0 0 2px rgba(74, 116, 59, 0.15);
+}
+
+/* =========================================================================
+    ROW 3: FULL WIDTH CONFIRMATION CARD (5. XÁC NHẬN THAM GIA)
+   ========================================================================= */
+.bottomConfirmCard {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(216, 226, 208, 0.85);
+  border-radius: 18px;
+  padding: 22px 28px;
+  box-shadow: 0 4px 14px rgba(40, 62, 36, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.confirmLeftCol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkboxStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #364f32;
+  cursor: pointer;
+}
+
+.checkRow input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2b5735;
+  cursor: pointer;
+}
+
+.confirmRightCol {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.resumeBigBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 22px;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1.5px solid #84a974;
+  color: #2c5427;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.resumeBigBtn:hover {
+  background: #eef5e7;
+}
+
+.startBigPillBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 38px;
+  border-radius: 28px;
+  background: #2b5735;
+  color: #ffffff;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(43, 87, 53, 0.3);
+  transition: all 0.18s;
+}
+
+.startBigPillBtn:hover:not(:disabled) {
+  background: #204529;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(43, 87, 53, 0.38);
+}
+
+.startBigPillBtn:disabled {
+  background: #c3cfbe;
+  color: #798b76;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.8;
+}
+
+/* =========================================================================
+    RESPONSIVE MEDIA QUERIES
+   ========================================================================= */
+@media (max-width: 1100px) {
+  .topGridRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .topGridRow > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .middleGridRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .statsBar {
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topNav {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .navTabs {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .navTabBtn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .topGridRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bottomConfirmCard {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .confirmRightCol {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .startBigPillBtn,
+  .resumeBigBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .interactiveRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .interactiveLabel {
+    min-width: 0;
+  }
+}
