@@ -85,6 +85,17 @@ export async function POST(request: Request) {
         );
       }
 
+      const cfg = getSmtpConfig();
+      if (cfg.authType === "RESEND" && (!cfg.resendApiKey || !cfg.resendApiKey.startsWith("re_"))) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Chưa có Resend API Key hợp lệ! Vui lòng dán mã re_... vào ô Resend API Key và bấm 'Lưu cấu hình' trước khi gửi thử.",
+          },
+          { status: 400 }
+        );
+      }
+
       const testResult = await testSmtpConnection(recipient);
       if (testResult.sent) {
         return NextResponse.json({
