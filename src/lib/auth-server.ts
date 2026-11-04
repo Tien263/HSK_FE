@@ -53,3 +53,26 @@ export async function requireAdmin(
   }
   return { ok: true, user };
 }
+
+/**
+ * Kiểm tra bắt buộc đã đăng nhập (bất kể role STUDENT, TEACHER, ADMIN)
+ */
+export async function requireAuth(
+  request: Request
+): Promise<{ ok: true; user: AuthUser } | { ok: false; response: NextResponse; user: null }> {
+  const user = await getAuthUser(request);
+  if (!user || user.status !== "ACTIVE") {
+    return {
+      ok: false,
+      user: null,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Vui lòng đăng nhập để tiếp tục.",
+        },
+        { status: 401 }
+      ),
+    };
+  }
+  return { ok: true, user };
+}

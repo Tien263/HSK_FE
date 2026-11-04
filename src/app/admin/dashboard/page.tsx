@@ -10,6 +10,7 @@ import AdminSeoSettings from "@/components/admin/AdminSeoSettings";
 import AdminPlacementTestSettings from "@/components/admin/AdminPlacementTestSettings";
 import AdminBrandingSettings from "@/components/admin/AdminBrandingSettings";
 import AdminGuideEditor from "@/components/admin/AdminGuideEditor";
+import AdminSepayWorkspace from "@/components/admin/AdminSepayWorkspace";
 import StudentAnalyticsModal from "@/components/admin/StudentAnalyticsModal";
 import AvatarUpload from "@/components/common/AvatarUpload";
 import {
@@ -38,6 +39,8 @@ import {
   LogOut,
   ExternalLink,
   ChevronDown,
+  ChevronRight,
+  ChevronUp,
   X,
   Sparkles,
   Server,
@@ -57,6 +60,13 @@ import {
   Menu,
   Palette,
   Eye,
+  CreditCard,
+  QrCode,
+  Package,
+  History,
+  Layers,
+  FolderOpen,
+  Folder,
 } from "lucide-react";
 import LiveExamProctorMonitor from "@/components/teacher/LiveExamProctorMonitor";
 
@@ -139,11 +149,48 @@ export default function AdminDashboardPage() {
     | "profile"
     | "branding"
     | "guide_editor"
+    | "sepay"
   >("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [runningDiagnostics, setRunningDiagnostics] = useState(false);
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
   const [analyticsUserId, setAnalyticsUserId] = useState<string | null>(null);
+
+  // Accordion Expand / Collapse State for Parent Navigation Groups (Tab lớn)
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    group_overview: true,
+    group_commerce: true,
+    group_education: true,
+    group_students: true,
+    group_system: false,
+  });
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
+
+  const expandAllGroups = () => {
+    setExpandedGroups({
+      group_overview: true,
+      group_commerce: true,
+      group_education: true,
+      group_students: true,
+      group_system: true,
+    });
+  };
+
+  const collapseAllGroups = () => {
+    setExpandedGroups({
+      group_overview: false,
+      group_commerce: false,
+      group_education: false,
+      group_students: false,
+      group_system: false,
+    });
+  };
 
   // Admin Profile & Security State
   const [adminName, setAdminName] = useState("");
@@ -163,7 +210,21 @@ export default function AdminDashboardPage() {
     const url = new URL(window.location.href);
     url.hash = tab;
     window.history.replaceState(null, "", url);
+
+    // Auto expand parent group if it was collapsed
+    if (tab === "overview" || tab === "profile") {
+      setExpandedGroups((p) => ({ ...p, group_overview: true }));
+    } else if (tab === "sepay") {
+      setExpandedGroups((p) => ({ ...p, group_commerce: true }));
+    } else if (["curriculum", "roadmap", "tests", "guide_editor"].includes(tab)) {
+      setExpandedGroups((p) => ({ ...p, group_education: true }));
+    } else if (["users", "proctor"].includes(tab)) {
+      setExpandedGroups((p) => ({ ...p, group_students: true }));
+    } else if (["ai", "branding", "seo", "smtp", "otp"].includes(tab)) {
+      setExpandedGroups((p) => ({ ...p, group_system: true }));
+    }
   }
+
   useEffect(() => {
     const sync = () => {
       const tab = window.location.hash.slice(1);
@@ -182,9 +243,10 @@ export default function AdminDashboardPage() {
           "profile",
           "branding",
           "guide_editor",
+          "sepay",
         ].includes(tab)
       ) {
-        setActiveTab(tab as typeof activeTab);
+        selectAdminTab(tab as typeof activeTab);
       }
     };
     const timer = setTimeout(sync, 0);
@@ -986,63 +1048,166 @@ export default function AdminDashboardPage() {
             <X size={18} />
           </button>
         </div>
-        <nav className="relative flex-1 space-y-4 px-3 overflow-y-auto">
+        {/* Quick Expand / Collapse Control */}
+        <div className="flex items-center justify-between px-4 pb-2 text-[10px] font-bold text-[#8F6D3B] uppercase tracking-wider">
+          <span>Danh mục quản trị</span>
+          <div className="flex items-center gap-1.5 lowercase font-normal">
+            <button
+              type="button"
+              onClick={expandAllGroups}
+              className="text-[#526c50] hover:text-[#204434] hover:underline cursor-pointer"
+              title="Mở rộng tất cả các danh mục"
+            >
+              mở hết
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={collapseAllGroups}
+              className="text-[#526c50] hover:text-[#204434] hover:underline cursor-pointer"
+              title="Thu nhỏ tất cả các danh mục"
+            >
+              thu nhỏ
+            </button>
+          </div>
+        </div>
+
+        <nav className="relative flex-1 space-y-2 px-3 overflow-y-auto">
           {[
             {
-              groupTitle: "Báo cáo & Tổng quan",
+              id: "group_overview",
+              groupTitle: "Tổng quan & Hồ sơ",
+              icon: BarChart3,
               items: [
                 { id: "overview", label: "Bảng điều khiển KPIs", icon: BarChart3 },
+                { id: "profile", label: "Hồ sơ Quản trị viên", icon: User },
               ],
             },
             {
-              groupTitle: "Quản trị Dạy & Học",
+              id: "group_commerce",
+              groupTitle: "Thương mại & SePay",
+              icon: CreditCard,
+              badge: "VietQR",
               items: [
-                { id: "users", label: "Học viên & Giáo viên", icon: Users },
-                { id: "proctor", label: "Giám sát thi AI (Live)", icon: ShieldAlert },
+                { id: "sepay", label: "Cổng SePay & Gói học", icon: QrCode, badge: "Tự động" },
+              ],
+            },
+            {
+              id: "group_education",
+              groupTitle: "Quản trị Đào tạo",
+              icon: GraduationCap,
+              items: [
                 { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
                 { id: "roadmap", label: "Lộ trình tự học", icon: Compass },
                 { id: "tests", label: "Đề khảo sát đầu vào", icon: HelpCircle },
-              ],
-            },
-            {
-              groupTitle: "Giao diện & Nội dung (No-Code)",
-              items: [
-                { id: "branding", label: "Đổi Icon App & Ảnh SEO", icon: Palette },
                 { id: "guide_editor", label: "Quản lý Cẩm nang /guide", icon: BookOpen },
               ],
             },
             {
-              groupTitle: "Hệ thống & Kỹ thuật",
+              id: "group_students",
+              groupTitle: "Học vụ & Giám sát",
+              icon: Users,
               items: [
-                { id: "seo", label: "Cấu hình SEO & Google", icon: Globe },
-                { id: "ai", label: "Trợ lý AI Gemini", icon: Sparkles },
-                { id: "smtp", label: "Cấu hình Email & SMTP", icon: Server },
-                { id: "otp", label: "Lịch sử mã OTP", icon: Mail },
-                { id: "profile", label: "Hồ sơ Quản trị viên", icon: User },
+                { id: "users", label: "Học viên & Giáo viên", icon: Users },
+                { id: "proctor", label: "Giám sát thi AI (Live)", icon: ShieldAlert, badge: "AI Live" },
               ],
             },
-          ].map((group, gIdx) => (
-            <div key={gIdx} className="space-y-1">
-              <div className="px-3 py-1 text-[10px] font-bold tracking-wider text-[#8F6D3B] uppercase">
-                {group.groupTitle}
-              </div>
-              {group.items.map(({ id, label, icon: Icon }) => (
+            {
+              id: "group_system",
+              groupTitle: "Hệ thống & Cài đặt",
+              icon: Settings,
+              items: [
+                { id: "ai", label: "Trợ lý AI Gemini & Doubao", icon: Sparkles },
+                { id: "branding", label: "Đổi Icon App & Ảnh SEO", icon: Palette },
+                { id: "seo", label: "Cấu hình SEO & Google", icon: Globe },
+                { id: "smtp", label: "Cấu hình Email & SMTP", icon: Server },
+                { id: "otp", label: "Lịch sử mã OTP", icon: Mail },
+              ],
+            },
+          ].map((group) => {
+            const GroupIcon = group.icon;
+            const isExpanded = expandedGroups[group.id] ?? true;
+            const hasActiveChild = group.items.some((item) => item.id === activeTab);
+
+            return (
+              <div key={group.id} className="rounded-2xl transition bg-white/40 border border-[#D7C9AB]/30 overflow-hidden">
+                {/* TAB LỚN: Bấm để mở ra hoặc thu nhỏ các tab con */}
                 <button
-                  key={id}
-                  onClick={() => selectAdminTab(id as any)}
-                  aria-current={activeTab === id ? "page" : undefined}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition cursor-pointer ${
-                    activeTab === id
-                      ? "bg-[#204434] text-white shadow-sm font-bold"
-                      : "text-[#526c50] hover:bg-[#204434]/5"
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  className={`flex w-full items-center justify-between px-3 py-2.5 text-left transition cursor-pointer select-none ${
+                    hasActiveChild
+                      ? "bg-[#204434]/10 text-[#204434] font-bold"
+                      : "text-[#1A3D2F] hover:bg-[#204434]/5 font-semibold"
                   }`}
+                  aria-expanded={isExpanded}
                 >
-                  <Icon size={16} className={activeTab === id ? "text-[#BC9B6B]" : "text-[#526c50]"} />
-                  <span className="truncate">{label}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+                        hasActiveChild ? "bg-[#204434] text-white shadow-2xs" : "bg-[#BC9B6B]/20 text-[#8F6D3B]"
+                      }`}
+                    >
+                      <GroupIcon size={15} />
+                    </div>
+                    <span className="truncate text-xs">{group.groupTitle}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {group.badge && (
+                      <span className="rounded-full bg-amber-500/20 text-amber-800 font-bold px-1.5 py-0.2 text-[9px]">
+                        {group.badge}
+                      </span>
+                    )}
+                    <span className="rounded-md bg-zinc-200/60 px-1.5 py-0.2 text-[10px] text-zinc-600 font-medium">
+                      {group.items.length}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={`text-[#8F6D3B] transition-transform duration-200 ${
+                        isExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
                 </button>
-              ))}
-            </div>
-          ))}
+
+                {/* TAB NHỎ: Danh sách các tính năng con bên trong */}
+                {isExpanded && (
+                  <div className="space-y-1 p-2 pt-1 border-t border-[#D7C9AB]/20 bg-white/70">
+                    {group.items.map(({ id, label, icon: Icon, badge }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => selectAdminTab(id as any)}
+                        aria-current={activeTab === id ? "page" : undefined}
+                        className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs transition cursor-pointer ${
+                          activeTab === id
+                            ? "bg-[#204434] text-white shadow-xs font-bold"
+                            : "text-[#526c50] hover:bg-[#204434]/5 font-medium"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Icon size={14} className={activeTab === id ? "text-[#BC9B6B]" : "text-[#526c50]"} />
+                          <span className="truncate">{label}</span>
+                        </div>
+                        {badge && (
+                          <span
+                            className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold ${
+                              activeTab === id
+                                ? "bg-white/20 text-white"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            {badge}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <div className="my-5 border-t border-[#D7C9AB]/60" />
           <Link
             href="/admin/dictionary"
@@ -1230,7 +1395,7 @@ export default function AdminDashboardPage() {
         </section>
 
         {/* KPI Stats Grid */}
-        <section className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 ${activeTab === "curriculum" ? "hidden" : ""}`}>
+        <section className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 ${activeTab === "curriculum" || activeTab === "sepay" ? "hidden" : ""}`}>
           <div className="bg-[#FFFCF6] p-4 rounded-2xl border border-[#BC9B6B]/25 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-[#315E48] font-medium">
               <span>Tổng tài khoản</span>
@@ -1310,6 +1475,18 @@ export default function AdminDashboardPage() {
             >
               <BarChart3 className="w-4 h-4" />
               <span>Tổng quan KPIs</span>
+            </button>
+
+            <button
+              onClick={() => selectAdminTab("sepay")}
+              className={`px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === "sepay"
+                  ? "bg-[#204434] text-[#FFFCF6] shadow-md shadow-[#204434]/20"
+                  : "bg-[#FFFCF6] text-[#315E48] hover:bg-[#204434]/10 border border-[#BC9B6B]/20"
+              }`}
+            >
+              <CreditCard className="w-4 h-4 text-amber-500" />
+              <span>Cổng SePay (VietQR)</span>
             </button>
 
             <button
@@ -3012,6 +3189,11 @@ export default function AdminDashboardPage() {
         {/* TAB: GIAO DIỆN, THƯƠNG HIỆU & ĐỔI ẢNH NO-CODE */}
         {activeTab === "branding" && (
           <AdminBrandingSettings />
+        )}
+
+        {/* TAB: CỔNG THANH TOÁN TỰ ĐỘNG SEPAY & GÓI HỌC THƯƠNG MẠI */}
+        {activeTab === "sepay" && (
+          <AdminSepayWorkspace />
         )}
 
         {/* TAB: QUẢN LÝ CẨM NANG HƯỚNG DẪN (/guide) */}

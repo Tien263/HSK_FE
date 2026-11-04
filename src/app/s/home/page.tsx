@@ -63,6 +63,7 @@ import AncientSideDrawerNotes from "@/components/student/AncientSideDrawerNotes"
 import VirtualStudyRoomModal from "@/components/student/VirtualStudyRoomModal";
 import StudentSelfStudyWorkspace from "@/components/student/StudentSelfStudyWorkspace";
 import StreakGuardianModal from "@/components/student/StreakGuardianModal";
+import UpgradePackageModal from "@/components/student/UpgradePackageModal";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
@@ -157,6 +158,7 @@ export default function StudentHomePage() {
 
   // Settings & Notification State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
   const [showStreakGuardianModal, setShowStreakGuardianModal] = useState(false);
   const [showVocabNotebookModal, setShowVocabNotebookModal] = useState(false);
@@ -918,7 +920,25 @@ export default function StudentHomePage() {
               <span>Kết quả học tập</span>
             </button>
 
-            {/* 8. Hồ sơ & Cài đặt */}
+            {/* 8. Nâng cấp VIP & Mua gói học */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowUpgradeModal(true);
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-600/15 border border-amber-300 text-amber-900 hover:border-amber-500 hover:shadow-xs transition cursor-pointer text-left group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0 group-hover:rotate-12 transition-transform" />
+                <span className="font-bold text-xs text-[#1A3D2F]">Nâng cấp VIP / Gói học</span>
+              </div>
+              <span className="rounded-full bg-amber-500 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-2xs">
+                Mới
+              </span>
+            </button>
+
+            {/* 9. Hồ sơ & Cài đặt */}
             <button
               type="button"
               onClick={() => {
@@ -1441,8 +1461,8 @@ export default function StudentHomePage() {
                 );
               })()}
 
-              {/* QUICK ACTIONS BAR: NHIỆM VỤ, SỔ TỪ VỰNG SRS, SỔ CÂU SAI, RADAR NĂNG LỰC */}
-              <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* QUICK ACTIONS BAR: NHIỆM VỤ, SỔ TỪ VỰNG SRS, SỔ CÂU SAI, RADAR NĂNG LỰC, NÂNG CẤP VIP */}
+              <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <button
                   type="button"
                   onClick={() => setShowDailyQuestsModal(true)}
@@ -1497,6 +1517,20 @@ export default function StudentHomePage() {
                     <div className="text-xs text-indigo-900 font-semibold mt-0.5">Dự đoán tỷ lệ đỗ HSK</div>
                   </div>
                   <span className="text-base group-hover:scale-110 transition">📈</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-400/20 to-amber-600/15 border border-amber-300 hover:border-amber-500 hover:shadow-sm text-left transition group cursor-pointer flex items-center justify-between col-span-2 sm:col-span-1"
+                >
+                  <div>
+                    <div className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+                      <span>💎 Nâng cấp VIP</span>
+                    </div>
+                    <div className="text-xs text-amber-800 font-semibold mt-0.5">Quét QR SePay 24/7</div>
+                  </div>
+                  <span className="text-base group-hover:scale-110 transition">👑</span>
                 </button>
               </section>
 
@@ -3187,6 +3221,20 @@ export default function StudentHomePage() {
         studentName={studentName || currentUser?.name || "Bạn"}
         initialHskLevel={selfStudyHskLevel || 1}
         initialLessonNumber={selectedScrollLesson || 1}
+      />
+
+      {/* Modal Nâng Cấp Gói Học & Quét Mã QR SePay (VietQR) */}
+      <UpgradePackageModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSuccess={(sub) => {
+          if (currentUser) {
+            setCurrentUser({
+              ...currentUser,
+              dailyAiQuota: Math.max(currentUser.dailyAiQuota || 5, sub.dailyAiQuota),
+            });
+          }
+        }}
       />
     </div>
   );
