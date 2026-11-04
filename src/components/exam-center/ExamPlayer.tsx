@@ -41,17 +41,19 @@ import s from "./ExamPlayer.module.css";
 type View = ReturnType<typeof attemptForOwner>;
 
 export default function ExamPlayer({
-  id,
-  userId,
+  id = "",
+  userId = "preview_user",
   onBack,
-  onChanged,
-  registerLeave,
+  onChanged = () => {},
+  registerLeave = () => {},
+  previewAttempt,
 }: {
-  id: string;
-  userId: string;
+  id?: string;
+  userId?: string;
   onBack: () => void;
-  onChanged: () => void;
-  registerLeave: (fn: (() => Promise<void>) | null) => void;
+  onChanged?: () => void;
+  registerLeave?: (fn: (() => Promise<void>) | null) => void;
+  previewAttempt?: View;
 }) {
   const [attempt, setAttempt] = useState<View | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -113,28 +115,30 @@ export default function ExamPlayer({
     [storageKey]
   );
 
-  const load = useCallback(
-    () =>
-      attemptApi<View>(id)
-        .then((data) => {
-          receive(data, true);
-          setError("");
-          setConflict(false);
-          timeSubmitted.current = false;
-          try {
-            const cached = JSON.parse(localStorage.getItem(storageKey) || "null");
-            if (
-              data.status === "IN_PROGRESS" &&
-              cached?.answers &&
-              JSON.stringify(cached.answers) !== JSON.stringify(data.answers)
-            ) {
-              setDraft(cached.answers);
-            }
-          } catch {}
-        })
-        .catch((err) => setError((err as Error).message)),
-    [id, receive, storageKey]
-  );
+  const load = useCallback(() => {
+    if (previewAttempt) {
+      receive(previewAttempt, true);
+      return Promise.resolve();
+    }
+    return attemptApi<View>(id)
+      .then((data) => {
+        receive(data, true);
+        setError("");
+        setConflict(false);
+        timeSubmitted.current = false;
+        try {
+          const cached = JSON.parse(localStorage.getItem(storageKey) || "null");
+          if (
+            data.status === "IN_PROGRESS" &&
+            cached?.answers &&
+            JSON.stringify(cached.answers) !== JSON.stringify(data.answers)
+          ) {
+            setDraft(cached.answers);
+          }
+        } catch {}
+      })
+      .catch((err) => setError((err as Error).message));
+  }, [id, previewAttempt, receive, storageKey]);
 
   useEffect(() => {
     void load();
@@ -147,6 +151,23 @@ export default function ExamPlayer({
 
   const persist = useCallback(
     (submit = false) => {
+      if (previewAttempt) {
+        setSaveStatus("saving");
+        setTimeout(() => setSaveStatus("saved"), 250);
+        if (submit) {
+          setAttempt((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: "GRADED",
+                  score: prev.maxScore,
+                  submittedAt: new Date().toISOString(),
+                }
+              : null
+          );
+        }
+        return Promise.resolve();
+      }
       const task = queue.current
         .catch(() => {})
         .then(async () => {
@@ -179,12 +200,12 @@ export default function ExamPlayer({
       queue.current = task;
       return task;
     },
-    [id, onChanged, receive, storageKey]
+    [id, onChanged, previewAttempt, receive, storageKey]
   );
 
   useEffect(() => {
-    registerLeave(() => persist());
-    return () => registerLeave(null);
+    registerLeave?.(() => persist());
+    return () => registerLeave?.(null);
   }, [persist, registerLeave]);
 
   // Debounced auto-save

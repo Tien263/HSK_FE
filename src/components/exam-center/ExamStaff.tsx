@@ -1,12 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
   Clock,
+  Download,
   Eye,
   FileCheck2,
   FileText,
@@ -14,9 +15,11 @@ import {
   Image as ImageIcon,
   Layers,
   Mic,
+  Play,
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
   Trophy,
   Upload,
   X,
@@ -25,26 +28,13 @@ import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-serv
 import { EXAM_LEVELS, levelGroup, levelLabel } from "@/lib/exam-center-core";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
+import ExamPlayer from "./ExamPlayer";
+import { getSampleQuestionsForLevel, type ImportedQuestion } from "./hsk-sample-templates";
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamCenter.module.css";
 
 type Candidate = Awaited<ReturnType<typeof publicationCandidates>>[number];
 type Queue = Awaited<ReturnType<typeof gradingQueue>>;
-
-interface ImportedQuestion {
-  id: string;
-  type: string;
-  content: string;
-  skill: string;
-  points: number;
-  correctAnswer: string;
-  explanation: string;
-  options: { id: string; text?: string; imageUrl?: string }[];
-  audioUrl?: string;
-  imageUrl?: string;
-  pinyin?: string;
-  rubric?: string;
-}
 
 export default function ExamStaff({
   role,
@@ -71,6 +61,9 @@ export default function ExamStaff({
   const [authorPass, setAuthorPass] = useState<number | string>(180);
   const [jsonInput, setJsonInput] = useState("");
   const [previewPaper, setPreviewPaper] = useState<any | null>(null);
+  const [previewAttemptView, setPreviewAttemptView] = useState<any | null>(null);
+  const [previewStep, setPreviewStep] = useState<"lobby" | "player">("lobby");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync blueprint when level changes
   useEffect(() => {
@@ -99,75 +92,78 @@ export default function ExamStaff({
     return <p role="alert" className={s.error}>Chỉ Admin có quyền truy cập mục này.</p>;
   }
 
-  // Load official HSK 3.0 sample template
+  // Load official HSK 3.0 sample template from HSK3.0 directory
   const loadSampleTemplate = (lvl: number) => {
     const bp = examBlueprint.levels.find((l) => l.level === lvl);
-    const sampleQuestions: ImportedQuestion[] = [
-      {
-        id: "q1",
-        type: "listening_choice",
-        skill: "LISTENING",
-        content: "第 1 题：请听录音并选择正确的图片 (A-F)。",
-        points: 2,
-        correctAnswer: "B",
-        explanation: "Trong audio: 男：喂，请问张经理在吗？女：他正在开会，您半个小时以后再打，好吗？Đáp án là B (hình người nghe điện thoại).",
-        options: [
-          { id: "A", text: "Hình A: Bác sĩ trong bệnh viện", imageUrl: "/theme/hsk/hsk3_q1_a.png" },
-          { id: "B", text: "Hình B: Gọi điện thoại văn phòng", imageUrl: "/theme/hsk/hsk3_q1_b.png" },
-          { id: "C", text: "Hình C: Uống cà phê đọc sách", imageUrl: "/theme/hsk/hsk3_q1_c.png" },
-          { id: "D", text: "Hình D: Mua hoa quả ở chợ", imageUrl: "/theme/hsk/hsk3_q1_d.png" },
-        ],
-        audioUrl: `/HSK3.0/HSK/音频/HSK（${lvl === 1 ? "一" : lvl === 2 ? "二" : lvl === 3 ? "三" : lvl === 4 ? "四" : lvl === 5 ? "五" : lvl === 6 ? "六" : "七—九"}级）样卷.mp3`,
-      },
-      {
-        id: "q2",
-        type: "multiple_choice",
-        skill: "READING",
-        content: "那个年轻人刚来公司不久，很有工作热情，人也很聪明。\n问：关于那个年轻人，可以知道什么？",
-        points: 2,
-        correctAnswer: "A",
-        explanation: "Bài đọc nêu rõ: '人也很聪明' -> Chọn đáp án A.",
-        options: [
-          { id: "A", text: "很聪明" },
-          { id: "B", text: "是留学生" },
-          { id: "C", text: "爱踢足球" },
-        ],
-      },
-      {
-        id: "q3",
-        type: "sentence_order",
-        skill: "WRITING",
-        content: "请将下列词语排列成句：\n小狗 / 这只 / 非常 / 可爱",
-        points: 4,
-        correctAnswer: "这只 小狗 非常 可爱",
-        explanation: "Trật tự câu: [Chủ ngữ: 这只小狗] + [Phó từ: 非常] + [Tính từ: 可爱]。",
-        options: [
-          { id: "1", text: "这只" },
-          { id: "2", text: "小狗" },
-          { id: "3", text: "非常" },
-          { id: "4", text: "可爱" },
-        ],
-      },
-      {
-        id: "q4",
-        type: "fill_blank",
-        skill: "WRITING",
-        content: "请根据拼音写出汉字：\n今天天气很 (qíng) ______。",
-        points: 2,
-        correctAnswer: "晴",
-        pinyin: "qíng",
-        explanation: "Phiên âm qíng trong '天气很晴' tương ứng với chữ Hán '晴'.",
-        options: [],
-      },
-    ];
+    const sampleQuestions = getSampleQuestionsForLevel(lvl);
 
     setAuthorLevel(lvl);
-    setAuthorTitle(`Đề thi mẫu chuẩn HSK ${lvl} (CTI Hanban)`);
-    setAuthorDesc(`Đề thi mô phỏng chuẩn cấu trúc đề thật HSK 3.0 Cấp ${lvl}.`);
-    setAuthorDuration(bp?.durationMin || 83);
-    setAuthorPass(bp?.targetScore || 180);
+    setAuthorTitle(`Đề thi mẫu chuẩn ${levelLabel(lvl)} (CTI Hanban 样卷)`);
+    setAuthorDesc(`Đề thi mô phỏng chuẩn cấu trúc đề thật HSK 3.0 Cấp ${lvl} (CTI / Hanban).`);
+    setAuthorDuration(bp?.durationMin || (lvl === 1 ? 40 : lvl === 2 ? 60 : 83));
+    setAuthorPass(bp?.targetScore || (lvl <= 2 ? 120 : 180));
     setJsonInput(JSON.stringify(sampleQuestions, null, 2));
-    setMessage(`Đã nạp bộ câu hỏi mẫu chuẩn HSK ${lvl}. Bạn có thể bấm "Xem trước" để kiểm tra giao diện học sinh.`);
+    setMessage(`Đã nạp ${sampleQuestions.length} câu hỏi chuẩn HSK ${lvl} từ thư mục HSK3.0. Bấm "Xem trước" để kiểm tra giao diện học sinh.`);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) {
+          throw new Error("Tệp JSON phải chứa một danh sách các câu hỏi [ ... ].");
+        }
+        setJsonInput(JSON.stringify(parsed, null, 2));
+        setMessage(`Đã nạp thành công ${parsed.length} câu hỏi từ tệp "${file.name}". Bấm "Xem trước" để kiểm tra.`);
+        setError("");
+      } catch (err) {
+        setError(`Lỗi khi đọc tệp JSON: ${(err as Error).message}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleDownloadTemplate = () => {
+    try {
+      const sample = getSampleQuestionsForLevel(authorLevel);
+      const blob = new Blob([JSON.stringify(sample, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hsk${authorLevel}_sample_exam_template.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Không thể tải tệp mẫu.");
+    }
+  };
+
+  const handlePurgeOld = async () => {
+    if (
+      !window.confirm(
+        "BẠN CÓ CHẮC CHẮN MUỐN XÓA TOÀN BỘ CÁC ĐỀ THI MÔ PHỎNG CŨ VÀ DỌN SẠCH DỮ LIỆU KHÔNG?\n\n- Toàn bộ đề thi mô phỏng cũ sẽ bị xóa.\n- Tất cả lượt thi thử nghiệm cũ sẽ được làm sạch.\n\nSau khi xóa, bạn có thể nạp các bộ đề chuẩn HSK 3.0 mới nhất."
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await examApi<{ success: boolean; deletedSets: number; deletedLogs: number }>("purgeOldMockExams");
+      setMessage(`Đã dọn sạch kho đề! Đã xóa ${res.deletedSets} bộ đề cũ và ${res.deletedLogs} bản ghi lịch sử.`);
+      onChanged();
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handlePreview = () => {
@@ -178,25 +174,77 @@ export default function ExamStaff({
       setError("Cấu trúc JSON câu hỏi chưa đúng định dạng. Hãy kiểm tra lại dấu phẩy hoặc ngoặc kép.");
       return;
     }
+    if (!parsed.length) {
+      setError("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm nút nạp mẫu đề HSK 3.0 trước khi xem trước.");
+      return;
+    }
 
     const bp = examBlueprint.levels.find((l) => l.level === authorLevel);
+    const maxScore = parsed.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || bp?.maxScore || 300;
     const mockPaper = {
       id: "preview_paper_id",
       title: authorTitle,
       description: authorDesc,
       level: authorLevel,
-      source: "OFFICIAL",
+      source: "OFFICIAL" as const,
       durationMin: authorDuration,
-      maxScore: parsed.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || bp?.maxScore || 300,
+      maxScore,
       passScore: authorPass ? Number(authorPass) : null,
-      questionsCount: parsed.length || bp?.questionCount || 70,
+      questionsCount: parsed.length,
       skills: bp?.skills || ["LISTENING", "READING", "WRITING"],
-      mode: "EXAM",
+      mode: "EXAM" as const,
       available: true,
       questions: parsed,
     };
 
+    const mockAttempt = {
+      id: "preview_attempt_id",
+      paperId: "preview_paper_id",
+      paper: mockPaper,
+      title: authorTitle,
+      level: authorLevel,
+      source: "OFFICIAL",
+      durationMin: authorDuration,
+      maxScore,
+      passScore: authorPass ? Number(authorPass) : null,
+      questionsCount: parsed.length,
+      skills: mockPaper.skills,
+      mode: "EXAM",
+      status: "IN_PROGRESS",
+      startedAt: new Date().toISOString(),
+      submittedAt: null,
+      score: null,
+      revision: 1,
+      progress: 0,
+      answered: 0,
+      result: "UNSET",
+      remainingSec: authorDuration * 60,
+      expiresAt: new Date(Date.now() + authorDuration * 60000).toISOString(),
+      answers: {},
+      serverNow: new Date().toISOString(),
+      questions: parsed.map((q, idx) => ({
+        id: q.id || `q_${idx + 1}`,
+        type: q.type || "multiple_choice",
+        skill: q.skill || "READING",
+        content: q.content,
+        points: Number(q.points) || 1,
+        pinyin: q.pinyin || "",
+        audioUrl: q.audioUrl || "",
+        imageUrl: q.imageUrl || "",
+        options: Array.isArray(q.options)
+          ? q.options.map((opt: any, optIdx: number) => ({
+              id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),
+              text: typeof opt === "string" ? opt : opt?.text || opt?.content || "",
+              imageUrl: opt?.imageUrl || "",
+            }))
+          : [],
+        selectionMode: "SINGLE",
+      })),
+    };
+
     setPreviewPaper(mockPaper);
+    setPreviewAttemptView(mockAttempt);
+    setPreviewStep("lobby");
     setError("");
   };
 
@@ -210,7 +258,7 @@ export default function ExamStaff({
         parsed = JSON.parse(jsonInput);
       }
       if (!parsed.length) {
-        throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp đề mẫu HSK 3.0' trước khi lưu.");
+        throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
       }
 
       await examApi("importPaper", {
@@ -222,7 +270,7 @@ export default function ExamStaff({
         questions: parsed,
       });
 
-      setMessage("Đã chuyển hóa tài liệu và xuất bản đề thi thành công! Học sinh đã có thể vào thi.");
+      setMessage("Đã chuyển hóa tài liệu và xuất bản đề thi thành công! Học sinh đã có thể vào phòng thi làm bài.");
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -277,23 +325,76 @@ export default function ExamStaff({
       {/* VIEW: AUTHORING WORKSPACE */}
       {view === "authoring" && (
         <div style={{ display: "grid", gap: 24, marginTop: 20 }}>
-          {/* Preset Buttons for Quick Template Loading */}
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#375531" }}>
-              <Sparkles size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-              Nạp mẫu đề từ thư mục HSK3.0:
-            </span>
-            {EXAM_LEVELS.map((lvl) => (
+          {/* Action Toolbar */}
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, background: "#f8f9f4", padding: "12px 16px", borderRadius: 12, border: "1px solid #dce4cb" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#375531" }}>
+                <Sparkles size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                Nạp mẫu đề HSK 3.0:
+              </span>
+              {EXAM_LEVELS.map((lvl) => (
+                <button
+                  key={lvl}
+                  type="button"
+                  className={s.secondary}
+                  style={{ fontSize: 12, padding: "5px 10px", minHeight: 30 }}
+                  onClick={() => loadSampleTemplate(lvl)}
+                >
+                  {levelLabel(lvl)}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
               <button
-                key={lvl}
                 type="button"
                 className={s.secondary}
-                style={{ fontSize: 12, padding: "6px 12px", minHeight: 32 }}
-                onClick={() => loadSampleTemplate(lvl)}
+                style={{ fontSize: 12, padding: "6px 12px", minHeight: 32, display: "inline-flex", alignItems: "center", gap: 5 }}
+                onClick={handleDownloadTemplate}
+                title="Tải tệp mẫu JSON về máy tính để soạn thảo"
               >
-                {levelLabel(lvl)}
+                <Download size={14} /> Tải mẫu JSON cấp {authorLevel}
               </button>
-            ))}
+
+              <button
+                type="button"
+                className={s.secondary}
+                style={{ fontSize: 12, padding: "6px 12px", minHeight: 32, display: "inline-flex", alignItems: "center", gap: 5 }}
+                onClick={() => fileInputRef.current?.click()}
+                title="Tải tệp .json từ máy tính lên hệ thống"
+              >
+                <Upload size={14} /> Tải tệp JSON từ máy
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileUpload}
+                style={{ display: "none" }}
+              />
+
+              <button
+                type="button"
+                style={{
+                  fontSize: 12,
+                  padding: "6px 12px",
+                  minHeight: 32,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  background: "#fee2e2",
+                  color: "#991b1b",
+                  border: "1px solid #f87171",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  fontWeight: 600
+                }}
+                onClick={handlePurgeOld}
+                title="Xóa toàn bộ đề thi thử cũ và lịch sử bài làm"
+              >
+                <Trash2 size={14} /> Xóa tất cả đề cũ
+              </button>
+            </div>
           </div>
 
           {/* Form Configuration */}
@@ -365,7 +466,12 @@ export default function ExamStaff({
 
             {/* Questions JSON Data Editor */}
             <label>
-              Dữ liệu danh sách câu hỏi (JSON chuẩn HSK 3.0 với Audio, Ảnh và Lựa chọn)
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span>Dữ liệu danh sách câu hỏi (JSON chuẩn HSK 3.0)</span>
+                <small style={{ color: "#4f6e3c" }}>
+                  💡 File âm thanh chính thức đã có sẵn tại: <code>/HSK3.0/HSK/音频/HSK（{authorLevel === 1 ? "一" : authorLevel === 2 ? "二" : authorLevel === 3 ? "三" : authorLevel === 4 ? "四" : authorLevel === 5 ? "五" : authorLevel === 6 ? "六" : "七—九"}级）样卷.mp3</code>
+                </small>
+              </div>
               <textarea
                 style={{
                   fontFamily: "monospace",
@@ -457,6 +563,8 @@ export default function ExamStaff({
                     borderBottom: "1px solid #dce4cb",
                     paddingBottom: 14,
                     marginBottom: 16,
+                    flexWrap: "wrap",
+                    gap: 12,
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -473,37 +581,71 @@ export default function ExamStaff({
                       CHẾ ĐỘ XEM TRƯỚC ADMIN
                     </span>
                     <strong style={{ fontSize: 16, color: "#223824" }}>
-                      Giao diện Học sinh sẽ nhìn thấy khi làm bài này
+                      {previewStep === "lobby"
+                        ? "1. Giao diện Quy chế thi & Thiết bị (Lobby)"
+                        : "2. Giao diện Màn hình làm bài thi (ExamPlayer)"}
                     </strong>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewPaper(null)}
-                    style={{
-                      border: "none",
-                      background: "#e4ecdb",
-                      borderRadius: "50%",
-                      width: 36,
-                      height: 36,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      color: "#304d2b",
-                    }}
-                  >
-                    <X size={20} />
-                  </button>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className={s.filters} style={{ margin: 0 }}>
+                      <button
+                        type="button"
+                        aria-pressed={previewStep === "lobby"}
+                        onClick={() => setPreviewStep("lobby")}
+                        style={{ fontSize: 13, padding: "6px 14px" }}
+                      >
+                        Quy chế thi
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={previewStep === "player"}
+                        onClick={() => setPreviewStep("player")}
+                        style={{ fontSize: 13, padding: "6px 14px" }}
+                      >
+                        Làm bài thực tế
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPaper(null)}
+                      title="Đóng chế độ xem trước"
+                      style={{
+                        border: "none",
+                        background: "#e4ecdb",
+                        borderRadius: "50%",
+                        width: 36,
+                        height: 36,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        color: "#304d2b",
+                      }}
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Render the actual ExamRulesLobby inside Preview */}
-                <ExamRulesLobby
-                  paper={previewPaper}
-                  blueprint={examBlueprint.levels.find((b) => b.level === authorLevel)}
-                  onStart={() => alert("Đây là chế độ xem trước của Admin. Đề thi cấu trúc hoàn toàn chuẩn xác!")}
-                  onBack={() => setPreviewPaper(null)}
-                  busy={false}
-                />
+                {/* Render either ExamRulesLobby or ExamPlayer inside Preview */}
+                {previewStep === "lobby" ? (
+                  <ExamRulesLobby
+                    paper={previewPaper}
+                    blueprint={examBlueprint.levels.find((b) => b.level === authorLevel)}
+                    onStart={() => setPreviewStep("player")}
+                    onBack={() => setPreviewPaper(null)}
+                    busy={false}
+                  />
+                ) : (
+                  <div style={{ background: "#ffffff", borderRadius: 16, overflow: "hidden", padding: 12 }}>
+                    <ExamPlayer
+                      previewAttempt={previewAttemptView}
+                      onBack={() => setPreviewStep("lobby")}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}

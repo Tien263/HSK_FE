@@ -145,7 +145,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
        type:String(q.type||"multiple_choice"),
        content:String(q.content||`Câu ${idx+1}`),
        skill:String(q.skill||"READING"),
-       hskLevel:level,
+       level,
        correctAnswer:String(q.correctAnswer||""),
        explanation:String(q.explanation||""),
        options:Array.isArray(q.options)?JSON.stringify(q.options):typeof q.options==="string"?q.options:"[]",
@@ -174,6 +174,20 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   }
  });
  return {success:true,paperId:createdSet.id};
+}
+export async function purgeOldMockExams(user:AuthUser){
+ if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin có quyền xóa kho đề thi.");
+ const mockSets=await prisma.quizSet.findMany({where:{mode:"MOCK_EXAM"},select:{id:true}});
+ const mockIds=mockSets.map(s=>s.id);
+ if(mockIds.length>0){
+  await prisma.quizSetQuestion.deleteMany({where:{quizSetId:{in:mockIds}}});
+  await prisma.assignment.deleteMany({where:{quizSetId:{in:mockIds}}});
+  await prisma.quizSet.deleteMany({where:{id:{in:mockIds}}});
+ }
+ const deletedLogs=await prisma.auditLog.deleteMany({
+  where:{action:{in:[ATTEMPT,PAPER,PUBLICATION]}}
+ });
+ return {success:true,deletedSets:mockIds.length,deletedLogs:deletedLogs.count};
 }
 export async function reviewData(user:AuthUser){
  const [attempts,bookmark,legacy]=await Promise.all([ownAttempts(user),prisma.auditLog.findFirst({where:{id:`exam-review:${user.id}`,userId:user.id,action:REVIEW}}),prisma.wrongQuestion.findMany({where:{studentId:user.id,consecutiveRight:{lt:3}},include:{question:true}})]);
