@@ -69,3 +69,26 @@ test('review and legacy results are owner-scoped and topic counts use recorded m
 test('existing results contribute to the correct average scale without leaking other users',async()=>{
  const f=fixture(),data=await f.service.dashboard(actors.a);assert.deepEqual(data.statistics.find(row=>row.level===1).averages.map(row=>[row.average,row.maxScore]),[[100,200]]);assert.equal((await f.service.dashboard(actors.b)).legacy.length,0);
 });
+
+test('exam_blueprint supplies all seven groups and server fallbacks without borrowing score thresholds across scales',async()=>{
+ const f=fixture();f.sets[0].assignments=[];const data=await f.service.dashboard(actors.a);
+ assert.deepEqual(data.blueprints.map(row=>[row.level,row.questionCount,row.durationMin,row.maxScore,row.targetScore]),[[1,40,40,200,120],[2,60,60,200,120],[3,70,83,300,180],[4,70,85,300,180],[5,72,110,300,180],[6,82,125,300,180],[7,91,200,null,null]]);
+ assert.equal(data.papers.find(p=>p.id==='off1').durationMin,40);assert.equal(data.papers.find(p=>p.id==='off1').passScore,120);assert.equal(data.papers.find(p=>p.id==='off2').passScore,null);assert.equal(data.papers.find(p=>p.id==='manual').passScore,null);
+ const attempt=await start(f);assert.equal(attempt.remainingSec,2400);
+});
+test('custom configuration and creation date round trip and cannot be read by another account',async()=>{
+ const f=fixture();const created=await f.service.createCustom(actors.a,{requestId:requestId(),title:'Luyện riêng',level:1,count:1,durationMin:19,mode:'PRACTICE',skills:['READING'],types:['multiple_choice']});
+ assert.deepEqual(created.customConfig,{skills:['READING'],types:['multiple_choice'],count:1});assert.ok(Date.parse(created.createdAt)>0);
+ assert.deepEqual((await f.service.dashboard(actors.a)).papers.find(row=>row.id===created.id).customConfig,created.customConfig);assert.ok(!(await f.service.dashboard(actors.b)).papers.some(row=>row.id===created.id));
+});
+test('recommendation considers latest graded skill deficits, level and actual availability',async()=>{
+ const f=fixture();const attempt=await start(f);await f.service.writeAttempt(actors.a,{id:attempt.id,revision:0,answers:{q1:'A',q2:'true'}},true);
+ const data=await f.service.dashboard(actors.a),next=data.recommendations.find(row=>row.level===1).recommendation;
+ assert.equal(next.paperId,'off2');assert.deepEqual(next.weakSkills,['READING']);assert.equal(data.recommendations.find(row=>row.level===2).recommendation,null);
+ const state=JSON.parse(f.audit.find(row=>row.id===attempt.id).details);assert.equal(core.recommendExam([state.paper],[{id:attempt.id,state:{...state,status:'IN_PROGRESS'}}],1),null);
+});
+
+test('advanced level classification uses explicit configured bands and never an invented pass score',async()=>{
+ const f=fixture(),attempt=await start(f,'manual');const submitted=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:0,answers:{essay:'Bài viết'}},true);assert.equal(submitted.result,'PENDING');await f.service.gradeManual(actors.admin,{id:attempt.id,marks:{essay:2.5}});const graded=await f.service.getAttempt(actors.a,attempt.id);assert.equal(graded.result,'CLASSIFICATION_PENDING');
+ const state=JSON.parse(f.audit.find(row=>row.id===attempt.id).details);state.paper.classification={bands:[{minScore:140,maxScore:160,label:'Nhóm thử nghiệm từ cấu hình'}]};assert.equal(core.attemptSummary(attempt.id,state).classificationLabel,'Nhóm thử nghiệm từ cấu hình');assert.equal(core.attemptSummary(attempt.id,state).result,'CLASSIFIED');
+});

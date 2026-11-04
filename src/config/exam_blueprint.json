@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "description": "Cấu hình phòng thi mô phỏng theo yêu cầu sản phẩm. HSK 7–9 phân loại theo quy tắc riêng; chưa cấu hình các dải phân loại.",
+  "levels": [
+    {
+      "level": 1,
+      "questionCount": 40,
+      "durationMin": 40,
+      "maxScore": 200,
+      "targetScore": 120,
+      "skills": [
+        "LISTENING",
+        "READING"
+      ],
+      "resultMode": "TARGET",
+      "classificationBands": []
+    },
+    {
+      "level": 2,
+      "questionCount": 60,
+      "durationMin": 60,
+      "maxScore": 200,
+      "targetScore": 120,
+      "skills": [
+        "LISTENING",
+        "READING"
+      ],
+      "resultMode": "TARGET",
+      "classificationBands": []
+    },
+    {
+      "level": 3,
+      "questionCount": 70,
+      "durationMin": 83,
+      "maxScore": 300,
+      "targetScore": 180,
+      "skills": [
+        "LISTENING",
+        "READING",
+        "WRITING"
+      ],
+      "resultMode": "TARGET",
+      "classificationBands": []
+    },
+    {
+      "level": 4,
+      "questionCount": 70,
+      "durationMin": 85,
+      "maxScore": 300,
+      "targetScore": 180,
+      "skills": [
+        "LISTENING",
+        "READING",
+        "WRITING"
+      ],
+      "resultMode": "TARGET",
+      "classificationBands": []
+    },
+    {
+      "level": 5,
+      "questionCount": 72,
+      "durationMin": 110,
+      "maxScore": 300,
+      "targetScore": 180,
+      "skills": [
+        "LISTENING",
+        "READING",
+        "WRITING"
+      ],
+      "resultMode": "TARGET",
+      "classificationBands": []
+    },
+    {
+      "level": 6,
+      "questionCount": 82,
+      "durationMin": 125,
+      "maxScore": 300,
+      "targetScore": 180,
+      "skills": [
+        "LISTENING",
+        "READING",
+        "WRITING"
+      ],
+      "resultMode": "TARGET",
+      "classificationBands": []
+    },
+    {
+      "level": 7,
+      "questionCount": 91,
+      "durationMin": 200,
+      "maxScore": null,
+      "targetScore": null,
+      "skills": [
+        "LISTENING",
+        "READING",
+        "WRITING",
+        "TRANSLATION",
+        "SPEAKING"
+      ],
+      "resultMode": "CLASSIFICATION",
+      "classificationBands": []
+    }
+  ]
+}
