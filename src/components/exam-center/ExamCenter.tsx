@@ -37,7 +37,7 @@ export default function ExamCenter({user}:{user:{id:string;name:string;role:stri
  useEffect(()=>{if(view!=="attempt")reload();},[reload,view]);
  const go=useCallback(async(next:string,options:Record<string,string|number>={})=>{try{await beforeLeave.current?.();const query=new URLSearchParams({view:next,...Object.fromEntries(Object.entries(options).map(([key,value])=>[key,String(value)]))});router.push(`${pathname}?${query}`);window.scrollTo({top:0,behavior:'instant'});}catch(error){setError((error as Error).message);}},[router,pathname]);
  const navigate=(next:string,level=selectedLevel)=>void go(next,level?{level}:{});
- async function start(paper:Paper){setWorking(paper.id);try{const attempt=await examApi<{id:string}>('start',{paperId:paper.id,requestId:safeUUID()});await go('attempt',{id:attempt.id,level:levelGroup(paper.level)});reload();}catch(error){setError((error as Error).message);}finally{setWorking('');}}
+ async function start(paper:Paper,forceNew=false){setWorking(paper.id);try{const attempt=await examApi<{id:string}>('start',{paperId:paper.id,requestId:safeUUID(),forceNew});await go('attempt',{id:attempt.id,level:levelGroup(paper.level)});reload();}catch(error){setError((error as Error).message);}finally{setWorking('');}}
  const history=useMemo(()=>data?[...data.attempts.filter(row=>row.status!=='IN_PROGRESS'),...data.legacy].sort((a,b)=>Date.parse(b.submittedAt||b.startedAt)-Date.parse(a.submittedAt||a.startedAt)):[],[data]);
  const attempts=data?.attempts||[],active=attempts.find(row=>row.status==='IN_PROGRESS'&&(!selectedLevel||levelGroup(row.level)===selectedLevel));
  const recommendation=data?.recommendations.find(row=>row.level===selectedLevel)?.recommendation;
@@ -55,9 +55,17 @@ export default function ExamCenter({user}:{user:{id:string;name:string;role:stri
        fallback={
          <div className={s.center} style={{ padding: '60px 20px', textAlign: 'center' }}>
            <p className={s.empty}>Không thể kết nối bài thi vào lúc này hoặc phiên thi đã kết thúc.</p>
-           <button className={s.primary} style={{ marginTop: 16 }} onClick={() => navigate('exams')}>
-             Quay lại danh sách đề thi
-           </button>
+           <p style={{ color: '#5b6b55', fontSize: 13, marginTop: 8 }}>
+             Bạn có thể làm lại đề thi này bất cứ lúc nào bằng cách quay lại danh sách đề và chọn Bắt đầu thi.
+           </p>
+           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
+             <button className={s.primary} onClick={() => navigate('exams')}>
+               ← Về danh sách đề thi để làm lại
+             </button>
+             <button className={s.secondary} onClick={reload}>
+               Thử tải lại
+             </button>
+           </div>
          </div>
        }
      >
@@ -67,6 +75,11 @@ export default function ExamCenter({user}:{user:{id:string;name:string;role:stri
          onBack={() => navigate('exams')}
          onChanged={reload}
          registerLeave={registerLeave}
+         onRetake={(paperId) => {
+           const paper = data?.papers.find((p) => p.id === paperId);
+           if (paper) void start(paper, true);
+           else navigate('exams');
+         }}
        />
      </ComponentErrorBoundary>
    );

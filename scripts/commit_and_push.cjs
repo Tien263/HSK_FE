@@ -27,7 +27,7 @@ try {
   const parent = run('git rev-parse HEAD').trim();
   console.log('Parent:', parent);
 
-  const commitMsg = 'feat(exam-center): seed official sample exams HSK 1-9, add admin edit buttons, persist Resend API key and fix player connection';
+  const commitMsg = 'fix(exam-center): allow admin view across attempts, support infinite retakes and improve error boundaries';
   const commit = run(`git commit-tree ${tree} -p ${parent} -m "${commitMsg}"`).trim();
   console.log('New commit:', commit);
 

@@ -44,7 +44,7 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
   const answer=attempt.answers[q.id]||"";
   const graded=q.skill==="SPEAKING"?{manual:true,correct:false}:gradeQuestion(q,answer);
   let correct=graded.correct;
-  if(!graded.manual&&q.editorData.schemaVersion!==2&&["multiple_choice","listening_choice","fill_blank","true_false"].includes(q.type)){
+  if(!graded.manual&&q.editorData?.schemaVersion!==2&&["multiple_choice","listening_choice","fill_blank","true_false"].includes(q.type)){
    const option=q.options.find(item=>typeof item==="object"&&item&&(item as Record<string,unknown>).id===answer);
    const resolved=option?String((option as Record<string,unknown>).text||(option as Record<string,unknown>).content||answer):answer;
    correct=isMockAnswerCorrect(answer,q.correctAnswer,q.options.map(option=>typeof option==="string"?option:String((option as Record<string,unknown>)?.text||"")))||resolved!==answer&&isMockAnswerCorrect(resolved,q.correctAnswer);

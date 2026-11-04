@@ -48,6 +48,7 @@ export default function ExamPlayer({
   onChanged = () => {},
   registerLeave = () => {},
   previewAttempt,
+  onRetake,
 }: {
   id?: string;
   userId?: string;
@@ -55,6 +56,7 @@ export default function ExamPlayer({
   onChanged?: () => void;
   registerLeave?: (fn: (() => Promise<void>) | null) => void;
   previewAttempt?: View;
+  onRetake?: (paperId: string) => void;
 }) {
   const [attempt, setAttempt] = useState<View | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -279,21 +281,26 @@ export default function ExamPlayer({
         <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 18 }}>
           {error ? (
             <>
-              <p style={{ color: "#a23c21", marginBottom: 16, fontSize: 15, fontWeight: 500 }}>{error}</p>
+              <p style={{ color: "#a23c21", marginBottom: 10, fontSize: 16, fontWeight: 600 }}>
+                {error.includes("Không tìm thấy") ? "Không thể mở phiên làm bài này" : error}
+              </p>
+              <p style={{ color: "#5a6855", marginBottom: 20, fontSize: 13, maxWidth: 440, margin: "0 auto 20px" }}>
+                Phiên làm bài này có thể thuộc tài khoản khác hoặc đã kết thúc. Bạn hoàn toàn có thể thi lại không giới hạn bằng cách quay lại danh sách đề thi và bấm Bắt đầu thi.
+              </p>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  onClick={() => void load()}
-                  style={{ padding: "9px 18px", borderRadius: 10, background: "#27492c", color: "#fff", cursor: "pointer", fontWeight: 600, border: "none" }}
+                  onClick={onBack}
+                  style={{ padding: "10px 22px", borderRadius: 10, background: "#27492c", color: "#fff", cursor: "pointer", fontWeight: 600, border: "none" }}
                 >
-                  Tải lại bài thi
+                  ← Về danh sách đề thi để thi lại
                 </button>
                 <button
                   type="button"
-                  onClick={onBack}
-                  style={{ padding: "9px 18px", borderRadius: 10, border: "1.5px solid #cad5be", background: "#fff", color: "#365330", cursor: "pointer", fontWeight: 600 }}
+                  onClick={() => void load()}
+                  style={{ padding: "10px 18px", borderRadius: 10, border: "1.5px solid #cad5be", background: "#fff", color: "#365330", cursor: "pointer", fontWeight: 600 }}
                 >
-                  ← Về danh sách đề thi
+                  Thử tải lại
                 </button>
               </div>
             </>
@@ -837,15 +844,28 @@ export default function ExamPlayer({
           )}
 
           {finished && (
-            <button
-              type="button"
-              className={s.submitExamBtn}
-              onClick={onBack}
-              style={{ background: "#4a683e" }}
-            >
-              <ArrowLeft size={16} />
-              Quay lại danh sách đề
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+              {onRetake && attempt?.paperId && (
+                <button
+                  type="button"
+                  className={s.submitExamBtn}
+                  onClick={() => onRetake(attempt.paperId)}
+                  style={{ background: "#27492c", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                >
+                  <RotateCcw size={16} />
+                  Làm lại bài thi này (Thi lại)
+                </button>
+              )}
+              <button
+                type="button"
+                className={s.submitExamBtn}
+                onClick={onBack}
+                style={{ background: "#4a683e", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <ArrowLeft size={16} />
+                Quay lại danh sách đề
+              </button>
+            </div>
           )}
         </aside>
       </div>

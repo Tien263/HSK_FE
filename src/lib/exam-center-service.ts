@@ -46,7 +46,13 @@ export async function officialPapers(){
  return papers;
 }
 async function privatePapers(user:AuthUser){return (await prisma.auditLog.findMany({where:{userId:user.id,action:PAPER},orderBy:{createdAt:"desc"}})).map(row=>parse<ExamPaper>(row.details));}
-async function ownedRow(user:AuthUser,id:string){const row=await prisma.auditLog.findFirst({where:{id,userId:user.id,action:ATTEMPT}});if(!row)throw new ExamError(404,"Không tìm thấy bài thi thuộc tài khoản này.");return row;}
+async function ownedRow(user:AuthUser,id:string){
+ const row = user.role === "ADMIN"
+  ? await prisma.auditLog.findFirst({where:{id,action:ATTEMPT}})
+  : await prisma.auditLog.findFirst({where:{id,userId:user.id,action:ATTEMPT}});
+ if(!row)throw new ExamError(404,"Không tìm thấy bài thi hoặc bài thi không tồn tại.");
+ return row;
+}
 async function replaceAttempt(row:{id:string;userId:string;details:string|null},state:CenterAttempt){const result=await prisma.auditLog.updateMany({where:{id:row.id,userId:row.userId,action:ATTEMPT,details:row.details},data:{details:JSON.stringify(state)}});if(result.count!==1)throw new ExamError(409,"Bài thi vừa được cập nhật ở tab khác. Hãy tải lại trước khi tiếp tục.");return state;}
 function expire(state:CenterAttempt){return state.status==="IN_PROGRESS"&&state.expiresAt&&Date.parse(state.expiresAt)<=Date.now()?scoreAttempt({...state,timedOut:true}):state;}
 async function settledState(user:AuthUser,id:string,initial?:{id:string;userId:string;details:string|null}){
@@ -82,7 +88,7 @@ export async function startAttempt(user:AuthUser,body:Record<string,unknown>){
  if(!paper)throw new ExamError(404,"Đề chưa được Admin xuất bản hoặc không thuộc tài khoản của bạn.");
  if(!paper.questions.length||paper.questions.length>500||paper.questions.some(q=>!usableQuestion(q))||!paper.questions.some(q=>q.points>0)||paper.maxScore<=0)throw new ExamError(409,"Đề chưa có đủ dữ liệu chấm điểm hoặc có dạng câu hỏi chưa hỗ trợ.");
  if(!paper.durationMin)throw new ExamError(409,"Admin chưa cấu hình thời gian cho đề này.");
- const active=(await ownAttempts(user)).find(row=>row.state.status==="IN_PROGRESS"&&row.state.paper.id===paper.id);if(active)return attemptForOwner(active.id,active.state);
+ const active=!body.forceNew?(await ownAttempts(user)).find(row=>row.state.status==="IN_PROGRESS"&&row.state.paper.id===paper.id):null;if(active)return attemptForOwner(active.id,active.state);
  const now=new Date();const state:CenterAttempt={schemaVersion:1,paper:jsonClone(paper),answers:{},results:[],status:"IN_PROGRESS",startedAt:now.toISOString(),expiresAt:paper.mode==="EXAM"?new Date(now.getTime()+paper.durationMin*60000).toISOString():null,submittedAt:null,score:null,revision:0,timedOut:false};
  try{await prisma.auditLog.create({data:{id,userId:user.id,action:ATTEMPT,entity:paper.id,details:JSON.stringify(state)}});}catch{const existing=await prisma.auditLog.findFirst({where:{id,userId:user.id,action:ATTEMPT}});if(!existing)throw new ExamError(409,"Không tạo được lượt thi. Hãy thử lại.");return getAttempt(user,id);}
  return attemptForOwner(id,state);
