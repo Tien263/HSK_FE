@@ -54,6 +54,8 @@ export interface ExamRulesLobbyProps {
   onContinueAttempt?: (attemptId: string) => void;
   onBack: () => void;
   busy?: boolean;
+  role?: string;
+  onEdit?: () => void;
 }
 
 export default function ExamRulesLobby({
@@ -64,6 +66,8 @@ export default function ExamRulesLobby({
   onContinueAttempt,
   onBack,
   busy = false,
+  role,
+  onEdit,
 }: ExamRulesLobbyProps) {
   // Device Check States (NOT checked by default)
   const [audioTested, setAudioTested] = useState(false);
@@ -731,6 +735,17 @@ export default function ExamRulesLobby({
           </div>
 
           <div className={s.confirmRightCol}>
+            {role === "ADMIN" && onEdit && (
+              <button
+                type="button"
+                className={s.resumeBigBtn}
+                style={{ background: "#f0f6ec", borderColor: "#a4c498", color: "#22411e" }}
+                onClick={onEdit}
+              >
+                ⚙️ Sửa & Cấu hình đề này
+              </button>
+            )}
+
             {activeAttempt && onContinueAttempt && (
               <button
                 type="button"

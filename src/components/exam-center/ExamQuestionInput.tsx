@@ -112,10 +112,7 @@ export default function ExamQuestionInput({
         {strVal.startsWith("data:audio/") ? (
           <audio controls src={strVal} style={{ maxWidth: "100%" }} />
         ) : strVal.startsWith("data:image/") ? (
-          <Image
-            unoptimized
-            width={720}
-            height={480}
+          <img
             src={strVal}
             alt="Bài viết của bạn"
             style={{ maxWidth: "100%", maxHeight: 380, objectFit: "contain", borderRadius: 12 }}
@@ -173,13 +170,11 @@ export default function ExamQuestionInput({
               }}
             >
               <div className={s.optionImgWrap}>
-                <Image
-                  unoptimized
-                  width={340}
-                  height={220}
+                <img
                   src={imgSrc}
                   alt={`Lựa chọn ${optId}`}
                   className={s.optionImg}
+                  loading="lazy"
                 />
               </div>
 

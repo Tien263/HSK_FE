@@ -328,7 +328,16 @@ export default function ExamPlayer({
     );
   }
 
-  const currentQ = questions[index] || questions[0];
+  const currentQ = questions[index] || questions[0] || null;
+  if (!currentQ) {
+    return (
+      <div className={s.playerWrapper} style={{ justifyContent: "center", alignItems: "center" }}>
+        <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 18 }}>
+          <p>Đang chuẩn bị câu hỏi...</p>
+        </div>
+      </div>
+    );
+  }
   const answeredCount = questions.filter((q) => hasAnswer(answers[q.id])).length;
   const unansweredCount = totalQuestions - answeredCount;
   const completionPercent = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;

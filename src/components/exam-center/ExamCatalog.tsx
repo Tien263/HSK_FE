@@ -14,9 +14,9 @@ type Paper = Dashboard["papers"][number];
 type History = (Dashboard["attempts"][number] | Dashboard["legacy"][number])[];
 type Navigate = (view: string, options?: Record<string, string | number>) => void;
 
-export default function ExamCatalog({ data, review, level, search, source, go, levelSelect }: {
+export default function ExamCatalog({ data, review, level, search, source, go, levelSelect, role }: {
   data: Dashboard; review: Review | null; level: number; search: string; source: string;
-  go: Navigate; levelSelect: React.ReactNode;
+  go: Navigate; levelSelect: React.ReactNode; role?: string;
 }) {
   const [filter, setFilter] = useState(source === "CUSTOM" ? "custom" : "all");
   const [sort, setSort] = useState("newest");
@@ -59,13 +59,43 @@ export default function ExamCatalog({ data, review, level, search, source, go, l
       <div className={s.catalogSort}><select aria-label="Sắp xếp đề thi" value={sort} onChange={e => setSort(e.target.value)}><option value="newest">Mới nhất</option><option value="oldest">Cũ nhất</option><option value="score">Điểm cao</option><option value="unseen">Chưa làm trước</option></select><select aria-label="Lọc kỹ năng" value={skill} onChange={e => setSkill(e.target.value)}><option value="all">Tất cả kỹ năng</option>{Object.entries(skillNames).map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select></div>
     </div>
     <div className={s.catalogColumns}><section className={s.examList} aria-label="Danh sách đề thi">
-      <div className={s.listCaption}><span>{papers.length} đề phù hợp</span><button className={s.textButton} onClick={() => go("create", { level: level || 1 })}><Settings2 size={15} /> Tự tạo đề</button></div>
+      <div className={s.listCaption}>
+        <span>{papers.length} đề phù hợp</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {role === "ADMIN" && (
+            <button
+              type="button"
+              className={s.primary}
+              style={{ fontSize: 12, padding: "6px 14px" }}
+              onClick={() => go("authoring")}
+            >
+              ➕ Nhập & Soạn đề HSK 3.0
+            </button>
+          )}
+          <button className={s.textButton} onClick={() => go("create", { level: level || 1 })}>
+            <Settings2 size={15} /> Tự tạo đề
+          </button>
+        </div>
+      </div>
       {papers.map(paper => {
         const active = running(paper.id), finished = done(paper.id);
         return <article key={paper.id} className={s.examRow} data-paper-id={paper.id}>
           <div className={s.examIdentity}><div className={s.examIcon}><FileCheck2 size={28} /></div><div><small>{paper.source === "CUSTOM" ? "ĐỀ TÙY CHỈNH" : "MÔ PHỎNG CHUẨN"} · {levelLabel(paper.level)} · Đề {String(ordinals.get(paper.id)).padStart(2, "0")}</small><h2>{paper.title}</h2><div className={s.paperMeta}><span><Layers size={14} />{paper.questionsCount} câu</span><span><Clock size={14} />{paper.durationMin ? `${paper.durationMin} phút` : "Chưa đặt thời gian"}</span><span><Trophy size={14} />{paper.maxScore} điểm</span></div></div></div>
           <div className={s.examState}>{active ? <><strong><Clock size={16} />Đang làm</strong><small>Đã làm {active.answered}/{active.questionsCount} câu</small><div className={s.inlineProgress}><progress max={100} value={active.progress} /><span>{active.progress}%</span></div></> : finished ? <><strong><CheckCircle2 size={17} />{finished.status === "GRADED" ? "Hoàn thành" : "Đã nộp · Chờ chấm"}</strong><div className={s.rowScore}>{finished.score !== null && <span>{finished.score}<small> / {finished.maxScore}</small></span>}<span className={s.status} data-result={finished.result}>{("classificationLabel" in finished && finished.classificationLabel) || resultNames[finished.result]}</span></div></> : <span className={s.notStarted}>○ Chưa làm</span>}</div>
-          <div className={s.examActions}>{!finished || active ? <><button className={s.textButton} onClick={() => go("intro", { id: paper.id, level })}>Xem chi tiết <ArrowRight size={14} /></button><button className={s.primary} disabled={!active && !paper.available} onClick={() => active ? go("attempt", { id: active.id, level }) : go("intro", { id: paper.id, level })}>{active ? "Tiếp tục" : paper.source === "CUSTOM" ? "Làm ngay" : "Bắt đầu thi"}<ArrowRight size={16} /></button></> : <><button className={s.secondary} onClick={() => openResult(finished.id)}>Xem kết quả <ArrowRight size={15} /></button><button className={s.textButton} onClick={() => go("intro", { id: paper.id, level })}>Xem đề / Thi lại</button></>}</div>
+          <div className={s.examActions}>
+            {role === "ADMIN" && (
+              <button
+                type="button"
+                className={s.secondary}
+                style={{ borderColor: "#6d9354", color: "#27492c", fontSize: 12 }}
+                onClick={() => go("publications")}
+                title="Duyệt & sửa cấu hình đề"
+              >
+                ⚙️ Sửa / Cấu hình
+              </button>
+            )}
+            {!finished || active ? <><button className={s.textButton} onClick={() => go("intro", { id: paper.id, level })}>Xem chi tiết <ArrowRight size={14} /></button><button className={s.primary} disabled={!active && !paper.available} onClick={() => active ? go("attempt", { id: active.id, level }) : go("intro", { id: paper.id, level })}>{active ? "Tiếp tục" : paper.source === "CUSTOM" ? "Làm ngay" : "Bắt đầu thi"}<ArrowRight size={16} /></button></> : <><button className={s.secondary} onClick={() => openResult(finished.id)}>Xem kết quả <ArrowRight size={15} /></button><button className={s.textButton} onClick={() => go("intro", { id: paper.id, level })}>Xem đề / Thi lại</button></>}
+          </div>
           {!paper.available && !active && <p className={s.rowWarning}>Đề cần Admin hoàn tất dữ liệu câu hỏi trước khi mở thi.</p>}
         </article>;
       })}
@@ -87,6 +117,8 @@ export function ExamIntroduction({
   blueprint,
   activeAttempt,
   onContinueAttempt,
+  role,
+  onEdit,
 }: {
   paper: Paper;
   onStart: () => void;
@@ -95,6 +127,8 @@ export function ExamIntroduction({
   blueprint?: Dashboard["blueprints"][number];
   activeAttempt?: Dashboard["attempts"][number] | null;
   onContinueAttempt?: (attemptId: string) => void;
+  role?: string;
+  onEdit?: () => void;
 }) {
   return (
     <ExamRulesLobby
@@ -105,6 +139,8 @@ export function ExamIntroduction({
       onContinueAttempt={onContinueAttempt}
       onBack={onBack}
       busy={busy}
+      role={role}
+      onEdit={onEdit}
     />
   );
 }

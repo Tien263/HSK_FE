@@ -36,7 +36,16 @@ export default class ComponentErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
-        return this.props.fallback;
+        return (
+          <div>
+            {this.props.fallback}
+            {this.state.error?.message && (
+              <div style={{ maxWidth: 640, margin: "12px auto", padding: "10px 14px", borderRadius: 10, background: "#fdf3f0", border: "1px solid #f5c4b8", fontSize: 12, color: "#8a2414", textAlign: "left" }}>
+                <strong>Chi tiết kỹ thuật:</strong> {this.state.error.message}
+              </div>
+            )}
+          </div>
+        );
       }
       return (
         <div style={{ padding: 16, margin: "8px 0", borderRadius: 12, background: "#fdf8f6", border: "1px solid #f2cfc7", color: "#a23c21", fontSize: 13 }}>

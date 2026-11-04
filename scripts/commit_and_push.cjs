@@ -27,7 +27,7 @@ try {
   const parent = run('git rev-parse HEAD').trim();
   console.log('Parent:', parent);
 
-  const commitMsg = 'fix(exam-center): add defensive boundaries, fix media/audio checks in proctor, and expose error diagnostic';
+  const commitMsg = 'feat(exam-center): seed official sample exams HSK 1-9, add admin edit buttons, persist Resend API key and fix player connection';
   const commit = run(`git commit-tree ${tree} -p ${parent} -m "${commitMsg}"`).trim();
   console.log('New commit:', commit);
 
