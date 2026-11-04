@@ -31,6 +31,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import ExamAntiCheatProctor from "@/components/common/ExamAntiCheatProctor";
+import ComponentErrorBoundary from "@/components/common/ComponentErrorBoundary";
 import type { attemptForOwner } from "@/lib/exam-center-core";
 import { hasAnswer, levelGroup, levelLabel, type ExamSkill } from "@/lib/exam-center-core";
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
@@ -278,14 +279,23 @@ export default function ExamPlayer({
         <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 18 }}>
           {error ? (
             <>
-              <p style={{ color: "#a23c21", marginBottom: 12 }}>{error}</p>
-              <button
-                type="button"
-                onClick={() => void load()}
-                style={{ padding: "8px 16px", borderRadius: 8, background: "#27492c", color: "#fff" }}
-              >
-                Tải lại bài thi
-              </button>
+              <p style={{ color: "#a23c21", marginBottom: 16, fontSize: 15, fontWeight: 500 }}>{error}</p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  style={{ padding: "9px 18px", borderRadius: 10, background: "#27492c", color: "#fff", cursor: "pointer", fontWeight: 600, border: "none" }}
+                >
+                  Tải lại bài thi
+                </button>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  style={{ padding: "9px 18px", borderRadius: 10, border: "1.5px solid #cad5be", background: "#fff", color: "#365330", cursor: "pointer", fontWeight: 600 }}
+                >
+                  ← Về danh sách đề thi
+                </button>
+              </div>
             </>
           ) : (
             <p>Đang chuẩn bị phòng thi bảo mật...</p>
@@ -621,13 +631,15 @@ export default function ExamPlayer({
           )}
 
           {/* Interactive Question Input (Picture Options, Ordering, Writing, etc.) */}
-          <ExamQuestionInput
-            key={currentQ.id}
-            question={currentQ}
-            value={answers[currentQ.id] || ""}
-            disabled={finished || busy || conflict}
-            onChange={(val) => handleAnswer(currentQ.id, val)}
-          />
+          <ComponentErrorBoundary name="Khu vực trả lời câu hỏi">
+            <ExamQuestionInput
+              key={currentQ.id}
+              question={currentQ}
+              value={answers[currentQ.id] || ""}
+              disabled={finished || busy || conflict}
+              onChange={(val) => handleAnswer(currentQ.id, val)}
+            />
+          </ComponentErrorBoundary>
 
           {/* Post-exam Answer Explanation */}
           {finished && (
@@ -926,17 +938,27 @@ export default function ExamPlayer({
       )}
       {/* AI Anti-Cheat Proctor Component (Giám thị AI trực tuyến trong phòng thi) */}
       {!finished && attempt && (
-        <ExamAntiCheatProctor
-          examTitle={`${attempt.title} (HSK ${attempt.level})`}
-          onForceSubmit={(reason) => {
-            setError(reason);
-            void persist(true);
-          }}
-          onViolationRecorded={(v) => {
-            setViolations((prev) => [v, ...prev]);
-          }}
-          onOpenViolationLog={() => setShowViolationsModal(true)}
-        />
+        <ComponentErrorBoundary
+          name="Giám thị AI"
+          fallback={
+            <div style={{ position: "fixed", bottom: 16, right: 16, zIndex: 40, padding: "8px 14px", background: "#204434", color: "#fff", borderRadius: 12, fontSize: 11, display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+              <ShieldAlert size={14} color="#f59e0b" />
+              <span>Giám thị AI đang chạy ở chế độ bảo vệ cơ bản</span>
+            </div>
+          }
+        >
+          <ExamAntiCheatProctor
+            examTitle={`${attempt.title} (HSK ${attempt.level})`}
+            onForceSubmit={(reason) => {
+              setError(reason);
+              void persist(true);
+            }}
+            onViolationRecorded={(v) => {
+              setViolations((prev) => [v, ...prev]);
+            }}
+            onOpenViolationLog={() => setShowViolationsModal(true)}
+          />
+        </ComponentErrorBoundary>
       )}
 
       {/* MODAL BIÊN BẢN & MỤC LỖI VI PHẠM GIÁM THỊ AI */}

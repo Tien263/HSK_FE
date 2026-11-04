@@ -9,6 +9,7 @@ import { examApi,dateText,resultNames,skillNames,timeText,typeNames,dayKey } fro
 import ExamPlayer from "./ExamPlayer";
 import ExamStaff from "./ExamStaff";
 import ExamCatalog,{ExamIntroduction,ScoreTrend} from "./ExamCatalog";
+import ComponentErrorBoundary from "@/components/common/ComponentErrorBoundary";
 import s from "./ExamCenter.module.css";
 type Dashboard=Awaited<ReturnType<typeof dashboard>>;
 type Review=Awaited<ReturnType<typeof reviewData>>;
@@ -40,13 +41,25 @@ export default function ExamCenter({user}:{user:{id:string;name:string;role:stri
  const statistics=<section className={s.panel} aria-label="Tiến độ học tập"><div className={s.sectionHeading}><h2><ChartNoAxesColumnIncreasing size={20}/>Tiến độ học tập</h2>{levelSelect()}</div>{stats?<><div className={s.statsGrid}><div className={s.ring} style={{background:`conic-gradient(#69934b ${stats.completionPercent}%,#e6e9dc 0)`}}><div><strong>{stats.total?`${stats.completionPercent}%`:'—'}</strong><small>Hoàn thành</small></div></div><div className={s.averages}><h3>Điểm trung bình theo cấp & thang điểm</h3>{stats.averages.length?stats.averages.map(group=><p key={`${group.level}:${group.maxScore}`}><small>HSK {group.level} · {group.count} lượt đã chấm</small><strong>{group.average} <span>/ {group.maxScore}</span></strong></p>):<p>Chưa có bài đã chấm để tính trung bình.</p>}<small>{stats.done}/{stats.total} đề Admin xuất bản đã hoàn thành. Không cộng đề cá nhân vào tỷ lệ này.</small></div><div className={s.skills}><h3>Phân tích kỹ năng</h3>{stats.skills.map(skill=><div key={skill.skill}><span>{skillNames[skill.skill]}</span><progress max={100} value={skill.percent??0}/><small>{skill.percent===null?'—':`${skill.percent}%`}</small></div>)}<small>Tỷ lệ điểm theo kỹ năng từ các lượt đã chấm; chuẩn hóa từng lượt trước khi lấy trung bình.</small></div></div></>:<p>Đang tải thống kê…</p>}</section>;
  if (view === 'attempt') {
    return (
-     <ExamPlayer
-       id={params.get('id') || ''}
-       userId={user.id}
-       onBack={() => navigate('home')}
-       onChanged={reload}
-       registerLeave={registerLeave}
-     />
+     <ComponentErrorBoundary
+       name="Phòng làm bài thi"
+       fallback={
+         <div className={s.center} style={{ padding: '60px 20px', textAlign: 'center' }}>
+           <p className={s.empty}>Không thể kết nối bài thi vào lúc này hoặc phiên thi đã kết thúc.</p>
+           <button className={s.primary} style={{ marginTop: 16 }} onClick={() => navigate('exams')}>
+             Quay lại danh sách đề thi
+           </button>
+         </div>
+       }
+     >
+       <ExamPlayer
+         id={params.get('id') || ''}
+         userId={user.id}
+         onBack={() => navigate('exams')}
+         onChanged={reload}
+         registerLeave={registerLeave}
+       />
+     </ComponentErrorBoundary>
    );
  }
 

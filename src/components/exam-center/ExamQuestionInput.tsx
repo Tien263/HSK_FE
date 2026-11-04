@@ -46,13 +46,14 @@ export default function ExamQuestionInput({
 
   // Chuẩn hóa danh sách lựa chọn Options luôn là một mảng an toàn
   const rawOptions = useMemo(() => {
+    if (!q) return [];
     if (Array.isArray(q.options)) return q.options;
     if (typeof q.options === "string") {
       const parsed = decode(q.options, []);
       return Array.isArray(parsed) ? parsed : [];
     }
     return [];
-  }, [q.options]);
+  }, [q?.options]);
 
   const normalizedOptions = useMemo(() => {
     return rawOptions.map((opt: any, idx: number) => {

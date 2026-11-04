@@ -116,6 +116,7 @@ export default function ExamAntiCheatProctor({
   // Phát âm thanh cảnh báo Beep (Web Audio API)
   const playWarningBeep = useCallback(() => {
     try {
+      if (typeof window === "undefined") return;
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
@@ -142,6 +143,7 @@ export default function ExamAntiCheatProctor({
   const captureViolationEvidence = useCallback(
     (violationType: string, details: string, extraSeconds: number = 0): string | null => {
       try {
+        if (typeof document === "undefined") return null;
         const canvas = document.createElement("canvas");
         canvas.width = 400;
         canvas.height = 250;
@@ -445,6 +447,15 @@ export default function ExamAntiCheatProctor({
 
     async function initMedia() {
       if (!requireCamera && !requireMic) return;
+      if (
+        typeof window === "undefined" ||
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices ||
+        typeof navigator.mediaDevices.getUserMedia !== "function"
+      ) {
+        setCameraError("Thiết bị hoặc trình duyệt không hỗ trợ truy cập camera/micro.");
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: requireCamera
@@ -474,12 +485,12 @@ export default function ExamAntiCheatProctor({
       } catch (err: any) {
         console.warn("Camera/Mic access denied:", err);
         setCameraError("Vui lòng cho phép quyền Camera & Microphone để phòng thi giám sát hợp lệ.");
-        triggerViolation("NO_CAMERA_PERMISSION", "Thí sinh từ chối hoặc chặn quyền Camera / Microphone");
       }
     }
 
     function initAudioAnalyser(stream: MediaStream) {
       try {
+        if (typeof window === "undefined") return;
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioContextClass) return;
 
@@ -495,36 +506,38 @@ export default function ExamAntiCheatProctor({
         let loudCount = 0;
 
         function checkVolume() {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          let sumSq = 0;
-          let peak = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            const v = dataArray[i];
-            sum += v;
-            sumSq += v * v;
-            if (v > peak) peak = v;
-          }
-          const avg = sum / dataArray.length;
-          const rms = Math.sqrt(sumSq / dataArray.length);
-          const estDb = Math.min(100, Math.round(20 * Math.log10(Math.max(1, rms)) + 15));
-          currentDbRef.current = estDb;
-
-          // Nếu có tiếng nói hoặc âm thanh lớn trong phòng thi (RMS > 22 hoặc peak > 85 hoặc avg > 32)
-          if (rms > 22 || peak > 85 || avg > 32) {
-            loudCount++;
-            if (loudCount >= 10) {
-              setSuspiciousNoise(true);
-              triggerViolation("AUDIO_SUSPICIOUS", `Phát hiện tiếng nói / âm thanh bất thường (~${estDb} dB) trong phòng thi`);
-              loudCount = 0;
+          if (!isMounted || !analyserRef.current) return;
+          try {
+            analyserRef.current.getByteFrequencyData(dataArray);
+            let sum = 0;
+            let sumSq = 0;
+            let peak = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              const v = dataArray[i];
+              sum += v;
+              sumSq += v * v;
+              if (v > peak) peak = v;
             }
-          } else {
-            loudCount = Math.max(0, loudCount - 1);
-            setSuspiciousNoise(false);
-          }
+            const avg = sum / dataArray.length;
+            const rms = Math.sqrt(sumSq / dataArray.length);
+            const estDb = Math.min(100, Math.round(20 * Math.log10(Math.max(1, rms)) + 15));
+            currentDbRef.current = estDb;
 
-          animFrameRef.current = requestAnimationFrame(checkVolume);
+            // Nếu có tiếng nói hoặc âm thanh lớn trong phòng thi (RMS > 22 hoặc peak > 85 hoặc avg > 32)
+            if (rms > 22 || peak > 85 || avg > 32) {
+              loudCount++;
+              if (loudCount >= 10) {
+                setSuspiciousNoise(true);
+                triggerViolation("AUDIO_SUSPICIOUS", `Phát hiện tiếng nói / âm thanh bất thường (~${estDb} dB) trong phòng thi`);
+                loudCount = 0;
+              }
+            } else {
+              loudCount = Math.max(0, loudCount - 1);
+              setSuspiciousNoise(false);
+            }
+
+            animFrameRef.current = requestAnimationFrame(checkVolume);
+          } catch {}
         }
         checkVolume();
       } catch (e) {
