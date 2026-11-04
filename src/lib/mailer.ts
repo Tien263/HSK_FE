@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 
 export interface SmtpOptions {
-  authType?: "RESEND" | "PASSWORD" | "OAUTH2" | "CUSTOM";
+  authType?: "RESEND" | "BREVO" | "PASSWORD" | "OAUTH2" | "CUSTOM";
   host?: string;
   port?: number;
   user?: string;
@@ -15,6 +15,8 @@ export interface SmtpOptions {
   refreshToken?: string;
   // Resend API (HTTP Transactional - Siêu tốc 1-2s)
   resendApiKey?: string;
+  // Brevo API (Gửi bất kỳ email nào không cần domain riêng - Miễn phí 300 mail/ngày)
+  brevoApiKey?: string;
 }
 
 const CONFIG_FILE = path.join(process.cwd(), "prisma", "smtp-config.json");
@@ -54,6 +56,7 @@ let activeSmtpConfig: SmtpOptions = {
   clientSecret: stored.clientSecret || process.env.GMAIL_CLIENT_SECRET || "",
   refreshToken: stored.refreshToken || process.env.GMAIL_REFRESH_TOKEN || "",
   resendApiKey: stored.resendApiKey || process.env.RESEND_API_KEY || "",
+  brevoApiKey: stored.brevoApiKey || process.env.BREVO_API_KEY || "",
 };
 
 export function updateSmtpConfig(config: SmtpOptions) {
@@ -187,10 +190,12 @@ export async function sendOtpEmail(
   const resendApiKey = (config.resendApiKey || process.env.RESEND_API_KEY || "").trim();
   if (config.authType === "RESEND" || (resendApiKey && resendApiKey.startsWith("re_"))) {
     try {
-      const fromEmail = (config.from || "").trim();
-      const sender = fromEmail && fromEmail.includes("@") 
-        ? fromEmail 
-        : "Hanyu Tiếng Trung <onboarding@resend.dev>";
+      let sender = "Hanyu Tiếng Trung <onboarding@resend.dev>";
+      const rawFrom = (config.from || "").trim();
+      // Resend không cho phép gửi từ @gmail.com nếu chưa verify domain riêng, tự động dùng onboarding@resend.dev
+      if (rawFrom && !/@(gmail|googlemail|yahoo|hotmail|outlook)\.com/i.test(rawFrom) && rawFrom.includes("@")) {
+        sender = rawFrom;
+      }
 
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -212,17 +217,57 @@ export async function sendOtpEmail(
         console.log(`[MAILER] ✓ Đã gửi email OTP siêu tốc qua Resend API đến ${toEmail}. MessageId: ${resData.id}`);
         return { sent: true, message: `Email OTP đã được gửi thành công đến ${toEmail} qua Resend siêu tốc.` };
       }
-      throw new Error(resData.message || `Resend API trả về mã lỗi ${res.status}`);
+
+      let errorMsg = resData.message || `Resend API trả về mã lỗi ${res.status}`;
+      if (errorMsg.includes("You can only send testing emails to your own email address")) {
+        errorMsg = `Resend đang ở chế độ dùng thử (onboarding@resend.dev), chỉ cho phép gửi tới chính email tạo tài khoản (${toEmail}). Để gửi cho mọi học viên bất kỳ, vui lòng xác minh tên miền tại resend.com/domains hoặc dùng Brevo API.`;
+      }
+      throw new Error(errorMsg);
     } catch (err: any) {
       console.error("[MAILER] ❌ Lỗi gửi email qua Resend API:", err);
-      if (!transporter || !user) {
+      // Nếu người dùng chủ động chọn RESEND, thông báo lỗi thẳng chứ không nhảy sang SMTP làm treo timeout
+      if (config.authType === "RESEND" || !transporter || !user) {
         return {
           sent: false,
-          message: `Lỗi kết nối dịch vụ Resend: ${err.message || String(err)}`,
+          message: `Lỗi gửi qua Resend: ${err.message || String(err)}`,
           errorDetail: err.message || String(err),
         };
       }
       console.log("[MAILER] Đang thử gửi chuyển tiếp qua SMTP dự phòng...");
+    }
+  }
+
+  // 1.5. Chế độ BREVO (Sendinblue) API - Miễn phí 300 mail/ngày, cho phép gửi tới bất kỳ ai không cần tên miền
+  const brevoApiKey = (config.brevoApiKey || process.env.BREVO_API_KEY || "").trim();
+  if (config.authType === "BREVO" || (brevoApiKey && brevoApiKey.startsWith("xkeysib-"))) {
+    try {
+      const senderEmail = (config.user || "xuantien50d@gmail.com").trim();
+      const senderName = "Hanyu - Lớp Tiếng Trung Cô Ning Ning";
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": brevoApiKey,
+          "Content-Type": "application/json",
+          "accept": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: toEmail }],
+          subject: `[Hanyu] Mã xác thực OTP của bạn: ${otpCode}`,
+          htmlContent: htmlContent,
+        }),
+      });
+      const resData = await res.json().catch(() => ({}));
+      if (res.ok && (resData.messageId || resData.id)) {
+        return { sent: true, message: `Email OTP đã được gửi thành công đến ${toEmail} qua Brevo.` };
+      }
+      return {
+        sent: false,
+        message: `Lỗi Brevo: ${resData.message || "Không thể gửi email"}`,
+        errorDetail: JSON.stringify(resData),
+      };
+    } catch (err: any) {
+      return { sent: false, message: `Lỗi kết nối Brevo: ${err.message}`, errorDetail: err.message };
     }
   }
 

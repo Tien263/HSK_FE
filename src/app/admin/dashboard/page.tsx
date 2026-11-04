@@ -2784,8 +2784,10 @@ export default function AdminDashboardPage() {
                       placeholder="re_123456789_abcdef..."
                       className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F5ED]/70 border border-[#BC9B6B]/35 text-[#204434] font-mono focus:outline-hidden focus:border-[#204434]"
                     />
-                    <p className="text-[11px] text-[#526058] mt-1">
-                      Lấy tại: <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="underline font-semibold text-[#204434]">resend.com/api-keys</a> (Sao chép mã bắt đầu bằng `re_`).
+                    <p className="text-[11px] text-[#526058] mt-1 leading-relaxed">
+                      Lấy tại: <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer" className="underline font-semibold text-[#204434]">resend.com/api-keys</a>.
+                      <br />
+                      💡 <em>Ghi chú: Khi dùng domain miễn phí có sẵn <code className="bg-[#FAF7F0] px-1 py-0.5 rounded text-[#204434]">onboarding@resend.dev</code>, Resend cho phép gửi tới chính email bạn tạo tài khoản Resend. Để gửi đến mọi học viên tự do, hãy thêm tên miền của bạn tại <a href="https://resend.com/domains" target="_blank" rel="noreferrer" className="underline font-semibold text-[#204434]">resend.com/domains</a>.</em>
                     </p>
                   </div>
 

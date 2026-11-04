@@ -59,3 +59,4 @@ next-env.d.ts
 /data/curriculum/
 /.dictionary-db-check.cjs
 /.dictionary-build.log
+prisma/smtp-config.json
