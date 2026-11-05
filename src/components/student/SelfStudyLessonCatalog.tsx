@@ -7,7 +7,24 @@ import { lessonKey, toggleKnowledge, useLessonLibrary } from "@/lib/use-lesson-l
 import { completionPercent, wholeLessonItem } from "@/lib/self-study-knowledge";
 import styles from "./SelfStudyLessonCatalog.module.css";
 
-type Stats = { level: number; completed: { number: number; date: string }[]; days: string[] };
+type DayActivity = {
+  date: string;
+  levelCount: number;
+  totalCount: number;
+  levels: number[];
+  isToday: boolean;
+};
+
+type Stats = {
+  level: number;
+  today?: string;
+  completed: { number: number; date: string }[];
+  days: string[];
+  weeklyActivity?: DayActivity[];
+  totalWeeklyLessons?: number;
+  levelWeeklyLessons?: number;
+};
+
 type Props = { lessons: Hsk1FullLesson[]; level: number; studentId?: string; selected: number; unlocked: number[]; savedOnly: boolean; onSavedOnly: (value: boolean) => void; onOpen: (number: number) => void };
 const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 export default function SelfStudyLessonCatalog({ lessons, level, studentId, selected, unlocked, savedOnly, onSavedOnly, onOpen }: Props) {
@@ -34,6 +51,8 @@ export default function SelfStudyLessonCatalog({ lessons, level, studentId, sele
   const completed = new Set(stats?.completed.map(item => item.number));
   const validIds = new Set(lessons.map(lesson => lesson.number));
   const week = stats?.completed.filter(item => validIds.has(item.number) && stats.days.includes(item.date)) || [];
+  const totalWeekly = stats?.totalWeeklyLessons ?? week.length;
+  const levelWeekly = stats?.levelWeeklyLessons ?? week.length;
   const unfinished = lessons.filter(lesson => unlocked.includes(lesson.number) && !completed.has(lesson.number));
   const lastUnfinished = unfinished.filter(lesson => store.reading[lessonKey(level, lesson.number)]).sort((a, b) => (store.reading[lessonKey(level, b.number)].updatedAt || "").localeCompare(store.reading[lessonKey(level, a.number)].updatedAt || ""))[0];
   const resume = unfinished.find(lesson => lesson.number === store.resume[level]) || lastUnfinished || unfinished.find(lesson => lesson.number === selected) || unfinished[0] || lessons.find(lesson => unlocked.includes(lesson.number));
@@ -58,7 +77,88 @@ export default function SelfStudyLessonCatalog({ lessons, level, studentId, sele
     {!savedOnly && <>
       <section aria-label="Tiếp tục học"><h2 className={styles.heading}><span/>Tiếp tục học</h2><div className={styles.top}>
         {resume ? <article className={styles.resume}><div className={styles.resumeArt} aria-hidden="true"><LessonCover lessonNumber={resume.number}/></div><div className={styles.resumeBody}><small>HSK {level} · BÀI {String(resume.number).padStart(2, "0")}</small><h3 lang="zh-CN">{resume.titleZh}</h3><p className={styles.pinyin}>{resume.pinyin}</p><p className={styles.meaning}>{resume.titleVi}</p><p className={styles.meta}><BookOpen size={14}/>{resume.vocabList.length} từ vựng <span>·</span>{resume.grammarList.length} ngữ pháp</p><div className={styles.meter}><progress max={100} value={percent(resume)} aria-label="Nội dung hoàn thành của bài tiếp tục học"/><span>{percent(resume)}%</span></div><p className={styles.source}>{completed.has(resume.number) ? "Đã hoàn thành bài học" : "Nội dung hoàn thành · theo mục đã đánh dấu học xong"}</p></div><div className={styles.resumeActions}><button className={styles.primary} onClick={() => onOpen(resume.number)}><Play size={15}/>Tiếp tục học</button>{saveButton(resume.number, true)}<button className={styles.outline} onClick={() => onOpen(resume.number)}><BookOpen size={15}/>Xem bài học</button></div></article> : <div className={styles.empty}>Chưa có bài đã mở ở HSK {level} để tiếp tục học.</div>}
-        <aside className={styles.week} aria-label="Tiến độ tuần này"><h2><ChartNoAxesColumnIncreasing size={19}/>Tiến độ tuần này</h2><strong>{stats ? week.length : "—"}<small> bài học</small></strong><p>Đã hoàn thành · HSK {level}</p>{stats ? <div className={styles.days}>{stats.days.map((day, i) => { const count = week.filter(item => item.date === day).length; return <div key={day} title={`${day}: ${count} bài hoàn thành`}><span data-checked={count > 0}>{count > 0 && <Check size={15}/>}</span><small>{["T2", "T3", "T4", "T5", "T6", "T7", "CN"][i]}</small></div>; })}</div> : <p className={styles.source}>{failed ? "Chưa tải được lịch sử hoàn thành." : "Đang tải lịch sử…"}</p>}{failed && <button className={styles.retry} onClick={() => setRetry(n => n + 1)}>Thử lại</button>}<p className={styles.source}>Mỗi bài chỉ tính lần hoàn thành đầu tiên. Tuần từ thứ Hai đến Chủ nhật (giờ Việt Nam).</p></aside>
+        <aside className={styles.week} aria-label="Tiến độ tuần này">
+          <h2><ChartNoAxesColumnIncreasing size={19}/>Tiến độ tuần này</h2>
+          <strong>{stats ? levelWeekly : "—"}<small> bài học</small></strong>
+          <p className={styles.weekSubtitle}>
+            Đã hoàn thành · HSK {level}
+            {stats && totalWeekly > levelWeekly && (
+              <span className={styles.totalWeekNote}> · Tổng {totalWeekly} bài tuần này</span>
+            )}
+          </p>
+          {stats ? (
+            <div className={styles.days}>
+              {stats.days.map((day, i) => {
+                const act = stats.weeklyActivity?.find(item => item.date === day);
+                const countThisLevel = act ? act.levelCount : week.filter(item => item.date === day).length;
+                const totalCount = act ? act.totalCount : countThisLevel;
+                const isToday = act?.isToday ?? (stats.today === day);
+                const isPast = stats.today ? day < stats.today : false;
+                const isFuture = stats.today ? day > stats.today : false;
+                const isCompleted = countThisLevel > 0 || totalCount > 0;
+                const otherLevelOnly = countThisLevel === 0 && totalCount > 0;
+                const dayLabel = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"][i];
+                const fullDayName = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"][i];
+                const dateParts = day.split("-");
+                const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}` : day;
+
+                let tooltip = `${fullDayName} (${formattedDate})`;
+                if (isToday) tooltip += " · Hôm nay";
+                if (countThisLevel > 0) {
+                  tooltip += `: Đã hoàn thành ${countThisLevel} bài học HSK ${level}`;
+                  if (totalCount > countThisLevel) tooltip += ` (Tổng ${totalCount} bài các cấp)`;
+                } else if (totalCount > 0) {
+                  const lvlsStr = act?.levels?.length ? ` (HSK ${act.levels.join(", ")})` : "";
+                  tooltip += `: Đã hoàn thành ${totalCount} bài học cấp khác${lvlsStr}`;
+                } else if (isToday) {
+                  tooltip += ": Hôm nay chưa có bài hoàn thành mới";
+                } else if (isPast) {
+                  tooltip += ": Chưa học bài";
+                } else {
+                  tooltip += ": Sắp tới";
+                }
+
+                return (
+                  <div
+                    key={day}
+                    className={styles.dayCol}
+                    data-today={isToday}
+                    data-future={isFuture}
+                    data-past={isPast}
+                    title={tooltip}
+                  >
+                    <span
+                      className={styles.dayDot}
+                      data-checked={isCompleted}
+                      data-other={otherLevelOnly}
+                      data-today={isToday}
+                      data-future={isFuture}
+                    >
+                      {isCompleted ? (
+                        <Check size={14} strokeWidth={2.6} />
+                      ) : isToday ? (
+                        <span className={styles.todayPulseDot} />
+                      ) : null}
+                    </span>
+                    <small className={styles.dayLabel}>
+                      {dayLabel}
+                      {isToday && <span className={styles.todayTag}>Nay</span>}
+                    </small>
+                    {isCompleted && (
+                      <span className={styles.dayBadge}>
+                        {countThisLevel > 0 ? countThisLevel : totalCount}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className={styles.source}>{failed ? "Chưa tải được lịch sử hoàn thành." : "Đang tải lịch sử…"}</p>
+          )}
+          {failed && <button className={styles.retry} onClick={() => setRetry(n => n + 1)}>Thử lại</button>}
+          <p className={styles.source}>Mỗi bài chỉ tính lần hoàn thành đầu tiên. Tuần từ thứ Hai đến Chủ nhật (giờ Việt Nam).</p>
+        </aside>
       </div></section>
     </>}
     <section id="catalog-all-lessons" aria-label={savedOnly ? "Kho lưu trữ bài học" : "Toàn bộ bài học"}>
