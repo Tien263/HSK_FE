@@ -52,6 +52,7 @@ import CurriculumQualityAuditorModal from "@/components/admin/CurriculumQualityA
 import CurriculumPrintExportModal from "@/components/admin/CurriculumPrintExportModal";
 import CurriculumRevisionHistoryModal, {
   saveCurriculumSnapshot,
+  getCurriculumSnapshots,
 } from "@/components/admin/CurriculumRevisionHistoryModal";
 import { safeLocalStorageSet } from "@/lib/safe-storage";
 import { lookupDictionaryAuto, getAutoPinyin } from "@/lib/pinyin-helper";
@@ -196,22 +197,47 @@ export default function CurriculumBuilderWorkspace({
           headers: getCurriculumAuthHeaders(),
         });
         const data = await res.json();
-        if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setLessons(data.items);
+        // 1. Kiểm tra bản nháp cục bộ trong localStorage
+        let customLocal: any = null;
+        if (typeof window !== "undefined") {
+          const raw = localStorage.getItem(`hsk_admin_custom_curriculum_level_${selectedLevel}`);
+          if (raw) {
+            try { customLocal = JSON.parse(raw); } catch {}
+          }
+        }
+
+        const serverLessons = (data.success && Array.isArray(data.items)) ? data.items : [];
+        const serverExCount = serverLessons.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0);
+        const localExCount = Array.isArray(customLocal) 
+          ? customLocal.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0)
+          : 0;
+
+        // 2. Kiểm tra snapshots lịch sử hoàn tác gần nhất xem có bản nào lưu câu hỏi chưa kịp đồng bộ không
+        const snapshots = typeof window !== "undefined" ? getCurriculumSnapshots(selectedLevel) : [];
+        let bestSnapLessons: any = null;
+        let bestSnapExCount = 0;
+        for (const snap of snapshots) {
+          const count = (snap.lessons || []).reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0);
+          if (count > bestSnapExCount) {
+            bestSnapExCount = count;
+            bestSnapLessons = snap.lessons;
+          }
+        }
+
+        // Ưu tiên bản có nhiều câu hỏi nhất nếu trước đó server bị lỗi lưu timeout
+        if (bestSnapLessons && bestSnapExCount > serverExCount && bestSnapExCount >= localExCount) {
+          setLessons(bestSnapLessons);
+          showToast(`⚡ Đã tự động khôi phục ${bestSnapExCount} câu hỏi bài tập từ bản lịch sử hoàn tác của bạn. Hãy bấm "Lưu & Xuất bản" để ghi lên máy chủ!`);
+        } else if (Array.isArray(customLocal) && customLocal.length > 0 && localExCount > serverExCount) {
+          setLessons(customLocal);
+          showToast(`⚡ Đã tải ${localExCount} câu hỏi bài tập từ bản nháp trình duyệt. Hãy bấm "Lưu & Xuất bản" để ghi lên máy chủ!`);
+        } else if (serverLessons.length > 0) {
+          setLessons(serverLessons);
+        } else if (Array.isArray(customLocal) && customLocal.length > 0) {
+          setLessons(customLocal);
         } else {
-          let customLocal: any = null;
-          if (typeof window !== "undefined") {
-            const raw = localStorage.getItem(`hsk_admin_custom_curriculum_level_${selectedLevel}`);
-            if (raw) {
-              try { customLocal = JSON.parse(raw); } catch {}
-            }
-          }
-          if (Array.isArray(customLocal) && customLocal.length > 0) {
-            setLessons(customLocal);
-          } else {
-            const localLessons = getLessonsByHskLevel(selectedLevel);
-            setLessons(localLessons);
-          }
+          const localLessons = getLessonsByHskLevel(selectedLevel);
+          setLessons(localLessons);
         }
       } catch {
         const localLessons = getLessonsByHskLevel(selectedLevel);

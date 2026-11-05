@@ -22,6 +22,7 @@ export interface CurriculumSnapshot {
   lessonCount: number;
   totalVocab: number;
   totalGrammar: number;
+  totalExercises?: number;
   lessons: Hsk1FullLesson[];
 }
 
@@ -48,6 +49,7 @@ export function saveCurriculumSnapshot(
 
     const totalVocab = lessons.reduce((acc, l) => acc + (l.vocabList?.length || 0), 0);
     const totalGrammar = lessons.reduce((acc, l) => acc + (l.grammarList?.length || 0), 0);
+    const totalExercises = lessons.reduce((acc, l) => acc + (l.grammarExercises?.length || 0), 0);
 
     const newSnapshot: CurriculumSnapshot = {
       id: `snap-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -57,6 +59,7 @@ export function saveCurriculumSnapshot(
       lessonCount: lessons.length,
       totalVocab,
       totalGrammar,
+      totalExercises,
       lessons,
     };
 
@@ -205,7 +208,7 @@ export default function CurriculumRevisionHistoryModal({
                     </span>
                     <span>•</span>
                     <span className="font-semibold text-[#204434]">
-                      {snap.lessonCount} bài học ({snap.totalVocab} từ, {snap.totalGrammar} ngữ pháp)
+                      {snap.lessonCount} bài học ({snap.totalVocab} từ, {snap.totalGrammar} ngữ pháp{typeof snap.totalExercises === "number" ? `, ${snap.totalExercises} bài tập` : ""})
                     </span>
                   </div>
                 </div>
