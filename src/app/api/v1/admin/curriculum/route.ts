@@ -112,54 +112,55 @@ export async function POST(request: Request) {
       throw new CurriculumFormatError("Cấp HSK đã xóa phải có danh sách bài rỗng.");
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const before = await tx.curriculumContent.findUnique({ where: { hskLevel: level } });
-      const currentRev = before ? before.revision : 0;
-      const nextRev = currentRev + 1;
-      const data = {
-        lessons: lessons as unknown as Prisma.InputJsonValue,
-        isDeleted,
-        revision: nextRev,
-      };
-
-      if (before) {
-        await tx.curriculumContent.update({
-          where: { hskLevel: level },
-          data,
-        });
-      } else {
-        await tx.curriculumContent.create({
-          data: { hskLevel: level, ...data },
-        });
-      }
-
-      try {
-        await tx.auditLog.create({
-          data: {
-            userId: admin.id,
-            action: isDeleted ? "CURRICULUM_DELETE_LEVEL" : "CURRICULUM_SAVE",
-            entity: `CurriculumContent:${level}`,
-            details: JSON.stringify({
-              previousRevision: currentRev,
-              previousCount: Array.isArray(before?.lessons) ? (before.lessons as any[]).length : 0,
-              nextCount: lessons.length,
-              isDeleted,
-            }),
-          },
-        });
-      } catch (auditErr) {
-        console.warn("Audit log creation note:", auditErr);
-      }
-
-      return {
-        success: true,
-        level,
-        items: lessons,
-        revision: nextRev,
-        isDeleted,
-        updatedAt: new Date().toISOString(),
-      };
+    const before = await prisma.curriculumContent.findUnique({
+      where: { hskLevel: level },
+      select: { revision: true, lessons: true },
     });
+    const currentRev = before ? before.revision : 0;
+    const nextRev = currentRev + 1;
+    const data = {
+      lessons: lessons as unknown as Prisma.InputJsonValue,
+      isDeleted,
+      revision: nextRev,
+    };
+
+    if (before) {
+      await prisma.curriculumContent.update({
+        where: { hskLevel: level },
+        data,
+      });
+    } else {
+      await prisma.curriculumContent.create({
+        data: { hskLevel: level, ...data },
+      });
+    }
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: admin.id,
+          action: isDeleted ? "CURRICULUM_DELETE_LEVEL" : "CURRICULUM_SAVE",
+          entity: `CurriculumContent:${level}`,
+          details: JSON.stringify({
+            previousRevision: currentRev,
+            previousCount: Array.isArray(before?.lessons) ? (before.lessons as any[]).length : 0,
+            nextCount: lessons.length,
+            isDeleted,
+          }),
+        },
+      });
+    } catch (auditErr) {
+      console.warn("Audit log creation note:", auditErr);
+    }
+
+    const result = {
+      success: true,
+      level,
+      items: lessons,
+      revision: nextRev,
+      isDeleted,
+      updatedAt: new Date().toISOString(),
+    };
 
     const res = NextResponse.json(result, { headers });
     const existingCookie = request.headers.get("cookie")?.includes(DICTIONARY_SESSION_COOKIE);
