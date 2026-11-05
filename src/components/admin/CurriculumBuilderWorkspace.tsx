@@ -834,38 +834,85 @@ export default function CurriculumBuilderWorkspace({
           return;
         }
 
-        let assignedCount = 0;
-        const updatedLessons = lessons.map((les) => {
-          const forThisLesson = incomingExercises.filter(
-            (ex) => !ex.lessonNumber || ex.lessonNumber === les.number
-          );
-
-          if (forThisLesson.length === 0) return les;
-
-          const currentExs = Array.isArray(les.grammarExercises) ? [...les.grammarExercises] : [];
-
-          forThisLesson.forEach((exItem, idx) => {
-            const cleanItem: GrammarExerciseItem = {
-              id: exItem.id || `hsk${selectedLevel}-${String(les.number).padStart(2, "0")}-ex-batch-${Date.now()}-${idx}`,
-              mode: exItem.mode || "choose_correct",
-              grammarRule: exItem.grammarRule || "Ngữ pháp bài học",
-              prompt: exItem.prompt || "",
-              options: exItem.options,
-              correctAnswer: exItem.correctAnswer || "A",
-              explanation: exItem.explanation || "",
-              scrambledWords: exItem.scrambledWords,
-              wrongSentence: exItem.wrongSentence,
-              dialogueLines: exItem.dialogueLines,
-            };
-            currentExs.push(cleanItem);
-            assignedCount++;
-          });
-
-          return {
-            ...les,
-            grammarExercises: currentExs,
-          };
+        // 1. Thu thập tất cả các số bài học xuất hiện trong file câu hỏi
+        const lessonNumbersInFile = new Set<number>();
+        incomingExercises.forEach((ex) => {
+          const num = Number(ex.lessonNumber);
+          if (num && num > 0) {
+            lessonNumbersInFile.add(num);
+          }
         });
+        if (lessonNumbersInFile.size === 0) {
+          lessonNumbersInFile.add(1);
+        }
+
+        // 2. Đảm bảo mọi bài học có trong file bài tập đều tồn tại (kể cả khi chưa upload bài học)
+        const workingMap = new Map<number, Hsk1FullLesson>();
+        lessons.forEach((l) => workingMap.set(l.number, l));
+
+        lessonNumbersInFile.forEach((num) => {
+          if (!workingMap.has(num)) {
+            workingMap.set(num, {
+              id: `hsk${selectedLevel}-${String(num).padStart(2, "0")}`,
+              number: num,
+              titleZh: `第${num}课`,
+              titleVi: `Bài ${num}`,
+              pinyin: "",
+              desc: `Bài học ${num} - HSK ${selectedLevel}`,
+              durationMin: 45,
+              vocabCount: 0,
+              grammarCount: 0,
+              isUnlockedDefault: true,
+              unlockedScheduleText: "Đã mở",
+              vocabList: [],
+              grammarList: [],
+              dialogue: [],
+              phonetics: { title: "", rule: "", examples: [] },
+              culture: "",
+              reading: undefined,
+              grammarExercises: [],
+            });
+          }
+        });
+
+        // 3. Phân bổ câu hỏi vào bài học tương ứng
+        let assignedCount = 0;
+        const updatedLessons = Array.from(workingMap.values())
+          .sort((a, b) => a.number - b.number)
+          .map((les) => {
+            const forThisLesson = incomingExercises.filter(
+              (ex) => !ex.lessonNumber || Number(ex.lessonNumber) === les.number
+            );
+
+            if (forThisLesson.length === 0) return les;
+
+            const currentExs = Array.isArray(les.grammarExercises) ? [...les.grammarExercises] : [];
+            const existingPrompts = new Set(currentExs.map((e) => e.prompt || e.id));
+
+            forThisLesson.forEach((exItem, idx) => {
+              if (existingPrompts.has(exItem.prompt || exItem.id)) return; // Tránh trùng lặp
+
+              const cleanItem: GrammarExerciseItem = {
+                id: exItem.id || `hsk${selectedLevel}-${String(les.number).padStart(2, "0")}-ex-batch-${Date.now()}-${idx}`,
+                mode: exItem.mode || "choose_correct",
+                grammarRule: exItem.grammarRule || "Ngữ pháp bài học",
+                prompt: exItem.prompt || "",
+                options: exItem.options,
+                correctAnswer: exItem.correctAnswer || "A",
+                explanation: exItem.explanation || "",
+                scrambledWords: exItem.scrambledWords,
+                wrongSentence: exItem.wrongSentence,
+                dialogueLines: exItem.dialogueLines,
+              };
+              currentExs.push(cleanItem);
+              assignedCount++;
+            });
+
+            return {
+              ...les,
+              grammarExercises: currentExs,
+            };
+          });
 
         setLessons(updatedLessons);
 
@@ -1031,6 +1078,7 @@ export default function CurriculumBuilderWorkspace({
           dialogue: cleanDialogue,
           vocabCount: cleanVocab.length,
           grammarCount: cleanGrammar.length,
+          grammarExercises: Array.isArray(l.grammarExercises) ? l.grammarExercises : [],
         };
       });
 

@@ -17,7 +17,7 @@ import {
   HelpCircle,
   Upload,
 } from "lucide-react";
-import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+import type { Hsk1FullLesson, GrammarExerciseItem } from "@/lib/hsk1-full-lessons";
 
 interface CurriculumJsonPreviewModalProps {
   isOpen: boolean;
@@ -87,6 +87,14 @@ export default function CurriculumJsonPreviewModal({
     } as Hsk1FullLesson;
   };
 
+  // Lưu lại bản đồ bài tập ngữ pháp hiện có từ các bài học cũ để không bao giờ bị mất bài tập khi nạp bài học mới
+  const existingExercisesMap = new Map<number, GrammarExerciseItem[]>();
+  currentLessons.forEach((l) => {
+    if (Array.isArray(l.grammarExercises) && l.grammarExercises.length > 0) {
+      existingExercisesMap.set(l.number, l.grammarExercises);
+    }
+  });
+
   const lessonMap = new Map<number, Hsk1FullLesson>();
   if (importMode === "merge") {
     currentLessons.forEach((l, idx) => {
@@ -94,8 +102,30 @@ export default function CurriculumJsonPreviewModal({
       lessonMap.set(norm.number, norm);
     });
   }
+
   incomingLessons.forEach((l, idx) => {
     const norm = normalizeLessonItem(l, idx + 1);
+
+    // BẢO VỆ BÀI TẬP NGỮ PHÁP ĐÃ CÓ:
+    // Nếu trước đó bài học đã có bài tập ngữ pháp, mà file bài học mới tải lên không chứa bài tập,
+    // phải giữ nguyên 100% câu hỏi bài tập cũ thay vì bị ghi đè thành mảng rỗng!
+    const prevExercises = existingExercisesMap.get(norm.number) || lessonMap.get(norm.number)?.grammarExercises;
+    if (Array.isArray(prevExercises) && prevExercises.length > 0) {
+      if (!Array.isArray(norm.grammarExercises) || norm.grammarExercises.length === 0) {
+        norm.grammarExercises = prevExercises;
+      } else {
+        // Nếu cả hai đều có bài tập, gộp lại thông minh tránh trùng prompt
+        const existingPrompts = new Set(prevExercises.map((e) => e.prompt || e.id));
+        const merged = [...prevExercises];
+        for (const ex of norm.grammarExercises) {
+          if (!existingPrompts.has(ex.prompt || ex.id)) {
+            merged.push(ex);
+          }
+        }
+        norm.grammarExercises = merged;
+      }
+    }
+
     lessonMap.set(norm.number, norm);
   });
   const finalMergedLessons = Array.from(lessonMap.values()).sort(
