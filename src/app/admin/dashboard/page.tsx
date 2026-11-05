@@ -11,6 +11,7 @@ import AdminPlacementTestSettings from "@/components/admin/AdminPlacementTestSet
 import AdminBrandingSettings from "@/components/admin/AdminBrandingSettings";
 import AdminGuideEditor from "@/components/admin/AdminGuideEditor";
 import AdminSepayWorkspace from "@/components/admin/AdminSepayWorkspace";
+import AdminMockExamWorkspace from "@/components/admin/AdminMockExamWorkspace";
 import StudentAnalyticsModal from "@/components/admin/StudentAnalyticsModal";
 import AvatarUpload from "@/components/common/AvatarUpload";
 import {
@@ -150,6 +151,7 @@ export default function AdminDashboardPage() {
     | "branding"
     | "guide_editor"
     | "sepay"
+    | "mock_exams"
   >("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [runningDiagnostics, setRunningDiagnostics] = useState(false);
@@ -244,6 +246,7 @@ export default function AdminDashboardPage() {
           "branding",
           "guide_editor",
           "sepay",
+          "mock_exams",
         ].includes(tab)
       ) {
         selectAdminTab(tab as typeof activeTab);
@@ -1099,6 +1102,7 @@ export default function AdminDashboardPage() {
               groupTitle: "Quản trị Đào tạo",
               icon: GraduationCap,
               items: [
+                { id: "mock_exams", label: "Phòng thi & Đề thi HSK", icon: FileCheck2, badge: "Thi thử" },
                 { id: "curriculum", label: "Kho giáo trình HSK", icon: BookOpen },
                 { id: "roadmap", label: "Lộ trình tự học", icon: Compass },
                 { id: "tests", label: "Đề khảo sát đầu vào", icon: HelpCircle },
@@ -1624,6 +1628,17 @@ export default function AdminDashboardPage() {
             </button>
 
             <Link
+              href="/s/mock-exam"
+              target="_blank"
+              className="px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer bg-[#204434] text-[#FAF7F0] hover:bg-[#163325] shadow-xs"
+              title="Mở Phòng thi HSK (Giao diện Thí sinh)"
+            >
+              <FileCheck2 className="w-4 h-4 text-[#BC9B6B]" />
+              <span>Phòng thi HSK</span>
+              <ExternalLink className="w-3 h-3 opacity-75" />
+            </Link>
+
+            <Link
               href="/admin/dictionary"
               className="px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-1.5 bg-[#FFFCF6] text-[#315E48] border border-[#BC9B6B]/20"
             >
@@ -1723,6 +1738,58 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </div>
+
+            {/* Trung tâm Khảo thí & Phòng thi Thử HSK (CTI Hanban) */}
+            <div className="bg-[#163325] text-[#FAF7F0] border border-[#BC9B6B]/40 rounded-3xl p-5 sm:p-6 shadow-md relative overflow-hidden">
+              <div
+                className="absolute right-0 top-0 w-80 h-full opacity-15 pointer-events-none bg-cover bg-right"
+                style={{ backgroundImage: `url('/theme/exam-bamboo-depth.png')` }}
+              />
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="space-y-2 max-w-xl">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-[#FAF7F0]/15 px-3 py-1 text-[11px] font-semibold text-[#E5D7B7] border border-[#FAF7F0]/20">
+                    <FileCheck2 size={13} className="text-[#BC9B6B]" />
+                    <span>Hệ thống Khảo thí & Phòng thi Chuẩn CTI</span>
+                  </div>
+                  <h3 className="font-serif font-bold text-xl sm:text-2xl text-[#FFFDF9]">
+                    Phòng thi HSK & Khảo thí Trực tuyến
+                  </h3>
+                  <p className="text-xs text-[#FAF7F0]/80 leading-relaxed">
+                    Trải nghiệm trực tiếp đề thi mô phỏng HSK 1 - HSK 7-9 với giao diện chính thức, bộ đếm giờ, âm thanh CTI, hình ảnh chuẩn và hệ thống Giám thị AI chống gian lận.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  <Link
+                    href="/s/mock-exam"
+                    target="_blank"
+                    className="px-4 py-2.5 rounded-2xl bg-[#FAF7F0] text-[#163325] hover:bg-white text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ExternalLink size={14} className="text-[#BC9B6B]" />
+                    <span>Vào Phòng Thi HSK</span>
+                  </Link>
+
+                  <Link
+                    href="/s/mock-exam?view=overview&level=1"
+                    target="_blank"
+                    className="px-4 py-2.5 rounded-2xl bg-[#BC9B6B] hover:bg-[#A88857] text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <GraduationCap size={14} />
+                    <span>Làm thử Đề HSK 1</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => selectAdminTab("mock_exams")}
+                    className="px-4 py-2.5 rounded-2xl bg-[#FAF7F0]/15 hover:bg-[#FAF7F0]/25 border border-[#FAF7F0]/30 text-white text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Settings size={14} />
+                    <span>Quản lý Đề thi</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* System Health Status Banner */}
             <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-5 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#BC9B6B]/20">
@@ -3311,6 +3378,11 @@ export default function AdminDashboardPage() {
         {/* TAB: QUẢN LÝ CẨM NANG HƯỚNG DẪN (/guide) */}
         {activeTab === "guide_editor" && (
           <AdminGuideEditor />
+        )}
+
+        {/* TAB: PHÒNG THI HSK & KHẢO THÍ TRỰC TUYẾN */}
+        {activeTab === "mock_exams" && (
+          <AdminMockExamWorkspace onSwitchToProctor={() => selectAdminTab("proctor")} />
         )}
 
         {/* =================================================================== */}
