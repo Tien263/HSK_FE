@@ -32,7 +32,7 @@ export async function officialPapers(){
   prisma.quizSet.findMany({where:{status:"READY",hskLevel:{gte:1,lte:9},mode:{in:["MOCK_EXAM","EXAM"]}},include:{teacher:{select:{role:true,name:true}},questions:{include:{question:true},orderBy:{orderIndex:"asc"}},assignments:{select:{durationMin:true}}},orderBy:{createdAt:"desc"}}),
   prisma.auditLog.findMany({where:{action:PUBLICATION},orderBy:{createdAt:"desc"}}),
  ]);
- const publications=new Map<string,{approved:boolean;durationMin:number;passScore:number|null}>();
+ const publications=new Map<string,{approved:boolean;durationMin:number;passScore:number|null;proctorEnabled?:boolean}>();
  for(const log of logs)if(!publications.has(log.entity))publications.set(log.entity,parse(log.details));
  const papers:ExamPaper[]=[];
  for(const set of sets){
@@ -41,7 +41,7 @@ export async function officialPapers(){
   const blueprint=examBlueprint.levels.find(row=>row.level===levelGroup(set.hskLevel));
   const durationMin=config?.durationMin||(durations.length===1?durations[0]:blueprint?.durationMin??null);
   const questions=set.questions.filter(row=>{const editor=row.question.editorData as Record<string,unknown>|null;return !editor?.status||editor.status==="READY";}).map(row=>snapshotQuestion(row.question as unknown as Record<string,unknown>,row.points));
-  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,maxScore:set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===set.totalScore?blueprint.targetScore:null),questions,mode:"EXAM"});
+  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,maxScore:set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===set.totalScore?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),questions,mode:"EXAM"});
  }
  return papers;
 }

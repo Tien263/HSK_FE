@@ -41,6 +41,7 @@ interface ExamItem {
   durationMin: number;
   passScore: number;
   approved: boolean;
+  proctorEnabled?: boolean;
 }
 
 interface AttemptItem {
@@ -137,6 +138,27 @@ export default function AdminMockExamWorkspace({
       }
     } catch {
       setMessage({ text: "Lỗi khi xóa đề thi", type: "error" });
+    }
+  };
+
+  const handleToggleProctor = async (examId: string, currentVal: boolean) => {
+    try {
+      const res = await fetch("/api/v1/admin/mock-exams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggleProctor", id: examId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ text: data.message, type: "success" });
+        setExams((prev) =>
+          prev.map((e) => (e.id === examId ? { ...e, proctorEnabled: !currentVal } : e))
+        );
+      } else {
+        setMessage({ text: data.message || "Không thể đổi trạng thái giám thị AI", type: "error" });
+      }
+    } catch {
+      setMessage({ text: "Lỗi kết nối máy chủ", type: "error" });
     }
   };
 
@@ -358,6 +380,15 @@ export default function AdminMockExamWorkspace({
                           <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-bold">
                             ✓ SẴN SÀNG THI
                           </span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                              primaryExam.proctorEnabled !== false
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                : "bg-gray-100 text-gray-600 border-gray-300"
+                            }`}
+                          >
+                            {primaryExam.proctorEnabled !== false ? "🛡️ AI: BẬT" : "🛡️ AI: TẮT"}
+                          </span>
                           <span className="text-xs font-semibold text-[#163325]">
                             {primaryExam.title}
                           </span>
@@ -420,6 +451,28 @@ export default function AdminMockExamWorkspace({
 
                     {hasExam ? (
                       <>
+                        {/* Toggle AI Proctor */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleProctor(primaryExam.id, primaryExam.proctorEnabled !== false)}
+                          title={
+                            primaryExam.proctorEnabled !== false
+                              ? "Bấm để TẮT Giám thị AI (Camera & Micro) cho đề này"
+                              : "Bấm để BẬT Giám thị AI (Camera & Micro) cho đề này"
+                          }
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                            primaryExam.proctorEnabled !== false
+                              ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                              : "bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          <ShieldAlert
+                            size={14}
+                            className={primaryExam.proctorEnabled !== false ? "text-emerald-600" : "text-gray-400"}
+                          />
+                          <span>{primaryExam.proctorEnabled !== false ? "AI: BẬT" : "AI: TẮT"}</span>
+                        </button>
+
                         {/* Go to Exam */}
                         <Link
                           href={`/s/mock-exam?view=overview&id=${primaryExam.id}&level=${primaryExam.hskLevel}`}

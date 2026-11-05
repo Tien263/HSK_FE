@@ -342,6 +342,7 @@ model QuizSet {
   hskLevel    Int      @default(1)
   curriculum  String   @default("HSK 3.0")
   totalScore  Int      @default(100)
+  proctorEnabled Boolean @default(true)
   createdAt   DateTime @default(now())
 
   teacher     User?             @relation("TeacherQuizSets", fields: [teacherId], references: [id], onDelete: SetNull)
@@ -377,6 +378,7 @@ model Assignment {
   latePolicy  String    @default("ALLOW") // ALLOW, BLOCK
   scoreRule   String    @default("BEST")  // BEST, LATEST
   status      String    @default("OPEN")  // SCHEDULED, OPEN, CLOSED
+  proctorEnabled Boolean @default(true) // Bật / Tắt Giám thị AI
   createdAt   DateTime  @default(now())
 
   quizSet     QuizSet            @relation(fields: [quizSetId], references: [id], onDelete: Cascade)

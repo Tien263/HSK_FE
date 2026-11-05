@@ -33,6 +33,7 @@ export interface AssignmentItem {
   gradedCount: number;
   maxAttempts: number;
   allowLate: boolean;
+  proctorEnabled?: boolean;
   scorePolicy: "AFTER_SUBMIT" | "AFTER_PUBLISH" | "NEVER";
 }
 

@@ -151,7 +151,22 @@ export function AssignmentsWorkspace({
   }, [assignments, activeTab, searchQuery]);
 
   // Handlers
-  const handleAssignExam = async(values:any)=>{try{await portalFetch("/api/v1/assignments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:values.title,classId:values.classId,quizSetId:values.examId,openAt:values.openDate,dueAt:values.dueDate,durationMin:values.durationMin,maxAttempts:values.maxAttempts})});setIsAssignModalOpen(false);await fetchData();showToast("Đã giao bài và lưu database.");}catch(error){showToast((error as Error).message);throw error;}};
+  const handleAssignExam = async(values:any)=>{try{await portalFetch("/api/v1/assignments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:values.title,classId:values.classId,quizSetId:values.examId,openAt:values.openDate,dueAt:values.dueDate,durationMin:values.durationMin,maxAttempts:values.maxAttempts,proctorEnabled:values.proctorEnabled!==false})});setIsAssignModalOpen(false);await fetchData();showToast("Đã giao bài và lưu database.");}catch(error){showToast((error as Error).message);throw error;}};
+
+  const handleToggleProctor = async (asg: AssignmentItem) => {
+    try {
+      const nextVal = !(asg.proctorEnabled !== false);
+      await portalFetch("/api/v1/assignments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: asg.id, proctorEnabled: nextVal }),
+      });
+      await fetchData();
+      showToast(nextVal ? "Đã BẬT Giám thị AI cho bài thi." : "Đã TẮT Giám thị AI cho bài thi.");
+    } catch (error) {
+      showToast((error as Error).message);
+    }
+  };
 
   const handleDeleteAssignment = async(asg:AssignmentItem)=>{if(!confirm("Xóa bài tập chưa có lượt làm?"))return;try{await portalFetch("/api/v1/assignments?id="+asg.id,{method:"DELETE"});await fetchData();showToast("Đã xóa bài tập.");}catch(error){showToast((error as Error).message);}};
 
@@ -263,6 +278,7 @@ export function AssignmentsWorkspace({
           onGradeAssignment={(asg) => {
             setActiveTab("SUBMISSIONS");
           }}
+          onToggleProctor={handleToggleProctor}
           onDeleteAssignment={handleDeleteAssignment}
           onAssignExamToClass={() => setIsAssignModalOpen(true)}
         />

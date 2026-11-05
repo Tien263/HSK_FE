@@ -427,25 +427,42 @@ export default function ExamPlayer({
         {/* Right Status Group: Save Badge, Proctor Badge, Wifi, Timer */}
         <div className={s.headerRight}>
           {/* AI Proctor Status & Violation Log Button */}
-          <button
-            type="button"
-            onClick={() => setShowViolationsModal(true)}
-            className={`${s.saveBadge}`}
-            style={{
-              cursor: "pointer",
-              border: "1px solid",
-              borderColor: violations.length > 0 ? "#e57373" : "#a8d5ba",
-              backgroundColor: violations.length > 0 ? "#fdeded" : "#f0f8f3",
-              color: violations.length > 0 ? "#b71c1c" : "#1c402e",
-              fontWeight: 600,
-            }}
-            title="Nhật ký Giám thị AI & Lỗi vi phạm phòng thi"
-          >
-            <ShieldAlert size={14} color={violations.length > 0 ? "#d32f2f" : "#2e7d32"} />
-            <span>
-              {violations.length > 0 ? `Lỗi: ${violations.length}` : "Giám thị AI: Chuẩn"}
-            </span>
-          </button>
+          {/* AI Proctor Status / Log Pill */}
+          {(attempt as any)?.proctorEnabled !== false ? (
+            <button
+              type="button"
+              onClick={() => setShowViolationsModal(true)}
+              className={`${s.saveBadge}`}
+              style={{
+                cursor: "pointer",
+                border: "1px solid",
+                borderColor: violations.length > 0 ? "#e57373" : "#a8d5ba",
+                backgroundColor: violations.length > 0 ? "#fdeded" : "#f0f8f3",
+                color: violations.length > 0 ? "#b71c1c" : "#1c402e",
+                fontWeight: 600,
+              }}
+              title="Nhật ký Giám thị AI & Lỗi vi phạm phòng thi"
+            >
+              <ShieldAlert size={14} color={violations.length > 0 ? "#d32f2f" : "#2e7d32"} />
+              <span>
+                {violations.length > 0 ? `Lỗi: ${violations.length}` : "Giám thị AI: Bật"}
+              </span>
+            </button>
+          ) : (
+            <div
+              className={`${s.saveBadge}`}
+              style={{
+                border: "1px solid #d4decb",
+                backgroundColor: "#f4f7f1",
+                color: "#6b7d67",
+                fontWeight: 600,
+              }}
+              title="Bài thi này được tắt giám thị AI"
+            >
+              <ShieldAlert size={14} color="#8a9c87" />
+              <span>Giám thị AI: Tắt</span>
+            </div>
+          )}
 
           {/* Save Status Badge */}
           <div className={`${s.saveBadge} ${s[saveStatus]}`}>
@@ -979,8 +996,8 @@ export default function ExamPlayer({
           </div>
         </div>
       )}
-      {/* AI Anti-Cheat Proctor Component (Giám thị AI trực tuyến trong phòng thi) */}
-      {!finished && attempt && (
+      {/* AI Anti-Cheat Proctor Component (Chỉ kích hoạt khi Giáo viên / Admin bật Giám thị AI) */}
+      {!finished && attempt && (attempt as any)?.proctorEnabled !== false && (
         <ComponentErrorBoundary
           name="Giám thị AI"
           fallback={

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Send, Calendar, Clock, Layers, AlertCircle } from "lucide-react";
+import { X, Send, Calendar, Clock, Layers, AlertCircle, ShieldAlert } from "lucide-react";
 import { ClassOption, ExamPackageItem } from "./types";
 
 interface AssignExamModalProps {
@@ -19,6 +19,7 @@ interface AssignExamModalProps {
     maxAttempts: number;
     scorePolicy: "AFTER_SUBMIT" | "AFTER_PUBLISH" | "NEVER";
     allowLate: boolean;
+    proctorEnabled?: boolean;
   }) => Promise<void> | void;
 }
 
@@ -57,6 +58,7 @@ export default function AssignExamModal({
   const [maxAttempts, setMaxAttempts] = useState(1);
   const [scorePolicy, setScorePolicy] = useState<"AFTER_SUBMIT" | "AFTER_PUBLISH" | "NEVER">("AFTER_PUBLISH");
   const [allowLate, setAllowLate] = useState(true);
+  const [proctorEnabled, setProctorEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -82,6 +84,7 @@ export default function AssignExamModal({
         maxAttempts,
         scorePolicy,
         allowLate,
+        proctorEnabled,
       });
       onClose();
     } catch (err) {
@@ -249,6 +252,37 @@ export default function AssignExamModal({
               <option value="AFTER_SUBMIT">Hiển thị ngay sau khi học sinh nộp</option>
               <option value="NEVER">Không công bố điểm</option>
             </select>
+          </div>
+
+          {/* 7. Giám thị AI Chống Gian Lận */}
+          <div className="p-3.5 rounded-2xl bg-[#FFFDF9] border border-[#BC9B6B]/30 flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <label
+                className="font-bold text-xs text-[#204434] flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setProctorEnabled(!proctorEnabled)}
+              >
+                <ShieldAlert className={`w-4 h-4 ${proctorEnabled ? "text-emerald-700" : "text-gray-400"}`} />
+                <span>Giám thị AI phòng thi (Camera & Micro)</span>
+              </label>
+              <p className="text-[11px] text-[#526c50]">
+                {proctorEnabled
+                  ? "Bật giám sát: AI quét camera, cảnh báo âm thanh bất thường và chụp ảnh chứng cứ."
+                  : "Đã tắt: Học sinh làm bài tự do thoải mái, không kích hoạt camera hay micro."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setProctorEnabled(!proctorEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer shrink-0 ${
+                proctorEnabled ? "bg-[#204434]" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  proctorEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
           </div>
 
           {/* Actions */}

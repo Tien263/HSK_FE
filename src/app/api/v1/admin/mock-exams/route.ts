@@ -105,6 +105,7 @@ export async function GET(request: Request) {
         durationMin: pub?.durationMin || (qs.hskLevel === 1 ? 40 : qs.hskLevel === 2 ? 55 : qs.hskLevel === 3 ? 90 : 100),
         passScore: pub?.passScore || (qs.hskLevel <= 2 ? 120 : 180),
         approved: pub ? pub.approved : true,
+        proctorEnabled: qs.proctorEnabled !== false,
       };
     });
 
@@ -205,6 +206,28 @@ export async function POST(request: Request) {
         data: { status: newStatus },
       });
       return NextResponse.json({ success: true, message: `Đã đổi trạng thái đề thi sang ${newStatus}.` }, { headers });
+    }
+
+    // 4. Toggle AI Proctor (Bật / Tắt Giám thị AI)
+    if (action === "toggleProctor") {
+      const examId = String(body.id || "");
+      const current = await prisma.quizSet.findUnique({ where: { id: examId }, select: { proctorEnabled: true } });
+      if (!current) {
+        return NextResponse.json({ success: false, message: "Không tìm thấy đề thi." }, { status: 404, headers });
+      }
+      const nextVal = current.proctorEnabled === false ? true : false;
+      await prisma.quizSet.update({
+        where: { id: examId },
+        data: { proctorEnabled: nextVal },
+      });
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Đã ${nextVal ? "BẬT" : "TẮT"} Giám thị AI cho đề thi.`,
+          proctorEnabled: nextVal,
+        },
+        { headers }
+      );
     }
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ." }, { status: 400, headers });

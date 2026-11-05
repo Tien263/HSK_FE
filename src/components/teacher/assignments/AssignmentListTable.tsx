@@ -11,6 +11,7 @@ import {
   Unlock,
   CheckCircle2,
   AlertCircle,
+  ShieldAlert,
 } from "lucide-react";
 import { AssignmentItem } from "./types";
 
@@ -19,6 +20,7 @@ interface AssignmentListTableProps {
   onOpenQrModal: (assignment: AssignmentItem) => void;
   onGradeAssignment: (assignment: AssignmentItem) => void;
   onToggleStatus?: (assignment: AssignmentItem) => void;
+  onToggleProctor?: (assignment: AssignmentItem) => void;
   onDeleteAssignment?: (assignment: AssignmentItem) => void;
   onAssignExamToClass?: () => void;
 }
@@ -28,6 +30,7 @@ export default function AssignmentListTable({
   onOpenQrModal,
   onGradeAssignment,
   onToggleStatus,
+  onToggleProctor,
   onDeleteAssignment,
   onAssignExamToClass,
 }: AssignmentListTableProps) {
@@ -67,6 +70,7 @@ export default function AssignmentListTable({
               <th className="py-3 px-4">Lớp áp dụng</th>
               <th className="py-3 px-4">Thời hạn & Thời lượng</th>
               <th className="py-3 px-4">Tiến độ nộp</th>
+              <th className="py-3 px-4">Giám thị AI</th>
               <th className="py-3 px-4">Trạng thái</th>
               <th className="py-3 px-4 text-right">Thao tác</th>
             </tr>
@@ -135,6 +139,31 @@ export default function AssignmentListTable({
                         />
                       </div>
                     </div>
+                  </td>
+
+                  {/* Giám thị AI (Bật / Tắt) */}
+                  <td className="py-3.5 px-4">
+                    <button
+                      type="button"
+                      onClick={() => onToggleProctor?.(asg)}
+                      title={
+                        asg.proctorEnabled !== false
+                          ? "Bấm để TẮT Giám thị AI (Camera & Micro) cho bài thi này"
+                          : "Bấm để BẬT Giám thị AI (Camera & Micro) cho bài thi này"
+                      }
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer ${
+                        asg.proctorEnabled !== false
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
+                      }`}
+                    >
+                      <ShieldAlert
+                        className={`w-3.5 h-3.5 ${
+                          asg.proctorEnabled !== false ? "text-emerald-600" : "text-gray-400"
+                        }`}
+                      />
+                      <span>{asg.proctorEnabled !== false ? "AI: BẬT" : "AI: TẮT"}</span>
+                    </button>
                   </td>
 
                   {/* Trạng thái */}

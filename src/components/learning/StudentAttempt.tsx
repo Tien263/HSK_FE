@@ -29,7 +29,7 @@ type Question = {
 
 type Attempt = {
   attemptId: string;
-  assignment: { title: string; durationMin: number; classId?: string };
+  assignment: { title: string; durationMin: number; classId?: string; proctorEnabled?: boolean };
   questions: Question[];
   status: string;
   startedAt: string;
@@ -75,8 +75,8 @@ export default function StudentAttempt() {
 
   return (
     <main className="min-h-screen bg-[#F7F5EE] p-4 sm:p-8">
-      {/* Giám thị AI Chống Gian Lận (Bật khi bài thi đang tiến hành) */}
-      {data && data.status === "IN_PROGRESS" && (
+      {/* Giám thị AI Chống Gian Lận (Chỉ kích hoạt khi Giáo viên / Admin bật tính năng này) */}
+      {data && data.status === "IN_PROGRESS" && data.assignment.proctorEnabled !== false && (
         <ExamAntiCheatProctor
           examTitle={data.assignment.title}
           classId={data.assignment.classId}
@@ -92,8 +92,22 @@ export default function StudentAttempt() {
         <InkHero
           eyebrow="Làm bài thi & Kiểm tra"
           title={data?.assignment.title || "Bài tập"}
-          description={data ? `${data.questions.length} câu hỏi · ${data.assignment.durationMin} phút · Giám thị chống gian lận trực tuyến` : undefined}
+          description={
+            data
+              ? `${data.questions.length} câu hỏi · ${data.assignment.durationMin} phút · ${
+                  data.assignment.proctorEnabled !== false
+                    ? "🛡️ Có Giám thị AI giám sát"
+                    : "🛡️ Chế độ thi tự do (Giáo viên tắt Giám thị AI)"
+                }`
+              : undefined
+          }
         />
+        {data && data.status === "IN_PROGRESS" && data.assignment.proctorEnabled === false && (
+          <div style={{ padding: "10px 16px", borderRadius: 12, background: "#E8F5E9", border: "1px solid #C8E6C9", color: "#2E7D32", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>🛡️</span>
+            <span><strong>Chế độ làm bài tự do:</strong> Giáo viên đã tắt tính năng Giám thị AI (Camera & Micro) cho bài thi này. Thí sinh làm bài tự nhiên không bị giới hạn.</span>
+          </div>
+        )}
         {error && <p className={styles.error}>{error}</p>}
         {loading && <p className={styles.empty}>Đang tải đề…</p>}
 
