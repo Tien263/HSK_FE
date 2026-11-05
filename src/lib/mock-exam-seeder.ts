@@ -12,13 +12,17 @@ export async function seedAuthenticHsk1(teacherId?: string) {
     authorId = admin.id;
   }
 
-  // Delete old HSK 1 mock exams
-  const oldExams = await prisma.quizSet.findMany({
-    where: { hskLevel: 1, mode: "MOCK_EXAM" },
+  // Only delete or replace previous CTI Authentic HSK 1 Exam, NEVER delete user-uploaded exams
+  const oldCtiExams = await prisma.quizSet.findMany({
+    where: {
+      hskLevel: 1,
+      mode: "MOCK_EXAM",
+      title: { contains: "CTI Chuẩn 01" },
+    },
     select: { id: true },
   });
 
-  for (const old of oldExams) {
+  for (const old of oldCtiExams) {
     await prisma.quizSetQuestion.deleteMany({ where: { quizSetId: old.id } });
     await prisma.auditLog.deleteMany({ where: { entity: old.id } });
     await prisma.quizSet.delete({ where: { id: old.id } });

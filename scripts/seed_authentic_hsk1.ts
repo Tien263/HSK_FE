@@ -14,13 +14,17 @@ async function main() {
     throw new Error("No admin user found to author official exams.");
   }
 
-  // Find old HSK 1 exam
+  // Find old CTI HSK 1 exam only, never delete user-uploaded exams
   const oldExams = await prisma.quizSet.findMany({
-    where: { hskLevel: 1, mode: "MOCK_EXAM" },
+    where: {
+      hskLevel: 1,
+      mode: "MOCK_EXAM",
+      title: { contains: "CTI Chuẩn 01" }
+    },
   });
 
   for (const old of oldExams) {
-    console.log("Deleting old HSK 1 quizSet:", old.id, old.title);
+    console.log("Replacing old CTI HSK 1 quizSet:", old.id, old.title);
     await prisma.quizSetQuestion.deleteMany({ where: { quizSetId: old.id } });
     await prisma.auditLog.deleteMany({ where: { entity: old.id } });
     await prisma.quizSet.delete({ where: { id: old.id } });
