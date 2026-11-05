@@ -154,7 +154,7 @@ export default function StudentPracticeWorkspace({
   const [loading, setLoading] = useState(true);
 
   // Official fallback curriculum lessons (guaranteed non-empty fallback to prevent rendering crashes)
-  const { lessons: apiLessons } = useCurriculumLessons(currentHskLevel);
+  const { lessons: apiLessons, loading: curriculumLoading } = useCurriculumLessons(currentHskLevel);
   const officialLessons = useMemo<Hsk1FullLesson[]>(() => {
     if (apiLessons && apiLessons.length > 0) return apiLessons;
     return getLessonsByHskLevel(currentHskLevel);
@@ -1230,6 +1230,12 @@ export default function StudentPracticeWorkspace({
           >
             <BrainCircuit className="w-3.5 h-3.5 text-[#BC9B6B]" />
             <span>3. Ôn tập tổng hợp</span>
+            {(() => {
+              const count = currentDbLesson?.grammarExercises?.length || currentOfficialLesson?.grammarExercises?.length || 0;
+              return count > 0 ? (
+                <span className="text-[10px] opacity-80">({count > 10 ? "10/" + count : count})</span>
+              ) : null;
+            })()}
           </button>
 
           {/* Tab 4: Phản xạ nhanh (10s) */}
@@ -1335,7 +1341,7 @@ export default function StudentPracticeWorkspace({
       )}
 
       {/* =================================================================== */}
-      {/* 3. CHẾ ĐỘ 3: ÔN TẬP TỔNG HỢP (TRỘN TỪ VỰNG & NGỮ PHÁP)             */}
+      {/* 3. CHẾ ĐỘ 3: ÔN TẬP TỔNG HỢP (KHO CÂU HỎI TỪ GIÁO TRÌNH ADMIN)      */}
       {/* =================================================================== */}
       {isLessonUnlocked && activeMode === "comprehensive" && (
         <ComprehensivePracticeSuite
@@ -1346,6 +1352,8 @@ export default function StudentPracticeWorkspace({
           lessonNumber={selectedPracticeLesson}
           handleSpeak={handleSpeak}
           studentId={currentUser?.id}
+          customExercises={currentDbLesson?.grammarExercises?.length ? currentDbLesson.grammarExercises : currentOfficialLesson?.grammarExercises}
+          isLoading={curriculumLoading}
         />
       )}
 
