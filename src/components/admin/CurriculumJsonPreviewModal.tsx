@@ -87,9 +87,14 @@ export default function CurriculumJsonPreviewModal({
     } as Hsk1FullLesson;
   };
 
+  // Lọc chỉ các bài học thực sự thuộc cấp độ level hiện tại để tránh nhiễm chéo dữ liệu giữa các HSK
+  const safeCurrentLessons = currentLessons.filter((l) => {
+    return !l.id || l.id.startsWith(`hsk${level}-`);
+  });
+
   // Lưu lại bản đồ bài tập ngữ pháp hiện có từ các bài học cũ để không bao giờ bị mất bài tập khi nạp bài học mới
   const existingExercisesMap = new Map<number, GrammarExerciseItem[]>();
-  currentLessons.forEach((l) => {
+  safeCurrentLessons.forEach((l) => {
     if (Array.isArray(l.grammarExercises) && l.grammarExercises.length > 0) {
       existingExercisesMap.set(l.number, l.grammarExercises);
     }
@@ -97,7 +102,7 @@ export default function CurriculumJsonPreviewModal({
 
   const lessonMap = new Map<number, Hsk1FullLesson>();
   if (importMode === "merge") {
-    currentLessons.forEach((l, idx) => {
+    safeCurrentLessons.forEach((l, idx) => {
       const norm = normalizeLessonItem(l, idx + 1);
       lessonMap.set(norm.number, norm);
     });

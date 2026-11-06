@@ -37,6 +37,12 @@ export function saveCurriculumSnapshot(
   lessons: Hsk1FullLesson[]
 ) {
   if (typeof window === "undefined" || !lessons || lessons.length === 0) return;
+  // Tuyệt đối không lưu snapshot nếu danh sách bài học chứa ID của cấp độ khác (chống rỉ dữ liệu chéo level)
+  const hasMismatch = lessons.some((l) => l.id && !l.id.startsWith(`hsk${level}-`));
+  if (hasMismatch) {
+    console.warn(`[Snapshot] Bỏ qua lưu snapshot cho HSK ${level} vì dữ liệu bài học chứa ID của cấp độ khác!`);
+    return;
+  }
   try {
     const key = `${STORAGE_KEY_PREFIX}${level}`;
     const raw = localStorage.getItem(key);
@@ -80,7 +86,14 @@ export function getCurriculumSnapshots(level: number): CurriculumSnapshot[] {
     const key = `${STORAGE_KEY_PREFIX}${level}`;
     const raw = localStorage.getItem(key);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    // Chỉ trả về các snapshot thực sự thuộc cấp độ này
+    return list.filter((s: CurriculumSnapshot) => {
+      if (s.level !== level) return false;
+      const snapLessons = Array.isArray(s.lessons) ? s.lessons : [];
+      return snapLessons.length === 0 || snapLessons.every((l) => !l.id || l.id.startsWith(`hsk${level}-`));
+    });
   } catch {
     return [];
   }

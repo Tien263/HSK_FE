@@ -189,6 +189,7 @@ export default function CurriculumBuilderWorkspace({
 
   // Tải giáo trình khi đổi level
   useEffect(() => {
+    let isCancelled = false;
     async function loadCurriculum() {
       setLoading(true);
       try {
@@ -197,6 +198,8 @@ export default function CurriculumBuilderWorkspace({
           headers: getCurriculumAuthHeaders(),
         });
         const data = await res.json();
+        if (isCancelled) return;
+
         // 1. Kiểm tra bản nháp cục bộ trong localStorage
         let customLocal: any = null;
         if (typeof window !== "undefined") {
@@ -206,7 +209,21 @@ export default function CurriculumBuilderWorkspace({
           }
         }
 
-        const serverLessons = (data.success && Array.isArray(data.items)) ? data.items : [];
+        // Kiểm định bản nháp local: Phải thuộc đúng cấp độ selectedLevel
+        const isLocalValid = Array.isArray(customLocal) && customLocal.length > 0 && customLocal.every((l: any) => {
+          return !l.id || l.id.startsWith(`hsk${selectedLevel}-`);
+        });
+        if (!isLocalValid) {
+          customLocal = null;
+        }
+
+        const rawServerLessons = (data.success && Array.isArray(data.items)) ? data.items : [];
+        // Kiểm định dữ liệu server: Phải thuộc đúng cấp độ selectedLevel (tránh trường hợp DB bị ghi đè nhầm trước đó)
+        const isServerValid = rawServerLessons.length > 0 && rawServerLessons.every((l: any) => {
+          return !l.id || l.id.startsWith(`hsk${selectedLevel}-`);
+        });
+        const serverLessons = isServerValid ? rawServerLessons : [];
+
         const serverExCount = serverLessons.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0);
         const localExCount = Array.isArray(customLocal) 
           ? customLocal.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0)
@@ -217,7 +234,14 @@ export default function CurriculumBuilderWorkspace({
         let bestSnapLessons: any = null;
         let bestSnapExCount = 0;
         for (const snap of snapshots) {
-          const count = (snap.lessons || []).reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0);
+          const snapLessons = Array.isArray(snap.lessons) ? snap.lessons : [];
+          // Phải tuyệt đối trùng cấp độ selectedLevel
+          const isSnapValid = snapLessons.length > 0 && snapLessons.every((l: any) => {
+            return !l.id || l.id.startsWith(`hsk${selectedLevel}-`);
+          });
+          if (!isSnapValid) continue;
+
+          const count = snapLessons.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0);
           if (count > bestSnapExCount) {
             bestSnapExCount = count;
             bestSnapLessons = snap.lessons;
@@ -227,7 +251,7 @@ export default function CurriculumBuilderWorkspace({
         // Ưu tiên bản có nhiều câu hỏi nhất nếu trước đó server bị lỗi lưu timeout
         if (bestSnapLessons && bestSnapExCount > serverExCount && bestSnapExCount >= localExCount) {
           setLessons(bestSnapLessons);
-          showToast(`⚡ Đã tự động khôi phục ${bestSnapExCount} câu hỏi bài tập từ bản lịch sử hoàn tác của bạn. Hãy bấm "Lưu & Xuất bản" để ghi lên máy chủ!`);
+          showToast(`⚡ Đã tự động khôi phục ${bestSnapExCount} câu hỏi bài tập từ bản lịch sử hoàn tác HSK ${selectedLevel}.`);
         } else if (Array.isArray(customLocal) && customLocal.length > 0 && localExCount > serverExCount) {
           setLessons(customLocal);
           showToast(`⚡ Đã tải ${localExCount} câu hỏi bài tập từ bản nháp trình duyệt. Hãy bấm "Lưu & Xuất bản" để ghi lên máy chủ!`);
@@ -236,17 +260,24 @@ export default function CurriculumBuilderWorkspace({
         } else if (Array.isArray(customLocal) && customLocal.length > 0) {
           setLessons(customLocal);
         } else {
-          const localLessons = getLessonsByHskLevel(selectedLevel);
-          setLessons(localLessons);
+          const fallback = getDefaultLessons(selectedLevel);
+          setLessons(fallback);
         }
       } catch {
-        const localLessons = getLessonsByHskLevel(selectedLevel);
-        setLessons(localLessons);
+        if (!isCancelled) {
+          const fallback = getDefaultLessons(selectedLevel);
+          setLessons(fallback);
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     }
     loadCurriculum();
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedLevel]);
 
   // Phát âm TTS
@@ -697,10 +728,20 @@ export default function CurriculumBuilderWorkspace({
           }
         }
 
+        // Kiểm tra xem file có chỉ định cấp độ khác selectedLevel không
+        const detectedLevel = Number(
+          parsed?.level ??
+          parsed?.hskLevel ??
+          (rawList[0]?.id ? rawList[0].id.match(/^hsk(\d+)-/)?.[1] : null)
+        );
+        if (detectedLevel && detectedLevel !== selectedLevel) {
+          showToast(`⚠️ File bạn chọn là tài liệu của HSK ${detectedLevel}, nhưng bạn đang mở tab HSK ${selectedLevel}! Hãy chọn tab HSK ${detectedLevel} trước khi nạp để tránh ghi đè nhầm.`, "error");
+          return;
+        }
+
         const incomingLessons: Hsk1FullLesson[] = rawList.map((l: any, idx: number) => {
           const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? idx + 1) || (idx + 1);
-          const baseId = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
-          const id = l?.id && typeof l.id === "string" && l.id.trim() ? l.id.trim() : baseId;
+          const id = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
           return {
             ...l,
             id,
@@ -768,10 +809,20 @@ export default function CurriculumBuilderWorkspace({
           }
         }
 
+        // Kiểm tra xem file có chỉ định cấp độ khác selectedLevel không
+        const detectedLevel = Number(
+          parsed?.level ??
+          parsed?.hskLevel ??
+          (rawList[0]?.id ? rawList[0].id.match(/^hsk(\d+)-/)?.[1] : null)
+        );
+        if (detectedLevel && detectedLevel !== selectedLevel) {
+          showToast(`⚠️ File bạn chọn là tài liệu của HSK ${detectedLevel}, nhưng bạn đang mở tab HSK ${selectedLevel}! Hãy chọn tab HSK ${detectedLevel} trước khi nạp để tránh ghi đè nhầm.`, "error");
+          return;
+        }
+
         const incomingLessons: Hsk1FullLesson[] = rawList.map((l: any, idx: number) => {
           const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? idx + 1) || (idx + 1);
-          const baseId = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
-          const id = l?.id && typeof l.id === "string" && l.id.trim() ? l.id.trim() : baseId;
+          const id = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
           return {
             ...l,
             id,
@@ -834,6 +885,17 @@ export default function CurriculumBuilderWorkspace({
           return;
         }
 
+        // Kiểm tra xem file câu hỏi có chứa thông tin cấp độ khác selectedLevel không
+        const detectedLevel = Number(
+          parsed?.level ??
+          parsed?.hskLevel ??
+          (incomingExercises[0]?.id ? incomingExercises[0].id.match(/^hsk(\d+)-/)?.[1] : null)
+        );
+        if (detectedLevel && detectedLevel !== selectedLevel) {
+          showToast(`⚠️ File bài tập này thuộc HSK ${detectedLevel}, trong khi bạn đang xem HSK ${selectedLevel}! Vui lòng nạp đúng cấp độ.`, "error");
+          return;
+        }
+
         // 1. Thu thập tất cả các số bài học xuất hiện trong file câu hỏi
         const lessonNumbersInFile = new Set<number>();
         incomingExercises.forEach((ex) => {
@@ -846,9 +908,11 @@ export default function CurriculumBuilderWorkspace({
           lessonNumbersInFile.add(1);
         }
 
-        // 2. Đảm bảo mọi bài học có trong file bài tập đều tồn tại (kể cả khi chưa upload bài học)
+        // 2. Đảm bảo chỉ dùng bài học hiện tại thuộc đúng selectedLevel (tránh rỉ dữ liệu chéo level)
         const workingMap = new Map<number, Hsk1FullLesson>();
-        lessons.forEach((l) => workingMap.set(l.number, l));
+        lessons
+          .filter((l) => !l.id || l.id.startsWith(`hsk${selectedLevel}-`))
+          .forEach((l) => workingMap.set(l.number, l));
 
         lessonNumbersInFile.forEach((num) => {
           if (!workingMap.has(num)) {
@@ -976,6 +1040,15 @@ export default function CurriculumBuilderWorkspace({
 
   // 5. LƯU & XUẤT BẢN TOÀN BỘ GIÁO TRÌNH LÊN DATABASE & KHO CHUNG
   const handleSaveAndPublishAll = async () => {
+    if (saving || loading || lessons.length === 0) return;
+
+    // Kiểm tra an toàn: Tuyệt đối không cho lưu nếu mảng lessons chứa ID bài học của cấp độ khác
+    const hasMismatch = lessons.some((l) => l.id && !l.id.startsWith(`hsk${selectedLevel}-`));
+    if (hasMismatch) {
+      showToast(`⚠️ Dữ liệu hiện tại chứa bài học của cấp độ khác! Không thể xuất bản vào HSK ${selectedLevel}. Vui lòng làm mới lại trang.`, "error");
+      return;
+    }
+
     setSaving(true);
     try {
       // Chuẩn hóa và làm sạch dữ liệu bài học trước khi gửi lên máy chủ
@@ -1666,7 +1739,12 @@ export default function CurriculumBuilderWorkspace({
 
             {/* Lưu & Xuất bản toàn bộ */}
             <button
-              disabled={saving || lessons.length === 0}
+              disabled={
+                saving ||
+                loading ||
+                lessons.length === 0 ||
+                lessons.some((l) => l.id && !l.id.startsWith(`hsk${selectedLevel}-`))
+              }
               onClick={handleSaveAndPublishAll}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] hover:from-[#17382F] hover:to-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#204434]/20 disabled:opacity-50"
             >
@@ -1684,7 +1762,13 @@ export default function CurriculumBuilderWorkspace({
             return (
               <button
                 key={lvl}
-                onClick={() => setSelectedLevel(lvl)}
+                onClick={() => {
+                  if (selectedLevel !== lvl) {
+                    setSelectedLevel(lvl);
+                    setLessons([]); // Xóa ngay state cũ để không bị nhiễm chéo giữa các HSK
+                    setLoading(true);
+                  }
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
                   selectedLevel === lvl
                     ? "bg-[#204434] text-white shadow-xs"
@@ -3580,13 +3664,16 @@ export default function CurriculumBuilderWorkspace({
           onClose={() => setIsImportPreviewOpen(false)}
           fileName={importPreviewFileName}
           incomingLessons={importPreviewLessons}
-          currentLessons={lessons}
+          currentLessons={lessons.filter((l) => !l.id || l.id.startsWith(`hsk${selectedLevel}-`))}
           level={selectedLevel}
           onConfirmApply={async (mode, appliedLessons) => {
+            const safeCurrent = lessons.filter((l) => !l.id || l.id.startsWith(`hsk${selectedLevel}-`));
             setLessons(appliedLessons);
             if (typeof window !== "undefined") {
               try {
-                saveCurriculumSnapshot(selectedLevel, `Trước khi nạp ${importPreviewFileName}`, lessons);
+                if (safeCurrent.length > 0) {
+                  saveCurriculumSnapshot(selectedLevel, `Trước khi nạp ${importPreviewFileName}`, safeCurrent);
+                }
                 safeLocalStorageSet(
                   `hsk_admin_custom_curriculum_level_${selectedLevel}`,
                   JSON.stringify(appliedLessons)

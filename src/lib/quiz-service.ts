@@ -27,5 +27,5 @@ export async function saveQuiz(user:PortalUser,body:Record<string,unknown>,id?:s
       await tx.quizSetQuestion.create({data:{quizSetId:quiz.id,questionId:question.id,orderIndex:index+1,points:actualPoints}});
     }
     return tx.quizSet.findUniqueOrThrow({where:{id:quiz.id},include:quizInclude});
-  });
+  }, { timeout: 60000, maxWait: 15000 });
 }
