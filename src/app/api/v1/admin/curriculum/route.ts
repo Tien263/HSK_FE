@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getDictionaryUser } from "@/lib/dictionary-session";
 import { examWriteOrigin } from "@/lib/exam-center-service";
 import { readCurriculum } from "@/lib/curriculum-server";
-import { normalizeLessons, CurriculumFormatError } from "@/lib/curriculum-format";
+import { assertCurriculumLevel, normalizeLessons, CurriculumFormatError } from "@/lib/curriculum-format";
 import type { Prisma } from "@/generated/prisma";
 
 const headers = { "Cache-Control": "no-store" };
@@ -82,6 +82,7 @@ export async function POST(request: Request) {
     }
 
     const lessons = normalizeLessons(body.lessons, level);
+    for (const lesson of lessons) assertCurriculumLevel(lesson, level);
     if (isDeleted && lessons.length) {
       throw new CurriculumFormatError("Cấp HSK đã xóa phải có danh sách bài rỗng.");
     }

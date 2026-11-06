@@ -269,7 +269,6 @@ export function normalizeLessons(value: unknown, level: number): Hsk1FullLesson[
   const numbers = new Set<number>(); const ids = new Set<string>();
   return array(value, "lessons", 500).map((value, index) => {
     const path = `Bài ở dòng ${index + 1}`; const row = object(value, path);
-    assertCurriculumLevel(row, level);
     const number = Number(row.number);
     if (!Number.isSafeInteger(number) || number < 1 || number > 9999 || numbers.has(number)) throw new CurriculumFormatError(`${path}: số bài phải từ 1 đến 9999 và không được trùng.`);
     numbers.add(number);
@@ -326,6 +325,7 @@ export function parseCurriculumLessonRows(input: unknown, level: number): Curric
     : input;
   return array(source, "Danh sách bài học", 500).map((value, index) => {
     const row = object(value, `Bài ở dòng ${index + 1}`);
+    assertCurriculumLevel(row, level);
     for (const field of ["vocabList", "grammarList", "dialogue", "grammarExercises"]) {
       if (Object.hasOwn(row, field)) array(row[field], field);
     }
@@ -373,7 +373,9 @@ export function applyCurriculumImport(current: Hsk1FullLesson[], input: unknown,
       }
       result.set(lesson.number, lesson);
     }
-    return normalizeLessons([...result.values()], level);
+    const lessons = [...result.values()];
+    for (const lesson of lessons) assertCurriculumLevel(lesson, level);
+    return normalizeLessons(lessons, level);
   }
 
   const envelope = Array.isArray(input) ? null : object(input, "File");

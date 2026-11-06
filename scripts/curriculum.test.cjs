@@ -14,7 +14,7 @@ test('Wrong level, unknown lesson, duplicate numbers and malformed rows are reje
 test('An HSK 1 row hidden inside an HSK 2 payload is rejected before normalization', () => {
   const rows = [f.blankLesson(2, 1), f.blankLesson(1, 2)];
   assert.throws(() => f.applyCurriculumImport([], { level: 2, lessons: rows }, 2, 'lessons', 'merge'), /HSK 1/);
-  assert.throws(() => f.normalizeLessons([{ ...f.blankLesson(2, 1), hskLevel: 1 }], 2), /HSK 1/);
+  assert.throws(() => f.parseCurriculumLessonRows([{ ...f.blankLesson(2, 1), hskLevel: 1 }], 2), /HSK 1/);
   assert.equal(f.normalizeLessons([{ ...f.blankLesson(2, 1), id: 'legacy-lesson-01' }], 2)[0].id, 'legacy-lesson-01');
 });
 
