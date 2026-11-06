@@ -1,5 +1,5 @@
 import {normalizeReading,normalizeCulturalNote} from "./lesson-rich-content";
-import type { Hsk1FullLesson } from "./hsk1-full-lessons";
+import type { GrammarExerciseItem, Hsk1FullLesson } from "./hsk1-full-lessons";
 
 export type CurriculumScope = "lessons" | "vocab" | "grammar" | "dialogue" | "phonetics" | "culture";
 export const curriculumScopes: { id: CurriculumScope; label: string; columns: string[] }[] = [
@@ -30,6 +30,24 @@ export function blankLesson(level: number, number: number): Hsk1FullLesson {
   return { id: `hsk${level}-${String(number).padStart(2, "0")}`, number, titleZh: "", titleVi: "", pinyin: "", desc: "", durationMin: 45, vocabCount: 0, grammarCount: 0, isUnlockedDefault: true, unlockedScheduleText: "Đã mở", vocabList: [], grammarList: [], dialogue: [], phonetics: { title: "", rule: "", examples: [] }, culture: "" };
 }
 function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown, path: string): Row {
+  // Hỗ trợ cả trường hợp câu thoại là string đơn thuần (vd: "A: 你好 (nǐ hǎo) - Xin chào")
+  if (scope === "dialogue" && typeof value === "string") {
+    const text = value.trim();
+    const colonIdx = text.search(/[:：]/);
+    let spk = "Người nói";
+    let rest = text;
+    if (colonIdx > 0 && colonIdx < 15) {
+      spk = text.slice(0, colonIdx).trim();
+      rest = text.slice(colonIdx + 1).trim();
+    }
+    return {
+      speaker: spk || "A",
+      zh: rest || text,
+      pinyin: "",
+      vi: rest || text,
+    };
+  }
+
   const row = object(value, path);
   const field = (key: string, required = false) => string(row, key, path, required);
   switch (scope) {
@@ -178,24 +196,6 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
       };
     }
     case "dialogue": {
-      // Hỗ trợ cả trường hợp câu thoại là string đơn thuần (vd: "A: 你好 (nǐ hǎo) - Xin chào")
-      if (typeof row === "string") {
-        const text = (row as string).trim();
-        const colonIdx = text.search(/[:：]/);
-        let spk = "Người nói";
-        let rest = text;
-        if (colonIdx > 0 && colonIdx < 15) {
-          spk = text.slice(0, colonIdx).trim();
-          rest = text.slice(colonIdx + 1).trim();
-        }
-        return {
-          speaker: spk || "A",
-          zh: rest || text,
-          pinyin: "",
-          vi: rest || text,
-        };
-      }
-
       // Hỗ trợ các trường tên đa dạng: zh, content, text, chinese, hanzi, sentence, cn
       const zh = String(
         row.zh ||
@@ -255,10 +255,21 @@ function sectionItem(scope: Exclude<CurriculumScope, "lessons">, value: unknown,
     case "culture": return { culture: field("culture") };
   }
 }
+export function assertCurriculumLevel(value: unknown, level: number) {
+  const row = object(value, "Dữ liệu giáo trình");
+  const idLevel = typeof row.id === "string" ? row.id.trim().match(/^hsk(\d+)-/i)?.[1] : undefined;
+  for (const declared of [row.level, row.hskLevel, idLevel]) {
+    if (declared != null && Number(declared) !== level) {
+      throw new CurriculumFormatError(`Dữ liệu thuộc HSK ${declared}, không thể nhập vào HSK ${level}.`);
+    }
+  }
+}
+
 export function normalizeLessons(value: unknown, level: number): Hsk1FullLesson[] {
   const numbers = new Set<number>(); const ids = new Set<string>();
   return array(value, "lessons", 500).map((value, index) => {
     const path = `Bài ở dòng ${index + 1}`; const row = object(value, path);
+    assertCurriculumLevel(row, level);
     const number = Number(row.number);
     if (!Number.isSafeInteger(number) || number < 1 || number > 9999 || numbers.has(number)) throw new CurriculumFormatError(`${path}: số bài phải từ 1 đến 9999 và không được trùng.`);
     numbers.add(number);
@@ -275,7 +286,9 @@ export function normalizeLessons(value: unknown, level: number): Hsk1FullLesson[
     const vocabList = array(row.vocabList ?? [], path + ".vocabList").map((v, i) => sectionItem("vocab", v, `${path}.vocabList[${i + 1}]`));
     const grammarList = array(row.grammarList ?? [], path + ".grammarList").map((v, i) => sectionItem("grammar", v, `${path}.grammarList[${i + 1}]`));
     const dialogue = array(row.dialogue ?? [], path + ".dialogue").map((v, i) => sectionItem("dialogue", v, `${path}.dialogue[${i + 1}]`));
-    return { ...base, ...row, id, number, titleZh: finalTitleZh, titleVi: finalTitleVi, durationMin, pinyin: string(row, "pinyin", path), desc: string(row, "desc", path), vocabList, grammarList, dialogue, vocabCount: vocabList.length, grammarCount: grammarList.length, isUnlockedDefault: row.isUnlockedDefault !== false, unlockedScheduleText: string(row, "unlockedScheduleText", path) || base.unlockedScheduleText, phonetics: sectionItem("phonetics", row.phonetics ?? base.phonetics, path + ".phonetics"), culture: string(row, "culture", path), grammarExercises: Array.isArray(row.grammarExercises) ? row.grammarExercises : [], reading: normalizeReading(row.reading,id), culturalNote: normalizeCulturalNote(row.culturalNote,string(row,"culture",path)) } as unknown as Hsk1FullLesson;
+    const grammarExercises = array(row.grammarExercises ?? [], path + ".grammarExercises")
+      .map((exercise, index) => object(exercise, `${path}.grammarExercises[${index + 1}]`));
+    return { ...base, ...row, id, number, titleZh: finalTitleZh, titleVi: finalTitleVi, durationMin, pinyin: string(row, "pinyin", path), desc: string(row, "desc", path), vocabList, grammarList, dialogue, vocabCount: vocabList.length, grammarCount: grammarList.length, isUnlockedDefault: row.isUnlockedDefault !== false, unlockedScheduleText: string(row, "unlockedScheduleText", path) || base.unlockedScheduleText, phonetics: sectionItem("phonetics", row.phonetics ?? base.phonetics, path + ".phonetics"), culture: string(row, "culture", path), grammarExercises, reading: normalizeReading(row.reading,id), culturalNote: normalizeCulturalNote(row.culturalNote,string(row,"culture",path)) } as unknown as Hsk1FullLesson;
   }).sort((a, b) => a.number - b.number);
 }
 
@@ -297,48 +310,98 @@ export function parseCurriculumCsv(text: string): Row[] {
   return rows.map((values, index) => { if (values.length !== headers.length) throw new CurriculumFormatError(`CSV dòng ${index + 2}: số cột không khớp với tiêu đề.`); return Object.fromEntries(headers.map((key, i) => [key, values[i]])); });
 }
 
+export type CurriculumLessonRow = Row & { number: number };
+
+export function parseCurriculumLessonRows(input: unknown, level: number): CurriculumLessonRow[] {
+  const envelope = Array.isArray(input) ? null : object(input, "File");
+  if (envelope) {
+    assertCurriculumLevel(envelope, level);
+    if (envelope.scope && envelope.scope !== "lessons") {
+      throw new CurriculumFormatError("File này không phải danh sách bài học.");
+    }
+  }
+  const source = envelope
+    ? envelope.lessons ?? envelope.items ?? envelope.data ?? envelope.curriculum ??
+      (typeof envelope.lesson === "object" && envelope.lesson !== null ? [envelope.lesson] : [envelope])
+    : input;
+  return array(source, "Danh sách bài học", 500).map((value, index) => {
+    const row = object(value, `Bài ở dòng ${index + 1}`);
+    for (const field of ["vocabList", "grammarList", "dialogue", "grammarExercises"]) {
+      if (Object.hasOwn(row, field)) array(row[field], field);
+    }
+    return { ...row, number: Number(row.number ?? row.lessonNumber ?? row.lesson) };
+  });
+}
+
+function mergeImportedExercises(previous: GrammarExerciseItem[] = [], incoming: GrammarExerciseItem[] = []) {
+  const merged = [...previous];
+  const seen = new Set(previous.map((exercise) => exercise.prompt || exercise.id));
+  for (const exercise of incoming) {
+    const key = exercise.prompt || exercise.id;
+    if (!seen.has(key)) {
+      merged.push(exercise);
+      seen.add(key);
+    }
+  }
+  return merged;
+}
+
 export function applyCurriculumImport(current: Hsk1FullLesson[], input: unknown, level: number, scope: CurriculumScope, mode: "merge" | "replace", target?: number) {
-  const envelope = !Array.isArray(input) ? object(input, "File") : null;
-  if (envelope?.level !== undefined && Number(envelope.level) !== level) throw new CurriculumFormatError(`File dành cho HSK ${envelope.level}, đang chọn HSK ${level}.`);
+  if (scope === "lessons") {
+    const rows = parseCurriculumLessonRows(input, level);
+    const imported = normalizeLessons(rows, level);
+    if (target !== undefined && imported.some(lesson => lesson.number !== target)) {
+      throw new CurriculumFormatError(`Chỉ nhập Bài ${target} trong phạm vi đang chọn.`);
+    }
+
+    const previousByNumber = new Map(current.map((lesson) => [lesson.number, lesson]));
+    const result = new Map(current
+      .filter((lesson) => mode === "merge" || (target !== undefined && lesson.number !== target))
+      .map((lesson) => [lesson.number, lesson]));
+    const rawByNumber = new Map(rows.map((row) => [row.number, row]));
+    for (const lesson of imported) {
+      const previous = previousByNumber.get(lesson.number);
+      if (mode === "merge" && previous) {
+        const raw = rawByNumber.get(lesson.number)!;
+        for (const key of Object.keys(previous) as (keyof Hsk1FullLesson)[]) {
+          if (!Object.hasOwn(raw, key)) Object.assign(lesson, { [key]: previous[key] });
+        }
+        lesson.id = previous.id;
+      }
+      if (previous?.grammarExercises?.length) {
+        lesson.grammarExercises = mergeImportedExercises(previous.grammarExercises, lesson.grammarExercises);
+      }
+      result.set(lesson.number, lesson);
+    }
+    return normalizeLessons([...result.values()], level);
+  }
+
+  const envelope = Array.isArray(input) ? null : object(input, "File");
+  if (envelope) assertCurriculumLevel(envelope, level);
   if (envelope?.scope && envelope.scope !== scope) throw new CurriculumFormatError("Loại dữ liệu trong file khác loại nhập đang chọn.");
   const raw = Array.isArray(input) ? input : envelope?.items ?? envelope?.lessons ?? (envelope?.lesson ? [envelope.lesson] : [envelope]);
   const rows = array(raw, "items");
   const next = structuredClone(current);
-  if (scope === "lessons") {
-    const imported = normalizeLessons(rows, level);
-    if (target !== undefined && imported.some(lesson => lesson.number !== target)) throw new CurriculumFormatError(`Chỉ nhập Bài ${target} trong phạm vi đang chọn.`);
-    if (mode === "replace") return target === undefined ? imported : normalizeLessons([...next.filter(lesson => lesson.number !== target), ...imported], level);
-    for (const lesson of imported) { const index = next.findIndex(item => item.number === lesson.number);
-      if (index < 0) next.push(lesson);
-      else {
-        // A metadata-only CSV/JSON row must not erase the lesson's other sections.
-        const rawRow = rows.find(value => Number((value as Row).number) === lesson.number) as Row;
-        const updated = { ...next[index], ...lesson, id: next[index].id };
-        for (const key of Object.keys(next[index]) as (keyof Hsk1FullLesson)[]) if (!(key in rawRow)) Object.assign(updated, { [key]: next[index][key] });
-        next[index] = updated;
-      }
-    }
-  } else {
-    const grouped = new Map<number, Row[]>();
-    rows.forEach((value, index) => {
-      const row = object(value, `Dòng ${index + 1}`); const number = Number(row.lessonNumber || target);
-      if (!Number.isInteger(number) || !next.some(lesson => lesson.number === number)) throw new CurriculumFormatError(`Dòng ${index + 1}: lessonNumber phải trỏ đến bài đã có trong HSK ${level}.`);
-      if (target !== undefined && number !== target) throw new CurriculumFormatError(`Dòng ${index + 1}: file thuộc Bài ${number}, đang chọn Bài ${target}.`);
-      const candidate = scope === "phonetics" && typeof row.examples === "string" ? { ...row, examples: row.examples.split("|").map(v => v.trim()).filter(Boolean) } : row;
-      const item = sectionItem(scope, candidate, `Dòng ${index + 1}`); grouped.set(number, [...(grouped.get(number) || []), item]);
-    });
-    if (!rows.length && mode === "replace" && target) grouped.set(target, []);
-    for (const [number, items] of grouped) {
-      const lesson = next.find(lesson => lesson.number === number)!;
-      if (scope === "culture") { if (items.length > 1) throw new CurriculumFormatError(`Bài ${number}: văn hóa chỉ có một mục.`); lesson.culture = String(items[0]?.culture ?? ""); }
-      else if (scope === "phonetics") { if (items.length > 1) throw new CurriculumFormatError(`Bài ${number}: phát âm chỉ có một mục.`); lesson.phonetics = (items[0] ?? blankLesson(level, number).phonetics) as unknown as Hsk1FullLesson["phonetics"]; }
-      else {
-        const key = scope === "vocab" ? "vocabList" : scope === "grammar" ? "grammarList" : "dialogue";
-        const identity = (row: Row) => scope === "vocab" ? `${row.hanzi}\0${row.pinyin}` : scope === "grammar" ? `${row.title}\0${row.structure}` : `${row.speaker}\0${row.zh}`;
-        const merged = new Map((mode === "replace" ? [] : lesson[key] as unknown as Row[]).map(row => [identity(row), row]));
-        for (const item of items) merged.set(identity(item), { ...merged.get(identity(item)), ...item });
-        Object.assign(lesson, { [key]: [...merged.values()] });
-      }
+  const grouped = new Map<number, Row[]>();
+  rows.forEach((value, index) => {
+    const row = object(value, `Dòng ${index + 1}`); const number = Number(row.lessonNumber || target);
+    if (!Number.isInteger(number) || !next.some(lesson => lesson.number === number)) throw new CurriculumFormatError(`Dòng ${index + 1}: lessonNumber phải trỏ đến bài đã có trong HSK ${level}.`);
+    if (target !== undefined && number !== target) throw new CurriculumFormatError(`Dòng ${index + 1}: file thuộc Bài ${number}, đang chọn Bài ${target}.`);
+    const candidate = scope === "phonetics" && typeof row.examples === "string" ? { ...row, examples: row.examples.split("|").map(v => v.trim()).filter(Boolean) } : row;
+    const item = sectionItem(scope, candidate, `Dòng ${index + 1}`); grouped.set(number, [...(grouped.get(number) || []), item]);
+  });
+  if (!rows.length && mode === "replace" && target) grouped.set(target, []);
+  for (const [number, items] of grouped) {
+    const lesson = next.find(lesson => lesson.number === number);
+    if (!lesson) throw new CurriculumFormatError(`Bài ${number} chưa có trong HSK ${level}.`);
+    if (scope === "culture") { if (items.length > 1) throw new CurriculumFormatError(`Bài ${number}: văn hóa chỉ có một mục.`); lesson.culture = String(items[0]?.culture ?? ""); }
+    else if (scope === "phonetics") { if (items.length > 1) throw new CurriculumFormatError(`Bài ${number}: phát âm chỉ có một mục.`); lesson.phonetics = (items[0] ?? blankLesson(level, number).phonetics) as unknown as Hsk1FullLesson["phonetics"]; }
+    else {
+      const key = scope === "vocab" ? "vocabList" : scope === "grammar" ? "grammarList" : "dialogue";
+      const identity = (row: Row) => scope === "vocab" ? `${row.hanzi}\0${row.pinyin}` : scope === "grammar" ? `${row.title}\0${row.structure}` : `${row.speaker}\0${row.zh}`;
+      const merged = new Map((mode === "replace" ? [] : lesson[key] as unknown as Row[]).map(row => [identity(row), row]));
+      for (const item of items) merged.set(identity(item), { ...merged.get(identity(item)), ...item });
+      Object.assign(lesson, { [key]: [...merged.values()] });
     }
   }
   return normalizeLessons(next, level);

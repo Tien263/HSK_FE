@@ -2,8 +2,7 @@ import { getAuthUser } from "@/lib/auth-server";
 import { examWriteOrigin } from "@/lib/exam-center-service";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
-import { normalizeGrammarList } from "@/lib/chinese-grammar-helper";
+import { getServerLessonsByHskLevel } from "@/lib/curriculum-server";
 
 export async function GET(request: Request) {
   try {
@@ -156,21 +155,8 @@ export async function POST(request: Request) {
     // Người xuất bản lấy từ phiên đăng nhập đã xác thực
     const authorId = auth.id;
 
-    let examTitle = title || `Đề thi thử HSK ${level} Chuẩn CTI - Kỳ thi Mô phỏng Quốc tế`;
-    let examDesc = description || `Đề thi thử chuẩn cấu trúc HSK 3.0 do Thầy Cô biên soạn gồm 3 phần: Nghe hiểu, Đọc hiểu và Viết.`;
-
-    const createdQuizSet = await prisma.quizSet.create({
-      data: {
-        title: examTitle,
-        description: examDesc,
-        mode: "MOCK_EXAM",
-        status: "READY",
-        hskLevel: level,
-        curriculum: "HSK 3.0",
-        totalScore: totalScore || (level <= 2 ? 200 : 300),
-        teacherId: authorId,
-      },
-    });
+    const examTitle = title || `Đề thi thử HSK ${level} Chuẩn CTI - Kỳ thi Mô phỏng Quốc tế`;
+    const examDesc = description || `Đề thi thử chuẩn cấu trúc HSK 3.0 do Thầy Cô biên soạn gồm 3 phần: Nghe hiểu, Đọc hiểu và Viết.`;
 
     // Nếu tự động sinh câu hỏi từ giáo trình cho Giáo viên
     let questionsToInsert: Array<{
@@ -184,25 +170,20 @@ export async function POST(request: Request) {
     }> = [];
 
     if (autoGenerate || customQuestions.length === 0) {
-      const lessons = getLessonsByHskLevel(level);
-      const allVocabs: any[] = [];
-      const allGrammars: any[] = [];
-
-      lessons.forEach((ls) => {
-        if (ls.vocabList) allVocabs.push(...ls.vocabList);
-        if (ls.grammarList) allGrammars.push(...ls.grammarList);
-      });
-
-      const shuffledVocabs = [...allVocabs].sort(() => 0.5 - Math.random());
+      const lessons = await getServerLessonsByHskLevel(level);
+      const shuffledVocabs = lessons.flatMap(lesson => lesson.vocabList ?? []).sort(() => Math.random() - 0.5);
+      const meanings = shuffledVocabs.map(item => item.meaningVi || item.meaning || "");
+      const readings = shuffledVocabs.map(item => item.pinyin);
+      const choicesFor = (answer: string, pool: string[]) => {
+        const others = [...new Set(pool.filter(item => item && item !== answer))];
+        return [answer, ...others.slice(0, 3)].sort(() => Math.random() - 0.5);
+      };
 
       // 1. Phần Nghe (10 câu)
       shuffledVocabs.slice(0, 10).forEach((v) => {
         const meaning = v.meaningVi || v.meaning || "";
-        const others = shuffledVocabs
-          .filter((item) => (item.meaningVi || item.meaning) !== meaning)
-          .map((item) => item.meaningVi || item.meaning);
-        const shuffledOthers = [...others].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const opts = [meaning, ...shuffledOthers].sort(() => 0.5 - Math.random());
+        const opts = choicesFor(meaning, meanings);
+        if (!meaning || !v.hanzi || opts.length < 2) return;
 
         questionsToInsert.push({
           content: `Nghe phát âm chữ Hán và chọn nghĩa tiếng Việt chính xác nhất:`,
@@ -218,11 +199,8 @@ export async function POST(request: Request) {
       // 2. Phần Đọc (10 câu)
       shuffledVocabs.slice(10, 20).forEach((v) => {
         const correctPinyin = v.pinyin || "";
-        const others = shuffledVocabs
-          .filter((item) => item.pinyin !== correctPinyin)
-          .map((item) => item.pinyin);
-        const shuffledOthers = [...others].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const opts = [correctPinyin, ...shuffledOthers].sort(() => 0.5 - Math.random());
+        const opts = choicesFor(correctPinyin, readings);
+        if (!correctPinyin || !v.hanzi || opts.length < 2) return;
 
         questionsToInsert.push({
           content: `Chọn phiên âm Pinyin đúng cho chữ Hán sau:`,
@@ -236,9 +214,13 @@ export async function POST(request: Request) {
       });
 
       // 3. Phần Viết / Ngữ pháp (5 câu)
-      const normalizedG = normalizeGrammarList(allGrammars.slice(0, 10), level);
-      normalizedG.slice(0, 5).forEach((g) => {
-        const correctEx = g.examples?.[0]?.zh || "你好！";
+      const grammars = lessons.flatMap(lesson => lesson.grammarList ?? []);
+      const examples = grammars.flatMap(grammar => {
+        const example = grammar.examples?.find(item => item.zh)?.zh ||
+          (grammar.example !== grammar.title ? grammar.example : "");
+        return example ? [{ grammar, example }] : [];
+      });
+      examples.slice(0, 5).forEach(({ grammar: g, example: correctEx }) => {
         const opts = [
           correctEx,
           `不${correctEx}`,
@@ -251,7 +233,7 @@ export async function POST(request: Request) {
           pinyinPrompt: g.structure,
           options: opts,
           correctAnswer: correctEx,
-          explanation: `Cấu trúc: ${g.structure}. Ý nghĩa: ${g.meaningVi}.`,
+          explanation: `Cấu trúc: ${g.structure}. Ý nghĩa: ${g.explanation || g.usageExplanation || ""}.`,
           skill: "WRITING",
           level,
         });
@@ -260,34 +242,46 @@ export async function POST(request: Request) {
       questionsToInsert = customQuestions;
     }
 
-    // Lưu các câu hỏi vào Question và QuizSetQuestion
-    const pointsPerQuestion =
-      createdQuizSet.totalScore / (questionsToInsert.length || 1);
-
-    for (const [idx, qItem] of questionsToInsert.entries()) {
-      const createdQ = await prisma.question.create({
-        data: {
-          teacherId: authorId,
-          content: qItem.content,
-          pinyinPrompt: qItem.pinyinPrompt,
-          type: "single_choice",
-          skill: qItem.skill || "READING",
-          level,
-          options: JSON.stringify(qItem.options || []),
-          correctAnswer: qItem.correctAnswer,
-          explanation: qItem.explanation,
-        },
-      });
-
-      await prisma.quizSetQuestion.create({
-        data: {
-          quizSetId: createdQuizSet.id,
-          questionId: createdQ.id,
-          orderIndex: idx + 1,
-          points: pointsPerQuestion,
-        },
-      });
+    if (questionsToInsert.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: `HSK ${level} chưa có học liệu để tạo câu hỏi. Hãy thêm câu hỏi trước khi xuất bản.`,
+      }, { status: 422 });
     }
+
+    const score = totalScore || (level <= 2 ? 200 : 300);
+    const createdQuizSet = await prisma.quizSet.create({
+      data: {
+        title: examTitle,
+        description: examDesc,
+        mode: "MOCK_EXAM",
+        status: "READY",
+        hskLevel: level,
+        curriculum: "HSK 3.0",
+        totalScore: score,
+        teacherId: authorId,
+        questions: {
+          create: questionsToInsert.map((question, index) => ({
+            orderIndex: index + 1,
+            points: score / questionsToInsert.length,
+            question: {
+              create: {
+                teacherId: authorId,
+                content: question.content,
+                pinyinPrompt: question.pinyinPrompt,
+                type: "single_choice",
+                skill: question.skill || "READING",
+                level,
+                options: JSON.stringify(question.options || []),
+                correctAnswer: question.correctAnswer,
+                explanation: question.explanation,
+              },
+            },
+          })),
+        },
+      },
+      select: { id: true },
+    });
 
     return NextResponse.json({
       success: true,

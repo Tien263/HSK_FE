@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import HanziiDictionaryDrawer from "@/components/common/HanziiDictionaryDrawer";
 import PwaInstallBanner from "@/components/common/PwaInstallBanner";
@@ -136,7 +137,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#061609] text-white font-sans selection:bg-[#c3dc4e] selection:text-[#061609]">
         {children}
         <HanziiDictionaryDrawer />
-        <PwaInstallBanner />
+        <Suspense fallback={null}>
+          <PwaInstallBanner />
+        </Suspense>
       </body>
     </html>
   );

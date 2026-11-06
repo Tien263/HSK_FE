@@ -2,16 +2,19 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Download, X, Share, PlusSquare, Sparkles } from "lucide-react";
 
 export default function PwaInstallBanner() {
+  const pathname = usePathname();
+  const isAdminPage = pathname === "/admin" || pathname?.startsWith("/admin/");
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIos, setIsIos] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (isAdminPage) return;
 
     // Kiểm tra xem đã chạy trong chế độ PWA (Standalone) hay chưa
     const isStandalone =
@@ -58,7 +61,7 @@ export default function PwaInstallBanner() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
       clearTimeout(timer);
     };
-  }, []);
+  }, [isAdminPage]);
 
   const handleInstallClick = async () => {
     if (isIos) {
@@ -87,7 +90,7 @@ export default function PwaInstallBanner() {
     } catch {}
   };
 
-  if (!showBanner) return null;
+  if (isAdminPage || !showBanner) return null;
 
   return (
     <>

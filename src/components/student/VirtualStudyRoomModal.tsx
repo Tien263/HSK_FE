@@ -28,6 +28,7 @@ import {
   LessonSentenceItem,
   getSentencesByHskAndLesson,
 } from "@/lib/lesson-sentence-extractor";
+import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 interface RealStudentPresence {
@@ -140,9 +141,12 @@ export default function VirtualStudyRoomModal({
     document.addEventListener("keydown", handleKey);
     return () => { document.body.style.overflow = overflow; document.removeEventListener("keydown", handleKey); previous?.focus(); };
   }, [isOpen, showCurriculumPicker]);
-  const [lessonSentences, setLessonSentences] = useState<LessonSentenceItem[]>([]);
-  const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(0);
-  const [selectedCurriculumSentence, setSelectedCurriculumSentence] = useState<LessonSentenceItem | null>(null);
+  const { lessons } = useCurriculumLessons(activeHskLevel);
+  const lessonSentences = useMemo(() => getSentencesByHskAndLesson(lessons, activeHskLevel, activeLessonNumber),
+    [lessons, activeHskLevel, activeLessonNumber]);
+  const [selectedSentenceId, setSelectedSentenceId] = useState<string | null>(null);
+  const currentSentenceIndex = Math.max(0, lessonSentences.findIndex((sentence) => sentence.id === selectedSentenceId));
+  const selectedCurriculumSentence = lessonSentences[currentSentenceIndex] ?? null;
 
   const [selectedCurriculumIdx, setSelectedCurriculumIdx] = useState(0);
   const [customSentence, setCustomSentence] = useState("");
@@ -171,23 +175,12 @@ export default function VirtualStudyRoomModal({
     isEvaluated: boolean;
   } | null>(null);
 
-  // Tải danh sách câu của HSK & Bài học đang chọn
-  useEffect(() => {
-    const list = getSentencesByHskAndLesson(activeHskLevel, activeLessonNumber);
-    setLessonSentences(list);
-    if (list.length > 0) {
-      if (!selectedCurriculumSentence || selectedCurriculumSentence.hskLevel !== activeHskLevel || selectedCurriculumSentence.lessonNumber !== activeLessonNumber) {
-        setSelectedCurriculumSentence(list[0]);
-        setCurrentSentenceIndex(0);
-      }
-    }
-  }, [activeHskLevel, activeLessonNumber]);
-
   // Đồng bộ props initialHskLevel và initialLessonNumber khi modal mở
   useEffect(() => {
     if (isOpen) {
       if (initialHskLevel) setActiveHskLevel(initialHskLevel);
       if (initialLessonNumber) setActiveLessonNumber(initialLessonNumber);
+      setSelectedSentenceId(null);
     }
   }, [isOpen, initialHskLevel, initialLessonNumber]);
 
@@ -195,8 +188,7 @@ export default function VirtualStudyRoomModal({
   const handlePrevSentence = () => {
     if (lessonSentences.length === 0) return;
     const prevIdx = Math.max(0, currentSentenceIndex - 1);
-    setCurrentSentenceIndex(prevIdx);
-    setSelectedCurriculumSentence(lessonSentences[prevIdx]);
+    setSelectedSentenceId(lessonSentences[prevIdx].id);
     setCustomSentence("");
     setUserTranscript("");
     setEvaluation(null);
@@ -205,8 +197,7 @@ export default function VirtualStudyRoomModal({
   const handleNextSentence = () => {
     if (lessonSentences.length === 0) return;
     const nextIdx = Math.min(lessonSentences.length - 1, currentSentenceIndex + 1);
-    setCurrentSentenceIndex(nextIdx);
-    setSelectedCurriculumSentence(lessonSentences[nextIdx]);
+    setSelectedSentenceId(lessonSentences[nextIdx].id);
     setCustomSentence("");
     setUserTranscript("");
     setEvaluation(null);
@@ -215,11 +206,7 @@ export default function VirtualStudyRoomModal({
   const handleSelectCurriculumSentence = (sentence: LessonSentenceItem) => {
     setActiveHskLevel(sentence.hskLevel);
     setActiveLessonNumber(sentence.lessonNumber);
-    setSelectedCurriculumSentence(sentence);
-    const list = getSentencesByHskAndLesson(sentence.hskLevel, sentence.lessonNumber);
-    setLessonSentences(list);
-    const foundIdx = list.findIndex((s) => s.id === sentence.id || s.zh === sentence.zh);
-    setCurrentSentenceIndex(foundIdx >= 0 ? foundIdx : 0);
+    setSelectedSentenceId(sentence.id);
     setCustomSentence("");
     setUserTranscript("");
     setEvaluation(null);
@@ -828,10 +815,9 @@ export default function VirtualStudyRoomModal({
                           onClick={() => {
                             setCustomSentence("");
                             if (isCurriculum) {
-                              setSelectedCurriculumSentence(item);
-                              setCurrentSentenceIndex(idx);
+                              setSelectedSentenceId(item.id);
                             } else {
-                              setSelectedCurriculumSentence(null);
+                              setSelectedSentenceId(null);
                               setSelectedCurriculumIdx(idx);
                             }
                             setUserTranscript("");

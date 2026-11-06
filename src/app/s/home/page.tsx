@@ -66,7 +66,6 @@ import StreakGuardianModal from "@/components/student/StreakGuardianModal";
 import UpgradePackageModal from "@/components/student/UpgradePackageModal";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { getClassArtwork } from "@/lib/class-helper";
 import {
   getWeeklyStudySeconds,
@@ -232,10 +231,7 @@ export default function StudentHomePage() {
   // TẢI BÀI HỌC TRỰC TIẾP TỪ KHO GIÁO TRÌNH ADMIN
   const { lessons: adminSelfLessons } = useCurriculumLessons(selfStudyHskLevel);
 
-  const selfStudyLessons = useMemo(() => {
-    if (adminSelfLessons && adminSelfLessons.length > 0) return adminSelfLessons;
-    return getLessonsByHskLevel(selfStudyHskLevel);
-  }, [adminSelfLessons, selfStudyHskLevel]);
+  const selfStudyLessons = adminSelfLessons;
 
   const currentSelfStudyLesson = useMemo(() => {
     return (

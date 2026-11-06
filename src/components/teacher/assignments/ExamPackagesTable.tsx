@@ -244,9 +244,12 @@ export default function ExamPackagesTable({
                                 questions: pkg.questions || [],
                               }),
                             });
-                            if (res.ok) {
-                              alert("Đã xuất bản thành công vào Phòng thi thử HSK toàn trường!");
+                            if (!res.ok) {
+                              const result = await res.json();
+                              alert(result.message || "Có lỗi khi đưa đề vào phòng thi thử.");
+                              return;
                             }
+                            alert("Đã xuất bản thành công vào Phòng thi thử HSK toàn trường!");
                           } catch (e) {
                             alert("Có lỗi khi đưa đề vào phòng thi thử.");
                           }

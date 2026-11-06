@@ -17,16 +17,19 @@ import {
   HelpCircle,
   Upload,
 } from "lucide-react";
-import type { Hsk1FullLesson, GrammarExerciseItem } from "@/lib/hsk1-full-lessons";
+import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
+
+import { applyCurriculumImport, type CurriculumLessonRow } from "@/lib/curriculum-format";
 
 interface CurriculumJsonPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   fileName: string;
   incomingLessons: Hsk1FullLesson[];
+  incomingRows: CurriculumLessonRow[];
   currentLessons: Hsk1FullLesson[];
   level: number;
-  onConfirmApply: (mode: "merge" | "replace", appliedLessons: Hsk1FullLesson[]) => void;
+  onConfirmApply: (appliedLessons: Hsk1FullLesson[]) => Promise<boolean>;
 }
 
 export default function CurriculumJsonPreviewModal({
@@ -34,6 +37,7 @@ export default function CurriculumJsonPreviewModal({
   onClose,
   fileName,
   incomingLessons,
+  incomingRows,
   currentLessons,
   level,
   onConfirmApply,
@@ -44,9 +48,15 @@ export default function CurriculumJsonPreviewModal({
   >("vocab");
   const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
 
+  const [applying, setApplying] = useState(false);
+  const [error, setError] = useState("");
+
   if (!isOpen || !incomingLessons || incomingLessons.length === 0) return null;
 
   const currentLesson = incomingLessons[selectedLessonIdx] || incomingLessons[0];
+  const incomingNumbers = new Set(incomingLessons.map((lesson) => lesson.number));
+  const removed = currentLessons.filter((lesson) => !incomingNumbers.has(lesson.number)).length;
+  const mergedCount = removed + incomingNumbers.size;
 
   // Tổng hợp thống kê nhanh toàn bộ file vừa nạp
   const totalVocab = incomingLessons.reduce(
@@ -68,75 +78,6 @@ export default function CurriculumJsonPreviewModal({
     (l) => l.culture || l.culturalNote?.context
   ).length;
 
-  // Tính toán kết quả sau khi áp dụng (Chuẩn hóa number & id cho mọi cấp độ HSK 1 - 9)
-  const normalizeLessonItem = (l: any, fallbackNum: number): Hsk1FullLesson => {
-    const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? fallbackNum) || fallbackNum;
-    const baseId = `hsk${level}-${String(num).padStart(2, "0")}`;
-    const id = l?.id && typeof l.id === "string" && l.id.trim() ? l.id.trim() : baseId;
-    return {
-      ...l,
-      id,
-      number: num,
-      vocabList: Array.isArray(l?.vocabList) ? l.vocabList : [],
-      grammarList: Array.isArray(l?.grammarList) ? l.grammarList : [],
-      dialogue: Array.isArray(l?.dialogue) ? l.dialogue : [],
-      phonetics: l?.phonetics || { title: "", rule: "", examples: [] },
-      culture: l?.culture || "",
-      reading: l?.reading || null,
-      grammarExercises: Array.isArray(l?.grammarExercises) ? l.grammarExercises : [],
-    } as Hsk1FullLesson;
-  };
-
-  // Lọc chỉ các bài học thực sự thuộc cấp độ level hiện tại để tránh nhiễm chéo dữ liệu giữa các HSK
-  const safeCurrentLessons = currentLessons.filter((l) => {
-    return !l.id || l.id.startsWith(`hsk${level}-`);
-  });
-
-  // Lưu lại bản đồ bài tập ngữ pháp hiện có từ các bài học cũ để không bao giờ bị mất bài tập khi nạp bài học mới
-  const existingExercisesMap = new Map<number, GrammarExerciseItem[]>();
-  safeCurrentLessons.forEach((l) => {
-    if (Array.isArray(l.grammarExercises) && l.grammarExercises.length > 0) {
-      existingExercisesMap.set(l.number, l.grammarExercises);
-    }
-  });
-
-  const lessonMap = new Map<number, Hsk1FullLesson>();
-  if (importMode === "merge") {
-    safeCurrentLessons.forEach((l, idx) => {
-      const norm = normalizeLessonItem(l, idx + 1);
-      lessonMap.set(norm.number, norm);
-    });
-  }
-
-  incomingLessons.forEach((l, idx) => {
-    const norm = normalizeLessonItem(l, idx + 1);
-
-    // BẢO VỆ BÀI TẬP NGỮ PHÁP ĐÃ CÓ:
-    // Nếu trước đó bài học đã có bài tập ngữ pháp, mà file bài học mới tải lên không chứa bài tập,
-    // phải giữ nguyên 100% câu hỏi bài tập cũ thay vì bị ghi đè thành mảng rỗng!
-    const prevExercises = existingExercisesMap.get(norm.number) || lessonMap.get(norm.number)?.grammarExercises;
-    if (Array.isArray(prevExercises) && prevExercises.length > 0) {
-      if (!Array.isArray(norm.grammarExercises) || norm.grammarExercises.length === 0) {
-        norm.grammarExercises = prevExercises;
-      } else {
-        // Nếu cả hai đều có bài tập, gộp lại thông minh tránh trùng prompt
-        const existingPrompts = new Set(prevExercises.map((e) => e.prompt || e.id));
-        const merged = [...prevExercises];
-        for (const ex of norm.grammarExercises) {
-          if (!existingPrompts.has(ex.prompt || ex.id)) {
-            merged.push(ex);
-          }
-        }
-        norm.grammarExercises = merged;
-      }
-    }
-
-    lessonMap.set(norm.number, norm);
-  });
-  const finalMergedLessons = Array.from(lessonMap.values()).sort(
-    (a, b) => a.number - b.number
-  );
-
   const handleSpeak = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window && text) {
       window.speechSynthesis.cancel();
@@ -147,15 +88,28 @@ export default function CurriculumJsonPreviewModal({
     }
   };
 
-  const handleApply = () => {
-    onConfirmApply(importMode, finalMergedLessons);
-    onClose();
+  const handleApply = async () => {
+    if (applying) return;
+    if (importMode === "replace" && !confirm(
+      `Thay toàn bộ giáo trình HSK ${level}? ${removed} bài không có trong file sẽ bị xóa.`
+    )) return;
+    setApplying(true);
+    setError("");
+    try {
+      const applied = applyCurriculumImport(currentLessons, incomingRows, level, "lessons", importMode);
+      if (await onConfirmApply(applied)) onClose();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Không thể áp dụng file giáo trình.");
+    } finally {
+      setApplying(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="relative w-full max-w-5xl h-[92vh] flex flex-col rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-2xl overflow-hidden text-[#204434]">
         
+        {error && <p role="alert" className="shrink-0 bg-red-50 px-5 py-2 text-sm text-red-800">{error}</p>}
         {/* Header */}
         <div className="p-4 sm:p-5 bg-gradient-to-r from-[#204434] to-[#163325] text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -179,7 +133,7 @@ export default function CurriculumJsonPreviewModal({
 
           <button
             type="button"
-            onClick={onClose}
+            disabled={applying} onClick={onClose}
             className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -225,7 +179,7 @@ export default function CurriculumJsonPreviewModal({
                 }`}
                 title="Giữ nguyên bài cũ, chỉ thêm bài mới hoặc cập nhật bài trùng số"
               >
-                <span>➕ Ghép thêm ({finalMergedLessons.length} bài)</span>
+                <span>➕ Ghép thêm ({mergedCount} bài)</span>
               </button>
               <button
                 type="button"
@@ -595,7 +549,7 @@ export default function CurriculumJsonPreviewModal({
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>
               {importMode === "merge"
-                ? `Sau khi ghép, giáo trình HSK ${level} sẽ có tổng cộng ${finalMergedLessons.length} bài học.`
+                ? `Sau khi ghép, giáo trình HSK ${level} sẽ có tổng cộng ${mergedCount} bài học.`
                 : `Sau khi ghi đè, giáo trình HSK ${level} sẽ được thay thế hoàn toàn bởi ${incomingLessons.length} bài học mới.`}
             </span>
           </div>
@@ -603,14 +557,14 @@ export default function CurriculumJsonPreviewModal({
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={onClose}
+              disabled={applying} onClick={onClose}
               className="px-4 py-2 rounded-xl border border-[#E5DEC9] text-[#204434] text-xs font-bold hover:bg-white transition cursor-pointer"
             >
               Hủy bỏ
             </button>
             <button
               type="button"
-              onClick={handleApply}
+              disabled={applying} onClick={handleApply}
               className="px-5 py-2.5 rounded-xl bg-[#204434] hover:bg-[#163325] text-white text-xs font-bold shadow-md transition cursor-pointer flex items-center gap-2"
             >
               <FileCheck2 className="w-4 h-4 text-amber-300" />

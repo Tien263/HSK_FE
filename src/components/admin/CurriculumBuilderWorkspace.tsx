@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   BookOpen,
   Plus,
@@ -19,7 +19,6 @@ import {
   Compass,
   ArrowRight,
   X,
-  RotateCcw,
   AlertCircle,
   Copy,
   Target,
@@ -38,7 +37,7 @@ import {
   GrammarExerciseItem,
   GrammarExerciseMode,
 } from "@/lib/hsk1-full-lessons";
-import { getLessonsByHskLevel, getDefaultLessons, resetCustomCurriculum } from "@/lib/hsk-lessons-resolver";
+import { assertCurriculumLevel, normalizeLessons, parseCurriculumLessonRows, type CurriculumLessonRow } from "@/lib/curriculum-format";
 import { RichReadingEditor, RichCultureEditor } from "@/components/teacher/LessonRichSections";
 import type { ReadingItem, CulturalNoteItem } from "@/lib/lesson-data";
 import CloudinaryUpload from "@/components/common/CloudinaryUploadButton";
@@ -50,15 +49,14 @@ import {
 } from "@/components/admin/CurriculumItemEditModals";
 import CurriculumQualityAuditorModal from "@/components/admin/CurriculumQualityAuditorModal";
 import CurriculumPrintExportModal from "@/components/admin/CurriculumPrintExportModal";
-import CurriculumRevisionHistoryModal, {
-  saveCurriculumSnapshot,
-  getCurriculumSnapshots,
-} from "@/components/admin/CurriculumRevisionHistoryModal";
-import { safeLocalStorageSet } from "@/lib/safe-storage";
+import CurriculumRevisionHistoryModal from "@/components/admin/CurriculumRevisionHistoryModal";
 import { lookupDictionaryAuto, getAutoPinyin } from "@/lib/pinyin-helper";
+
+const toolbarButton = "inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#E5DEC9] bg-white px-3 text-xs font-semibold text-[#204434] hover:bg-[#F3EFE6] disabled:opacity-50";
 
 interface CurriculumBuilderWorkspaceProps {
   showToast: (msg: string, type?: "success" | "error") => void;
+  onPendingChanges: (pending: boolean) => void;
 }
 
 const EXERCISE_MODE_LABELS: Record<GrammarExerciseMode, { label: string; color: string; desc: string }> = {
@@ -90,7 +88,7 @@ const EXERCISE_MODE_LABELS: Record<GrammarExerciseMode, { label: string; color: 
 };
 
 export default function CurriculumBuilderWorkspace({
-  showToast,
+  showToast, onPendingChanges,
 }: CurriculumBuilderWorkspaceProps) {
   // Cấp độ HSK đang chọn (1 - 9)
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
@@ -100,8 +98,16 @@ export default function CurriculumBuilderWorkspace({
 
   // Danh sách bài học của cấp độ đang chọn
   const [lessons, setLessons] = useState<Hsk1FullLesson[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [revision, setRevision] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const saveInFlight = useRef(false);
+  const loadedLessons = useRef<Hsk1FullLesson[] | null>(null);
+  const fileContext = useRef(0);
+  const canEdit = revision !== null && !loading && !saving;
+
 
   // Modal chỉnh sửa chi tiết bài học
   const [editingLesson, setEditingLesson] = useState<Hsk1FullLesson | null>(null);
@@ -153,7 +159,7 @@ export default function CurriculumBuilderWorkspace({
 
   // State modal xem trước JSON nhập giáo trình (Smart Preview)
   const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
-  const [importPreviewLessons, setImportPreviewLessons] = useState<Hsk1FullLesson[]>([]);
+  const [importPreview, setImportPreview] = useState<{ rows: CurriculumLessonRow[]; lessons: Hsk1FullLesson[] } | null>(null);
   const [importPreviewFileName, setImportPreviewFileName] = useState("");
 
   // State modal sửa chi tiết từng từ vựng / ngữ pháp / hội thoại (Full JSON & Form)
@@ -172,20 +178,20 @@ export default function CurriculumBuilderWorkspace({
   const [isRevisionHistoryOpen, setIsRevisionHistoryOpen] = useState(false);
   const [autoFillingNewVocab, setAutoFillingNewVocab] = useState(false);
 
-  // Lấy header xác thực Quản trị viên / Giáo viên từ phiên đăng nhập
-  const getCurriculumAuthHeaders = () => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
-        if (stored) {
-          const u = JSON.parse(stored);
-          if (u?.id) headers["x-user-id"] = u.id;
-        }
-      } catch {}
-    }
-    return headers;
-  };
+  const hasUnpublishedChanges = revision !== null && loadedLessons.current !== lessons;
+  const pendingChanges = saving || hasUnpublishedChanges ||
+    (editingLesson !== null && !lessons.includes(editingLesson));
+
+  useEffect(() => {
+    onPendingChanges(pendingChanges);
+    if (!pendingChanges) return;
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventUnload);
+    return () => window.removeEventListener("beforeunload", preventUnload);
+  }, [onPendingChanges, pendingChanges]);
 
   // Tải giáo trình khi đổi level
   useEffect(() => {
@@ -195,78 +201,19 @@ export default function CurriculumBuilderWorkspace({
       try {
         const res = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
           credentials: "include",
-          headers: getCurriculumAuthHeaders(),
         });
         const data = await res.json();
         if (isCancelled) return;
 
-        // 1. Kiểm tra bản nháp cục bộ trong localStorage
-        let customLocal: any = null;
-        if (typeof window !== "undefined") {
-          const raw = localStorage.getItem(`hsk_admin_custom_curriculum_level_${selectedLevel}`);
-          if (raw) {
-            try { customLocal = JSON.parse(raw); } catch {}
-          }
+        if (!res.ok || !data.success || !Array.isArray(data.items) || data.level !== selectedLevel || !Number.isSafeInteger(data.revision)) {
+          throw new Error(data.message || "Không tải được giáo trình.");
         }
-
-        // Kiểm định bản nháp local: Phải thuộc đúng cấp độ selectedLevel
-        const isLocalValid = Array.isArray(customLocal) && customLocal.length > 0 && customLocal.every((l: any) => {
-          return !l.id || l.id.startsWith(`hsk${selectedLevel}-`);
-        });
-        if (!isLocalValid) {
-          customLocal = null;
-        }
-
-        const rawServerLessons = (data.success && Array.isArray(data.items)) ? data.items : [];
-        // Kiểm định dữ liệu server: Phải thuộc đúng cấp độ selectedLevel (tránh trường hợp DB bị ghi đè nhầm trước đó)
-        const isServerValid = rawServerLessons.length > 0 && rawServerLessons.every((l: any) => {
-          return !l.id || l.id.startsWith(`hsk${selectedLevel}-`);
-        });
-        const serverLessons = isServerValid ? rawServerLessons : [];
-
-        const serverExCount = serverLessons.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0);
-        const localExCount = Array.isArray(customLocal) 
-          ? customLocal.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0)
-          : 0;
-
-        // 2. Kiểm tra snapshots lịch sử hoàn tác gần nhất xem có bản nào lưu câu hỏi chưa kịp đồng bộ không
-        const snapshots = typeof window !== "undefined" ? getCurriculumSnapshots(selectedLevel) : [];
-        let bestSnapLessons: any = null;
-        let bestSnapExCount = 0;
-        for (const snap of snapshots) {
-          const snapLessons = Array.isArray(snap.lessons) ? snap.lessons : [];
-          // Phải tuyệt đối trùng cấp độ selectedLevel
-          const isSnapValid = snapLessons.length > 0 && snapLessons.every((l: any) => {
-            return !l.id || l.id.startsWith(`hsk${selectedLevel}-`);
-          });
-          if (!isSnapValid) continue;
-
-          const count = snapLessons.reduce((acc: number, l: any) => acc + (l.grammarExercises?.length || 0), 0);
-          if (count > bestSnapExCount) {
-            bestSnapExCount = count;
-            bestSnapLessons = snap.lessons;
-          }
-        }
-
-        // Ưu tiên bản có nhiều câu hỏi nhất nếu trước đó server bị lỗi lưu timeout
-        if (bestSnapLessons && bestSnapExCount > serverExCount && bestSnapExCount >= localExCount) {
-          setLessons(bestSnapLessons);
-          showToast(`⚡ Đã tự động khôi phục ${bestSnapExCount} câu hỏi bài tập từ bản lịch sử hoàn tác HSK ${selectedLevel}.`);
-        } else if (Array.isArray(customLocal) && customLocal.length > 0 && localExCount > serverExCount) {
-          setLessons(customLocal);
-          showToast(`⚡ Đã tải ${localExCount} câu hỏi bài tập từ bản nháp trình duyệt. Hãy bấm "Lưu & Xuất bản" để ghi lên máy chủ!`);
-        } else if (serverLessons.length > 0) {
-          setLessons(serverLessons);
-        } else if (Array.isArray(customLocal) && customLocal.length > 0) {
-          setLessons(customLocal);
-        } else {
-          const fallback = getDefaultLessons(selectedLevel);
-          setLessons(fallback);
-        }
-      } catch {
+        loadedLessons.current = data.items;
+        setLessons(data.items);
+        setRevision(data.revision);
+      } catch (error) {
         if (!isCancelled) {
-          const fallback = getDefaultLessons(selectedLevel);
-          setLessons(fallback);
+          setLoadError(error instanceof Error ? error.message : "Không tải được giáo trình.");
         }
       } finally {
         if (!isCancelled) {
@@ -278,7 +225,49 @@ export default function CurriculumBuilderWorkspace({
     return () => {
       isCancelled = true;
     };
-  }, [selectedLevel]);
+  }, [selectedLevel, reloadKey]);
+
+  const persistCurriculum = async (items: Hsk1FullLesson[], isDeleted = false) => {
+    if (!canEdit || saveInFlight.current) return false;
+    saveInFlight.current = true;
+    fileContext.current++;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/v1/admin/curriculum", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: selectedLevel, revision, isDeleted, lessons: items }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        if (response.status === 409) setLoadError(data.message);
+        throw new Error(data.message || "Máy chủ chưa lưu giáo trình.");
+      }
+      loadedLessons.current = data.items;
+      setLessons(data.items);
+      setRevision(data.revision);
+      setLoadError("");
+      window.dispatchEvent(new Event("curriculum-updated"));
+      return true;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Máy chủ chưa lưu giáo trình.", "error");
+      return false;
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
+    }
+  };
+
+  const downloadCurriculum = () => {
+    const file = new Blob([JSON.stringify({ level: selectedLevel, lessons }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `giao-trinh-hsk${selectedLevel}-v${revision}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   // Phát âm TTS
   const handleSpeak = (text: string) => {
@@ -700,175 +689,33 @@ export default function CurriculumBuilderWorkspace({
     showToast(`Đã tải template mẫu câu hỏi bài tập HSK ${selectedLevel} thành công!`);
   };
 
-  // 2A. NHẬP THÊM BÀI MỚI (MỞ MÀN HÌNH XEM TRƯỚC TRỰC QUAN CHO GIÁO VIÊN)
+  // 2. NHẬP THÊM BÀI MỚI (MỞ MÀN HÌNH XEM TRƯỚC TRỰC QUAN CHO GIÁO VIÊN)
   const handleImportAppendLessonsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
-
-        let rawList: any[] = [];
-        if (Array.isArray(parsed)) {
-          rawList = parsed;
-        } else if (Array.isArray(parsed?.lessons)) {
-          rawList = parsed.lessons;
-        } else if (Array.isArray(parsed?.items)) {
-          rawList = parsed.items;
-        } else if (Array.isArray(parsed?.data)) {
-          rawList = parsed.data;
-        } else if (Array.isArray(parsed?.curriculum)) {
-          rawList = parsed.curriculum;
-        } else if (parsed && typeof parsed === "object") {
-          if (parsed.number || parsed.lessonNumber || parsed.titleZh || parsed.vocabList || parsed.titleVi) {
-            rawList = [parsed];
-          }
-        }
-
-        // Kiểm tra xem file có chỉ định cấp độ khác selectedLevel không
-        const detectedLevel = Number(
-          parsed?.level ??
-          parsed?.hskLevel ??
-          (rawList[0]?.id ? rawList[0].id.match(/^hsk(\d+)-/)?.[1] : null)
-        );
-        if (detectedLevel && detectedLevel !== selectedLevel) {
-          showToast(`⚠️ File bạn chọn là tài liệu của HSK ${detectedLevel}, nhưng bạn đang mở tab HSK ${selectedLevel}! Hãy chọn tab HSK ${detectedLevel} trước khi nạp để tránh ghi đè nhầm.`, "error");
-          return;
-        }
-
-        const incomingLessons: Hsk1FullLesson[] = rawList.map((l: any, idx: number) => {
-          const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? idx + 1) || (idx + 1);
-          const id = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
-          return {
-            ...l,
-            id,
-            number: num,
-            titleZh: l?.titleZh || `第${num}课`,
-            titleVi: l?.titleVi || `Bài ${num}`,
-            pinyin: l?.pinyin || "",
-            desc: l?.desc || "",
-            durationMin: Number(l?.durationMin) || 45,
-            vocabCount: Array.isArray(l?.vocabList) ? l.vocabList.length : 0,
-            grammarCount: Array.isArray(l?.grammarList) ? l.grammarList.length : 0,
-            isUnlockedDefault: l?.isUnlockedDefault !== false,
-            unlockedScheduleText: l?.unlockedScheduleText || "Đã mở",
-            vocabList: Array.isArray(l?.vocabList) ? l.vocabList : [],
-            grammarList: Array.isArray(l?.grammarList) ? l.grammarList : [],
-            dialogue: Array.isArray(l?.dialogue) ? l.dialogue : [],
-            phonetics: l?.phonetics || { title: "", rule: "", examples: [] },
-            culture: l?.culture || "",
-            reading: l?.reading || null,
-            grammarExercises: Array.isArray(l?.grammarExercises) ? l.grammarExercises : [],
-          } as Hsk1FullLesson;
-        });
-
-        if (incomingLessons.length === 0) {
-          showToast("File không chứa danh sách bài học hợp lệ! Vui lòng kiểm tra lại cấu trúc file JSON.", "error");
-          return;
-        }
-
-        setImportPreviewFileName(file.name);
-        setImportPreviewLessons(incomingLessons);
-        setIsImportPreviewOpen(true);
-      } catch (err) {
-        showToast("Lỗi định dạng file JSON! Vui lòng kiểm tra lại file.", "error");
-      }
-    };
-    reader.readAsText(file, "UTF-8");
     e.target.value = "";
+    if (!file || !canEdit) return;
+    const context = ++fileContext.current;
+    void file.text().then((text) => {
+      if (context !== fileContext.current) return;
+      const rows = parseCurriculumLessonRows(JSON.parse(text.replace(/^\uFEFF/, "")), selectedLevel);
+      if (rows.length === 0) throw new Error("File không chứa bài học.");
+      setImportPreview({ rows, lessons: normalizeLessons(rows, selectedLevel) });
+      setImportPreviewFileName(file.name);
+      setIsImportPreviewOpen(true);
+    }).catch((error) => {
+      if (context === fileContext.current) showToast(error.message || "File JSON không hợp lệ.", "error");
+    });
   };
 
-  // 2B. NHẬP ĐÈ TOÀN BỘ GIÁO TRÌNH (.JSON - CŨNG MỞ MÀN HÌNH XEM TRƯỚC TRỰC QUAN)
-  const handleImportReplaceLessonsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
-
-        let rawList: any[] = [];
-        if (Array.isArray(parsed)) {
-          rawList = parsed;
-        } else if (Array.isArray(parsed?.lessons)) {
-          rawList = parsed.lessons;
-        } else if (Array.isArray(parsed?.items)) {
-          rawList = parsed.items;
-        } else if (Array.isArray(parsed?.data)) {
-          rawList = parsed.data;
-        } else if (Array.isArray(parsed?.curriculum)) {
-          rawList = parsed.curriculum;
-        } else if (parsed && typeof parsed === "object") {
-          if (parsed.number || parsed.lessonNumber || parsed.titleZh || parsed.vocabList || parsed.titleVi) {
-            rawList = [parsed];
-          }
-        }
-
-        // Kiểm tra xem file có chỉ định cấp độ khác selectedLevel không
-        const detectedLevel = Number(
-          parsed?.level ??
-          parsed?.hskLevel ??
-          (rawList[0]?.id ? rawList[0].id.match(/^hsk(\d+)-/)?.[1] : null)
-        );
-        if (detectedLevel && detectedLevel !== selectedLevel) {
-          showToast(`⚠️ File bạn chọn là tài liệu của HSK ${detectedLevel}, nhưng bạn đang mở tab HSK ${selectedLevel}! Hãy chọn tab HSK ${detectedLevel} trước khi nạp để tránh ghi đè nhầm.`, "error");
-          return;
-        }
-
-        const incomingLessons: Hsk1FullLesson[] = rawList.map((l: any, idx: number) => {
-          const num = Number(l?.number ?? l?.lessonNumber ?? l?.lesson ?? idx + 1) || (idx + 1);
-          const id = `hsk${selectedLevel}-${String(num).padStart(2, "0")}`;
-          return {
-            ...l,
-            id,
-            number: num,
-            titleZh: l?.titleZh || `第${num}课`,
-            titleVi: l?.titleVi || `Bài ${num}`,
-            pinyin: l?.pinyin || "",
-            desc: l?.desc || "",
-            durationMin: Number(l?.durationMin) || 45,
-            vocabCount: Array.isArray(l?.vocabList) ? l.vocabList.length : 0,
-            grammarCount: Array.isArray(l?.grammarList) ? l.grammarList.length : 0,
-            isUnlockedDefault: l?.isUnlockedDefault !== false,
-            unlockedScheduleText: l?.unlockedScheduleText || "Đã mở",
-            vocabList: Array.isArray(l?.vocabList) ? l.vocabList : [],
-            grammarList: Array.isArray(l?.grammarList) ? l.grammarList : [],
-            dialogue: Array.isArray(l?.dialogue) ? l.dialogue : [],
-            phonetics: l?.phonetics || { title: "", rule: "", examples: [] },
-            culture: l?.culture || "",
-            reading: l?.reading || null,
-            grammarExercises: Array.isArray(l?.grammarExercises) ? l.grammarExercises : [],
-          } as Hsk1FullLesson;
-        });
-
-        if (incomingLessons.length === 0) {
-          showToast("File không chứa danh sách bài học hợp lệ!", "error");
-          return;
-        }
-
-        setImportPreviewFileName(file.name);
-        setImportPreviewLessons(incomingLessons);
-        setIsImportPreviewOpen(true);
-      } catch {
-        showToast("Lỗi định dạng file JSON!", "error");
-      }
-    };
-    reader.readAsText(file, "UTF-8");
-    e.target.value = "";
-  };
-
-  // 2C. NHẬP CÂU HỎI BÀI TẬP HÀNG LOẠT TỪ FILE (.JSON)
+  // 2B. NHẬP CÂU HỎI BÀI TẬP HÀNG LOẠT TỪ FILE (.JSON)
   const handleImportExercisesBatchFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !canEdit) return;
+    const context = ++fileContext.current;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
+      if (context !== fileContext.current) return;
       try {
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
@@ -885,16 +732,8 @@ export default function CurriculumBuilderWorkspace({
           return;
         }
 
-        // Kiểm tra xem file câu hỏi có chứa thông tin cấp độ khác selectedLevel không
-        const detectedLevel = Number(
-          parsed?.level ??
-          parsed?.hskLevel ??
-          (incomingExercises[0]?.id ? incomingExercises[0].id.match(/^hsk(\d+)-/)?.[1] : null)
-        );
-        if (detectedLevel && detectedLevel !== selectedLevel) {
-          showToast(`⚠️ File bài tập này thuộc HSK ${detectedLevel}, trong khi bạn đang xem HSK ${selectedLevel}! Vui lòng nạp đúng cấp độ.`, "error");
-          return;
-        }
+        if (!Array.isArray(parsed)) assertCurriculumLevel(parsed, selectedLevel);
+        for (const exercise of incomingExercises) assertCurriculumLevel(exercise, selectedLevel);
 
         // 1. Thu thập tất cả các số bài học xuất hiện trong file câu hỏi
         const lessonNumbersInFile = new Set<number>();
@@ -908,11 +747,7 @@ export default function CurriculumBuilderWorkspace({
           lessonNumbersInFile.add(1);
         }
 
-        // 2. Đảm bảo chỉ dùng bài học hiện tại thuộc đúng selectedLevel (tránh rỉ dữ liệu chéo level)
-        const workingMap = new Map<number, Hsk1FullLesson>();
-        lessons
-          .filter((l) => !l.id || l.id.startsWith(`hsk${selectedLevel}-`))
-          .forEach((l) => workingMap.set(l.number, l));
+        const workingMap = new Map(lessons.map((lesson) => [lesson.number, lesson]));
 
         lessonNumbersInFile.forEach((num) => {
           if (!workingMap.has(num)) {
@@ -978,18 +813,11 @@ export default function CurriculumBuilderWorkspace({
             };
           });
 
-        setLessons(updatedLessons);
-
-        if (typeof window !== "undefined") {
-          safeLocalStorageSet(
-            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-            JSON.stringify(updatedLessons)
-          );
+        if (await persistCurriculum(updatedLessons)) {
+          showToast(`Đã lưu ${assignedCount} câu hỏi bài tập lên máy chủ.`);
         }
-
-        showToast(`Đã nạp thành công ${assignedCount} câu hỏi bài tập vào các bài học tương ứng! Bấm "Lưu & Xuất bản" để đồng bộ.`);
-      } catch {
-        showToast("Lỗi định dạng file JSON câu hỏi!", "error");
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Lỗi định dạng file JSON câu hỏi!", "error");
       }
     };
     reader.readAsText(file, "UTF-8");
@@ -1040,176 +868,14 @@ export default function CurriculumBuilderWorkspace({
 
   // 5. LƯU & XUẤT BẢN TOÀN BỘ GIÁO TRÌNH LÊN DATABASE & KHO CHUNG
   const handleSaveAndPublishAll = async () => {
-    if (saving || loading || lessons.length === 0) return;
-
-    // Kiểm tra an toàn: Tuyệt đối không cho lưu nếu mảng lessons chứa ID bài học của cấp độ khác
-    const hasMismatch = lessons.some((l) => l.id && !l.id.startsWith(`hsk${selectedLevel}-`));
-    if (hasMismatch) {
-      showToast(`⚠️ Dữ liệu hiện tại chứa bài học của cấp độ khác! Không thể xuất bản vào HSK ${selectedLevel}. Vui lòng làm mới lại trang.`, "error");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      // Chuẩn hóa và làm sạch dữ liệu bài học trước khi gửi lên máy chủ
-      const sanitizedLessons = lessons.map((l) => {
-        const number = Number(l.number) || 1;
-        const titleZh = (l.titleZh || "").trim() || `第${number}课`;
-        const titleVi = (l.titleVi || "").trim() || `Bài ${number}`;
-
-        const cleanVocab = Array.isArray(l.vocabList)
-          ? l.vocabList.map((v: any) => {
-              const hanzi = String(v.hanzi || v.word || "").trim();
-              const pinyin = String(v.pinyin || v.py || "").trim();
-              const meaning = String(v.meaning || v.meaningVi || v.vi || "Từ vựng").trim();
-              let examples: any[] = [];
-              if (Array.isArray(v.examples) && v.examples.length > 0) {
-                examples = v.examples.map((ex: any) => ({
-                  zh: String(ex.zh || ex.exampleZh || "").trim(),
-                  pinyin: String(ex.pinyin || ex.py || ex.examplePy || "").trim(),
-                  vi: String(ex.vi || ex.exampleVi || "").trim(),
-                })).filter((ex: any) => ex.zh);
-              } else if (v.exampleZh) {
-                examples = [{ zh: v.exampleZh, pinyin: v.examplePy || "", vi: v.exampleVi || "" }];
-              }
-              return {
-                ...v,
-                hanzi,
-                pinyin,
-                meaning,
-                meaningVi: String(v.meaningVi || meaning),
-                examples,
-                usageExplanation: String(v.usageExplanation || v.usage || "").trim(),
-                usagePatterns: Array.isArray(v.usagePatterns) ? v.usagePatterns : [],
-                commonMistakes: Array.isArray(v.commonMistakes) ? v.commonMistakes : [],
-                comparison: String(v.comparison || "").trim(),
-                exampleZh: examples[0]?.zh || String(v.exampleZh || ""),
-                examplePy: examples[0]?.pinyin || String(v.examplePy || ""),
-                exampleVi: examples[0]?.vi || String(v.exampleVi || ""),
-              };
-            })
-          : [];
-
-        const cleanGrammar = Array.isArray(l.grammarList)
-          ? l.grammarList.map((g: any) => {
-              const title = String(g.title || g.titleZh || "Điểm ngữ pháp").trim();
-              const structure = String(g.structure || g.pattern || title).trim();
-              let examples: any[] = [];
-              if (Array.isArray(g.examples) && g.examples.length > 0) {
-                examples = g.examples.map((ex: any) => ({
-                  zh: String(ex.zh || ex.example || "").trim(),
-                  pinyin: String(ex.pinyin || ex.py || "").trim(),
-                  vi: String(ex.vi || ex.meaningVi || "").trim(),
-                  explanationVi: String(ex.explanationVi || ex.explanation || "").trim(),
-                })).filter((ex: any) => ex.zh);
-              } else if (g.example) {
-                examples = [{ zh: g.example, pinyin: "", vi: "", explanationVi: "" }];
-              }
-              let example = examples[0]?.zh || String(g.example || title).trim();
-              const explanation = String(g.explanation || g.usageExplanation || g.meaningVi || g.summary || "Cấu trúc ngữ pháp trọng tâm").trim();
-              return {
-                ...g,
-                title,
-                titleZh: String(g.titleZh || "").trim(),
-                summary: String(g.summary || "").trim(),
-                structure,
-                example,
-                explanation,
-                examples,
-                usageExplanation: String(g.usageExplanation || explanation).trim(),
-                usageSteps: Array.isArray(g.usageSteps) ? g.usageSteps : [],
-                usageContexts: Array.isArray(g.usageContexts) ? g.usageContexts : [],
-                comparison: String(g.comparison || "").trim(),
-                commonMistakes: Array.isArray(g.commonMistakes) ? g.commonMistakes : [],
-              };
-            })
-          : [];
-
-        const cleanDialogue = Array.isArray(l.dialogue)
-          ? l.dialogue.map((d: any) => {
-              const zh = String(d.zh || d.content || "").trim();
-              const speaker = String(d.speaker || "Người nói").trim();
-              const pinyin = String(d.pinyin || "").trim();
-              const vi = String(d.vi || d.meaning || d.meaningVi || zh).trim();
-              return {
-                ...d,
-                speaker,
-                zh,
-                pinyin,
-                vi,
-              };
-            })
-          : [];
-
-        return {
-          ...l,
-          number,
-          titleZh,
-          titleVi,
-          vocabList: cleanVocab,
-          grammarList: cleanGrammar,
-          dialogue: cleanDialogue,
-          vocabCount: cleanVocab.length,
-          grammarCount: cleanGrammar.length,
-          grammarExercises: Array.isArray(l.grammarExercises) ? l.grammarExercises : [],
-        };
-      });
-
-      if (typeof window !== "undefined") {
-        try {
-          saveCurriculumSnapshot(selectedLevel, `Lưu & Xuất bản HSK ${selectedLevel}`, sanitizedLessons);
-          safeLocalStorageSet(
-            `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-            JSON.stringify(sanitizedLessons)
-          );
-        } catch (localErr) {
-          console.warn("Bỏ qua lỗi bộ nhớ đệm trình duyệt, tiếp tục lưu CSDL máy chủ:", localErr);
-        }
-      }
-
-      let revision = 0;
-      try {
-        const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
-          credentials: "include",
-          headers: getCurriculumAuthHeaders(),
-        });
-        const curData = await curRes.json();
-        if (curData && typeof curData.revision === "number") {
-          revision = curData.revision;
-        }
-      } catch {}
-
-      const res = await fetch("/api/v1/admin/curriculum", {
-        method: "POST",
-        credentials: "include",
-        headers: getCurriculumAuthHeaders(),
-        body: JSON.stringify({
-          level: selectedLevel,
-          revision: revision,
-          isDeleted: false,
-          lessons: sanitizedLessons,
-        }),
-      });
-
-      const resData = await res.json();
-      if (res.ok && resData.success) {
-        setLessons(sanitizedLessons);
-        showToast(`🎉 Đã lưu & xuất bản thành công toàn bộ ${sanitizedLessons.length} bài học HSK ${selectedLevel} vào cơ sở dữ liệu!`);
-      } else {
-        const errMsg = resData?.message || `Lỗi máy chủ (${res.status}): Không thể lưu giáo trình.`;
-        showToast(errMsg, "error");
-      }
-    } catch (err: any) {
-      console.error("Save curriculum error:", err);
-      showToast(`Lỗi kết nối máy chủ: ${err?.message || "Không thể gửi dữ liệu"}`, "error");
-    } finally {
-      setSaving(false);
+    if (await persistCurriculum(lessons)) {
+      showToast(`Đã xuất bản ${lessons.length} bài HSK ${selectedLevel}.`);
     }
   };
 
   // 6. LƯU THAY ĐỔI CỦA MỘT BÀI HỌC TRONG MODAL (HỖ TRỢ ĐỒNG BỘ MÁY CHỦ NGAY)
   const handleSaveEditingLesson = async (syncToServer = false) => {
-    if (!editingLesson) return;
+    if (!editingLesson || !canEdit) return;
 
     const updatedLessons = lessons.map((l) =>
       l.number === editingLesson.number ? editingLesson : l
@@ -1220,86 +886,17 @@ export default function CurriculumBuilderWorkspace({
       updatedLessons.sort((a, b) => a.number - b.number);
     }
 
-    setLessons(updatedLessons);
-
-    if (typeof window !== "undefined") {
-      try {
-        saveCurriculumSnapshot(selectedLevel, `Sửa Bài ${editingLesson.number} - HSK ${selectedLevel}`, updatedLessons);
-        safeLocalStorageSet(
-          `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-          JSON.stringify(updatedLessons)
-        );
-      } catch {}
-    }
-
     if (!syncToServer) {
+      setLessons(updatedLessons);
       setEditingLesson(null);
-      showToast(`Đã lưu xong nội dung Bài ${editingLesson.number} vào bộ nhớ tạm! Bấm "Lưu & Xuất bản" khi muốn đồng bộ lên máy chủ.`);
+      showToast(`Đã cập nhật Bài ${editingLesson.number} trong phiên này. Bấm "Lưu & xuất bản" để lưu lên máy chủ.`);
       return;
     }
 
-    // Lưu trực tiếp lên DB máy chủ
-    setSaving(true);
-    try {
-      const sanitizedLessons = updatedLessons.map((les) => ({
-        ...les,
-        vocabList: Array.isArray(les.vocabList) ? les.vocabList : [],
-        grammarList: Array.isArray(les.grammarList) ? les.grammarList : [],
-        dialogue: Array.isArray(les.dialogue) ? les.dialogue : [],
-        phonetics: les.phonetics || { title: "", rule: "", examples: [] },
-        culture: les.culture || "",
-        grammarExercises: Array.isArray(les.grammarExercises) ? les.grammarExercises : [],
-      }));
-
-      let revision = 0;
-      try {
-        const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
-          credentials: "include",
-          headers: getCurriculumAuthHeaders(),
-        });
-        const curData = await curRes.json();
-        if (curData && typeof curData.revision === "number") revision = curData.revision;
-      } catch {}
-
-      const res = await fetch("/api/v1/admin/curriculum", {
-        method: "POST",
-        credentials: "include",
-        headers: getCurriculumAuthHeaders(),
-        body: JSON.stringify({
-          level: selectedLevel,
-          revision,
-          isDeleted: false,
-          lessons: sanitizedLessons,
-        }),
-      });
-
-      const resData = await res.json();
-      if (res.ok && resData.success) {
-        setLessons(sanitizedLessons);
-        setEditingLesson(null);
-        showToast(`🎉 Đã lưu & xuất bản thành công Bài ${editingLesson.number} vào cơ sở dữ liệu!`);
-      } else {
-        const errMsg = resData?.message || `Lỗi máy chủ (${res.status}): Không thể lưu giáo trình.`;
-        showToast(errMsg, "error");
-      }
-    } catch (err: any) {
-      console.error("Save single lesson error:", err);
-      showToast(`Lỗi kết nối máy chủ: ${err?.message || "Không thể gửi dữ liệu"}`, "error");
-    } finally {
-      setSaving(false);
+    if (await persistCurriculum(updatedLessons)) {
+      setEditingLesson(null);
+      showToast(`Đã lưu Bài ${editingLesson.number} lên máy chủ.`);
     }
-  };
-
-  const handleResetToOfficial = () => {
-    if (typeof window !== "undefined") {
-      const ok = window.confirm(`Bạn có chắc chắn muốn khôi phục lại dữ liệu gốc chuẩn HSK ${selectedLevel}? Toàn bộ bài học sẽ được đưa về dữ liệu chuẩn chính thức. Bản hiện tại sẽ được lưu vào lịch sử hoàn tác.`);
-      if (!ok) return;
-      saveCurriculumSnapshot(selectedLevel, `Trước khi khôi phục chuẩn gốc HSK ${selectedLevel}`, lessons);
-    }
-    resetCustomCurriculum(selectedLevel);
-    const defaults = getDefaultLessons(selectedLevel);
-    setLessons(defaults);
-    showToast(`🎉 Đã khôi phục dữ liệu gốc chuẩn HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản kho chung" nếu muốn đồng bộ lên máy chủ.`);
   };
 
   // =========================================================================
@@ -1602,240 +1199,127 @@ export default function CurriculumBuilderWorkspace({
       return l;
     });
     setLessons(updated);
-    if (typeof window !== "undefined") {
-      safeLocalStorageSet(
-        `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-        JSON.stringify(updated)
-      );
-    }
     showToast("Đã xóa câu hỏi bài tập thành công! Hãy bấm 'Lưu & Xuất bản' để đồng bộ máy chủ.");
   };
 
   return (
     <div className="space-y-6">
-      {/* =================================================================== */}
-      {/* 1. THANH ĐIỀU HƯỚNG CẤP ĐỘ HSK 3.0 VÀ GÓC NHÌN CHÍNH                */}
-      {/* =================================================================== */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/40 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {loadError && (
+        <div role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">
+          {loadError} <button type="button" className="underline" onClick={() => {
+            if (loadedLessons.current && loadedLessons.current !== lessons &&
+              !confirm("Tải lại sẽ bỏ thay đổi chưa xuất bản. Bạn có muốn tiếp tục?")) return;
+            fileContext.current++;
+            setRevision(null);
+            setLoadError("");
+            setReloadKey((key) => key + 1);
+          }}>Tải lại</button>
+        </div>
+      )}
+      <section aria-labelledby="curriculum-heading"
+        className="space-y-5 rounded-3xl border border-[#BC9B6B]/40 bg-[#FFFCF6] p-4 text-[#204434] sm:p-6">
+        <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-serif font-bold text-xl text-[#204434] flex items-center gap-2">
-              <Layers className="w-5 h-5 text-[#8F6D3B]" />
-              <span>Quản trị Chương Trình Giảng Dạy & Bài Tập HSK</span>
-            </h2>
-            <p className="text-xs text-[#315E48] mt-1">
-              Admin tạo bài học chuẩn, quản lý ngân hàng bài tập ngữ pháp theo bài và xuất bản cho học sinh làm.
-            </p>
+            <h1 id="curriculum-heading" className="font-serif text-2xl font-bold">Kho giáo trình HSK</h1>
+            <p className="mt-1 text-sm text-[#526c50]">Chọn cấp HSK trước khi biên soạn hoặc nhập học liệu.</p>
           </div>
+          <p role="status" className="rounded-full bg-[#F3EFE6] px-3 py-1.5 text-xs font-semibold">
+            {saving ? "Đang lưu lên máy chủ…" : loading ? "Đang tải…" :
+              revision === null ? "Chưa tải được dữ liệu" : hasUnpublishedChanges ?
+                "Có thay đổi chưa xuất bản" : revision === 0 ? "Kho chưa có phiên bản" : `Phiên bản ${revision} trên máy chủ`}
+          </p>
+        </header>
 
-          {/* Cụm công cụ nhập / xuất / lưu */}
+        <div role="group" aria-label="Chọn cấp HSK" className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => (
+            <button key={lvl} type="button" aria-pressed={selectedLevel === lvl}
+              disabled={saving || editingLesson !== null || isImportPreviewOpen || isRevisionHistoryOpen}
+              onClick={() => {
+                if (selectedLevel === lvl || saveInFlight.current) return;
+                if (loadedLessons.current && loadedLessons.current !== lessons &&
+                  !confirm("Cấp hiện tại có thay đổi chưa xuất bản. Chuyển cấp và bỏ thay đổi này?")) return;
+                loadedLessons.current = null;
+                fileContext.current++;
+                setRevision(null);
+                setLoadError("");
+                setSelectedLevel(lvl);
+                setLessons([]);
+                setLoading(true);
+              }}
+              className={`min-h-10 rounded-xl border border-[#E5DEC9] px-1 text-xs font-bold disabled:opacity-60 sm:px-3 ${selectedLevel === lvl
+                ? "bg-[#204434] text-white" : "bg-white hover:bg-[#FAF7F0]"}`}>
+              HSK {lvl}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-3 border-t border-[#E5DEC9] pt-4">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Tải template bài học */}
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-3 py-2 rounded-xl border border-[#BC9B6B]/40 bg-white hover:bg-[#FAF7F0] text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Tải về file JSON mẫu bài học"
-            >
-              <Download className="w-3.5 h-3.5 text-[#8F6D3B]" />
-              <span>Template bài học</span>
+            <p className="basis-full text-sm font-semibold sm:basis-auto sm:pr-2">Thao tác cho HSK {selectedLevel}</p>
+            <button type="button" disabled={!canEdit} onClick={handleAddNewLesson} className={toolbarButton}>
+              <Plus size={15} /> Thêm bài
             </button>
-
-            {/* Tải template câu hỏi bài tập */}
-            <button
-              onClick={handleDownloadExerciseTemplate}
-              className="px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Tải về file JSON mẫu nhập câu hỏi bài tập ngữ pháp"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-700" />
-              <span>Template câu hỏi (.JSON)</span>
-            </button>
-
-            {/* Nhập thêm bài mới (Append / Merge - Giữ nguyên các bài cũ) */}
-            <label className="px-3 py-2 rounded-xl border border-[#204434] bg-[#204434]/5 hover:bg-[#204434]/10 text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
-              <Upload className="w-3.5 h-3.5 text-[#204434]" />
-              <span>➕ Nhập thêm bài riêng (.JSON)</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImportAppendLessonsFile}
-              />
+            <label className={`${toolbarButton} cursor-pointer focus-within:outline-2 has-disabled:cursor-not-allowed has-disabled:opacity-50`}>
+              <Upload size={15} /> Nhập bài học
+              <input type="file" aria-label="Nhập bài học JSON" accept=".json" className="sr-only"
+                disabled={!canEdit} onChange={handleImportAppendLessonsFile} />
             </label>
-
-            {/* Nhập câu hỏi hàng loạt */}
-            <label className="px-3 py-2 rounded-xl border border-amber-400 bg-amber-100/60 hover:bg-amber-200/60 text-amber-950 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
-              <Upload className="w-3.5 h-3.5 text-amber-800" />
-              <span>📤 Nhập câu hỏi (.JSON)</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImportExercisesBatchFile}
-              />
+            <label className={`${toolbarButton} cursor-pointer focus-within:outline-2 has-disabled:cursor-not-allowed has-disabled:opacity-50`}>
+              <Upload size={15} /> Nhập câu hỏi
+              <input type="file" aria-label="Nhập câu hỏi JSON" accept=".json" className="sr-only"
+                disabled={!canEdit} onChange={handleImportExercisesBatchFile} />
             </label>
-
-            {/* Nhập đè toàn bộ */}
-            <label className="px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium flex items-center gap-1 transition cursor-pointer" title="Nhập thay thế toàn bộ danh sách bài học">
-              <span>🔄 Nhập đè tất cả</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImportReplaceLessonsFile}
-              />
-            </label>
-
-            {/* Kiểm định chất lượng giáo trình */}
-            <button
-              type="button"
-              onClick={() => setIsAuditorOpen(true)}
-              className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Quét toàn bộ bài học để tìm thiếu sót Pinyin, nghĩa, ví dụ"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-              <span>🛡️ Quét lỗi giáo trình</span>
-            </button>
-
-            {/* In ấn & Xuất đề cương PDF */}
-            <button
-              type="button"
-              onClick={() => setIsPrintExportOpen(true)}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-[#FAF7F0] border border-[#BC9B6B]/40 text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Xuất đề cương in ấn A4 hoặc lưu file PDF"
-            >
-              <Printer className="w-3.5 h-3.5 text-[#8F6D3B]" />
-              <span>🖨️ Xuất đề cương in ấn</span>
-            </button>
-
-            {/* Lịch sử phiên bản & Hoàn tác */}
-            <button
-              type="button"
-              onClick={() => setIsRevisionHistoryOpen(true)}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-[#FAF7F0] border border-[#BC9B6B]/40 text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-              title="Xem lịch sử các bản sửa và khôi phục khi cần"
-            >
-              <History className="w-3.5 h-3.5 text-[#8F6D3B]" />
-              <span>↩️ Lịch sử hoàn tác</span>
-            </button>
-
-            {/* Khôi phục dữ liệu gốc HSK */}
-            <button
-              onClick={handleResetToOfficial}
-              title={`Khôi phục dữ liệu gốc chuẩn HSK ${selectedLevel}`}
-              className="px-3 py-2 rounded-xl bg-white border border-[#E5DEC9] hover:bg-[#FAF7F0] text-[#8F6D3B] hover:text-[#204434] text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Khôi phục gốc HSK {selectedLevel}</span>
-            </button>
-
-            {/* Thêm bài mới */}
-            <button
-              onClick={handleAddNewLesson}
-              className="px-3.5 py-2 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5 text-[#BC9B6B]" />
-              <span>Thêm bài mới</span>
-            </button>
-
-            {/* Lưu & Xuất bản toàn bộ */}
-            <button
-              disabled={
-                saving ||
-                loading ||
-                lessons.length === 0 ||
-                lessons.some((l) => l.id && !l.id.startsWith(`hsk${selectedLevel}-`))
-              }
+            <button type="button" disabled={!canEdit || !hasUnpublishedChanges}
               onClick={handleSaveAndPublishAll}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#204434] to-[#315E48] hover:from-[#17382F] hover:to-[#204434] text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-md shadow-[#204434]/20 disabled:opacity-50"
-            >
-              <Save className="w-3.5 h-3.5 text-[#BC9B6B]" />
-              <span>{saving ? "Đang xuất bản..." : "Lưu & Xuất bản kho chung"}</span>
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#204434] px-4 text-xs font-bold text-white hover:bg-[#315E48] disabled:opacity-50">
+              <Save size={15} /> Lưu &amp; xuất bản
             </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={saving} onClick={() => setIsRevisionHistoryOpen(true)} className={toolbarButton}>
+              <History size={15} /> Lịch sử &amp; hoàn tác
+            </button>
+            <button type="button" disabled={!canEdit} onClick={downloadCurriculum} className={toolbarButton}>
+              <Download size={15} /> Xuất JSON
+            </button>
+            <details key={selectedLevel} className="w-full">
+              <summary className="w-fit cursor-pointer rounded-md px-1 py-1.5 text-xs font-semibold text-[#526c50]">
+                Mẫu nhập và công cụ
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={handleDownloadTemplate} className={toolbarButton}>Mẫu bài học</button>
+                <button type="button" onClick={handleDownloadExerciseTemplate} className={toolbarButton}>Mẫu câu hỏi</button>
+                <button type="button" disabled={!canEdit || !lessons.length} onClick={() => setIsAuditorOpen(true)} className={toolbarButton}>
+                  <ShieldCheck size={15} /> Kiểm tra nội dung
+                </button>
+                <button type="button" disabled={!canEdit || !lessons.length} onClick={() => setIsPrintExportOpen(true)} className={toolbarButton}>
+                  <Printer size={15} /> In đề cương
+                </button>
+              </div>
+            </details>
           </div>
         </div>
 
-        {/* Thanh chọn Level HSK 3.0 */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#8F6D3B] mr-1 shrink-0">Cấp độ:</span>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((lvl) => {
-            const tierLabel = lvl <= 3 ? "Sơ cấp" : lvl <= 6 ? "Trung cấp" : "Cao cấp";
-            return (
-              <button
-                key={lvl}
-                onClick={() => {
-                  if (selectedLevel !== lvl) {
-                    setSelectedLevel(lvl);
-                    setLessons([]); // Xóa ngay state cũ để không bị nhiễm chéo giữa các HSK
-                    setLoading(true);
-                  }
-                }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  selectedLevel === lvl
-                    ? "bg-[#204434] text-white shadow-xs"
-                    : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
-                }`}
-              >
-                <span>HSK {lvl}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded ${
-                    selectedLevel === lvl ? "bg-white/20 text-white" : "bg-[#F3EFE6] text-[#8F6D3B]"
-                  }`}
-                >
-                  {tierLabel}
-                </span>
-                {selectedLevel === lvl && (
-                  <span className="text-[10px] text-emerald-300 ml-0.5">
-                    ({lessons.length} bài)
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Chuyển đổi góc nhìn chính: Bài học vs Ngân hàng bài tập ngữ pháp */}
-        <div className="flex items-center gap-2 pt-3 border-t border-[#E5DEC9]">
-          <button
-            onClick={() => setMainView("lessons")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 ${
-              mainView === "lessons"
-                ? "bg-[#204434] text-white shadow-xs"
-                : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>📚 Danh sách bài học ({lessons.length})</span>
+        <div role="group" aria-label="Nội dung giáo trình" className="flex flex-wrap gap-2 border-t border-[#E5DEC9] pt-4">
+          <button type="button" aria-pressed={mainView === "lessons"} onClick={() => setMainView("lessons")}
+            className={`${toolbarButton} aria-pressed:border-[#204434] aria-pressed:bg-[#E8EFE9]`}>
+            <BookOpen size={15} /> Bài học ({lessons.length})
           </button>
-
-          <button
-            onClick={() => setMainView("grammar_hub")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 ${
-              mainView === "grammar_hub"
-                ? "bg-[#204434] text-white shadow-xs"
-                : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
-            }`}
-          >
-            <Target className="w-3.5 h-3.5" />
-            <span>🎯 Ngân hàng bài tập ngữ pháp ({allGrammarExercises.length} câu)</span>
+          <button type="button" aria-pressed={mainView === "grammar_hub"} onClick={() => setMainView("grammar_hub")}
+            className={`${toolbarButton} aria-pressed:border-[#204434] aria-pressed:bg-[#E8EFE9]`}>
+            <Target size={15} /> Bài tập ngữ pháp ({allGrammarExercises.length})
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* =================================================================== */}
-      {/* 2A. GÓC NHÌN 1: DANH SÁCH BÀI HỌC TRONG CẤP ĐỘ                      */}
-      {/* =================================================================== */}
-      {mainView === "lessons" && (
+      {revision !== null && mainView === "lessons" && (
         <>
-          {loading ? (
-            <div className="py-16 text-center text-xs text-[#315E48] bg-[#FFFCF6] rounded-3xl border border-[#BC9B6B]/20">
-              Đang tải danh sách bài học HSK {selectedLevel}...
-            </div>
-          ) : lessons.length === 0 ? (
+          {lessons.length === 0 ? (
             <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/30 space-y-3">
               <BookOpen className="w-10 h-10 text-[#8F6D3B]/40 mx-auto" />
               <p className="text-sm font-bold text-[#204434]">Chưa có bài học nào cho HSK {selectedLevel}</p>
               <p className="text-xs text-[#315E48]">
-                Bấm &quot;Thêm bài mới&quot; hoặc &quot;Nhập file (.JSON)&quot; để bắt đầu xây dựng giáo trình.
+                Chọn &quot;Thêm bài&quot; hoặc &quot;Nhập bài học&quot; để bắt đầu xây dựng giáo trình.
               </p>
             </div>
           ) : (
@@ -1945,7 +1429,7 @@ export default function CurriculumBuilderWorkspace({
       {/* =================================================================== */}
       {/* 2B. GÓC NHÌN 2: NGÂN HÀNG BÀI TẬP NGỮ PHÁP (GRAMMAR HUB)            */}
       {/* =================================================================== */}
-      {mainView === "grammar_hub" && (
+      {revision !== null && mainView === "grammar_hub" && (
         <div className="space-y-4">
           {/* Thanh lọc & tìm kiếm câu hỏi */}
           <div className="p-4 rounded-2xl bg-[#FFFCF6] border border-[#BC9B6B]/40 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
@@ -3658,68 +3142,19 @@ export default function CurriculumBuilderWorkspace({
       )}
 
       {/* MODAL XEM TRƯỚC GIÁO TRÌNH JSON THÔNG MINH CHO GIÁO VIÊN */}
-      {isImportPreviewOpen && (
+      {isImportPreviewOpen && importPreview && (
         <CurriculumJsonPreviewModal
           isOpen={isImportPreviewOpen}
           onClose={() => setIsImportPreviewOpen(false)}
           fileName={importPreviewFileName}
-          incomingLessons={importPreviewLessons}
-          currentLessons={lessons.filter((l) => !l.id || l.id.startsWith(`hsk${selectedLevel}-`))}
+          incomingLessons={importPreview.lessons}
+          incomingRows={importPreview.rows}
+          currentLessons={lessons}
           level={selectedLevel}
-          onConfirmApply={async (mode, appliedLessons) => {
-            const safeCurrent = lessons.filter((l) => !l.id || l.id.startsWith(`hsk${selectedLevel}-`));
-            setLessons(appliedLessons);
-            if (typeof window !== "undefined") {
-              try {
-                if (safeCurrent.length > 0) {
-                  saveCurriculumSnapshot(selectedLevel, `Trước khi nạp ${importPreviewFileName}`, safeCurrent);
-                }
-                safeLocalStorageSet(
-                  `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-                  JSON.stringify(appliedLessons)
-                );
-              } catch {}
-            }
-            // Tự động đồng bộ và lưu ngay vào máy chủ cho cấp độ HSK đang chọn
-            try {
-              let revision = 0;
-              try {
-                const curRes = await fetch(`/api/v1/admin/curriculum?level=${selectedLevel}`, {
-                  credentials: "include",
-                  headers: getCurriculumAuthHeaders(),
-                });
-                const curData = await curRes.json();
-                if (curData && typeof curData.revision === "number") {
-                  revision = curData.revision;
-                }
-              } catch {}
-
-              const res = await fetch("/api/v1/admin/curriculum", {
-                method: "POST",
-                credentials: "include",
-                headers: getCurriculumAuthHeaders(),
-                body: JSON.stringify({
-                  level: selectedLevel,
-                  revision,
-                  isDeleted: false,
-                  lessons: appliedLessons,
-                }),
-              });
-              const resData = await res.json();
-              if (res.ok && resData.success) {
-                showToast(
-                  `🎉 Đã nhập và áp dụng thành công ${appliedLessons.length} bài vào giáo trình HSK ${selectedLevel} trên máy chủ!`
-                );
-              } else {
-                showToast(
-                  `Đã cập nhật ${appliedLessons.length} bài học HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản" nếu cần đồng bộ thêm.`
-                );
-              }
-            } catch {
-              showToast(
-                `Đã áp dụng ${appliedLessons.length} bài vào giao diện HSK ${selectedLevel}! Hãy bấm "Lưu & Xuất bản" để ghi lên máy chủ.`
-              );
-            }
+          onConfirmApply={async (appliedLessons) => {
+            if (!await persistCurriculum(appliedLessons)) return false;
+            showToast(`Đã lưu ${appliedLessons.length} bài HSK ${selectedLevel} lên máy chủ.`);
+            return true;
           }}
         />
       )}
@@ -3754,20 +3189,11 @@ export default function CurriculumBuilderWorkspace({
           isOpen={isRevisionHistoryOpen}
           onClose={() => setIsRevisionHistoryOpen(false)}
           level={selectedLevel}
-          onRestoreSnapshot={(restoredLessons) => {
-            setLessons(restoredLessons);
-            if (typeof window !== "undefined") {
-              try {
-                saveCurriculumSnapshot(selectedLevel, "Trước khi hoàn tác phiên bản cũ", lessons);
-                safeLocalStorageSet(
-                  `hsk_admin_custom_curriculum_level_${selectedLevel}`,
-                  JSON.stringify(restoredLessons)
-                );
-              } catch {}
-            }
-            showToast(
-              `Đã khôi phục thành công ${restoredLessons.length} bài học từ lịch sử! Bấm "Lưu & Xuất bản" để đồng bộ.`
-            );
+          canRestore={canEdit}
+          onRestoreSnapshot={async (restoredLessons, isDeleted) => {
+            if (!await persistCurriculum(restoredLessons, isDeleted)) return false;
+            showToast(`Đã khôi phục HSK ${selectedLevel} trên máy chủ.`);
+            return true;
           }}
         />
       )}

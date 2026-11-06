@@ -1,6 +1,5 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { getDefaultLessons } from "./hsk-lessons-resolver";
 import type { Hsk1FullLesson } from "./hsk1-full-lessons";
 
 export async function readCurriculum(level: number) {

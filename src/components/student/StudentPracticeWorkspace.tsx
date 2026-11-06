@@ -41,8 +41,6 @@ import { fetchCloudProgress, saveCloudPass } from "@/lib/self-study-cloud-servic
 import { getMaxUnlockedHskLevel, addLevelStudyMinutes } from "@/lib/self-study-progression";
 import ImperialPassSealModal from "./ImperialPassSealModal";
 import AncientHanziEtymologyModal from "./AncientHanziEtymologyModal";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
-import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import {
   getSavedKnowledge,
   removeSavedVocab,
@@ -155,10 +153,7 @@ export default function StudentPracticeWorkspace({
 
   // Official fallback curriculum lessons (guaranteed non-empty fallback to prevent rendering crashes)
   const { lessons: apiLessons, loading: curriculumLoading } = useCurriculumLessons(currentHskLevel);
-  const officialLessons = useMemo<Hsk1FullLesson[]>(() => {
-    if (apiLessons && apiLessons.length > 0) return apiLessons;
-    return getLessonsByHskLevel(currentHskLevel);
-  }, [apiLessons, currentHskLevel]);
+  const officialLessons = apiLessons;
 
   const [classPracticeLesson, setClassPracticeLesson] = useState(1);
   const selectedPracticeLesson = learningTrack === "SELF_STUDY" ? sharedSelection.lessonNumber : classPracticeLesson;

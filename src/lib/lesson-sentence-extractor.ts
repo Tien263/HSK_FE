@@ -1,4 +1,3 @@
-import { getLessonsByHskLevel, getLessonByNumber } from "./hsk-lessons-resolver";
 import type { Hsk1FullLesson } from "./hsk1-full-lessons";
 import { getVocabSentenceFallback } from "./hsk2-vocab-examples";
 
@@ -217,8 +216,7 @@ export function extractSentencesFromLesson(lesson: Hsk1FullLesson, hskLevel: num
 /**
  * Lấy danh sách thống kê các bài học của một cấp HSK kèm số lượng câu có thể luyện
  */
-export function getLessonSummariesForHsk(hskLevel: number): LessonSummaryMeta[] {
-  const lessons = getLessonsByHskLevel(hskLevel);
+export function getLessonSummariesForHsk(lessons: Hsk1FullLesson[], hskLevel: number): LessonSummaryMeta[] {
   return lessons.map((l) => {
     const sentences = extractSentencesFromLesson(l, hskLevel);
     const dialogueCount = sentences.filter((s) => s.sourceCategory === "dialogue").length;
@@ -243,8 +241,8 @@ export function getLessonSummariesForHsk(hskLevel: number): LessonSummaryMeta[] 
 /**
  * Lấy toàn bộ câu luyện của một bài học theo cấp HSK và số thứ tự bài
  */
-export function getSentencesByHskAndLesson(hskLevel: number, lessonNumber: number): LessonSentenceItem[] {
-  const lesson = getLessonByNumber(hskLevel, lessonNumber);
+export function getSentencesByHskAndLesson(lessons: Hsk1FullLesson[], hskLevel: number, lessonNumber: number): LessonSentenceItem[] {
+  const lesson = lessons.find((item) => item.number === lessonNumber);
   if (!lesson) return [];
   return extractSentencesFromLesson(lesson, hskLevel);
 }

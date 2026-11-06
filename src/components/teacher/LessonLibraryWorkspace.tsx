@@ -134,7 +134,7 @@ export function LessonLibraryWorkspace({
   const {data:catalog,error:catalogError}=usePortalData<{levels:{level:number;items:Hsk1FullLesson[];isDeleted:boolean}[]}>("/api/v1/curriculum");
   const {data:privateFiles}=usePortalData<{items:unknown[]}>("/api/v1/materials");
   const {data:collections,reload:reloadCollections}=usePortalData<{items:any[]}>("/api/v1/teacher/collections");
-  const HSK_LEVELS_META=(catalog?.levels||[]).filter(row=>!row.isDeleted).map(row=>({id:"hsk"+row.level,title:"HSK "+row.level,desc:row.items.length+" bài học từ giáo trình admin",totalLessons:row.items.length,isAvailable:true,tag:row.items.length+" bài"}));
+  const HSK_LEVELS_META=(catalog?.levels||[]).filter(row=>!row.isDeleted && row.items.length > 0).map(row=>({id:"hsk"+row.level,title:"HSK "+row.level,desc:row.items.length+" bài học từ giáo trình admin",totalLessons:row.items.length,isAvailable:true,tag:row.items.length+" bài"}));
   const HSK_LESSONS_MAP:Record<string,FullLessonDetail[]>=Object.fromEntries((catalog?.levels||[]).map(row=>["hsk"+row.level,row.items.map(lesson=>teacherLibraryLesson(lesson,row.level))]));
   const HSK1_LESSONS=HSK_LESSONS_MAP.hsk1||[],HSK2_LESSONS=HSK_LESSONS_MAP.hsk2||[],HSK3_LESSONS=HSK_LESSONS_MAP.hsk3||[],ALL_LESSONS_INDEX=Object.values(HSK_LESSONS_MAP).flat();
   const getLessonDetailById=(id:string)=>ALL_LESSONS_INDEX.find(row=>row.id===id)||emptyTeacherLesson;
@@ -843,6 +843,11 @@ export function LessonLibraryWorkspace({
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                      {catalog && HSK_LEVELS_META.length === 0 && (
+                        <p className="col-span-full rounded-2xl border border-dashed border-[#E5DEC9] p-8 text-center text-sm text-[#526c50]">
+                          Kho chung chưa có bài học được xuất bản.
+                        </p>
+                      )}
                       {HSK_LEVELS_META.map((lvl) => (
                         <div
                           key={lvl.id}

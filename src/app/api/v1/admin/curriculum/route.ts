@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  getDictionaryAdmin,
-  dictionarySameOrigin,
-  createDictionarySession,
-  dictionaryCookieOptions,
-  DICTIONARY_SESSION_COOKIE,
-} from "@/lib/dictionary-session";
-import { getAuthUser } from "@/lib/auth-server";
+import { getDictionaryUser } from "@/lib/dictionary-session";
+import { examWriteOrigin } from "@/lib/exam-center-service";
 import { readCurriculum } from "@/lib/curriculum-server";
 import { normalizeLessons, CurriculumFormatError } from "@/lib/curriculum-format";
 import type { Prisma } from "@/generated/prisma";
@@ -15,44 +9,8 @@ import type { Prisma } from "@/generated/prisma";
 const headers = { "Cache-Control": "no-store" };
 
 async function resolveCurriculumAdmin(request: Request) {
-  // 1. Check dictionary session cookie
-  const dictAdmin = await getDictionaryAdmin(request);
-  if (dictAdmin) return dictAdmin;
-
-  // 2. Check standard authUser
-  const authUser = await getAuthUser(request);
-  if (authUser && (authUser.role === "ADMIN" || authUser.role === "TEACHER")) {
-    return authUser;
-  }
-
-  // 3. Check x-user-id header (sent from admin client)
-  const xUserId = request.headers.get("x-user-id");
-  if (xUserId) {
-    const user = await prisma.user.findFirst({
-      where: { id: xUserId, status: "ACTIVE" },
-      select: { id: true, name: true, username: true, role: true, email: true },
-    });
-    if (user && (user.role === "ADMIN" || user.role === "TEACHER")) {
-      return user;
-    }
-  }
-
-  // 4. Check Bearer token if present
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer mock-jwt-token-")) {
-    const tokenUserId = authHeader.replace("Bearer mock-jwt-token-", "").trim();
-    if (tokenUserId) {
-      const user = await prisma.user.findFirst({
-        where: { id: tokenUserId, status: "ACTIVE" },
-        select: { id: true, name: true, username: true, role: true, email: true },
-      });
-      if (user && (user.role === "ADMIN" || user.role === "TEACHER")) {
-        return user;
-      }
-    }
-  }
-
-  return null;
+  const user = await getDictionaryUser(request);
+  return user && (user.role === "ADMIN" || user.role === "TEACHER") ? user : null;
 }
 
 export async function GET(request: Request) {
@@ -61,19 +19,35 @@ export async function GET(request: Request) {
     if (!admin) {
       return NextResponse.json({ success: false, message: "Vui lòng xác thực tài khoản quản trị viên / giáo viên." }, { status: 403, headers });
     }
-    const level = Number(new URL(request.url).searchParams.get("level") ?? 1);
+    const query = new URL(request.url).searchParams;
+    const level = Number(query.get("level") ?? 1);
     if (!Number.isInteger(level) || level < 1 || level > 9) {
       return NextResponse.json({ success: false, message: "Cấp HSK phải từ 1 đến 9." }, { status: 400, headers });
     }
-    const res = NextResponse.json({ success: true, ...await readCurriculum(level) }, { headers });
-    const existingCookie = request.headers.get("cookie")?.includes(DICTIONARY_SESSION_COOKIE);
-    if (!existingCookie && admin.id) {
-      const newSession = createDictionarySession(admin.id);
-      if (newSession) {
-        res.cookies.set(DICTIONARY_SESSION_COOKIE, newSession, dictionaryCookieOptions(request));
+    const history = query.get("history");
+    if (history !== null) {
+      const where = { entity: `CurriculumContent:${level}`, action: "CURRICULUM_BACKUP" };
+      if (history === "list") {
+        const items = await prisma.auditLog.findMany({
+          where,
+          select: { id: true, createdAt: true },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        });
+        return NextResponse.json({ success: true, items }, { headers });
       }
+      const entry = await prisma.auditLog.findFirst({
+        where: { ...where, id: history },
+        select: { details: true },
+      });
+      if (!entry?.details) {
+        return NextResponse.json({ success: false, message: "Không tìm thấy bản sao lưu." }, { status: 404, headers });
+      }
+      const { previousRevision, previousIsDeleted, previousLessons } = JSON.parse(entry.details);
+      return NextResponse.json({
+        success: true, level, revision: previousRevision, isDeleted: previousIsDeleted, lessons: previousLessons,
+      }, { headers });
     }
-    return res;
+    return NextResponse.json({ success: true, ...await readCurriculum(level) }, { headers });
   } catch {
     return NextResponse.json({ success: false, message: "Không tải được giáo trình từ máy chủ. Vui lòng thử lại." }, { status: 503, headers });
   }
@@ -86,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Chỉ quản trị viên hoặc giáo viên có quyền biên tập giáo trình." }, { status: 403, headers });
     }
 
-    if (!dictionarySameOrigin(request) && !request.headers.get("x-user-id")) {
+    if (!examWriteOrigin(request) || !request.headers.get("content-type")?.includes("application/json")) {
       return NextResponse.json({ success: false, message: "Nguồn yêu cầu không hợp lệ." }, { status: 403, headers });
     }
 
@@ -102,8 +76,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "JSON không hợp lệ." }, { status: 400, headers });
     }
 
-    const { level, isDeleted = false } = body ?? {};
-    if (!Number.isInteger(level) || level < 1 || level > 9 || typeof isDeleted !== "boolean" || !Array.isArray(body.lessons)) {
+    const { level, revision, isDeleted = false } = body ?? {};
+    if (!Number.isInteger(level) || level < 1 || level > 9 || !Number.isSafeInteger(revision) || revision < 0 || typeof isDeleted !== "boolean" || !Array.isArray(body.lessons)) {
       throw new CurriculumFormatError("Cần cấp HSK và danh sách bài học hợp lệ.");
     }
 
@@ -114,44 +88,42 @@ export async function POST(request: Request) {
 
     const before = await prisma.curriculumContent.findUnique({
       where: { hskLevel: level },
-      select: { revision: true, lessons: true },
+      select: { revision: true, lessons: true, isDeleted: true },
     });
-    const currentRev = before ? before.revision : 0;
+    const currentRev = before?.revision ?? 0;
+    if (revision !== currentRev) {
+      return NextResponse.json({ success: false, message: "Giáo trình đã thay đổi. Hãy tải lại dữ liệu trước khi lưu." }, { status: 409, headers });
+    }
+
     const nextRev = currentRev + 1;
     const data = {
       lessons: lessons as unknown as Prisma.InputJsonValue,
       isDeleted,
       revision: nextRev,
     };
-
-    if (before) {
-      await prisma.curriculumContent.update({
-        where: { hskLevel: level },
-        data,
-      });
-    } else {
-      await prisma.curriculumContent.create({
-        data: { hskLevel: level, ...data },
-      });
-    }
-
-    try {
-      await prisma.auditLog.create({
+    const write = before
+      ? prisma.curriculumContent.update({ where: { hskLevel: level, revision }, data, select: { updatedAt: true } })
+      : prisma.curriculumContent.create({ data: { hskLevel: level, ...data }, select: { updatedAt: true } });
+    // A failed write or backup rolls back both operations. The revision filter protects
+    // the snapshot read above from a concurrent write without an interactive transaction.
+    const [saved] = await prisma.$transaction([
+      write,
+      prisma.auditLog.create({
         data: {
           userId: admin.id,
-          action: isDeleted ? "CURRICULUM_DELETE_LEVEL" : "CURRICULUM_SAVE",
+          action: before ? "CURRICULUM_BACKUP" : "CURRICULUM_SAVE",
           entity: `CurriculumContent:${level}`,
           details: JSON.stringify({
             previousRevision: currentRev,
-            previousCount: Array.isArray(before?.lessons) ? (before.lessons as any[]).length : 0,
+            previousIsDeleted: before?.isDeleted,
+            previousLessons: before?.lessons,
             nextCount: lessons.length,
             isDeleted,
           }),
         },
-      });
-    } catch (auditErr) {
-      console.warn("Audit log creation note:", auditErr);
-    }
+        select: { id: true },
+      }),
+    ]);
 
     const result = {
       success: true,
@@ -159,29 +131,21 @@ export async function POST(request: Request) {
       items: lessons,
       revision: nextRev,
       isDeleted,
-      updatedAt: new Date().toISOString(),
+      updatedAt: saved.updatedAt.toISOString(),
     };
 
-    const res = NextResponse.json(result, { headers });
-    const existingCookie = request.headers.get("cookie")?.includes(DICTIONARY_SESSION_COOKIE);
-    if (!existingCookie && admin.id) {
-      const newSession = createDictionarySession(admin.id);
-      if (newSession) {
-        res.cookies.set(DICTIONARY_SESSION_COOKIE, newSession, dictionaryCookieOptions(request));
-      }
-    }
-    return res;
+    return NextResponse.json(result, { headers });
   } catch (error) {
     if (error instanceof CurriculumFormatError) {
       return NextResponse.json({ success: false, message: error.message }, { status: 400, headers });
     }
-    if ((error as { code?: string })?.code === "P2002") {
+    if (["P2002", "P2025"].includes((error as { code?: string })?.code ?? "")) {
       return NextResponse.json({ success: false, message: "Giáo trình vừa được sửa ở phiên khác. Hãy thử lại." }, { status: 409, headers });
     }
     console.error("Curriculum save failed", error instanceof Error ? error.message : "Unknown");
     return NextResponse.json(
-      { success: false, message: error instanceof Error ? error.message : "Chưa lưu được vào database. Vui lòng thử lại." },
-      { status: 500, headers }
+      { success: false, message: "Chưa lưu được giáo trình vào cơ sở dữ liệu. Vui lòng thử lại." },
+      { status: 503, headers }
     );
   }
 }

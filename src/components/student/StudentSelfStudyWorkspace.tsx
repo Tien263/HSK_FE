@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Archive, ArrowLeft, ArrowRight, BookOpen, Dumbbell, FileCheck2, Lock, Moon, PenTool, Sparkles } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
-import { getLessonsByHskLevel } from "@/lib/hsk-lessons-resolver";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
 import { fetchCloudProgress, saveCloudPass } from "@/lib/self-study-cloud-service";
 import AncientScrollPathway from "./AncientScrollPathway";
@@ -64,7 +63,7 @@ export default function StudentSelfStudyWorkspace({ currentUser, activeHskLevel 
   const [hanziPracticeMeaning, setHanziPracticeMeaning] = useState("");
   const topRef = useRef<HTMLDivElement>(null);
   const { lessons: apiLessons, loading, error } = useCurriculumLessons(level);
-  const lessons = useMemo(() => (dedicatedRoadmap || view === "lessons") ? apiLessons : apiLessons.length ? apiLessons : getLessonsByHskLevel(level), [apiLessons, level, dedicatedRoadmap, view]);
+  const lessons = apiLessons;
   const current = lessons.find(lesson => lesson.number === selection.lessonNumber) || lessons[0];
   const canStudy = !!current && (view === "lessons" ? libraryUnlocked : unlocked).includes(current.number);
   const reading = view === "lessons" && screen === "reader";

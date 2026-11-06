@@ -20,6 +20,8 @@ import {
   getSentencesByHskAndLesson,
 } from "@/lib/lesson-sentence-extractor";
 
+import { useCurriculumLessons } from "@/lib/use-curriculum";
+
 interface CurriculumSentencePickerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -29,7 +31,7 @@ interface CurriculumSentencePickerModalProps {
   onPreviewSpeak: (text: string) => void;
 }
 
-const HSK_LEVELS = [1, 2, 3, 4, 5, 6];
+const HSK_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export default function CurriculumSentencePickerModal({
   isOpen,
@@ -52,10 +54,12 @@ export default function CurriculumSentencePickerModal({
     }
   }, [isOpen, currentHskLevel, currentLessonNumber]);
 
+  const { lessons, loading, error } = useCurriculumLessons(selectedLevel);
+
   // Danh sách các bài học của cấp HSK đã chọn
   const lessonSummaries = useMemo(() => {
-    return getLessonSummariesForHsk(selectedLevel);
-  }, [selectedLevel]);
+    return getLessonSummariesForHsk(lessons, selectedLevel);
+  }, [lessons, selectedLevel]);
 
   // Đảm bảo bài được chọn hợp lệ trong cấp HSK hiện tại
   useEffect(() => {
@@ -66,8 +70,8 @@ export default function CurriculumSentencePickerModal({
 
   // Lấy toàn bộ câu luyện của bài học đang chọn
   const allSentences = useMemo(() => {
-    return getSentencesByHskAndLesson(selectedLevel, selectedLessonNum);
-  }, [selectedLevel, selectedLessonNum]);
+    return getSentencesByHskAndLesson(lessons, selectedLevel, selectedLessonNum);
+  }, [lessons, selectedLevel, selectedLessonNum]);
 
   // Đếm số lượng theo danh mục
   const counts = useMemo(() => {
@@ -205,7 +209,9 @@ export default function CurriculumSentencePickerModal({
             </div>
           </div>
 
-          {/* Bộ lọc loại câu & Tìm kiếm */}
+          {loading && <p role="status" className="px-5 pt-3 text-sm">Đang tải giáo trình HSK {selectedLevel}…</p>}
+          {error && <p role="alert" className="px-5 pt-3 text-sm text-red-700">{error}</p>}
+        {/* Bộ lọc loại câu & Tìm kiếm */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
             {/* Tabs danh mục */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">

@@ -1,26 +1,16 @@
 # Kho giáo trình dùng chung
 
-Admin → Kho giáo trình HSK. Chọn HSK 1–9, tạo bài, sửa rồi bấm **Hoàn tất & Cập nhật bài học**. Tạo bài, lưu bài, xóa bài và xóa cấp HSK đều ghi ngay vào PostgreSQL; chỉ báo thành công khi server xác nhận. Sau F5 giữ nguyên cấp và tab đang chọn.
+Admin → Kho giáo trình HSK. Chọn HSK 1–9 và dùng **Lưu & Xuất bản kho chung** để ghi các thay đổi đang soạn vào PostgreSQL. Nhập JSON và khôi phục từ lịch sử lưu ngay khi máy chủ xác nhận.
 
 ## Nhập từng phần
 
-Chọn **Nhập file & tải mẫu** hoặc thẻ Bài học / Từ vựng / Ngữ pháp / Hội thoại / Phát âm / Văn hóa. Trong editor cũng có **Nhập file phần này & tải mẫu**, giới hạn vào bài đang sửa.
+**Nhập bài học (.JSON)** mở màn hình xem trước. Chế độ gộp giữ các bài không có trong file và các trường hiện có mà file bỏ qua. Muốn thay toàn bộ cấp, chọn **Ghi đè** và xác nhận số bài sẽ bị bỏ. **Nhập câu hỏi (.JSON)** bổ sung câu hỏi theo số bài. Mã bài hoặc cấp ghi trong file phải khớp cấp đang mở.
 
-- Mỗi loại có mẫu CSV UTF-8 để mở bằng Excel và JSON. Tải mẫu, điền dữ liệu, chọn file, xem trước rồi xác nhận lưu. File tối đa 8 MB.
-- Bài học: `number,titleZh,titleVi,pinyin,desc,durationMin`. JSON có thể chứa đầy đủ `vocabList`, `grammarList`, `dialogue`, `phonetics`, `culture`.
-- Từ vựng: `lessonNumber,hanzi,pinyin,meaning,type,exampleZh,examplePy,exampleVi`.
-- Ngữ pháp: `lessonNumber,title,structure,example,explanation`.
-- Hội thoại: `lessonNumber,speaker,zh,pinyin,vi` — mỗi dòng là một lượt thoại.
-- Phát âm: `lessonNumber,title,rule,examples`; trong CSV, phân cách ví dụ bằng `|`.
-- Văn hóa: `lessonNumber,culture`.
-
-Mặc định **Thêm và cập nhật**: bài được đối chiếu theo số bài; từ vựng theo chữ + pinyin; ngữ pháp theo tiêu đề + cấu trúc; hội thoại theo người nói + câu Trung. Các phần không có trong file được giữ nguyên. **Thay thế phần đã chọn** chỉ thay phần đó trong các bài có trong file; thay toàn cấp chỉ khi chọn loại Bài học và phạm vi toàn cấp. File sai cấp, sai số bài, thiếu trường hoặc trùng số bài bị từ chối trước khi lưu.
-
-**Xuất bản sao JSON** tải bản đầy đủ của cấp đang chọn. Xóa toàn cấp giữ trạng thái đã xóa và không tự nạp lại bài mặc định. **Tạo kho HSK** tạo lại một kho rỗng. Các bản học liệu đã giao cho lớp được giữ riêng, cùng lịch sử học tập.
+**Xuất giáo trình (.JSON)** tải danh sách đang mở. **Lịch sử hoàn tác** cho phép tải JSON hoặc ghi lại một bản sao trước lần lưu. Bản nháp và lịch sử của phiên bản cũ, nếu trình duyệt còn giữ, xuất hiện trong cùng cửa sổ. Nhật ký cũ chỉ có số lượng bài thì không tạo được bản khôi phục.
 
 ## Lưu trữ và triển khai
 
-`CurriculumContent` là nguồn dữ liệu chuẩn: một hàng mỗi cấp HSK, toàn bộ cấu trúc bài trong JSONB, revision và trạng thái xóa. Không còn dùng file runtime hoặc localStorage làm kho giáo trình. Khi cấp chưa từng biên tập, HSK 1/2 đọc bộ mặc định, các cấp khác chưa được tạo. Bản rỗng đã lưu luôn có ưu tiên so với mặc định.
+`CurriculumContent` là kho chung. Mỗi cấp HSK có một hàng chứa bài học trong JSONB, số phiên bản và trạng thái xóa. Cấp chưa có dữ liệu hiển thị rỗng. Kho admin đọc dữ liệu từ máy chủ và chỉ mở bản trình duyệt cũ khi người dùng chọn trong lịch sử.
 
 ```powershell
 npm install
@@ -31,7 +21,7 @@ npm run curriculum:test
 
 Setup chỉ tạo bảng bổ sung, không sửa hoặc xóa bảng bài học/lịch sử hiện có. Nếu có `data/curriculum/hsk_level_N.json` từ bản cũ, setup kiểm tra rồi nhập nguyên nội dung (kể cả danh sách rỗng), chỉ khi cấp đó chưa tồn tại trong database. Chạy lại không ghi đè bản đã lưu.
 
-- `GET/POST /api/v1/admin/curriculum`: yêu cầu cookie đăng nhập có chữ ký, ADMIN đang hoạt động; POST kiểm tra Origin, dữ liệu và revision. Xung đột sửa trả 409; lỗi database trả 503, không giả báo thành công. Mọi thay đổi có AuditLog.
+- `GET/POST /api/v1/admin/curriculum`: yêu cầu cookie đăng nhập có chữ ký của ADMIN hoặc TEACHER đang hoạt động. POST kiểm tra Origin, dữ liệu và phiên bản đang sửa. Xung đột trả 409. Mỗi lần ghi đè một cấp đã tồn tại, nội dung trước lần ghi được lưu trong `AuditLog` cùng giao dịch với bản mới. Nếu tài khoản ghi nhật ký bị xóa, ràng buộc hiện tại của `AuditLog` cũng xóa các bản sao thuộc tài khoản đó.
 - `GET /api/v1/curriculum?level=N` hoặc không truyền level để đọc danh mục dùng chung. Không cache. Các workspace học sinh, quản lý lớp giáo viên và API phân phối bài học dùng nguồn này; không gộp lại bài mặc định đã xóa.
 - Số bài từ 1 đến 9999 (không còn giới hạn 15); mỗi cấp tối đa 500 bài mỗi lần lưu.
 
