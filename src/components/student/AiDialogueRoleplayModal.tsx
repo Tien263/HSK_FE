@@ -487,22 +487,6 @@ export default function AiDialogueRoleplayModal({
     autoListenRef.current = autoListen;
   }, [autoListen]);
 
-  // Nạp danh sách giọng đọc trình duyệt không đồng bộ
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.getVoices();
-      const handleVoices = () => {
-        window.speechSynthesis.getVoices();
-      };
-      window.speechSynthesis.onvoiceschanged = handleVoices;
-      return () => {
-        if ("speechSynthesis" in window) {
-          window.speechSynthesis.onvoiceschanged = null;
-        }
-      };
-    }
-  }, []);
-
   const [currentSuggestions, setCurrentSuggestions] = useState<
     Array<{
       zh: string;

@@ -1,5 +1,6 @@
 "use client";
 
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import React, { useState } from "react";
 import {
   X,
@@ -79,13 +80,7 @@ export default function CurriculumJsonPreviewModal({
   ).length;
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window && text) {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = "zh-CN";
-      utt.rate = 0.85;
-      window.speechSynthesis.speak(utt);
-    }
+    void playChineseSpeech(text);
   };
 
   const handleApply = async () => {

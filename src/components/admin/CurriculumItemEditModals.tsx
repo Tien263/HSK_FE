@@ -1,5 +1,6 @@
 "use client";
 
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -82,13 +83,7 @@ export function VocabItemEditModal({
   if (!isOpen) return null;
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window && text) {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = "zh-CN";
-      utt.rate = 0.85;
-      window.speechSynthesis.speak(utt);
-    }
+    void playChineseSpeech(text);
   };
 
   const handleJsonChange = (val: string) => {
@@ -947,13 +942,7 @@ export function DialogueItemEditModal({
   if (!isOpen) return null;
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window && text) {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = "zh-CN";
-      utt.rate = 0.85;
-      window.speechSynthesis.speak(utt);
-    }
+    void playChineseSpeech(text);
   };
 
   const handleSubmit = () => {

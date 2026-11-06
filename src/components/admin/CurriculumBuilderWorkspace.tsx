@@ -1,5 +1,6 @@
 "use client";
 
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   BookOpen,
@@ -271,13 +272,7 @@ export default function CurriculumBuilderWorkspace({
 
   // Phát âm TTS
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window && text) {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = "zh-CN";
-      utt.rate = 0.85;
-      window.speechSynthesis.speak(utt);
-    }
+    void playChineseSpeech(text);
   };
 
   // 1. TẢI VỀ FILE TEMPLATE MẪU (.JSON) DÀNH CHO MỌI CẤP ĐỘ HSK (HSK 1 ĐẾN HSK 6 & 7-9)

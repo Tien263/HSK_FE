@@ -1,5 +1,6 @@
 "use client";
 
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import React, { useState } from "react";
 import {
   X,
@@ -58,13 +59,7 @@ export default function CustomizeLessonModal({
   if (!customizingLesson) return null;
 
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
+    void playChineseSpeech(text);
   };
 
   return (

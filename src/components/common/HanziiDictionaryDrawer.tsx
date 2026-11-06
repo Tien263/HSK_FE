@@ -11,7 +11,7 @@ import DictionarySentencePanel from "./DictionarySentencePanel";
 import styles from "./Dictionary.module.css";
 import {useDraggableDictionaryLauncher} from "./use-draggable-dictionary-launcher";
 import { isDictionarySentence, type DictionarySentenceResult } from "@/lib/dictionary-input";
-import { playChineseSpeech } from "@/lib/chinese-speech-player";
+import { playChineseSpeech, stopChineseSpeech } from "@/lib/chinese-speech-player";
 
 type ConnectedEntry = DictionaryEntry & { key: string; meaningEn: string[]; meaningsVi: string[]; traditional: string };
 
@@ -74,7 +74,7 @@ export default function HanziiDictionaryDrawer() {
       window.clearTimeout(focusTimer);
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
-      window.speechSynthesis?.cancel();
+      stopChineseSpeech();
       sentenceRequestRef.current?.abort();
       launcher?.focus();
     };

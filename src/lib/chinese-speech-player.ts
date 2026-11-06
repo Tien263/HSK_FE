@@ -1,153 +1,75 @@
 import { cleanChineseForSpeech } from "./chinese-speech";
 
-// Shared audio instance để tránh phát đè nhiều âm thanh và giải phóng bộ nhớ trên điện thoại
 let globalAudio: HTMLAudioElement | null = null;
-let activeUtterance: SpeechSynthesisUtterance | null = null;
+let activePlayback: PlaySpeechOptions | null = null;
 
 export interface PlaySpeechOptions {
   rate?: number;
-  voice?: "female" | "male" | string;
+  voice?: string;
   onStart?: () => void;
   onEnd?: () => void;
   onError?: (err: unknown) => void;
+  onCancel?: () => void;
 }
 
 export function stopChineseSpeech() {
+  const playback = activePlayback;
+  activePlayback = null;
   if (globalAudio) {
-    try {
-      globalAudio.onplay = null;
-      globalAudio.onended = null;
-      globalAudio.onerror = null;
-      globalAudio.pause();
-      globalAudio.currentTime = 0;
-      globalAudio.src = "";
-    } catch {}
+    globalAudio.onplaying = null;
+    globalAudio.onended = null;
+    globalAudio.onerror = null;
+    globalAudio.pause();
+    globalAudio.removeAttribute("src");
+    globalAudio.load();
   }
-  if (typeof window !== "undefined" && "speechSynthesis" in window) {
-    try {
-      window.speechSynthesis.cancel();
-    } catch {}
-    activeUtterance = null;
-  }
+  playback?.onCancel?.();
 }
 
-/**
- * Phát âm tiếng Trung hoạt động 100% trên cả Điện thoại (iOS Safari, Android Chrome) và Máy tính.
- *
- * Lý do điện thoại thường không nghe được:
- * 1. Đa số điện thoại Android/iPhone không cài sẵn gói giọng đọc tiếng Trung (zh-CN) trong hệ điều hành.
- * 2. Mobile Safari và Android WebKit tự động hủy (garbage collection) đối tượng SpeechSynthesisUtterance.
- * 3. Lỗi deadlock khi gọi speechSynthesis.cancel() trước speechSynthesis.speak().
- *
- * Giải pháp:
- * - Ưu tiên 1: Dùng HTMLAudioElement phát MP3 chuẩn từ API /api/v1/tts (giọng bản xứ chuẩn Bắc Kinh,
- *   được tất cả trình duyệt di động hỗ trợ native không cần cài đặt gói ngôn ngữ).
- * - Ưu tiên 2: Fallback sang Web Speech API (đã được fix rác bộ nhớ WebKit và tự dò voice zh-CN).
- */
 export async function playChineseSpeech(
   rawText: string,
-  options: PlaySpeechOptions = {}
+  options: PlaySpeechOptions = {},
 ): Promise<void> {
   if (typeof window === "undefined") return;
 
-  const textToSpeak = cleanChineseForSpeech(rawText);
-  if (!textToSpeak) return;
-
-  stopChineseSpeech();
-
-  try {
-    if (!globalAudio) {
-      globalAudio = new Audio();
-    }
-
-    const voiceParam = options.voice ? `&voice=${encodeURIComponent(options.voice)}` : "";
-    const ttsUrl = `/api/v1/tts?text=${encodeURIComponent(textToSpeak)}${voiceParam}`;
-    globalAudio.src = ttsUrl;
-    const targetRate = options.rate && options.rate > 0 ? options.rate : 1.0;
-    globalAudio.defaultPlaybackRate = targetRate;
-    globalAudio.playbackRate = targetRate;
-
-    let hasEnded = false;
-    const handleEnd = () => {
-      if (!hasEnded) {
-        hasEnded = true;
-        options.onEnd?.();
-      }
-    };
-
-    globalAudio.onloadedmetadata = () => {
-      if (globalAudio) globalAudio.playbackRate = targetRate;
-    };
-
-    globalAudio.onplay = () => {
-      if (globalAudio) globalAudio.playbackRate = targetRate;
-      options.onStart?.();
-    };
-
-    globalAudio.onended = handleEnd;
-
-    globalAudio.onerror = () => {
-      // Nếu mạng ngắt hoặc stream lỗi, fallback sang Web Speech API
-      fallbackToWebSpeech(textToSpeak, options);
-    };
-
-    const playPromise = globalAudio.play();
-    if (playPromise !== undefined) {
-      await playPromise.catch(() => {
-        fallbackToWebSpeech(textToSpeak, options);
-      });
-    }
-  } catch (err) {
-    fallbackToWebSpeech(textToSpeak, options);
-  }
-}
-
-function fallbackToWebSpeech(text: string, options: PlaySpeechOptions = {}) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    options.onError?.(new Error("Trình duyệt không hỗ trợ phát âm."));
+  const text = cleanChineseForSpeech(rawText);
+  if (!text) {
+    options.onError?.(new Error("Không có nội dung để phát âm."));
     return;
   }
 
+  stopChineseSpeech();
+  const playback = { ...options };
+  activePlayback = playback;
+
+  const handleError = (error: unknown) => {
+    if (activePlayback !== playback) return;
+    activePlayback = null;
+    stopChineseSpeech();
+    options.onError?.(error);
+  };
+
   try {
-    // Đánh thức synthesizer trên iOS Safari
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
+    const audio = (globalAudio ??= new Audio());
+    const params = new URLSearchParams({ text, v: "2" });
+    if (options.voice) params.set("voice", options.voice);
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    activeUtterance = utterance; // Giữ tham chiếu để tránh WebKit GC hủy giọng đọc
-
-    utterance.lang = "zh-CN";
-    utterance.rate = options.rate || 0.85;
-
-    // Tìm giọng đọc tiếng Trung nếu có trong máy
-    const voices = window.speechSynthesis.getVoices();
-    const zhVoice = voices.find(
-      (v) =>
-        /zh|cmn|chinese|mandarin/i.test(v.lang || "") ||
-        /chinese|tingting|xiaoxiao|meijia|huihui/i.test(v.name || "")
-    );
-    if (zhVoice) {
-      utterance.voice = zhVoice;
-    }
-
-    utterance.onstart = () => {
+    const rate = options.rate && options.rate > 0 ? options.rate : 1;
+    audio.src = `/api/v1/tts?${params}`;
+    audio.defaultPlaybackRate = rate;
+    audio.playbackRate = rate;
+    audio.onplaying = () => {
+      audio.onplaying = null;
       options.onStart?.();
     };
-
-    utterance.onend = () => {
-      activeUtterance = null;
+    audio.onended = () => {
+      if (activePlayback !== playback) return;
+      activePlayback = null;
       options.onEnd?.();
     };
-
-    utterance.onerror = (e) => {
-      activeUtterance = null;
-      options.onError?.(e);
-    };
-
-    window.speechSynthesis.speak(utterance);
-  } catch (e) {
-    activeUtterance = null;
-    options.onError?.(e);
+    audio.onerror = () => handleError(audio.error);
+    await audio.play();
+  } catch (error) {
+    handleError(error);
   }
 }
