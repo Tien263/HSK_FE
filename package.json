@@ -23,7 +23,9 @@
     "portal:test": "node --test scripts/learning-portal.test.cjs",
     "portal:verify": "node scripts/learning-portal-verify.cjs",
     "portal:browser": "node scripts/teacher-classic-browser.cjs",
-    "db:backup": "node scripts/db-backup.cjs"
+    "db:backup": "node scripts/db-backup.cjs",
+    "sync": "node scripts/sync_all_to_local.cjs",
+    "test:system": "node scripts/full_system_test.cjs"
   },
   "engines": {
     "node": ">=18.18.0"

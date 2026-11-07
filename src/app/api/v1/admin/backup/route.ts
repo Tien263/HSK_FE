@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       vocabProgressCount,
       gameSessionCount,
       xpLogCount,
+      curriculumCount,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.class.count(),
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
       prisma.vocabProgress.count(),
       prisma.gameSession.count(),
       prisma.xpLog.count(),
+      prisma.curriculumContent.count(),
     ]);
 
     const summary = {
@@ -48,6 +50,12 @@ export async function GET(request: Request) {
       attemptCount,
       questionCount,
       quizSetCount,
+      materialCount,
+      vocabProgressCount,
+      gameSessionCount,
+      xpLogCount,
+      curriculumCount,
+    };
       materialCount,
       vocabProgressCount,
       gameSessionCount,
@@ -88,6 +96,7 @@ export async function GET(request: Request) {
       vocabProgress,
       gameSessions,
       xpLogs,
+      curriculumContents,
     ] = await Promise.all([
       prisma.user.findMany({
         select: {
@@ -143,6 +152,7 @@ export async function GET(request: Request) {
         take: 5000,
         orderBy: { createdAt: "desc" },
       }),
+      prisma.curriculumContent.findMany(),
     ]);
 
     const backupPayload = {
@@ -165,6 +175,7 @@ export async function GET(request: Request) {
         vocabProgress,
         gameSessions,
         xpLogs,
+        curriculumContents,
       },
     };
 
