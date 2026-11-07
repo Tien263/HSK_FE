@@ -24,8 +24,9 @@ try {
   const tree = run('git write-tree').trim();
   console.log('Tree:', tree);
 
-  const parent = run('git rev-parse HEAD').trim();
-  console.log('Parent:', parent);
+  run('git fetch origin main');
+  const parent = run('git rev-parse FETCH_HEAD').trim();
+  console.log('Parent from FETCH_HEAD:', parent);
 
   const commitMsg = process.argv[2] || 'feat: update mock exam and proctor';
   const commit = run(`git commit-tree ${tree} -p ${parent} -m "${commitMsg}"`).trim();

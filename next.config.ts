@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "/*": ["./data/dictionary/**/*", "./scripts/dictionary/**/*", "./node_modules/hanzi-writer-data/**/*"],
   },
-  serverExternalPackages: ["msedge-tts"],
+  /* config options here */
   typescript: {
     ignoreBuildErrors: false,
   },

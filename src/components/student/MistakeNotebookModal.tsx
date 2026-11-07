@@ -21,7 +21,7 @@ import {
   RefreshCw,
   Check,
 } from "lucide-react";
-import { playChineseSpeech, stopChineseSpeech } from "@/lib/chinese-speech-player";
+import { playChineseSpeech } from "@/lib/chinese-speech-player";
 
 interface WrongQuestionItem {
   id: string;
@@ -186,13 +186,17 @@ export default function MistakeNotebookModal({
 
   useEffect(() => {
     if (isOpen) {
-      stopChineseSpeech();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
       fetchWrongQuestions();
       setSelectedOption(null);
       setIsAnswered(false);
       setFeedback(null);
     } else {
-      stopChineseSpeech();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     }
   }, [isOpen, fetchWrongQuestions]);
 

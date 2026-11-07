@@ -14,6 +14,7 @@ import AdminSepayWorkspace from "@/components/admin/AdminSepayWorkspace";
 import AdminMockExamWorkspace from "@/components/admin/AdminMockExamWorkspace";
 import StudentAnalyticsModal from "@/components/admin/StudentAnalyticsModal";
 import AvatarUpload from "@/components/common/AvatarUpload";
+import SystemResourceMonitor from "@/components/admin/SystemResourceMonitor";
 import {
   Users,
   UserPlus,
@@ -1566,6 +1567,9 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
+            {/* BẢNG GIÁM SÁT HẠN MỨC TÀI NGUYÊN & HẠ TẦNG AI DẠNG HÀNG NGANG */}
+            <SystemResourceMonitor />
+
             {/* Trung tâm Khảo thí & Phòng thi Thử HSK (CTI Hanban) */}
             <div className="bg-[#163325] text-[#FAF7F0] border border-[#BC9B6B]/40 rounded-3xl p-5 sm:p-6 shadow-md relative overflow-hidden">
               <div
@@ -1732,6 +1736,7 @@ export default function AdminDashboardPage() {
         {/* =================================================================== */}
         {activeTab === "ai" && (
           <div className="space-y-6">
+            <SystemResourceMonitor />
             <div className="bg-[#FFFCF6] border border-[#BC9B6B]/25 rounded-3xl p-6 shadow-2xs space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#BC9B6B]/20">
                 <div className="flex items-center gap-3">

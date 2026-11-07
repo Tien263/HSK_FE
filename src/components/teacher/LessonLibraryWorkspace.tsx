@@ -4,9 +4,8 @@ import LessonRichSections,{RichReadingEditor,RichCultureEditor,filterSelectedCul
 import {usePortalData,portalFetch} from "@/components/learning/use-portal-data";
 import {teacherLibraryLesson,emptyTeacherLesson} from "@/lib/teacher-library-adapter";
 import type {Hsk1FullLesson} from "@/lib/hsk1-full-lessons";
-import { playChineseSpeech, stopChineseSpeech } from "@/lib/chinese-speech-player";
 import TeacherPrivateLibrary from "./TeacherPrivateLibrary";
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   BookOpen,
   Check,
@@ -324,63 +323,22 @@ export function LessonLibraryWorkspace({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const ownsSpeech = useRef(false);
-  const clearSpeechState = () => {
-    ownsSpeech.current = false;
-    setActiveSpeakingText(null);
-    setIsPlayingDialogueAudio(false);
-  };
-  const handleSpeechError = () => {
-    clearSpeechState();
-    showToast("Chưa phát được âm thanh. Vui lòng thử lại.");
-  };
-
+  // Chinese TTS via Web Speech API
   const speakChinese = (text: string) => {
-    const shouldStop = activeSpeakingText === text;
-    stopChineseSpeech();
-    if (shouldStop) return;
-
-    ownsSpeech.current = true;
-    setActiveSpeakingText(text);
-    void playChineseSpeech(text, {
-      rate: 0.85,
-      onEnd: clearSpeechState,
-      onCancel: clearSpeechState,
-      onError: handleSpeechError,
-    });
-  };
-
-  const toggleDialogueAudio = () => {
-    const shouldStop = isPlayingDialogueAudio;
-    stopChineseSpeech();
-    if (shouldStop) return;
-
-    const lines = currentLesson.dialogue?.lines.filter((line) => line.zh.trim()) ?? [];
-    if (!lines.length) return;
-    setIsPlayingDialogueAudio(true);
-
-    function playLine(index: number) {
-      const line = lines[index];
-      if (!line) {
-        clearSpeechState();
-        return;
-      }
-
-      ownsSpeech.current = true;
-      setActiveSpeakingText(line.zh);
-      void playChineseSpeech(line.zh, {
-        rate: 0.85,
-        onEnd: () => playLine(index + 1),
-        onCancel: clearSpeechState,
-        onError: handleSpeechError,
-      });
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    if (activeSpeakingText === text) {
+      setActiveSpeakingText(null);
+      return;
     }
-    playLine(0);
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "zh-CN";
+    utterance.rate = 0.85;
+    utterance.onend = () => setActiveSpeakingText(null);
+    utterance.onerror = () => setActiveSpeakingText(null);
+    setActiveSpeakingText(text);
+    window.speechSynthesis.speak(utterance);
   };
-
-  useEffect(() => () => {
-    if (ownsSpeech.current) stopChineseSpeech();
-  }, [currentLesson.id]);
 
   // Sync selection IDs when current active lesson changes to ensure selections belong to this lesson
   useEffect(() => {
@@ -404,6 +362,53 @@ export function LessonLibraryWorkspace({
   const handleSaveLessonDraft = async()=>{if(!editingLessonDraft)return;try{await portalFetch("/api/v1/teacher/collections",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sourceLessonId:currentLesson.id,level:Number(currentLesson.levelId.replace("hsk","")),kind:"CURATED",title:editingLessonDraft.titleVi,selectedVocabs:editingLessonDraft.vocabularies.map(word=>({...word,meaning:word.meaningVi})),selectedGrammars:editingLessonDraft.grammars,selectedDialogue:editingLessonDraft.dialogue?.lines.map(line=>({...line,pinyin:line.py}))||[],reading:editingLessonDraft.reading,culturalNote:editingLessonDraft.culturalNote,culture:"",includeCulture:true})});setLessonOverrides(previous=>({...previous,[editingLessonDraft.id]:editingLessonDraft}));setIsEditLessonModalOpen(false);reloadCollections();showToast("Đã lưu bản chỉnh sửa riêng. Giáo trình admin được giữ nguyên.");}catch(error){showToast((error as Error).message);}};
 
   const handleResetLessonDraft = ()=>{setLessonOverrides(previous=>{const next={...previous};delete next[currentLesson.id];return next;});setIsEditLessonModalOpen(false);};
+
+  // Sequential speech synthesis for full dialogue playback
+  useEffect(() => {
+    if (!isPlayingDialogueAudio) {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      return;
+    }
+
+    if (!currentLesson.dialogue?.lines || currentLesson.dialogue.lines.length === 0) {
+      setIsPlayingDialogueAudio(false);
+      return;
+    }
+
+    let currentIndex = 0;
+    const lines = currentLesson.dialogue.lines;
+
+    function playLine(index: number) {
+      if (index >= lines.length) {
+        setIsPlayingDialogueAudio(false);
+        setActiveSpeakingText(null);
+        return;
+      }
+      const line = lines[index];
+      setActiveSpeakingText(line.zh);
+      const utter = new SpeechSynthesisUtterance(line.zh);
+      utter.lang = "zh-CN";
+      utter.rate = 0.85;
+      utter.onend = () => {
+        setTimeout(() => playLine(index + 1), 600);
+      };
+      utter.onerror = () => {
+        setIsPlayingDialogueAudio(false);
+        setActiveSpeakingText(null);
+      };
+      window.speechSynthesis.speak(utter);
+    }
+
+    playLine(0);
+
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [isPlayingDialogueAudio, currentLesson]);
 
   // Cultural items in current lesson
   const availableCulturalItems = useMemo(() => {
@@ -1750,7 +1755,7 @@ export function LessonLibraryWorkspace({
                               <div className="p-3.5 rounded-2xl bg-[#FAF7F0] border border-[#E5DEC9] flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex items-center gap-3">
                                   <button
-                                    onClick={toggleDialogueAudio}
+                                    onClick={() => setIsPlayingDialogueAudio(!isPlayingDialogueAudio)}
                                     className="w-8 h-8 rounded-full bg-[#204434] text-white flex items-center justify-center shadow-2xs hover:bg-[#183629] transition"
                                     title={isPlayingDialogueAudio ? "Tạm dừng phát" : "Phát toàn bộ hội thoại lần lượt"}
                                   >
