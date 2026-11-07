@@ -263,8 +263,47 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
   ]
 }`;
 
-    // 0. ƯU TIÊN SỐ 1: BYTEDANCE DOUBAO (豆包 - VOLCANO ENGINE ARK)
-    if (doubaoKey) {
+    // 0. ƯU TIÊN SỐ 1: ALIBABA QWEN 2.5/3.8 TRÊN GROQ LPUs (BẢN XỨ TRUNG QUỐC - SIÊU TỐC ~300ms)
+    if (groqKey) {
+      try {
+        const grRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({
+            model: "qwen/qwen3.8-27b",
+            messages: [
+              { role: "system", content: "You are an expert native Chinese HSK grading teacher. Output ONLY valid JSON." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.2,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (grRes.ok) {
+          const grData = await grRes.json();
+          const raw = grData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.score === "number") llmScore = parsed.score;
+            if (parsed.correctedText) correctedText = parsed.correctedText;
+            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
+            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
+            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              parsed.issues.forEach((iss: any) => {
+                if (!issues.some((ex) => ex.original === iss.original)) {
+                  issues.push(iss);
+                }
+              });
+            }
+          }
+        }
+      } catch (gErr) {
+        console.warn("Groq Qwen check-writing error:", gErr);
+      }
+    }
+
+    // A1. DỰ PHÒNG: BYTEDANCE DOUBAO (豆包 - VOLCANO ENGINE ARK)
+    if (llmScore === null && doubaoKey) {
       try {
         const dbRes = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
           method: "POST",
@@ -342,44 +381,7 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ không bọc markdown:
       }
     }
 
-    // A2. ALIBABA QWEN 2.5/3.8 TRÊN GROQ LPUs (SIÊU NHANH)
-    if (llmScore === null && groqKey) {
-      try {
-        const grRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
-          body: JSON.stringify({
-            model: "qwen/qwen3.8-27b",
-            messages: [
-              { role: "system", content: "You are an expert native Chinese HSK grading teacher. Output ONLY valid JSON." },
-              { role: "user", content: promptText },
-            ],
-            temperature: 0.2,
-            response_format: { type: "json_object" },
-          }),
-        });
-        if (grRes.ok) {
-          const grData = await grRes.json();
-          const raw = grData.choices?.[0]?.message?.content?.replace(/```json|```/g, "").trim();
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (typeof parsed.score === "number") llmScore = parsed.score;
-            if (parsed.correctedText) correctedText = parsed.correctedText;
-            if (parsed.nativePolish) nativePolish = parsed.nativePolish;
-            if (parsed.pedagogicalComment) pedagogicalComment = parsed.pedagogicalComment;
-            if (Array.isArray(parsed.issues) && parsed.issues.length > 0) {
-              parsed.issues.forEach((iss: any) => {
-                if (!issues.some((ex) => ex.original === iss.original)) {
-                  issues.push(iss);
-                }
-              });
-            }
-          }
-        }
-      } catch (gErr) {
-        console.warn("Groq Qwen check-writing error:", gErr);
-      }
-    }
+
 
     // A3. DEEPSEEK BẢN XỨ (DEEPSEEK-CHAT / V3)
     if (llmScore === null && deepseekKey) {

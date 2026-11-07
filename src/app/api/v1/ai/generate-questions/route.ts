@@ -60,7 +60,67 @@ Yêu cầu bắt buộc: Trả về duy nhất định dạng JSON thuần túy 
 ]`;
 
     // -------------------------------------------------------------
-    // 0. BYTEDANCE DOUBAO (豆包 - VOLCANO ENGINE ARK)
+    // 0. ALIBABA QWEN TRÊN GROQ (MIỄN PHÍ, SIÊU TỐC ~300ms, VĂN PHONG BẢN XỨ)
+    // -------------------------------------------------------------
+    if (groqKey) {
+      try {
+        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${groqKey}`,
+          },
+          body: JSON.stringify({
+            model: "qwen/qwen3.8-27b",
+            messages: [
+              { role: "system", content: "You are an expert Chinese HSK test creator. Respond only with raw JSON array." },
+              { role: "user", content: promptText },
+            ],
+            temperature: 0.7,
+          }),
+        }).catch(() => null);
+
+        let groqData: any = null;
+        if (groqRes && groqRes.ok) {
+          groqData = await groqRes.json();
+        } else {
+          const fallbackRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${groqKey}`,
+            },
+            body: JSON.stringify({
+              model: "openai/gpt-oss-120b",
+              messages: [
+                { role: "system", content: "You are an expert Chinese HSK test creator. Respond only with raw JSON array." },
+                { role: "user", content: promptText },
+              ],
+              temperature: 0.7,
+            }),
+          });
+          if (fallbackRes.ok) {
+            groqData = await fallbackRes.json();
+          }
+        }
+
+        if (groqData) {
+          const raw = groqData.choices?.[0]?.message?.content || "[]";
+          const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+          return NextResponse.json({
+            success: true,
+            isMock: false,
+            provider: "Alibaba Qwen (Groq LPUs)",
+            items: parsed,
+          });
+        }
+      } catch (groqErr) {
+        console.warn("Groq Qwen call failed, fallbacking:", groqErr);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 1. BYTEDANCE DOUBAO (DỰ PHÒNG)
     // -------------------------------------------------------------
     if (doubaoKey) {
       try {
@@ -135,67 +195,7 @@ Yêu cầu bắt buộc: Trả về duy nhất định dạng JSON thuần túy 
       }
     }
 
-    // -------------------------------------------------------------
-    // 2. GROQ CLOUD (MIỄN PHÍ, HỖ TRỢ QWEN TIẾNG TRUNG)
-    // -------------------------------------------------------------
-    if (groqKey) {
-      try {
-        // Model Qwen tiếng Trung chính thức trên Groq: qwen/qwen3.8-27b
-        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${groqKey}`,
-          },
-          body: JSON.stringify({
-            model: "qwen/qwen3.8-27b",
-            messages: [
-              { role: "system", content: "You are an expert Chinese HSK test creator. Respond only with raw JSON array." },
-              { role: "user", content: promptText },
-            ],
-            temperature: 0.7,
-          }),
-        }).catch(() => null);
 
-        let groqData: any = null;
-        if (groqRes && groqRes.ok) {
-          groqData = await groqRes.json();
-        } else {
-          // Fallback sang openai/gpt-oss-120b trên Groq
-          const fallbackRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${groqKey}`,
-            },
-            body: JSON.stringify({
-              model: "openai/gpt-oss-120b",
-              messages: [
-                { role: "system", content: "You are an expert Chinese HSK test creator. Respond only with raw JSON array." },
-                { role: "user", content: promptText },
-              ],
-              temperature: 0.7,
-            }),
-          });
-          if (fallbackRes.ok) {
-            groqData = await fallbackRes.json();
-          }
-        }
-
-        if (groqData) {
-          const raw = groqData.choices?.[0]?.message?.content || "[]";
-          const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
-          return NextResponse.json({
-            success: true,
-            isMock: false,
-            provider: "Groq Cloud (Qwen/Llama)",
-            items: parsed,
-          });
-        }
-      } catch (groqErr) {
-        console.warn("Groq call failed:", groqErr);
-      }
-    }
 
     // -------------------------------------------------------------
     // 3. OPENROUTER (FREE QWEN 2.5 72B)
