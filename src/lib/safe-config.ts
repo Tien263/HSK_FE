@@ -133,7 +133,7 @@ export function runSystemDiagnosticsAndSelfHeal(): DiagnosticResult[] {
 
   for (const t of targets) {
     try {
-      if (!fs.existsSync(t.path)) {
+      if (!fs.existsSync(/*turbopackIgnore: true*/ t.path)) {
         writeSafeJsonFile(t.path, t.fallback);
         results.push({
           fileName: t.name,
@@ -141,7 +141,7 @@ export function runSystemDiagnosticsAndSelfHeal(): DiagnosticResult[] {
           message: "File chưa có sẵn -> Đã tự động tạo mới cấu hình chuẩn an toàn.",
         });
       } else {
-        const content = fs.readFileSync(t.path, "utf-8").trim();
+        const content = fs.readFileSync(/*turbopackIgnore: true*/ t.path, "utf-8").trim();
         JSON.parse(content);
         results.push({
           fileName: t.name,

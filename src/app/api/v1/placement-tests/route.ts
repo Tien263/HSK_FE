@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPlacementQuestionsAsync } from "@/lib/placement-test-config";
 
-export const dynamic = "force-dynamic";
-
 export async function GET() {
   try {
     const config = await getPlacementQuestionsAsync();
