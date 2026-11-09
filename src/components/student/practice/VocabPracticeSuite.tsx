@@ -63,6 +63,11 @@ export type VocabPracticeSubtype =
   | "sentence_order"
   | "type_meaning";
 
+import {
+  generateDynamicMeaningDistractors,
+  generateDynamicHanziDistractors,
+} from "@/lib/global-distractor-pool";
+
 interface VocabPracticeSuiteProps {
   vocabList: any[];
   lessonTitleZh?: string;
@@ -72,6 +77,8 @@ interface VocabPracticeSuiteProps {
   handleSpeak: (text: string) => void;
   onMemoryUpdated?: () => void;
   initialFilter?: "ALL" | MemoryStatus;
+  customTitle?: string;
+  onExitCustomReview?: () => void;
 }
 
 // Chuẩn hóa so sánh nghĩa tiếng Việt (loại bỏ dấu, ký tự đặc biệt, chuẩn hóa khoảng trắng)
@@ -170,6 +177,8 @@ export default function VocabPracticeSuite({
   handleSpeak,
   onMemoryUpdated,
   initialFilter = "ALL",
+  customTitle,
+  onExitCustomReview,
 }: VocabPracticeSuiteProps) {
   // Chế độ luyện tập từ vựng hiện tại (6-7 chế độ)
   const [subType, setSubType] = useState<VocabPracticeSubtype>("flashcard");
@@ -332,6 +341,13 @@ export default function VocabPracticeSuite({
     return list;
   }, [vocabList, searchQuery, statusFilter, sortOrder, memoryMap]);
 
+  // Tự động khôi phục nếu bộ lọc trả về rỗng nhưng bài vẫn có từ vựng
+  useEffect(() => {
+    if (filteredVocabList.length === 0 && vocabList.length > 0 && statusFilter !== "ALL") {
+      setStatusFilter("ALL");
+    }
+  }, [filteredVocabList.length, vocabList.length, statusFilter]);
+
   // Từ vựng hiện tại đang được chọn
   const currentVocab = filteredVocabList[currentIndex] || vocabList[0];
   const currentMemoryStatus = currentVocab ? memoryMap.get(currentVocab.hanzi) : undefined;
@@ -463,24 +479,17 @@ export default function VocabPracticeSuite({
     return getExamplesForVocab(currentVocab);
   }, [currentVocab]);
 
-  // Chuẩn bị options cho các bài tập trắc nghiệm & điền từ
+  // Chuẩn bị options động, phong phú cho các bài tập trắc nghiệm & điền từ
+  // Không bao giờ bị tình trạng 3 đáp án cũ đứng im khi ôn ít từ (ví dụ 5 từ)
   const meaningOptions = useMemo(() => {
-    if (!currentVocab || vocabList.length < 2) return [];
-    const correct = targetMeaning;
-    const others = vocabList
-      .filter((v) => (v.meaningVi || v.meaning) !== correct)
-      .map((v) => v.meaningVi || v.meaning);
-    const shuffledOthers = [...others].sort(() => 0.5 - Math.random()).slice(0, 3);
-    return [correct, ...shuffledOthers].sort(() => 0.5 - Math.random());
-  }, [currentVocab, vocabList, targetMeaning]);
+    if (!currentVocab) return [];
+    return generateDynamicMeaningDistractors(targetMeaning, vocabList, memoryRecords, 3);
+  }, [currentVocab, currentIndex, targetMeaning, vocabList, memoryRecords]);
 
   const fillBlankOptions = useMemo(() => {
-    if (!currentVocab || vocabList.length < 2) return [];
-    const correct = currentVocab.hanzi;
-    const others = vocabList.filter((v) => v.hanzi !== correct).map((v) => v.hanzi);
-    const shuffledOthers = [...others].sort(() => 0.5 - Math.random()).slice(0, 3);
-    return [correct, ...shuffledOthers].sort(() => 0.5 - Math.random());
-  }, [currentVocab, vocabList]);
+    if (!currentVocab) return [];
+    return generateDynamicHanziDistractors(currentVocab.hanzi, vocabList, memoryRecords, 3);
+  }, [currentVocab, currentIndex, vocabList, memoryRecords]);
 
   const fillBlankSentence = useMemo(() => {
     if (!currentVocab) return { blankSentence: "", rawSentence: "", meaning: "" };
@@ -609,6 +618,25 @@ export default function VocabPracticeSuite({
 
   return (
     <div className="space-y-6">
+      {/* Banner thông báo chế độ ôn tập từ yếu tùy chỉnh */}
+      {customTitle && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-xs font-bold">{customTitle}</span>
+          </div>
+          {onExitCustomReview && (
+            <button
+              type="button"
+              onClick={onExitCustomReview}
+              className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 transition cursor-pointer self-start sm:self-auto"
+            >
+              ↩ Quay về bài học chuẩn
+            </button>
+          )}
+        </div>
+      )}
+
       {/* =================================================================== */}
       {/* 1. BANNER TIÊU ĐỀ BÀI LUYỆN TỪ VỰNG KÈM TRANH THỦY MẶC Á ĐÔNG      */}
       {/* =================================================================== */}

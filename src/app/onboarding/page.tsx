@@ -77,6 +77,10 @@ export default function OnboardingPage() {
 
   // Step 3: Submission Loading
   const [submitting, setSubmitting] = useState(false);
+  const [placementThresholds, setPlacementThresholds] = useState<any>({
+    hsk1_3: { hsk3Min: 4, hsk2Min: 2 },
+    hsk4_6: { hsk6Min: 5, hsk5Min: 4, hsk4Min: 2 },
+  });
   const [adminRoadmapStages, setAdminRoadmapStages] = useState<any[]>([]);
 
   // Tải cấu hình lộ trình và đề kiểm tra năng lực
@@ -96,6 +100,7 @@ export default function OnboardingPage() {
         if (data.success) {
           if (Array.isArray(data.hsk1_3) && data.hsk1_3.length > 0) setHsk1_3Questions(data.hsk1_3);
           if (Array.isArray(data.hsk4_6) && data.hsk4_6.length > 0) setHsk4_6Questions(data.hsk4_6);
+          if (data.thresholds) setPlacementThresholds(data.thresholds);
         }
       })
       .catch(() => {});
@@ -189,18 +194,27 @@ export default function OnboardingPage() {
       }
     });
 
+    const total = questions.length;
     let assignedLevel = 1;
+
     if (lvl === "intermediate") {
-      if (correct >= 4) assignedLevel = 3;
-      else if (correct >= 2) assignedLevel = 2;
+      const hsk3Min = placementThresholds?.hsk1_3?.hsk3Min ?? Math.max(1, Math.round(total * 0.75));
+      const hsk2Min = placementThresholds?.hsk1_3?.hsk2Min ?? Math.max(1, Math.round(total * 0.4));
+      if (correct >= hsk3Min) assignedLevel = 3;
+      else if (correct >= hsk2Min) assignedLevel = 2;
       else assignedLevel = 1;
     } else if (lvl === "advanced") {
-      if (correct >= 4) assignedLevel = 5;
-      else if (correct >= 2) assignedLevel = 4;
+      const hsk6Min = placementThresholds?.hsk4_6?.hsk6Min ?? Math.max(1, total >= 5 ? total : Math.round(total * 0.9));
+      const hsk5Min = placementThresholds?.hsk4_6?.hsk5Min ?? Math.max(1, Math.round(total * 0.7));
+      const hsk4Min = placementThresholds?.hsk4_6?.hsk4Min ?? Math.max(1, Math.round(total * 0.4));
+
+      if (correct >= hsk6Min) assignedLevel = 6;
+      else if (correct >= hsk5Min) assignedLevel = 5;
+      else if (correct >= hsk4Min) assignedLevel = 4;
       else assignedLevel = 3;
     }
 
-    return { correct, assignedLevel, total: questions.length };
+    return { correct, assignedLevel, total };
   };
 
   // Nộp bài kiểm tra năng lực

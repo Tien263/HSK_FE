@@ -307,6 +307,33 @@ export default function StudentPracticeWorkspace({
   const [quizSelectedOption, setQuizSelectedOption] = useState<string | null>(null);
   const [quizIsAnswered, setQuizIsAnswered] = useState<boolean>(false);
   const [vocabFilterState, setVocabFilterState] = useState<"ALL" | MemoryStatus>("ALL");
+  const [customReviewVocabs, setCustomReviewVocabs] = useState<any[] | null>(null);
+  const practiceSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleStartWeakItemsReview = () => {
+    const weakRecords = memoryStats.records.filter(
+      (r) => r.status === "NOT_REMEMBERED" || r.status === "REVIEW_NEEDED"
+    );
+    if (weakRecords.length > 0) {
+      const mappedVocabs = weakRecords.map((r) => ({
+        hanzi: r.hanzi,
+        pinyin: r.pinyin,
+        meaningVi: r.meaningVi,
+        meaning: r.meaningVi,
+        hskLevel: r.hskLevel || currentHskLevel,
+        lessonNumber: r.lessonNumber || selectedPracticeLesson,
+      }));
+      setCustomReviewVocabs(mappedVocabs);
+    } else {
+      setCustomReviewVocabs(null);
+    }
+    setVocabFilterState("ALL");
+    setActiveMode("vocab");
+
+    setTimeout(() => {
+      practiceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
 
   // ==========================================
   // STATE CHO MODE 3: GAME PHẢN XẠ HSK (10s)
@@ -1321,19 +1348,27 @@ export default function StudentPracticeWorkspace({
       {/* =================================================================== */}
       {/* 1. CHẾ ĐỘ 1: LUYỆN TỪ VỰNG CHUYÊN SÂU (6 DẠNG BÀI TẬP TƯƠNG TÁC)   */}
       {/* =================================================================== */}
-      {isLessonUnlocked && activeMode === "vocab" && (
-        <VocabPracticeSuite
-          key={`${currentHskLevel}-${selectedPracticeLesson}`}
-          vocabList={vocabList}
-          lessonTitleZh={currentOfficialLesson?.titleZh}
-          lessonNumber={selectedPracticeLesson}
-          hskLevel={currentHskLevel}
-          studentId={currentUser?.id}
-          handleSpeak={handleSpeak}
-          onMemoryUpdated={refreshMemoryStats}
-          initialFilter={vocabFilterState}
-        />
-      )}
+      <div ref={practiceSectionRef}>
+        {(isLessonUnlocked || !!customReviewVocabs) && activeMode === "vocab" && (
+          <VocabPracticeSuite
+            key={customReviewVocabs ? "custom-weak-review" : `${currentHskLevel}-${selectedPracticeLesson}`}
+            vocabList={customReviewVocabs && customReviewVocabs.length > 0 ? customReviewVocabs : vocabList}
+            lessonTitleZh={customReviewVocabs ? "Kiến thức cần củng cố" : currentOfficialLesson?.titleZh}
+            lessonNumber={customReviewVocabs ? 0 : selectedPracticeLesson}
+            hskLevel={currentHskLevel}
+            studentId={currentUser?.id}
+            handleSpeak={handleSpeak}
+            onMemoryUpdated={refreshMemoryStats}
+            initialFilter={vocabFilterState}
+            customTitle={
+              customReviewVocabs
+                ? `Đang ôn tập chuyên sâu ${customReviewVocabs.length} từ vựng bạn còn yếu / chưa nhớ`
+                : undefined
+            }
+            onExitCustomReview={() => setCustomReviewVocabs(null)}
+          />
+        )}
+      </div>
 
       {/* =================================================================== */}
       {/* 3. CHẾ ĐỘ 3: ÔN TẬP TỔNG HỢP (KHO CÂU HỎI TỪ GIÁO TRÌNH ADMIN)      */}
@@ -2326,10 +2361,7 @@ export default function StudentPracticeWorkspace({
           </div>
 
           <button
-            onClick={() => {
-              setVocabFilterState("NOT_REMEMBERED");
-              setActiveMode("vocab");
-            }}
+            onClick={handleStartWeakItemsReview}
             className="w-full py-2.5 rounded-xl bg-[#204434] hover:bg-[#183629] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
           >
             <span>Bắt đầu ôn tập kiến thức yếu</span>

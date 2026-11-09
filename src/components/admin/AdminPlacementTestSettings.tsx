@@ -10,16 +10,23 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  BookOpen,
-  Eye,
   Layers,
+  Sliders,
+  Sparkles,
+  Award,
 } from "lucide-react";
-import { PlacementQuestion, DEFAULT_PLACEMENT_TESTS } from "@/lib/placement-test-types";
+import {
+  PlacementQuestion,
+  PlacementScoreThresholds,
+  DEFAULT_PLACEMENT_TESTS,
+  DEFAULT_PLACEMENT_THRESHOLDS,
+} from "@/lib/placement-test-types";
 
 export default function AdminPlacementTestSettings() {
   const [activeLevel, setActiveLevel] = useState<"hsk1_3" | "hsk4_6">("hsk1_3");
   const [hsk1_3, setHsk1_3] = useState<PlacementQuestion[]>(DEFAULT_PLACEMENT_TESTS.hsk1_3);
   const [hsk4_6, setHsk4_6] = useState<PlacementQuestion[]>(DEFAULT_PLACEMENT_TESTS.hsk4_6);
+  const [thresholds, setThresholds] = useState<PlacementScoreThresholds>(DEFAULT_PLACEMENT_THRESHOLDS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -36,6 +43,7 @@ export default function AdminPlacementTestSettings() {
       if (data.success && data.config) {
         if (Array.isArray(data.config.hsk1_3)) setHsk1_3(data.config.hsk1_3);
         if (Array.isArray(data.config.hsk4_6)) setHsk4_6(data.config.hsk4_6);
+        if (data.config.thresholds) setThresholds(data.config.thresholds);
       }
     } catch {
       setMessage({ type: "error", text: "Không thể tải đề kiểm tra từ máy chủ." });
@@ -51,14 +59,15 @@ export default function AdminPlacementTestSettings() {
       const res = await fetch("/api/v1/admin/placement-tests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hsk1_3, hsk4_6 }),
+        body: JSON.stringify({ hsk1_3, hsk4_6, thresholds }),
       });
       const data = await res.json();
       if (data.success) {
-        setMessage({ type: "success", text: "Đã lưu bộ đề khảo sát năng lực thành công!" });
+        setMessage({ type: "success", text: "Đã lưu bộ đề khảo sát và cấu hình xếp lớp thành công lên cơ sở dữ liệu!" });
         if (data.config) {
           setHsk1_3(data.config.hsk1_3);
           setHsk4_6(data.config.hsk4_6);
+          if (data.config.thresholds) setThresholds(data.config.thresholds);
         }
       } else {
         setMessage({ type: "error", text: data.message || "Lỗi khi lưu đề." });
@@ -84,13 +93,38 @@ export default function AdminPlacementTestSettings() {
       if (data.success && data.config) {
         setHsk1_3(data.config.hsk1_3);
         setHsk4_6(data.config.hsk4_6);
-        setMessage({ type: "success", text: "Đã khôi phục toàn bộ câu hỏi khảo sát mặc định thành công!" });
+        setThresholds(data.config.thresholds || DEFAULT_PLACEMENT_THRESHOLDS);
+        setMessage({ type: "success", text: "Đã khôi phục toàn bộ câu hỏi và ngưỡng điểm mặc định thành công!" });
       }
     } catch {
       setMessage({ type: "error", text: "Lỗi kết nối khi khôi phục đề." });
     } finally {
       setSaving(false);
     }
+  };
+
+  // Tự động tính ngưỡng điểm đề xuất dựa theo số lượng câu hỏi thực tế trong đề
+  const handleAutoSuggestThresholds = () => {
+    const total1_3 = hsk1_3.length;
+    const total4_6 = hsk4_6.length;
+
+    const suggested: PlacementScoreThresholds = {
+      hsk1_3: {
+        hsk3Min: Math.max(1, Math.round(total1_3 * 0.75)),
+        hsk2Min: Math.max(1, Math.round(total1_3 * 0.4)),
+      },
+      hsk4_6: {
+        hsk6Min: total4_6, // Đúng 100% câu hoặc gần hết để vào HSK 6
+        hsk5Min: Math.max(1, Math.round(total4_6 * 0.7)),
+        hsk4Min: Math.max(1, Math.round(total4_6 * 0.4)),
+      },
+    };
+
+    setThresholds(suggested);
+    setMessage({
+      type: "success",
+      text: `Đã tính toán ngưỡng chuẩn tự động theo số lượng câu (${total1_3} câu HSK 1-3, ${total4_6} câu HSK 4-6). Bấm 'Lưu đề khảo sát' để áp dụng.`,
+    });
   };
 
   const currentQuestions = activeLevel === "hsk1_3" ? hsk1_3 : hsk4_6;
@@ -151,13 +185,13 @@ export default function AdminPlacementTestSettings() {
         <div>
           <div className="flex items-center gap-2">
             <HelpCircle className="w-6 h-6 text-[#204434]" />
-            <h2 className="text-xl font-bold text-[#204434]">Quản lý Đề Khảo sát Đầu vào (Onboarding Test)</h2>
+            <h2 className="text-xl font-bold text-[#204434]">Quản lý Đề Khảo sát Đầu vào & Ngưỡng Xếp lớp HSK</h2>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#204434]/10 text-[#204434]">
               {currentQuestions.length} câu hỏi
             </span>
           </div>
           <p className="text-xs text-[#315E48]/80 mt-1">
-            Chỉnh sửa câu hỏi chữ Hán, Pinyin, nghĩa tiếng Việt, 4 đáp án và đáp án đúng cho bài kiểm tra trình độ khi học viên mới vào hệ thống.
+            Chỉnh sửa câu hỏi bài thi năng lực và thiết lập số câu đúng để hệ thống tự xếp học sinh vào HSK 1, 2, 3, 4, 5 hoặc HSK 6. Dữ liệu lưu vĩnh viễn trên Supabase Cloud.
           </p>
         </div>
 
@@ -201,6 +235,164 @@ export default function AdminPlacementTestSettings() {
           <span>{message.text}</span>
         </div>
       )}
+
+      {/* CẤU HÌNH NGƯỠNG ĐIỂM XẾP LỚP HSK (THRESHOLD SETTINGS) */}
+      <div className="bg-gradient-to-br from-[#FAF7EE] to-[#F3EEDD] p-5 rounded-2xl border border-[#BC9B6B]/40 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#BC9B6B]/20 pb-3">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-[#8F6D3B]" />
+            <div>
+              <h3 className="text-sm font-bold text-[#204434]">Quy chuẩn Xếp lớp HSK (Làm bao nhiêu câu thì vào cấp nào)</h3>
+              <p className="text-[11px] text-[#315E48]">
+                Admin thiết lập số câu đúng tối thiểu để hệ thống tự động đẩy học viên vào cấp HSK tương ứng sau khi nộp bài test.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAutoSuggestThresholds}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#BC9B6B]/40 text-[#8F6D3B] hover:text-[#204434] hover:border-[#204434] text-xs font-bold transition shadow-2xs cursor-pointer shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Tự động gợi ý theo số câu ({hsk1_3.length} & {hsk4_6.length} câu)</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Cột 1: Ngưỡng HSK 1 - 3 */}
+          <div className="bg-white p-4 rounded-xl border border-[#BC9B6B]/25 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-amber-600" />
+                <span>Quy chuẩn Bộ Đề HSK 1 – HSK 3 (Tổng {hsk1_3.length} câu)</span>
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                <span className="font-semibold text-emerald-800">Đẩy vào HSK 3 khi đúng từ:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={hsk1_3.length}
+                    value={thresholds.hsk1_3.hsk3Min}
+                    onChange={(e) =>
+                      setThresholds({
+                        ...thresholds,
+                        hsk1_3: { ...thresholds.hsk1_3, hsk3Min: Math.max(1, parseInt(e.target.value) || 1) },
+                      })
+                    }
+                    className="w-16 px-2 py-1 bg-white border border-emerald-300 rounded text-center font-bold text-[#204434]"
+                  />
+                  <span className="text-emerald-700">/ {hsk1_3.length} câu</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-blue-50 border border-blue-200">
+                <span className="font-semibold text-blue-800">Đẩy vào HSK 2 khi đúng từ:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={hsk1_3.length}
+                    value={thresholds.hsk1_3.hsk2Min}
+                    onChange={(e) =>
+                      setThresholds({
+                        ...thresholds,
+                        hsk1_3: { ...thresholds.hsk1_3, hsk2Min: Math.max(1, parseInt(e.target.value) || 1) },
+                      })
+                    }
+                    className="w-16 px-2 py-1 bg-white border border-blue-300 rounded text-center font-bold text-[#204434]"
+                  />
+                  <span className="text-blue-700">/ {hsk1_3.length} câu</span>
+                </div>
+              </div>
+
+              <div className="p-2 rounded-lg bg-stone-50 border border-stone-200 text-stone-600 text-[11px]">
+                Dưới {thresholds.hsk1_3.hsk2Min} câu đúng ➔ Xếp vào <strong>HSK 1</strong>.
+              </div>
+            </div>
+          </div>
+
+          {/* Cột 2: Ngưỡng HSK 4 - 6 */}
+          <div className="bg-white p-4 rounded-xl border border-[#BC9B6B]/25 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#204434] flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-purple-600" />
+                <span>Quy chuẩn Bộ Đề HSK 4 – HSK 6 (Tổng {hsk4_6.length} câu)</span>
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-purple-50 border border-purple-200">
+                <span className="font-semibold text-purple-800">Đẩy vào HSK 6 (Đúng hết / Xuất sắc) từ:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={hsk4_6.length}
+                    value={thresholds.hsk4_6.hsk6Min}
+                    onChange={(e) =>
+                      setThresholds({
+                        ...thresholds,
+                        hsk4_6: { ...thresholds.hsk4_6, hsk6Min: Math.max(1, parseInt(e.target.value) || 1) },
+                      })
+                    }
+                    className="w-16 px-2 py-1 bg-white border border-purple-300 rounded text-center font-bold text-purple-900"
+                  />
+                  <span className="text-purple-700">/ {hsk4_6.length} câu</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-indigo-50 border border-indigo-200">
+                <span className="font-semibold text-indigo-800">Đẩy vào HSK 5 khi đúng từ:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={hsk4_6.length}
+                    value={thresholds.hsk4_6.hsk5Min}
+                    onChange={(e) =>
+                      setThresholds({
+                        ...thresholds,
+                        hsk4_6: { ...thresholds.hsk4_6, hsk5Min: Math.max(1, parseInt(e.target.value) || 1) },
+                      })
+                    }
+                    className="w-16 px-2 py-1 bg-white border border-indigo-300 rounded text-center font-bold text-[#204434]"
+                  />
+                  <span className="text-indigo-700">/ {hsk4_6.length} câu</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50 border border-amber-200">
+                <span className="font-semibold text-amber-800">Đẩy vào HSK 4 khi đúng từ:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={hsk4_6.length}
+                    value={thresholds.hsk4_6.hsk4Min}
+                    onChange={(e) =>
+                      setThresholds({
+                        ...thresholds,
+                        hsk4_6: { ...thresholds.hsk4_6, hsk4Min: Math.max(1, parseInt(e.target.value) || 1) },
+                      })
+                    }
+                    className="w-16 px-2 py-1 bg-white border border-amber-300 rounded text-center font-bold text-[#204434]"
+                  />
+                  <span className="text-amber-700">/ {hsk4_6.length} câu</span>
+                </div>
+              </div>
+
+              <div className="p-2 rounded-lg bg-stone-50 border border-stone-200 text-stone-600 text-[11px]">
+                Dưới {thresholds.hsk4_6.hsk4Min} câu đúng ➔ Xếp vào <strong>HSK 3</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Level Tabs */}
       <div className="flex items-center gap-3">

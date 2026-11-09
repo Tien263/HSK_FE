@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
-import { getPlacementQuestions, savePlacementQuestions, DEFAULT_PLACEMENT_TESTS } from "@/lib/placement-test-config";
+import {
+  getPlacementQuestionsAsync,
+  savePlacementQuestionsAsync,
+  DEFAULT_PLACEMENT_TESTS,
+} from "@/lib/placement-test-config";
 import { requireAdmin } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
     const authCheck = await requireAdmin(request);
     if (!authCheck.ok) return authCheck.response;
 
-    const config = getPlacementQuestions();
+    const config = await getPlacementQuestionsAsync();
     return NextResponse.json({
       success: true,
       config,
@@ -27,10 +33,10 @@ export async function POST(request: Request) {
     if (!authCheck.ok) return authCheck.response;
 
     const body = await request.json();
-    const { action, hsk1_3, hsk4_6 } = body;
+    const { action, hsk1_3, hsk4_6, thresholds } = body;
 
     if (action === "RESET") {
-      const resetConfig = savePlacementQuestions(DEFAULT_PLACEMENT_TESTS);
+      const resetConfig = await savePlacementQuestionsAsync(DEFAULT_PLACEMENT_TESTS);
       return NextResponse.json({
         success: true,
         message: "Đã khôi phục bộ đề khảo sát HSK chuẩn mặc định!",
@@ -45,7 +51,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const saved = savePlacementQuestions({ hsk1_3, hsk4_6 });
+    const saved = await savePlacementQuestionsAsync({ hsk1_3, hsk4_6, thresholds });
 
     // Ghi audit log
     try {
@@ -58,6 +64,7 @@ export async function POST(request: Request) {
             details: JSON.stringify({
               hsk1_3Count: saved.hsk1_3.length,
               hsk4_6Count: saved.hsk4_6.length,
+              thresholds: saved.thresholds,
             }),
           },
         });
@@ -68,7 +75,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Cập nhật bộ đề khảo sát năng lực thành công!",
+      message: "Cập nhật bộ đề khảo sát và ngưỡng điểm thành công!",
       config: saved,
     });
   } catch (error: any) {

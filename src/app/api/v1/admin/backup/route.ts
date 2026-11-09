@@ -55,11 +55,6 @@ export async function GET(request: Request) {
       gameSessionCount,
       xpLogCount,
       curriculumCount,
-    };
-      materialCount,
-      vocabProgressCount,
-      gameSessionCount,
-      xpLogCount,
       totalRecords:
         userCount +
         classCount +
@@ -70,7 +65,8 @@ export async function GET(request: Request) {
         materialCount +
         vocabProgressCount +
         gameSessionCount +
-        xpLogCount,
+        xpLogCount +
+        curriculumCount,
     };
 
     if (mode === "summary") {

@@ -394,7 +394,7 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
         {!results.length && <div className={s.empty}><BookOpen size={32}/><h3>{query ? "Chưa tìm thấy bút ký" : "Trang đầu tiên đang chờ bạn"}</h3><p>{query ? "Thử tìm bằng một từ khác." : "Ghi lại một chữ mới, một câu hay, một điều vừa hiểu."}</p><button className={s.primary} onClick={() => setView("write")}>Về bàn viết <ArrowRight size={15}/></button></div>}
       </div> : <div className={s.workspace}>
         <section className={s.materialPanel} aria-label="Chất liệu và dụng cụ"><div className={s.panelTitle}><span>01</span><h3>Chọn mặt giấy</h3></div><div className={s.materials}>{papers.map(p => <button key={p.id} className={s.material} aria-pressed={paper === p.id} onClick={() => { setPaper(p.id); setDirty(true); }}><span className={s.swatch} data-paper={p.id} style={{ backgroundColor: p.color }}><span>{p.zh}</span>{paper === p.id && <Check size={13}/>}</span><span><strong>{p.name}</strong><small>{p.hint}</small></span></button>)}</div>
-          <div className={s.panelTitle}><span>02</span><h3>Mực & ấn triện</h3></div><div className={s.inks}>{[{ color: "#273f35", name: "Mực tùng" }, { color: "#9b3930", name: "Chu sa" }, { color: "#26211c", name: "Mực đen" }].map(i => <button key={i.color} aria-label={i.name} aria-pressed={ink === i.color} style={{ background: i.color }} onClick={() => setInk(i.color)}>{ink === i.color && <Check size={13}/>}</button>)}</div><div className={s.stampPalette}>{["印", "福", "龍"].map(symbol => <button key={symbol} aria-label={`Thêm ấn ${symbol}`} onClick={() => update({ stamps: [...page.stamps, { id: crypto.randomUUID(), symbol, x: 82, y: 75 }] })}>{symbol}</button>)}</div><p className={s.tip}>Chạm để thêm ấn, kéo để đặt lên giấy. Dùng phím mũi tên để di chuyển; Delete để bỏ ấn.</p><div className={s.materialFooter}><span>学而时习之</span><p>Học rồi ôn lại,<br/>mỗi ngày một chút.</p></div>
+          <div className={s.panelTitle}><span>02</span><h3>Mực & ấn triện</h3></div><div className={s.inks}>{[{ color: "#273f35", name: "Mực tùng" }, { color: "#9b3930", name: "Chu sa" }, { color: "#26211c", name: "Mực đen" }].map(i => <button key={i.color} aria-label={i.name} aria-pressed={ink === i.color} style={{ background: i.color }} onClick={() => setInk(i.color)}>{ink === i.color && <Check size={13}/>}</button>)}</div><div className={s.stampPalette}>{["印", "福", "龍"].map(symbol => <button key={symbol} aria-label={`Thêm ấn ${symbol}`} onClick={() => update({ stamps: [...page.stamps, { id: crypto.randomUUID(), symbol, x: 82, y: 75 }] })}>{symbol}</button>)}</div><div className="flex items-center gap-1.5 mt-2"><button type="button" disabled={page.stamps.length === 0} onClick={() => { if (page.stamps.length > 0) { update({ stamps: page.stamps.slice(0, -1) }); setStatus("Đã hoàn tác (xóa) con dấu gần nhất."); } }} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#a13b2e]/40 text-[#a13b2e] bg-[#fbf5e8] hover:bg-[#a13b2e]/10 text-[11px] font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer" title="Hoàn tác con dấu vừa đóng"><RotateCcw size={12} /><span>Hoàn tác ({page.stamps.length})</span></button><button type="button" disabled={page.stamps.length === 0} onClick={() => { if (page.stamps.length > 0 && window.confirm("Xóa toàn bộ con dấu trên trang này?")) { update({ stamps: [] }); setStatus("Đã xóa toàn bộ con dấu trên trang."); } }} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-stone-300 text-stone-600 bg-white hover:bg-stone-50 text-[11px] font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer" title="Xóa tất cả con dấu"><Trash2 size={12} /><span>Xóa hết dấu</span></button></div><p className={s.tip}>Chạm để thêm ấn, kéo để đặt lên giấy. Bấm Hoàn tác hoặc bấm dấu × trên con dấu để xóa.</p><div className={s.materialFooter}><span>学而时习之</span><p>Học rồi ôn lại,<br/>mỗi ngày một chút.</p></div>
         </section>
         <section className={s.desk} aria-label="Bàn viết thư pháp">
           <div className={s.deskTop}><div className={s.segmented} aria-label="Hình thức bút ký"><button aria-pressed={layout === "scroll"} onClick={() => { setLayout("scroll"); setDirty(true); }}><Stamp size={15}/> Cuộn thư</button><button aria-pressed={layout === "codex"} onClick={() => { setLayout("codex"); setDirty(true); }}><BookOpen size={15}/> Sổ đóng gáy</button></div><span className={s.paperLabel}>{material.zh} · {material.name}</span></div>
@@ -404,7 +404,48 @@ export default function CalligraphyNotebook({ isOpen, onClose, lessonNumber, hsk
             <div ref={sheet} className={`${s.writingArea} ${grid ? s.riceGrid : ""}`} style={{ "--ink": ink } as CSSProperties}>
               <textarea aria-label={`Nội dung trang ${index + 1}`} className={vertical ? s.verticalText : s.horizontalText} style={{ pointerEvents: tool === "text" ? "auto" : "none" }} value={page.content} onChange={e => update({ content: e.target.value })} placeholder={vertical ? "落笔生花\nHạ bút, nở hoa…" : "Một chữ mới, một câu hay…"} spellCheck={false}/>
               <canvas ref={canvas} width={800} height={640} className={s.canvas} style={{ pointerEvents: tool === "text" ? "none" : "auto" }} aria-label="Mặt giấy luyện nét bút" onPointerDown={e => draw(e, true)} onPointerMove={e => draw(e)} onPointerUp={finish} onPointerCancel={finish}/>
-              {page.stamps.map(st => <button key={st.id} className={s.decoration} style={{ left: `${st.x}%`, top: `${st.y}%` }} aria-label={`Ấn ${st.symbol}, dùng mũi tên di chuyển hoặc Delete để bỏ`} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { id: st.id, x: st.x, y: st.y, startX: e.clientX, startY: e.clientY }; }} onPointerMove={e => { const d = drag.current, rect = sheet.current?.getBoundingClientRect(); if (d?.id === st.id && rect) move(st.id, d.x + (e.clientX - d.startX) * 100 / rect.width, d.y + (e.clientY - d.startY) * 100 / rect.height); }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { const offsets: Record<string, [number, number]> = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] }; if (offsets[e.key]) { e.preventDefault(); move(st.id, st.x + offsets[e.key][0], st.y + offsets[e.key][1]); } else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); update({ stamps: page.stamps.filter(p => p.id !== st.id) }); } }}>{st.symbol}</button>)}
+              {page.stamps.map(st => (
+                <div
+                  key={st.id}
+                  style={{ position: "absolute", left: `${st.x}%`, top: `${st.y}%`, zIndex: 10, transform: "translate(-50%, -50%)" }}
+                >
+                  <button
+                    className={s.decoration}
+                    style={{ position: "relative", left: 0, top: 0, transform: "none" }}
+                    aria-label={`Ấn ${st.symbol}, kéo để di chuyển hoặc bấm nút xóa`}
+                    onPointerDown={e => {
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      drag.current = { id: st.id, x: st.x, y: st.y, startX: e.clientX, startY: e.clientY };
+                    }}
+                    onPointerMove={e => {
+                      const d = drag.current, rect = sheet.current?.getBoundingClientRect();
+                      if (d?.id === st.id && rect) move(st.id, d.x + (e.clientX - d.startX) * 100 / rect.width, d.y + (e.clientY - d.startY) * 100 / rect.height);
+                    }}
+                    onPointerUp={() => { drag.current = null; }}
+                    onPointerCancel={() => { drag.current = null; }}
+                    onKeyDown={e => {
+                      const offsets: Record<string, [number, number]> = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] };
+                      if (offsets[e.key]) { e.preventDefault(); move(st.id, st.x + offsets[e.key][0], st.y + offsets[e.key][1]); }
+                      else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); update({ stamps: page.stamps.filter(p => p.id !== st.id) }); }
+                    }}
+                  >
+                    {st.symbol}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      update({ stamps: page.stamps.filter(p => p.id !== st.id) });
+                      setStatus("Đã xóa con dấu.");
+                    }}
+                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[#9b3930] hover:bg-red-700 text-white flex items-center justify-center text-xs font-bold shadow-md cursor-pointer transition"
+                    title="Xóa con dấu này"
+                    aria-label="Xóa con dấu này"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div><div className={s.sheetFoot}><span>笔墨之间，皆是成长</span><span>{String(index + 1).padStart(2, "0")}</span></div>
           </div></div></div>
           <div className={s.pagination}><button aria-label="Trang trước" disabled={index === 0} onClick={() => turnPage("prev")}><ChevronLeft size={17}/></button><span aria-live="polite">Trang {index + 1} / {pages.length}</span><button aria-label="Trang sau" disabled={index === pages.length - 1} onClick={() => turnPage("next")}><ChevronRight size={17}/></button><button onClick={() => { setPages(ps => [...ps, blank()]); setIndex(pages.length); setDirty(true); playPageTurnSound(); }}><Plus size={14}/> Thêm trang</button><button aria-label="Tải ảnh PNG trang này" title="Tải ảnh PNG trang hiện tại" disabled={!hasContent} onClick={exportSinglePagePng}><Download size={14}/> Tải PNG</button><button aria-label="Xuất tệp PDF toàn bộ trang" title={`Xuất toàn bộ ${pages.length} trang thành 1 tệp PDF duy nhất`} disabled={!hasContent} onClick={exportCompletePdf}><FileText size={14}/> Xuất PDF ({pages.length} trang)</button></div>

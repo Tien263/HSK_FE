@@ -8,12 +8,38 @@ export interface PlacementQuestion {
   explanation: string;
 }
 
+export interface PlacementScoreThresholds {
+  hsk1_3: {
+    hsk3Min: number;
+    hsk2Min: number;
+  };
+  hsk4_6: {
+    hsk6Min: number;
+    hsk5Min: number;
+    hsk4Min: number;
+  };
+}
+
 export interface PlacementTestConfig {
   hsk1_3: PlacementQuestion[];
   hsk4_6: PlacementQuestion[];
+  thresholds?: PlacementScoreThresholds;
 }
 
+export const DEFAULT_PLACEMENT_THRESHOLDS: PlacementScoreThresholds = {
+  hsk1_3: {
+    hsk3Min: 4,
+    hsk2Min: 2,
+  },
+  hsk4_6: {
+    hsk6Min: 5,
+    hsk5Min: 4,
+    hsk4Min: 2,
+  },
+};
+
 export const DEFAULT_PLACEMENT_TESTS: PlacementTestConfig = {
+  thresholds: DEFAULT_PLACEMENT_THRESHOLDS,
   hsk1_3: [
     {
       id: 1,
