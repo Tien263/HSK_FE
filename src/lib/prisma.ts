@@ -10,6 +10,18 @@ function getOptimizedDatabaseUrl(): string | undefined {
 
   try {
     const url = new URL(rawUrl);
+
+    // Tự động chuyển Supabase Pooler từ Session Mode (Port 5432, giới hạn 15 clients)
+    // sang Transaction Mode (Port 6543 + pgbouncer=true) để chịu tải cao và không bao giờ bị EMAXCONNSESSION
+    if (url.hostname.includes("pooler.supabase.com")) {
+      if (url.port === "5432") {
+        url.port = "6543";
+      }
+      if (!url.searchParams.has("pgbouncer")) {
+        url.searchParams.set("pgbouncer", "true");
+      }
+    }
+
     // Giới hạn connection pool an toàn cho môi trường Cloud (Render/Neon/Supabase)
     if (!url.searchParams.has("connection_limit")) {
       const defaultLimit = process.env.NODE_ENV === "production" ? "10" : "5";
