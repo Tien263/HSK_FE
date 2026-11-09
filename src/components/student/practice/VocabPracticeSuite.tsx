@@ -16,7 +16,6 @@ import {
   FileQuestion,
   Layers,
   BookOpen,
-  Shuffle,
   Eye,
   EyeOff,
   Flame,
@@ -60,7 +59,6 @@ export type VocabPracticeSubtype =
   | "listen_fill"
   | "quiz_meaning"
   | "quiz_fill_blank"
-  | "sentence_order"
   | "type_meaning";
 
 import {
@@ -200,11 +198,6 @@ export default function VocabPracticeSuite({
   // State Điền từ
   const [typedInput, setTypedInput] = useState("");
   const [typedResult, setTypedResult] = useState<"CORRECT" | "INCORRECT" | null>(null);
-
-  // State Sắp xếp câu
-  const [assembledTokens, setAssembledTokens] = useState<string[]>([]);
-  const [availableTokens, setAvailableTokens] = useState<{ id: string; text: string }[]>([]);
-  const [orderResult, setOrderResult] = useState<"CORRECT" | "INCORRECT" | null>(null);
 
   // Modal Luyện viết nét chữ Hán & Phát âm AI
   const [isHanziModalOpen, setIsHanziModalOpen] = useState(false);
@@ -406,20 +399,12 @@ export default function VocabPracticeSuite({
     setIsAnswered(false);
     setTypedInput("");
     setTypedResult(null);
-    setOrderResult(null);
     setShowCardMeaning(false);
   }, []);
 
   useEffect(() => {
     resetQuestionState();
   }, [currentIndex, subType, resetQuestionState]);
-
-  // Tự động phát âm khi vào dạng luyện nghe
-  useEffect(() => {
-    if (currentVocab && (subType === "listen_meaning" || subType === "listen_fill")) {
-      handleSpeak(currentVocab.hanzi);
-    }
-  }, [currentIndex, subType, currentVocab, handleSpeak]);
 
   // Đánh giá 3 mức độ nhớ: Chưa nhớ / Cần ôn / Đã nhớ
   const handleRateMemory = (status: MemoryStatus) => {
@@ -501,78 +486,6 @@ export default function VocabPracticeSuite({
       meaning: currentVocab.exampleVi || `(Nghĩa câu ví dụ của từ: ${targetMeaning})`,
     };
   }, [currentVocab, targetMeaning]);
-
-  // Sắp xếp câu
-  useEffect(() => {
-    if (subType === "sentence_order" && currentVocab) {
-      const sentence = currentVocab.exampleZh || `${currentVocab.hanzi}很好。`;
-      const punctuation = ["，", "。", "！", "？", "、"];
-      const chunks: string[] = [];
-      let temp = "";
-      for (const char of sentence) {
-        if (punctuation.includes(char)) {
-          if (temp) chunks.push(temp);
-          chunks.push(char);
-          temp = "";
-        } else {
-          temp += char;
-        }
-      }
-      if (temp) chunks.push(temp);
-
-      const tokens: string[] = [];
-      for (const chunk of chunks) {
-        if (punctuation.includes(chunk)) {
-          tokens.push(chunk);
-        } else if (chunk === currentVocab.hanzi) {
-          tokens.push(chunk);
-        } else if (chunk.length > 2) {
-          tokens.push(chunk.slice(0, 2));
-          tokens.push(chunk.slice(2));
-        } else {
-          tokens.push(chunk);
-        }
-      }
-
-      const finalTokens = tokens.filter(Boolean);
-      const mappedTokens = finalTokens.map((t, idx) => ({
-        id: `${t}-${idx}-${Math.random()}`,
-        text: t,
-      }));
-
-      setAvailableTokens([...mappedTokens].sort(() => 0.5 - Math.random()));
-      setAssembledTokens([]);
-      setOrderResult(null);
-    }
-  }, [subType, currentVocab]);
-
-  const handlePickToken = (tok: { id: string; text: string }) => {
-    if (orderResult !== null) return;
-    setAssembledTokens((prev) => [...prev, tok.text]);
-    setAvailableTokens((prev) => prev.filter((t) => t.id !== tok.id));
-  };
-
-  const handleRemoveToken = (index: number) => {
-    if (orderResult !== null) return;
-    const removedText = assembledTokens[index];
-    const newAssembled = assembledTokens.filter((_, idx) => idx !== index);
-    setAssembledTokens(newAssembled);
-    setAvailableTokens((prev) => [...prev, { id: `${removedText}-${Date.now()}`, text: removedText }]);
-  };
-
-  const handleCheckSentenceOrder = () => {
-    const rawSentence = (currentVocab?.exampleZh || `${currentVocab?.hanzi}很好。`).replace(/\s+/g, "");
-    const studentSentence = assembledTokens.join("").replace(/\s+/g, "");
-    const isCorrect = studentSentence === rawSentence;
-    setOrderResult(isCorrect ? "CORRECT" : "INCORRECT");
-    if (isCorrect) {
-      setScore((s) => s + 15);
-      setStreak((st) => st + 1);
-      handleSpeak(rawSentence);
-    } else {
-      setStreak(0);
-    }
-  };
 
   const handleOptionClick = (opt: string, correct: string) => {
     if (isAnswered) return;
@@ -757,11 +670,11 @@ export default function VocabPracticeSuite({
       </div>
 
       {/* =================================================================== */}
-      {/* 3. THANH CHỌN CHẾ ĐỘ LUYỆN TẬP (7 CHẾ ĐỘ)                          */}
+      {/* 3. THANH CHỌN CHẾ ĐỘ LUYỆN TẬP (6 CHẾ ĐỘ)                          */}
       {/* =================================================================== */}
       <div className="space-y-2">
         <h4 className="text-xs font-bold text-[#204434]">
-          Chọn chế độ luyện tập (6-7 chế độ)
+          Chọn chế độ luyện tập (6 chế độ)
         </h4>
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-bold">
           <button
@@ -825,18 +738,6 @@ export default function VocabPracticeSuite({
           </button>
 
           <button
-            onClick={() => setSubType("sentence_order")}
-            className={`px-4 py-2.5 rounded-2xl transition shrink-0 flex items-center gap-2 cursor-pointer ${
-              subType === "sentence_order"
-                ? "bg-[#17382F] text-white shadow-xs"
-                : "bg-white text-[#315E48] border border-[#E5DEC9] hover:bg-[#FAF7F0]"
-            }`}
-          >
-            <Shuffle className="w-4 h-4" />
-            <span>6. Sắp xếp câu</span>
-          </button>
-
-          <button
             onClick={() => setSubType("type_meaning")}
             className={`px-4 py-2.5 rounded-2xl transition shrink-0 flex items-center gap-2 cursor-pointer ${
               subType === "type_meaning"
@@ -845,7 +746,7 @@ export default function VocabPracticeSuite({
             }`}
           >
             <Sparkles className="w-4 h-4 text-[#BC9B6B]" />
-            <span>7. Nhìn Hán tự viết nghĩa</span>
+            <span>6. Nhìn Hán tự viết nghĩa</span>
           </button>
         </div>
       </div>
@@ -1461,9 +1362,6 @@ export default function VocabPracticeSuite({
                 <p className="font-serif font-bold text-xl text-[#204434]">
                   {fillBlankSentence.blankSentence}
                 </p>
-                <p className="text-xs text-[#315E48] italic">
-                  {fillBlankSentence.meaning}
-                </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-bold">
@@ -1503,68 +1401,7 @@ export default function VocabPracticeSuite({
             </div>
           )}
 
-          {/* CHẾ ĐỘ 6: SẮP XẾP CÂU */}
-          {subType === "sentence_order" && (
-            <div className="w-full space-y-5 animate-fadeIn">
-              <p className="text-xs font-bold text-[#315E48]">
-                Bấm vào các từ bên dưới để sắp xếp thành câu hoàn chỉnh có chứa từ vựng "{currentVocab.hanzi}":
-              </p>
-
-              <div className="min-h-[60px] p-4 rounded-2xl bg-[#FAF7F0] border-2 border-dashed border-[#BC9B6B] flex flex-wrap gap-2 items-center justify-center">
-                {assembledTokens.map((tok, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleRemoveToken(i)}
-                    className="px-3 py-1.5 rounded-xl bg-[#204434] text-white text-sm font-serif font-bold shadow-xs cursor-pointer hover:bg-rose-700 transition"
-                  >
-                    {tok}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap gap-2 justify-center">
-                {availableTokens.map((tok) => (
-                  <button
-                    key={tok.id}
-                    onClick={() => handlePickToken(tok)}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-[#E5DEC9] text-[#204434] text-sm font-serif font-bold shadow-2xs hover:bg-[#FAF7F0] cursor-pointer transition"
-                  >
-                    {tok.text}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCheckSentenceOrder}
-                className="px-6 py-2.5 rounded-2xl bg-[#204434] text-white text-xs font-bold hover:bg-[#163024] transition cursor-pointer shadow-xs"
-              >
-                Kiểm tra câu
-              </button>
-
-              {orderResult && (
-                <div className={`p-3 rounded-2xl border text-xs font-bold ${
-                  orderResult === "CORRECT" ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-rose-50 text-rose-800 border-rose-300"
-                }`}>
-                  {orderResult === "CORRECT" ? "🎉 Sắp xếp câu hoàn toàn chính xác!" : "Chưa chính xác, hãy thử đổi vị trí các từ nhé!"}
-                </div>
-              )}
-
-              {orderResult === "CORRECT" && (
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={handleNextWord}
-                    className="px-6 py-2.5 rounded-2xl bg-[#204434] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    <span>Từ tiếp theo</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* CHẾ ĐỘ 7: NHÌN HÁN TỰ VIẾT NGHĨA */}
+          {/* CHẾ ĐỘ 6: NHÌN HÁN TỰ VIẾT NGHĨA */}
           {subType === "type_meaning" && (
             <div className="w-full space-y-5 animate-fadeIn">
               <div className="space-y-1">

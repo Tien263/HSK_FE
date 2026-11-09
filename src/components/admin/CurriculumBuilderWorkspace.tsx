@@ -911,12 +911,21 @@ export default function CurriculumBuilderWorkspace({
     setNewExPrompt(ex.prompt || "");
     setNewExAudioUrl(ex.audioUrl || "");
     
-    // Tách các options A, B, C, D
+    // Tách các options A, B, C, D an toàn (hỗ trợ cả string và object)
+    const formatOptForInput = (opt: any) => {
+      if (!opt) return "";
+      if (typeof opt === "string") return opt.replace(/^[A-D]\.\s*/, "");
+      if (typeof opt === "object") {
+        return opt.zh ? `${opt.zh}${opt.vi ? ` (${opt.vi})` : ""}` : opt.text || String(opt);
+      }
+      return String(opt);
+    };
+
     if (Array.isArray(ex.options) && ex.options.length > 0) {
-      setNewExOptionA(ex.options[0]?.replace(/^[A-D]\.\s*/, "") || "");
-      setNewExOptionB(ex.options[1]?.replace(/^[A-D]\.\s*/, "") || "");
-      setNewExOptionC(ex.options[2]?.replace(/^[A-D]\.\s*/, "") || "");
-      setNewExOptionD(ex.options[3]?.replace(/^[A-D]\.\s*/, "") || "");
+      setNewExOptionA(formatOptForInput(ex.options[0]));
+      setNewExOptionB(formatOptForInput(ex.options[1]));
+      setNewExOptionC(formatOptForInput(ex.options[2]));
+      setNewExOptionD(formatOptForInput(ex.options[3]));
     } else {
       setNewExOptionA("");
       setNewExOptionB("");
@@ -937,7 +946,8 @@ export default function CurriculumBuilderWorkspace({
       }
     }
 
-    showToast(`Đang chỉnh sửa câu hỏi: "${ex.prompt.substring(0, 30)}..."`);
+    const promptPreview = (ex.prompt || (ex as any).questionZh || (ex as any).title || "Bài tập").substring(0, 30);
+    showToast(`Đang chỉnh sửa câu hỏi: "${promptPreview}..."`);
   };
 
   // Hủy chế độ chỉnh sửa câu hỏi
@@ -2991,7 +3001,7 @@ export default function CurriculumBuilderWorkspace({
                               </div>
 
                               <p className="font-serif font-bold text-[#204434]">
-                                {ex.prompt}
+                                {ex.prompt || (ex as any).questionZh || (ex as any).title || "Câu hỏi luyện tập ngữ pháp"}
                               </p>
 
                               {/* Hiển thị File nghe Cloudinary nếu có */}
@@ -3009,10 +3019,18 @@ export default function CurriculumBuilderWorkspace({
 
                               {Array.isArray(ex.options) && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                                  {ex.options.map((opt, oi) => {
+                                  {ex.options.map((opt: any, oi: number) => {
+                                    const optText =
+                                      typeof opt === "string"
+                                        ? opt
+                                        : opt && typeof opt === "object"
+                                        ? `${opt.id ? `${opt.id}. ` : ""}${opt.zh || ""}${opt.vi ? ` (${opt.vi})` : ""}`
+                                        : String(opt || "");
                                     const isCorrect =
-                                      ex.correctAnswer === opt.charAt(0) ||
-                                      opt.includes(ex.correctAnswer);
+                                      Boolean(ex.correctAnswer) &&
+                                      (ex.correctAnswer === optText.charAt(0) ||
+                                        (typeof opt === "object" && opt?.id === ex.correctAnswer) ||
+                                        optText.includes(String(ex.correctAnswer)));
                                     return (
                                       <div
                                         key={oi}
@@ -3022,7 +3040,7 @@ export default function CurriculumBuilderWorkspace({
                                             : "bg-[#FAF7F0] border-[#E5DEC9] text-slate-700"
                                         }`}
                                       >
-                                        {opt}
+                                        {optText}
                                       </div>
                                     );
                                   })}
