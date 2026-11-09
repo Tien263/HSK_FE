@@ -5,6 +5,7 @@ import LessonCover from "./LessonCover";
 import type { Hsk1FullLesson } from "@/lib/hsk1-full-lessons";
 import { lessonKey, toggleKnowledge, useLessonLibrary } from "@/lib/use-lesson-library";
 import { completionPercent, wholeLessonItem } from "@/lib/self-study-knowledge";
+import { saveLessonItem, isLessonSaved } from "@/lib/saved-knowledge-service";
 import styles from "./SelfStudyLessonCatalog.module.css";
 
 type DayActivity = {
@@ -58,13 +59,51 @@ export default function SelfStudyLessonCatalog({ lessons, level, studentId, sele
   const resume = unfinished.find(lesson => lesson.number === store.resume[level]) || lastUnfinished || unfinished.find(lesson => lesson.number === selected) || unfinished[0] || lessons.find(lesson => unlocked.includes(lesson.number));
   const results = lessons.filter(lesson => (!savedOnly || store.saved.includes(lessonKey(level, lesson.number))) && (filter === "all" || (filter === "open" ? unlocked.includes(lesson.number) : !unlocked.includes(lesson.number))) && normalize(`${lesson.number} ${lesson.titleZh} ${lesson.pinyin} ${lesson.titleVi}`).includes(normalize(query.trim())));
   function save(number: number) {
-    const id = lessonKey(level, number), exists = store.saved.includes(id);
-    const lesson = lessons.find(lesson => lesson.number === number);
-    const ok = !!lesson && toggleKnowledge(studentId, wholeLessonItem(lesson, level));
-    setMessage(ok ? exists ? "Đã bỏ lưu bài học." : "Đã lưu bài vào Kho lưu trữ trên trình duyệt này." : "Không thể lưu trên trình duyệt. Hãy kiểm tra quyền lưu trữ rồi thử lại.");
+    const id = lessonKey(level, number);
+    const lesson = lessons.find((l) => l.number === number);
+    if (!lesson) return;
+
+    // Lưu vào thư phòng library cũ
+    toggleKnowledge(studentId, wholeLessonItem(lesson, level));
+
+    // Lưu vào kho lưu trữ trung tâm của học sinh (saved-knowledge-service)
+    const isNowSaved = saveLessonItem(studentId, {
+      id,
+      level,
+      lessonNumber: number,
+      titleZh: lesson.titleZh,
+      titleVi: lesson.titleVi,
+      pinyin: lesson.pinyin,
+      vocabCount: lesson.vocabList?.length || 0,
+      grammarCount: lesson.grammarList?.length || 0,
+    });
+
+    setMessage(
+      isNowSaved
+        ? "🔖 Đã lưu bài học vào Kho lưu trữ / Kiến thức đã lưu!"
+        : "Đã bỏ lưu bài học khỏi Kho lưu trữ."
+    );
   }
   function percent(lesson: Hsk1FullLesson) { return completed.has(lesson.number) ? 100 : completionPercent(lesson, level, store.completed); }
-  function saveButton(number: number, label = false) { const saved = store.saved.includes(lessonKey(level, number)); return <button className={styles.save} aria-label={`${saved ? "Bỏ lưu" : "Lưu"} bài ${number}`} aria-pressed={saved} onClick={() => save(number)}><Bookmark size={16} fill={saved ? "currentColor" : "none"}/>{label && (saved ? "Đã lưu bài" : "Lưu bài học")}</button>; }
+  function saveButton(number: number, label = false) {
+    const saved = store.saved.includes(lessonKey(level, number)) || isLessonSaved(studentId, level, number);
+    return (
+      <button
+        type="button"
+        className={`${styles.save} ${saved ? styles.saved : ""}`}
+        aria-label={`${saved ? "Bỏ lưu" : "Lưu"} bài ${number}`}
+        aria-pressed={saved}
+        onClick={(e) => {
+          e.stopPropagation();
+          save(number);
+        }}
+        title={saved ? "Bỏ lưu bài học này" : "Lưu bài học này vào Kho lưu trữ"}
+      >
+        <Bookmark size={16} fill={saved ? "currentColor" : "none"} className={saved ? "text-amber-600 fill-amber-600" : ""} />
+        {label && (saved ? "Đã lưu bài" : "Lưu bài học")}
+      </button>
+    );
+  }
   function card(lesson: Hsk1FullLesson) {
     const open = unlocked.includes(lesson.number), entry = store.reading[lessonKey(level, lesson.number)];
     return <article className={styles.card} key={lesson.number}>

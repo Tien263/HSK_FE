@@ -151,7 +151,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { studentId, username, hanzi, pinyin, meaningVi, wordType, exampleHanzi, exampleMeaning } = body;
+    const { studentId, username, hanzi, pinyin, meaningVi, wordType, exampleHanzi, exampleMeaning, words } = body;
 
     let student = null;
     if (studentId) {
@@ -165,35 +165,100 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Không tìm thấy thông tin học sinh" }, { status: 404 });
     }
 
+    // Lấy bài học mặc định nếu cần tạo từ mới
+    let defaultLesson = await prisma.lesson.findFirst();
+    if (!defaultLesson) {
+      let level = await prisma.level.findFirst();
+      if (!level) {
+        const curr = (await prisma.curriculum.findFirst()) || (await prisma.curriculum.create({
+          data: { title: "Giáo trình chuẩn HSK 3.0", description: "Chuẩn 9 cấp HSK 3.0" },
+        }));
+        level = await prisma.level.create({
+          data: { curriculumId: curr.id, hskLevel: 1, title: "HSK 1", isOpen: true },
+        });
+      }
+      defaultLesson = await prisma.lesson.create({
+        data: { levelId: level.id, lessonNumber: 1, title: "Từ vựng chung", status: "PUBLISHED" },
+      });
+    }
+
+    // 1. Trường hợp nạp hàng loạt danh sách từ yếu (Batch import)
+    if (Array.isArray(words) && words.length > 0) {
+      let addedCount = 0;
+      for (const w of words) {
+        if (!w.hanzi || typeof w.hanzi !== "string") continue;
+        const cleanHanzi = w.hanzi.trim();
+
+        let vocab = await prisma.vocabulary.findFirst({
+          where: { hanzi: cleanHanzi },
+        });
+
+        if (!vocab) {
+          vocab = await prisma.vocabulary.create({
+            data: {
+              lessonId: defaultLesson.id,
+              hanzi: cleanHanzi,
+              pinyin: w.pinyin?.trim() || "",
+              meaningVi: w.meaningVi?.trim() || w.meaning?.trim() || "Nghĩa từ vựng",
+              wordType: w.wordType?.trim() || null,
+              exampleHanzi: w.exampleHanzi?.trim() || w.exampleZh?.trim() || null,
+              exampleMeaning: w.exampleMeaning?.trim() || w.exampleVi?.trim() || null,
+            },
+          });
+        }
+
+        const existingProgress = await prisma.vocabProgress.findUnique({
+          where: {
+            studentId_vocabularyId: {
+              studentId: student.id,
+              vocabularyId: vocab.id,
+            },
+          },
+        });
+
+        if (!existingProgress) {
+          await prisma.vocabProgress.create({
+            data: {
+              studentId: student.id,
+              vocabularyId: vocab.id,
+              leitnerBox: 1, // Đẩy thẳng vào Hộp 1 - Cần ôn hàng ngày
+              nextReviewAt: new Date(),
+            },
+          });
+          addedCount++;
+        } else if (existingProgress.leitnerBox > 1) {
+          // Nếu từ đang ở hộp cao nhưng bị yếu lại -> chuyển về Hộp 1 để ôn tập ngay
+          await prisma.vocabProgress.update({
+            where: { id: existingProgress.id },
+            data: {
+              leitnerBox: 1,
+              nextReviewAt: new Date(),
+            },
+          });
+          addedCount++;
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã đưa ${addedCount} từ vựng vào Hộp 1 (Ôn tập hàng ngày)!`,
+        count: addedCount,
+      });
+    }
+
+    // 2. Trường hợp nạp 1 từ đơn lẻ
     if (!hanzi) {
       return NextResponse.json({ success: false, message: "Chữ Hán không được để trống" }, { status: 400 });
     }
 
-    // Tìm xem từ vựng đã có trong bảng Vocabulary chưa
     let vocab = await prisma.vocabulary.findFirst({
       where: { hanzi: hanzi.trim() },
     });
 
     if (!vocab) {
-      let lesson = await prisma.lesson.findFirst();
-      if (!lesson) {
-        let level = await prisma.level.findFirst();
-        if (!level) {
-          const curr = await prisma.curriculum.findFirst() || await prisma.curriculum.create({
-            data: { title: "Giáo trình chuẩn HSK 3.0", description: "Chuẩn 9 cấp HSK 3.0" },
-          });
-          level = await prisma.level.create({
-            data: { curriculumId: curr.id, hskLevel: 1, title: "HSK 1", isOpen: true },
-          });
-        }
-        lesson = await prisma.lesson.create({
-          data: { levelId: level.id, lessonNumber: 1, title: "Từ vựng chung", status: "PUBLISHED" },
-        });
-      }
-
       vocab = await prisma.vocabulary.create({
         data: {
-          lessonId: lesson.id,
+          lessonId: defaultLesson.id,
           hanzi: hanzi.trim(),
           pinyin: pinyin?.trim() || "",
           meaningVi: meaningVi?.trim() || "Nghĩa từ vựng",
@@ -215,9 +280,25 @@ export async function POST(request: Request) {
     });
 
     if (existingProgress) {
+      // Nếu đã có nhưng người học bấm "Chưa nhớ" hoặc "Cần ôn" -> đưa về Hộp 1
+      if (existingProgress.leitnerBox > 1) {
+        const updated = await prisma.vocabProgress.update({
+          where: { id: existingProgress.id },
+          data: {
+            leitnerBox: 1,
+            nextReviewAt: new Date(),
+          },
+        });
+        return NextResponse.json({
+          success: true,
+          message: "Đã đưa từ vựng về Hộp 1 để ôn tập hàng ngày!",
+          progress: updated,
+        });
+      }
+
       return NextResponse.json({
         success: true,
-        message: "Từ vựng này đã có trong Sổ tay của bạn!",
+        message: "Từ vựng này đã có trong Hộp 1 của bạn!",
         progress: existingProgress,
         alreadyExists: true,
       });
@@ -235,7 +316,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Đã thêm thành công vào Sổ tay từ vựng SRS!",
+      message: "Đã thêm thành công vào Hộp 1 Sổ tay từ vựng SRS!",
       progress: newProgress,
     });
   } catch (error) {

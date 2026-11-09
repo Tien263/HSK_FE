@@ -34,6 +34,7 @@ import {
   Compass,
   Unlock,
   Lock,
+  Trash2,
 } from "lucide-react";
 import { useCurriculumLessons } from "@/lib/use-curriculum";
 import { useSelfStudySelection } from "@/lib/use-self-study-selection";
@@ -46,10 +47,12 @@ import {
   removeSavedVocab,
   removeSavedGrammar,
   removeSavedQuestion,
+  removeSavedLesson,
   SavedKnowledgeStore,
   SavedVocabItem,
   SavedGrammarItem,
   SavedQuestionItem,
+  SavedLessonItem,
 } from "@/lib/saved-knowledge-service";
 import VocabPracticeSuite from "./practice/VocabPracticeSuite";
 import GrammarPracticeSuite from "./practice/GrammarPracticeSuite";
@@ -324,15 +327,29 @@ export default function StudentPracticeWorkspace({
         lessonNumber: r.lessonNumber || selectedPracticeLesson,
       }));
       setCustomReviewVocabs(mappedVocabs);
+
+      // Đẩy tự động toàn bộ từ yếu vào Hộp 1 Sổ SRS Leitner
+      try {
+        void fetch("/api/v1/my/vocab-notebook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId: currentUser?.id,
+            username: currentUser?.username,
+            words: mappedVocabs,
+          }),
+        }).catch(() => {});
+      } catch {
+        // Safe catch
+      }
     } else {
       setCustomReviewVocabs(null);
     }
     setVocabFilterState("ALL");
     setActiveMode("vocab");
 
-    setTimeout(() => {
-      practiceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    // Tự động mở Modal Sổ Từ Vựng SRS Leitner cho học viên luyện tập ngay lập tức!
+    setShowVocabNotebookModal(true);
   };
 
   // ==========================================
@@ -350,10 +367,10 @@ export default function StudentPracticeWorkspace({
 
   // ==========================================
     // ==========================================
-  // STATE CHO MODE 5: KIẾN THỨC ĐÃ LƯU (TỪ VỰNG, NGỮ PHÁP, CÂU HỎI)
+  // STATE CHO MODE 5: KIẾN THỨC ĐÃ LƯU (BÀI HỌC, TỪ VỰNG, NGỮ PHÁP, CÂU HỎI)
   // ==========================================
-  const [savedStore, setSavedStore] = useState<SavedKnowledgeStore>({ vocabs: [], grammars: [], questions: [] });
-  const [savedSubTab, setSavedSubTab] = useState<"vocabs" | "grammars" | "questions">("vocabs");
+  const [savedStore, setSavedStore] = useState<SavedKnowledgeStore>({ lessons: [], vocabs: [], grammars: [], questions: [] });
+  const [savedSubTab, setSavedSubTab] = useState<"lessons" | "vocabs" | "grammars" | "questions">("vocabs");
   const [selectedSavedVocabIds, setSelectedSavedVocabIds] = useState<string[]>([]);
   const [selectedSavedGrammarIds, setSelectedSavedGrammarIds] = useState<string[]>([]);
   const [selectedSavedQuestionIds, setSelectedSavedQuestionIds] = useState<string[]>([]);
@@ -1291,7 +1308,7 @@ export default function StudentPracticeWorkspace({
             <BookmarkCheck className="w-3.5 h-3.5 text-amber-500" />
             <span>5. Kiến thức đã lưu</span>
             <span className="text-[10px] opacity-80">
-              ({savedStore.vocabs.length + savedStore.grammars.length + savedStore.questions.length})
+              ({(savedStore.lessons?.length || 0) + savedStore.vocabs.length + savedStore.grammars.length + savedStore.questions.length})
             </span>
           </button>
         </div>
@@ -1579,8 +1596,25 @@ export default function StudentPracticeWorkspace({
             </div>
           </div>
 
-          {/* 3 PHÂN MỤC TABS: TỪ VỰNG - NGỮ PHÁP - CÂU HỎI */}
+          {/* 4 PHÂN MỤC TABS: BÀI HỌC - TỪ VỰNG - NGỮ PHÁP - CÂU HỎI */}
           <div className="flex items-center gap-2 border-b border-[#E5DEC9] pb-2 overflow-x-auto">
+            <button
+              onClick={() => {
+                setSavedSubTab("lessons");
+                setIsReviewingSelected(false);
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                savedSubTab === "lessons"
+                  ? "bg-[#204434] text-white shadow-xs"
+                  : "bg-white border border-[#E5DEC9] text-[#315E48] hover:bg-[#FAF7F0]"
+              }`}
+            >
+              <span>📖 Bài học đã lưu</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/20">
+                {savedStore.lessons?.length || 0}
+              </span>
+            </button>
+
             <button
               onClick={() => {
                 setSavedSubTab("vocabs");
@@ -1632,6 +1666,80 @@ export default function StudentPracticeWorkspace({
               </span>
             </button>
           </div>
+
+          {/* ================================================================= */}
+          {/* PHÂN MỤC 0: BÀI HỌC ĐÃ LƯU                                         */}
+          {/* ================================================================= */}
+          {savedSubTab === "lessons" && (
+            <div className="space-y-4">
+              {!savedStore.lessons || savedStore.lessons.length === 0 ? (
+                <div className="py-16 text-center bg-[#FFFCF6] rounded-3xl border border-dashed border-[#BC9B6B]/40 space-y-3">
+                  <BookmarkCheck className="w-12 h-12 text-[#8F6D3B]/40 mx-auto" />
+                  <p className="text-sm font-bold text-[#204434]">Chưa có bài học nào được lưu vào kho</p>
+                  <p className="text-xs text-[#315E48] max-w-md mx-auto">
+                    Trong mục <strong>Kho bài học & Khám phá</strong>, bạn có thể bấm vào biểu tượng Bookmark ở góc trên bài học bất kỳ để lưu lại vào đây và mở học nhanh bất cứ lúc nào.
+                  </p>
+                  <button
+                    onClick={() => onNavigateToTab?.("lessons")}
+                    className="mt-2 px-4 py-2 rounded-xl bg-[#204434] text-white text-xs font-bold shadow-xs hover:bg-[#1A3D2F] transition cursor-pointer"
+                  >
+                    Đến Kho bài học & Khám phá →
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {savedStore.lessons.map((lesson) => (
+                    <div
+                      key={lesson.id}
+                      className="bg-white p-4 rounded-2xl border border-[#E5DEC9] hover:border-[#204434] transition shadow-xs flex flex-col justify-between space-y-3"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48]">
+                            HSK {lesson.level} · BÀI {String(lesson.lessonNumber).padStart(2, "0")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              removeSavedLesson(currentUser?.id, lesson.id);
+                              reloadSavedKnowledge();
+                            }}
+                            className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                            title="Bỏ lưu bài học này"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <h4 className="font-serif font-bold text-base text-[#1A3D2F] line-clamp-1">
+                          {lesson.titleZh}
+                        </h4>
+                        <p className="text-xs text-amber-700 font-mono mt-0.5 line-clamp-1">
+                          {lesson.pinyin}
+                        </p>
+                        <p className="text-xs text-[#315E48] mt-1 line-clamp-2">
+                          {lesson.titleVi}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t border-[#E5DEC9]/60 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400">
+                          {lesson.vocabCount ? `${lesson.vocabCount} từ vựng` : "Bài học chính quy"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToTab?.("lessons")}
+                          className="px-3 py-1.5 rounded-xl bg-[#204434] hover:bg-[#1A3D2F] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Mở học ngay</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ================================================================= */}
           {/* PHÂN MỤC 1: TỪ VỰNG ĐÃ LƯU                                         */}

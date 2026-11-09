@@ -43,7 +43,20 @@ export interface SavedQuestionItem {
   savedAt: string;
 }
 
+export interface SavedLessonItem {
+  id: string; // `${level}:${lessonNumber}`
+  level: number;
+  lessonNumber: number;
+  titleZh: string;
+  titleVi: string;
+  pinyin: string;
+  vocabCount?: number;
+  grammarCount?: number;
+  savedAt: string;
+}
+
 export interface SavedKnowledgeStore {
+  lessons?: SavedLessonItem[];
   vocabs: SavedVocabItem[];
   grammars: SavedGrammarItem[];
   questions: SavedQuestionItem[];
@@ -57,20 +70,21 @@ function getStorageKey(studentId?: string): string {
 
 export function getSavedKnowledge(studentId?: string): SavedKnowledgeStore {
   if (typeof window === "undefined") {
-    return { vocabs: [], grammars: [], questions: [] };
+    return { lessons: [], vocabs: [], grammars: [], questions: [] };
   }
   try {
     const raw = localStorage.getItem(getStorageKey(studentId));
-    if (!raw) return { vocabs: [], grammars: [], questions: [] };
+    if (!raw) return { lessons: [], vocabs: [], grammars: [], questions: [] };
     const parsed = JSON.parse(raw);
     return {
+      lessons: Array.isArray(parsed?.lessons) ? parsed.lessons : [],
       vocabs: Array.isArray(parsed?.vocabs) ? parsed.vocabs : [],
       grammars: Array.isArray(parsed?.grammars) ? parsed.grammars : [],
       questions: Array.isArray(parsed?.questions) ? parsed.questions : [],
     };
   } catch (e) {
     console.warn("Failed to read saved knowledge from storage:", e);
-    return { vocabs: [], grammars: [], questions: [] };
+    return { lessons: [], vocabs: [], grammars: [], questions: [] };
   }
 }
 
@@ -170,4 +184,41 @@ export function removeSavedQuestion(studentId: string | undefined, idOrPrompt: s
 export function isQuestionSaved(studentId: string | undefined, idOrPrompt: string): boolean {
   const store = getSavedKnowledge(studentId);
   return store.questions.some((q) => q.id === idOrPrompt || q.prompt === idOrPrompt);
+}
+
+// 4. BÀI HỌC
+export function saveLessonItem(
+  studentId: string | undefined,
+  item: Omit<SavedLessonItem, "savedAt">
+): boolean {
+  const store = getSavedKnowledge(studentId);
+  if (!store.lessons) store.lessons = [];
+  const exists = store.lessons.some(
+    (l) => l.id === item.id || (l.level === item.level && l.lessonNumber === item.lessonNumber)
+  );
+  if (exists) {
+    store.lessons = store.lessons.filter(
+      (l) => l.id !== item.id && !(l.level === item.level && l.lessonNumber === item.lessonNumber)
+    );
+    saveStore(studentId, store);
+    return false; // đã bỏ lưu
+  } else {
+    store.lessons.unshift({ ...item, savedAt: new Date().toISOString() });
+    saveStore(studentId, store);
+    return true; // đã lưu thành công
+  }
+}
+
+export function removeSavedLesson(studentId: string | undefined, id: string): void {
+  const store = getSavedKnowledge(studentId);
+  if (!store.lessons) return;
+  store.lessons = store.lessons.filter((l) => l.id !== id);
+  saveStore(studentId, store);
+}
+
+export function isLessonSaved(studentId: string | undefined, level: number, lessonNumber: number): boolean {
+  const store = getSavedKnowledge(studentId);
+  if (!store.lessons) return false;
+  const id = `${level}:${lessonNumber}`;
+  return store.lessons.some((l) => l.id === id || (l.level === level && l.lessonNumber === lessonNumber));
 }

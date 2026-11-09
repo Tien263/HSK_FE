@@ -422,6 +422,27 @@ export default function VocabPracticeSuite({
       studentId
     );
 
+    // Tự động đẩy từ vào Hộp 1 Sổ tay SRS Leitner khi học viên đánh giá "Chưa nhớ" hoặc "Cần ôn"
+    if (status === "NOT_REMEMBERED" || status === "REVIEW_NEEDED") {
+      try {
+        void fetch("/api/v1/my/vocab-notebook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId,
+            hanzi: currentVocab.hanzi,
+            pinyin: currentVocab.pinyin || "",
+            meaningVi: currentVocab.meaningVi || currentVocab.meaning || "",
+            wordType: (currentVocab as any).wordType || (currentVocab as any).type || null,
+            exampleHanzi: (currentVocab as any).exampleHanzi || (currentVocab as any).exampleZh || null,
+            exampleMeaning: (currentVocab as any).exampleMeaning || (currentVocab as any).exampleVi || null,
+          }),
+        }).catch(() => {});
+      } catch {
+        // Safe catch
+      }
+    }
+
     refreshMemory();
     onMemoryUpdated?.();
 
@@ -429,8 +450,8 @@ export default function VocabPracticeSuite({
       status === "MASTERED"
         ? "✓ Đã đánh dấu: Đã nhớ (Ôn ngắt quãng sau 3-7 ngày)"
         : status === "REVIEW_NEEDED"
-        ? "⏳ Đã đánh dấu: Cần ôn (Nhắc lại vào ngày mai)"
-        : "✖ Đã đánh dấu: Chưa nhớ (Lưu vào kiến thức cần luyện gấp)";
+        ? "⏳ Đã đưa vào Hộp 1 Sổ SRS Leitner (Cần ôn tập)"
+        : "✖ Đã đưa vào Hộp 1 Sổ SRS Leitner (Chưa nhớ)";
 
     setRatingFeedback(msg);
     setTimeout(() => setRatingFeedback(null), 2200);

@@ -1107,129 +1107,108 @@ export default function AiDialogueRoleplayModal({
         {/* =================================================================== */}
         {talkMode === "LESSON" && (
           <div className="space-y-4">
-            {/* Thanh chọn nhân vật đóng vai & Nút Thêm câu mới */}
-            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-white rounded-2xl border border-[#E5DEC9]">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#8F6D3B]">Bạn muốn đóng vai:</span>
-                <div className="flex items-center gap-1.5">
-                  {allSpeakers.map((spk, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setMyRole(spk)}
-                      className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        myRole === spk
-                          ? "bg-[#204434] text-white shadow-xs"
-                          : "bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:bg-white"
-                      }`}
-                    >
-                      {spk}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPinyin((prev) => !prev)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
-                    showPinyin
-                      ? "bg-amber-100 text-amber-900 border border-amber-300"
-                      : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
-                  }`}
-                  title="Bật hoặc ẩn phiên âm Pinyin"
-                >
-                  <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
-                </button>
-
-                <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] px-2 py-0.5 rounded-xl text-[11px] shadow-2xs">
-                  <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
-                  {[0.75, 0.85, 1.0, 1.25].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setSpeechRate(r)}
-                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer ${
-                        speechRate === r
-                          ? "bg-[#204434] text-white shadow-2xs"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                      title={r === 1.0 ? "Tốc độ tự nhiên bình thường (Mặc định)" : `Tốc độ ${r}x`}
-                    >
-                      {r === 1.0 ? "1.0x" : `${r}x`}
-                    </button>
-                  ))}
+            {/* Thanh điều khiển vai diễn & công cụ hỗ trợ mỏng gọn, thanh lịch */}
+            <div className="bg-white rounded-2xl border border-[#E5DEC9] p-2 px-3 shadow-2xs space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Chọn vai diễn */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-[#8F6D3B]">Vai bạn:</span>
+                  <div className="flex items-center gap-1">
+                    {allSpeakers.map((spk, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setMyRole(spk)}
+                        className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          myRole === spk
+                            ? "bg-[#204434] text-white shadow-2xs"
+                            : "bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:bg-white"
+                        }`}
+                      >
+                        {spk}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
-                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
-                  title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
-                >
-                  <Volume2 className="w-3 h-3 text-amber-600" />
-                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Doubao 思思)" : "Nam (Doubao 大叔)"}</span>
-                </button>
+                {/* Toolbar các nút điều khiển nhỏ gọn */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Toggle Pinyin */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPinyin((prev) => !prev)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
+                      showPinyin
+                        ? "bg-amber-100 text-amber-900 border border-amber-300"
+                        : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
+                    }`}
+                    title="Bật hoặc ẩn phiên âm Pinyin"
+                  >
+                    <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowPinyin((prev) => !prev)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
-                    showPinyin
-                      ? "bg-amber-100 text-amber-900 border border-amber-300"
-                      : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
-                  }`}
-                  title="Bật hoặc ẩn phiên âm Pinyin"
-                >
-                  <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
-                </button>
+                  {/* Tốc độ đọc */}
+                  <div className="flex items-center gap-1 bg-[#FAF7F0] border border-[#E5DEC9] px-1.5 py-0.5 rounded-lg text-[11px]">
+                    <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
+                    {[0.75, 1.0, 1.25].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setSpeechRate(r)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                          speechRate === r
+                            ? "bg-[#204434] text-white shadow-2xs"
+                            : "text-slate-600 hover:bg-white"
+                        }`}
+                        title={`Tốc độ ${r}x`}
+                      >
+                        {r === 1.0 ? "1.0x" : `${r}x`}
+                      </button>
+                    ))}
+                  </div>
 
-                <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] px-2 py-0.5 rounded-xl text-[11px] shadow-2xs">
-                  <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
-                  {[0.75, 0.85, 1.0, 1.25].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setSpeechRate(r)}
-                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer ${
-                        speechRate === r
-                          ? "bg-[#204434] text-white shadow-2xs"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                      title={r === 1.0 ? "Tốc độ tự nhiên bình thường (Mặc định)" : `Tốc độ ${r}x`}
-                    >
-                      {r === 1.0 ? "1.0x" : `${r}x`}
-                    </button>
-                  ))}
+                  {/* Giọng Doubao */}
+                  <button
+                    type="button"
+                    onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
+                    className="px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-[#FAF7F0] text-[#204434] border border-[#E5DEC9] hover:bg-white"
+                    title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
+                  >
+                    <Volume2 className="w-3 h-3 text-amber-600" />
+                    <span>{aiVoiceGender === "female" ? "♀ Doubao 思思" : "♂ Doubao 大叔"}</span>
+                  </button>
+
+                  {/* Thoại 2 chiều */}
+                  <button
+                    type="button"
+                    onClick={() => setAutoListen((prev) => !prev)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
+                      autoListen
+                        ? "bg-emerald-700 text-white"
+                        : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
+                    }`}
+                    title="Khi bạn nói đạt điểm, AI sẽ tự phát âm câu tiếp theo và tự mở micro cho bạn"
+                  >
+                    <Headphones className="w-3 h-3" />
+                    <span>Thoại tự động: {autoListen ? "BẬT" : "TẮT"}</span>
+                  </button>
+
+                  {/* Nút Thêm câu thoại */}
+                  <button
+                    type="button"
+                    onClick={handleOpenAdd}
+                    className="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                    title="Thêm câu thoại mới vào đoạn hội thoại"
+                  >
+                    <Plus className="w-3 h-3 text-amber-700" />
+                    <span>+ Thêm câu</span>
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setAutoListen((prev) => !prev)}
-                  className={`px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
-                    autoListen
-                      ? "bg-emerald-700 text-white"
-                      : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
-                  }`}
-                  title="Khi bạn nói đạt điểm, AI sẽ tự phát âm câu tiếp theo và tự mở micro cho bạn"
-                >
-                  <Headphones className="w-3 h-3" />
-                  <span>Thoại 2 chiều: {autoListen ? "Tự động (BẬT)" : "Bấm nút (TẮT)"}</span>
-                </button>
-
-                <button
-                  onClick={handleOpenAdd}
-                  className="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
-                  title="Thêm câu thoại mới vào đoạn hội thoại"
-                >
-                  <Plus className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Thêm câu thoại mới</span>
-                </button>
               </div>
             </div>
 
             {/* Danh sách câu thoại tuần tự */}
-            <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-72 sm:max-h-80 overflow-y-auto pr-1">
               {dialogueLines.map((line, idx) => {
                 const isCurrent = currentLineIdx === idx;
                 const isMine = line.speaker === myRole;
@@ -1583,35 +1562,35 @@ export default function AiDialogueRoleplayModal({
               )}
             </div>
 
-            {/* Thanh điều khiển âm giọng & thoại 2 chiều */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-              <div className="flex items-center gap-2">
+            {/* Thanh điều khiển âm giọng & thoại 2 chiều mỏng gọn */}
+            <div className="bg-white rounded-2xl border border-[#E5DEC9] p-2 px-3 shadow-2xs flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setShowPinyin((prev) => !prev)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
                     showPinyin
                       ? "bg-amber-100 text-amber-900 border border-amber-300"
-                      : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                      : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
                   }`}
                   title="Bật hoặc ẩn phiên âm Pinyin"
                 >
                   <span>Pinyin: {showPinyin ? "BẬT" : "TẮT"}</span>
                 </button>
 
-                <div className="flex items-center gap-1 bg-white border border-[#E5DEC9] px-2 py-0.5 rounded-xl text-[11px] shadow-2xs">
+                <div className="flex items-center gap-1 bg-[#FAF7F0] border border-[#E5DEC9] px-1.5 py-0.5 rounded-lg text-[11px]">
                   <span className="text-[10px] text-slate-500 font-bold">Tốc độ:</span>
-                  {[0.75, 0.85, 1.0, 1.25].map((r) => (
+                  {[0.75, 1.0, 1.25].map((r) => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => setSpeechRate(r)}
-                      className={`px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer ${
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                         speechRate === r
                           ? "bg-[#204434] text-white shadow-2xs"
-                          : "text-slate-600 hover:bg-slate-100"
+                          : "text-slate-600 hover:bg-white"
                       }`}
-                      title={r === 1.0 ? "Tốc độ tự nhiên bình thường (Mặc định)" : `Tốc độ ${r}x`}
+                      title={`Tốc độ ${r}x`}
                     >
                       {r === 1.0 ? "1.0x" : `${r}x`}
                     </button>
@@ -1621,25 +1600,25 @@ export default function AiDialogueRoleplayModal({
                 <button
                   type="button"
                   onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
-                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
+                  className="px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-[#FAF7F0] text-[#204434] border border-[#E5DEC9] hover:bg-white"
                   title="Đổi giọng đọc AI (Doubao Nữ Tự Nhiên / Doubao Nam Trầm Ấm)"
                 >
                   <Volume2 className="w-3 h-3 text-amber-600" />
-                  <span>Giọng: {aiVoiceGender === "female" ? "Nữ (Doubao 思思)" : "Nam (Doubao 大叔)"}</span>
+                  <span>{aiVoiceGender === "female" ? "♀ Doubao 思思" : "♂ Doubao 大叔"}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setAutoListen((prev) => !prev)}
-                  className={`px-3 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
                     autoListen
                       ? "bg-emerald-700 text-white"
-                      : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
+                      : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
                   }`}
                   title="Khi AI nói xong, micro sẽ tự động mở để bạn tiếp tục trò chuyện rảnh tay mà không cần bấm nút"
                 >
                   <Headphones className="w-3 h-3" />
-                  <span>Thoại 2 chiều: {autoListen ? "Tự động (BẬT)" : "Bấm nút (TẮT)"}</span>
+                  <span>Thoại tự động: {autoListen ? "BẬT" : "TẮT"}</span>
                 </button>
               </div>
 
@@ -1815,20 +1794,20 @@ export default function AiDialogueRoleplayModal({
                   <button
                     type="button"
                     onClick={() => setAiVoiceGender(aiVoiceGender === "female" ? "male" : "female")}
-                    className="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-white text-[#204434] border border-[#E5DEC9] hover:bg-[#FAF7F0] shadow-2xs"
+                    className="px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer bg-[#FAF7F0] text-[#204434] border border-[#E5DEC9] hover:bg-white"
                     title="Đổi giọng đọc Doubao (Nữ 思思 / Nam 大叔)"
                   >
                     <Volume2 className="w-3 h-3 text-amber-600" />
-                    <span>Giọng: {aiVoiceGender === "female" ? "Doubao 思思 (Nữ)" : "Doubao 大叔 (Nam)"}</span>
+                    <span>{aiVoiceGender === "female" ? "♀ Doubao 思思" : "♂ Doubao 大叔"}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setShowPinyin((prev) => !prev)}
-                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                    className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
                       showPinyin
                         ? "bg-amber-100 text-amber-900 border border-amber-300"
-                        : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                        : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
                     }`}
                     title="Bật hoặc ẩn phiên âm Pinyin"
                   >
@@ -1838,15 +1817,15 @@ export default function AiDialogueRoleplayModal({
                   <button
                     type="button"
                     onClick={() => setAutoListen((prev) => !prev)}
-                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+                    className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
                       autoListen
                         ? "bg-emerald-700 text-white"
-                        : "bg-white text-slate-600 border border-[#E5DEC9] hover:bg-slate-50"
+                        : "bg-[#FAF7F0] text-slate-600 border border-[#E5DEC9] hover:bg-white"
                     }`}
                     title="Khi AI nói xong, micro sẽ tự động mở để bạn tiếp tục trò chuyện rảnh tay mà không cần bấm nút"
                   >
                     <Headphones className="w-3 h-3" />
-                    <span>Thoại 2 chiều: {autoListen ? "Tự động" : "Bấm nút"}</span>
+                    <span>Thoại tự động: {autoListen ? "BẬT" : "TẮT"}</span>
                   </button>
 
                   {freeChatHistory.length > 0 && (
