@@ -169,13 +169,62 @@ export default function MistakeNotebookModal({
       if (studentId) query = `studentId=${encodeURIComponent(studentId)}`;
       else if (studentUsername) query = `username=${encodeURIComponent(studentUsername)}`;
 
-      const res = await fetch(`/api/v1/my/wrong-questions?${query}`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.items)) {
-        setItems(data.items);
-        if (currentIndex >= data.items.length) {
-          setCurrentIndex(0);
+      let serverItems: WrongQuestionItem[] = [];
+      try {
+        const res = await fetch(`/api/v1/my/wrong-questions?${query}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.items)) {
+          serverItems = data.items;
         }
+      } catch (err) {
+        console.warn("fetch server wrong questions error:", err);
+      }
+
+      // Đọc thêm từ localStorage để câu sai vừa làm xuất hiện tức thì
+      let localWrong: any[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem(`hsk_wrong_questions_${studentId || "default"}`);
+          if (raw) localWrong = JSON.parse(raw);
+        } catch {}
+      }
+
+      const mergedMap = new Map<string, WrongQuestionItem>();
+      // 1. Nạp từ Server
+      for (const it of serverItems) {
+        if (it?.content) {
+          mergedMap.set(it.content.trim(), it);
+        }
+      }
+      // 2. Nạp từ Local storage
+      for (const it of localWrong) {
+        const key = (it.content || it.prompt || "").trim();
+        if (key && !mergedMap.has(key)) {
+          let parsedOpts = it.options || [];
+          if (Array.isArray(parsedOpts) && parsedOpts.length > 0 && typeof parsedOpts[0] === "string") {
+            parsedOpts = parsedOpts.map((opt: string, idx: number) => ({
+              id: String.fromCharCode(65 + idx),
+              text: opt,
+            }));
+          }
+          mergedMap.set(key, {
+            id: it.id || `local_${Math.random()}`,
+            questionId: it.questionId || `q_${Math.random()}`,
+            content: key,
+            pinyinPrompt: it.pinyinPrompt || null,
+            options: parsedOpts,
+            correctAnswer: it.correctAnswer || "A",
+            explanation: it.explanation || "Củng cố lại kiến thức cấu trúc ngữ pháp này.",
+            wrongCount: it.wrongCount || 1,
+            consecutiveRight: it.consecutiveRight || 0,
+          });
+        }
+      }
+
+      const finalItems = Array.from(mergedMap.values());
+      setItems(finalItems);
+      if (currentIndex >= finalItems.length) {
+        setCurrentIndex(0);
       }
     } catch (e) {
       console.error("fetchWrongQuestions error:", e);

@@ -42,6 +42,7 @@ import {
   BookmarkCheck,
   Eye,
   CheckCircle,
+  ChevronRight,
 } from "lucide-react";
 import {
   normalizeGrammarList,
@@ -116,6 +117,20 @@ interface GrammarPracticeSuiteProps {
   hskLevel?: number;
   studentId?: string;
   handleSpeak: (text: string) => void;
+  onOpenMistakeNotebook?: () => void;
+}
+
+export interface GrammarAttempt {
+  id: string;
+  prompt: string;
+  userAnswer: string;
+  correctAnswer: string;
+  isCorrect: boolean;
+  explanation?: string;
+  grammarTitle?: string;
+  mode: GrammarExerciseMode;
+  options?: any[];
+  timestamp: number;
 }
 
 // =========================================================================
@@ -143,11 +158,38 @@ export default function GrammarPracticeSuite({
   hskLevel = 1,
   studentId = "guest",
   handleSpeak,
+  onOpenMistakeNotebook,
 }: GrammarPracticeSuiteProps) {
   // Thời gian học thực tế hôm nay & trong tuần (ĐỘNG 100%)
   const [isMounted, setIsMounted] = useState(false);
   const [todayStudySec, setTodayStudySec] = useState(0);
   const [weeklyStudySec, setWeeklyStudySec] = useState(0);
+
+  // Lịch sử các câu hỏi đã luyện & Modal chi tiết tiến độ
+  const [attemptHistory, setAttemptHistory] = useState<GrammarAttempt[]>([]);
+  const [showProgressDetailModal, setShowProgressDetailModal] = useState(false);
+  const [wrongFeedbackMsg, setWrongFeedbackMsg] = useState<string | null>(null);
+
+  // Đọc lịch sử làm bài từ localStorage khi đổi bài học / cấp độ
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(
+          `hsk_grammar_attempts_${studentId || "default"}_lvl${hskLevel}_lesson_${lessonNumber}`
+        );
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setAttemptHistory(parsed);
+          }
+        } else {
+          setAttemptHistory([]);
+        }
+      } catch (err) {
+        console.warn("load grammar attempts error:", err);
+      }
+    }
+  }, [studentId, hskLevel, lessonNumber]);
 
   // State Quản lý Trạng thái Ngữ pháp do Học sinh tự đánh dấu (Lưu LocalStorage theo User)
   const [, setSavedTick] = useState(0);
@@ -331,6 +373,104 @@ export default function GrammarPracticeSuite({
     }
   }, [currentExercise, activeExerciseMode, currentQuestionIdx]);
 
+  // Hàm ghi nhận kết quả từng câu luyện tập và tự động đẩy câu sai vào Sổ câu sai & Bộ đề giải độc
+  const recordAttempt = useCallback(
+    (exercise: GrammarExerciseItem, userAnswer: string, isCorrect: boolean) => {
+      const qKey =
+        exercise.id ||
+        exercise.prompt ||
+        exercise.sentence ||
+        `q_${activeExerciseMode}_${currentQuestionIdx}`;
+
+      const grammarExpl = (currentGrammar as any)?.explanation || currentGrammar?.meaningVi || "";
+      const newAttempt: GrammarAttempt = {
+        id: qKey,
+        prompt: exercise.prompt || exercise.sentence || "Câu hỏi luyện ngữ pháp",
+        userAnswer,
+        correctAnswer: exercise.correctAnswer,
+        isCorrect,
+        explanation: exercise.explanation || grammarExpl,
+        grammarTitle: currentGrammar?.title || currentGrammar?.titleZh,
+        mode: activeExerciseMode,
+        options: exercise.options,
+        timestamp: Date.now(),
+      };
+
+      setAttemptHistory((prev) => {
+        const filtered = prev.filter((it) => it.id !== qKey && it.prompt !== newAttempt.prompt);
+        const next = [newAttempt, ...filtered];
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(
+              `hsk_grammar_attempts_${studentId || "default"}_lvl${hskLevel}_lesson_${lessonNumber}`,
+              JSON.stringify(next)
+            );
+          } catch {}
+        }
+        return next;
+      });
+
+      // Nếu làm sai: Tự động lưu câu sai vào Sổ câu sai & Bộ đề giải độc (cả localStorage và server)
+      if (!isCorrect) {
+        const wrongContent = exercise.prompt || exercise.sentence || "Câu hỏi luyện ngữ pháp";
+        let normOpts: any = exercise.options;
+        if (Array.isArray(normOpts) && normOpts.length > 0 && typeof normOpts[0] === "string") {
+          normOpts = normOpts.map((opt: string, i: number) => ({
+            id: String.fromCharCode(65 + i),
+            text: opt,
+          }));
+        }
+
+        const wrongPayload = {
+          content: wrongContent,
+          options: normOpts,
+          correctAnswer: exercise.correctAnswer,
+          explanation: exercise.explanation || grammarExpl || null,
+          skill: "GRAMMAR",
+          level: hskLevel,
+        };
+
+        // 1. Lưu vào localStorage cho Sổ câu sai tức thời
+        if (typeof window !== "undefined") {
+          try {
+            const lk = `hsk_wrong_questions_${studentId || "default"}`;
+            const raw = localStorage.getItem(lk);
+            const currentList: any[] = raw ? JSON.parse(raw) : [];
+            const exists = currentList.some((w) => w.content?.trim() === wrongContent.trim());
+            if (!exists) {
+              currentList.unshift({
+                ...wrongPayload,
+                id: `wrong_${Date.now()}`,
+                wrongCount: 1,
+                consecutiveRight: 0,
+                lastWrongAt: new Date().toISOString(),
+              });
+              localStorage.setItem(lk, JSON.stringify(currentList));
+            }
+            window.dispatchEvent(new Event("wrong_questions_updated"));
+          } catch {}
+        }
+
+        // 2. Gửi API lên server database
+        try {
+          void fetch("/api/v1/my/wrong-questions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "record_wrong",
+              studentId,
+              question: wrongPayload,
+            }),
+          }).catch(() => {});
+        } catch {}
+
+        setWrongFeedbackMsg("⚠️ Câu làm chưa đúng. Đã tự động lưu vào Sổ câu sai & Bộ đề giải độc!");
+        setTimeout(() => setWrongFeedbackMsg(null), 3000);
+      }
+    },
+    [activeExerciseMode, currentGrammar, currentQuestionIdx, hskLevel, lessonNumber, studentId]
+  );
+
   // Xử lý nộp trắc nghiệm
   const handleSelectOption = (opt: string) => {
     if (isAnswered) return;
@@ -343,6 +483,7 @@ export default function GrammarPracticeSuite({
       setScore((s) => s + 10);
       setCorrectCount((c) => c + 1);
     }
+    recordAttempt(currentExercise, opt, isCorrect);
   };
 
   // Xử lý sắp xếp từ
@@ -406,6 +547,7 @@ export default function GrammarPracticeSuite({
       setCorrectCount((c) => c + 1);
       handleSpeak(currentExercise.sentence || joinedRaw);
     }
+    recordAttempt(currentExercise, joinedRaw, Boolean(isMatch));
   };
 
   const handlePrevQuestion = () => {
@@ -422,12 +564,16 @@ export default function GrammarPracticeSuite({
     }
   };
 
-  // Thống kê nhanh
+  // Thống kê nhanh và chính xác
   const masteredCount = normalizedGrammars.filter((g) => g.status === "MASTERED").length;
   const reviewCount = normalizedGrammars.filter((g) => g.status === "REVIEW_NEEDED").length;
   const notLearnedCount = normalizedGrammars.filter((g) => g.status === "NOT_LEARNED").length;
+
+  const practicedCount = attemptHistory.length;
+  const realCorrectCount = attemptHistory.filter((a) => a.isCorrect).length;
+  const realWrongCount = attemptHistory.filter((a) => !a.isCorrect).length;
   const accuracyPercentage =
-    currentQuestionIdx > 0 ? Math.round((correctCount / (currentQuestionIdx + 1)) * 100) : 80;
+    practicedCount > 0 ? Math.round((realCorrectCount / practicedCount) * 100) : 100;
 
   if (!grammarList || grammarList.length === 0 || !normalizedGrammars || normalizedGrammars.length === 0 || !currentGrammar) {
     return (
@@ -776,6 +922,25 @@ export default function GrammarPracticeSuite({
             </div>
           </div>
 
+          {/* Thông báo câu sai tự động đẩy vào Sổ câu sai */}
+          {wrongFeedbackMsg && (
+            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center justify-between gap-2 animate-fadeIn shadow-2xs">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{wrongFeedbackMsg}</span>
+              </div>
+              {onOpenMistakeNotebook && (
+                <button
+                  type="button"
+                  onClick={onOpenMistakeNotebook}
+                  className="px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] shrink-0 transition cursor-pointer"
+                >
+                  Xem Sổ câu sai →
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Nội dung câu hỏi */}
           <div className="space-y-3">
             <h3 className="font-serif font-bold text-sm sm:text-base text-[#17382F]">
@@ -1003,9 +1168,15 @@ export default function GrammarPracticeSuite({
               <span className="font-serif font-bold text-sm text-[#17382F]">
                 Tiến độ ngữ pháp
               </span>
-              <span className="text-[11px] text-[#8F6D3B] font-bold hover:underline cursor-pointer">
-                Xem chi tiết &gt;
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowProgressDetailModal(true)}
+                className="text-[11px] text-[#8F6D3B] font-bold hover:underline cursor-pointer bg-transparent border-none p-0 flex items-center gap-0.5"
+                title="Bấm để xem chi tiết số câu đã luyện, số câu đúng và số câu sai"
+              >
+                <span>Xem chi tiết</span>
+                <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
 
             <div className="flex items-center gap-4">
@@ -1022,14 +1193,21 @@ export default function GrammarPracticeSuite({
                     <BookMarked className="w-3.5 h-3.5 text-[#8F6D3B]" />
                     Đã luyện:
                   </span>
-                  <strong className="text-[#17382F]">3</strong>
+                  <strong className="text-[#17382F] font-bold">{practicedCount} câu</strong>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Kết quả:</span>
+                  <span className="font-medium">
+                    <strong className="text-emerald-700">{realCorrectCount}</strong> đúng ·{" "}
+                    <strong className="text-rose-600">{realWrongCount}</strong> sai
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1 text-[11px]">
                     <Target className="w-3.5 h-3.5 text-emerald-600" />
                     Độ chính xác:
                   </span>
-                  <strong className="text-emerald-700">{accuracyPercentage}%</strong>
+                  <strong className="text-emerald-700 font-bold">{accuracyPercentage}%</strong>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1 text-[11px]">
@@ -1261,6 +1439,212 @@ export default function GrammarPracticeSuite({
           </div>
         </div>
       </div>
+
+      {/* =================================================================== */}
+      {/* MODAL CHI TIẾT TIẾN ĐỘ LUYỆN NGỮ PHÁP                              */}
+      {/* =================================================================== */}
+      {showProgressDetailModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setShowProgressDetailModal(false)}
+        >
+          <div
+            className="bg-[#FFFCF6] border border-[#E5DEC9] w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col justify-between animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5DEC9]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#204434] text-white flex items-center justify-center shadow-xs">
+                  <BarChart2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base sm:text-lg text-[#204434]">
+                    Chi tiết tiến độ luyện ngữ pháp
+                  </h3>
+                  <p className="text-xs text-[#315E48]">
+                    HSK {hskLevel} · Bài {String(lessonNumber).padStart(2, "0")} · {lessonTitleZh}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowProgressDetailModal(false)}
+                className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48] hover:text-[#204434] flex items-center justify-center cursor-pointer transition"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 4 Thẻ KPIs thống kê trực quan */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="p-3 rounded-2xl bg-white border border-[#E5DEC9] text-center shadow-2xs">
+                <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">
+                  Đã luyện
+                </span>
+                <strong className="text-xl font-serif text-[#204434] block mt-0.5">
+                  {practicedCount}
+                </strong>
+                <span className="text-[10px] text-slate-400">câu hỏi</span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-center shadow-2xs">
+                <span className="text-[10px] text-emerald-800 font-bold block uppercase tracking-wider">
+                  Trả lời đúng
+                </span>
+                <strong className="text-xl font-serif text-emerald-700 block mt-0.5">
+                  {realCorrectCount}
+                </strong>
+                <span className="text-[10px] text-emerald-600">câu</span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-center shadow-2xs">
+                <span className="text-[10px] text-rose-800 font-bold block uppercase tracking-wider">
+                  Trả lời sai
+                </span>
+                <strong className="text-xl font-serif text-rose-700 block mt-0.5">
+                  {realWrongCount}
+                </strong>
+                <span className="text-[10px] text-rose-600">cần ôn lại</span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-center shadow-2xs">
+                <span className="text-[10px] text-amber-800 font-bold block uppercase tracking-wider">
+                  Độ chính xác
+                </span>
+                <strong className="text-xl font-serif text-amber-700 block mt-0.5">
+                  {accuracyPercentage}%
+                </strong>
+                <span className="text-[10px] text-amber-600">tỷ lệ đúng</span>
+              </div>
+            </div>
+
+            {/* Danh sách câu hỏi đã luyện */}
+            <div className="flex-1 overflow-y-auto max-h-80 space-y-2.5 pr-1">
+              <span className="text-xs font-bold text-[#8F6D3B] block">
+                Lịch sử các câu hỏi đã làm ({attemptHistory.length}):
+              </span>
+
+              {attemptHistory.length === 0 ? (
+                <div className="py-12 text-center bg-white rounded-2xl border border-dashed border-[#E5DEC9] space-y-2">
+                  <FileQuestion className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="text-xs text-slate-500 font-medium">
+                    Bạn chưa luyện câu hỏi nào trong bài này.
+                  </p>
+                  <p className="text-[11px] text-[#315E48]">
+                    Hãy bắt đầu làm các bài tập trắc nghiệm hoặc sắp xếp câu ở trên để hệ thống tự động ghi nhận tiến độ nhé!
+                  </p>
+                </div>
+              ) : (
+                attemptHistory.map((att, idx) => (
+                  <div
+                    key={att.id || idx}
+                    className={`p-3.5 rounded-2xl border transition shadow-2xs text-xs space-y-2 ${
+                      att.isCorrect
+                        ? "bg-white border-emerald-200"
+                        : "bg-rose-50/50 border-rose-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FAF7F0] border border-[#E5DEC9] text-[#315E48]">
+                        Câu {idx + 1} · {att.grammarTitle || "Ngữ pháp"}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                          att.isCorrect
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-rose-100 text-rose-800"
+                        }`}
+                      >
+                        {att.isCorrect ? (
+                          <>
+                            <Check className="w-3 h-3" /> Đúng
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3 h-3" /> Sai (Đã lưu vào Sổ câu sai)
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    <p className="font-bold text-[#17382F] text-sm">{att.prompt}</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div className="p-2 rounded-xl bg-[#FAF7F0] border border-[#E5DEC9]">
+                        <span className="text-slate-500 block text-[10px]">Bạn chọn:</span>
+                        <strong className={att.isCorrect ? "text-emerald-700" : "text-rose-600"}>
+                          {att.userAnswer}
+                        </strong>
+                      </div>
+                      <div className="p-2 rounded-xl bg-emerald-50/80 border border-emerald-200">
+                        <span className="text-emerald-800 block text-[10px]">Đáp án đúng:</span>
+                        <strong className="text-emerald-700">{att.correctAnswer}</strong>
+                      </div>
+                    </div>
+
+                    {att.explanation && (
+                      <p className="text-[11px] text-[#315E48] bg-white/80 p-2 rounded-xl border border-[#E5DEC9] italic">
+                        💡 Giải thích: {att.explanation}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer hành động */}
+            <div className="pt-3 border-t border-[#E5DEC9] flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {onOpenMistakeNotebook && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProgressDetailModal(false);
+                      onOpenMistakeNotebook();
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#204434] hover:bg-[#17382F] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Mở Sổ câu sai & Bộ đề giải độc</span>
+                  </button>
+                )}
+
+                {attemptHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("Bạn có muốn làm mới lịch sử luyện tập của bài học này để làm lại từ đầu không?")) {
+                        setAttemptHistory([]);
+                        setScore(0);
+                        setCorrectCount(0);
+                        if (typeof window !== "undefined") {
+                          localStorage.removeItem(
+                            `hsk_grammar_attempts_${studentId || "default"}_lvl${hskLevel}_lesson_${lessonNumber}`
+                          );
+                        }
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-[#E5DEC9] text-rose-700 text-xs font-semibold transition cursor-pointer flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Làm lại từ đầu</span>
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowProgressDetailModal(false)}
+                className="px-4 py-1.5 rounded-xl bg-[#FAF7F0] hover:bg-white border border-[#E5DEC9] text-[#204434] text-xs font-bold transition cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

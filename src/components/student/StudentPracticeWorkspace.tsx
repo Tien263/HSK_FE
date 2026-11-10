@@ -1419,6 +1419,7 @@ export default function StudentPracticeWorkspace({
           studentId={currentUser?.id}
           handleSpeak={handleSpeak}
           customExercises={currentOfficialLesson?.grammarExercises}
+          onOpenMistakeNotebook={() => setShowMistakeNotebookModal(true)}
         />
       )}
 

@@ -5,21 +5,24 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
     const auth = await getAuthUser(request);
-    if (!auth) return NextResponse.json({ success: false, message: "Vui lòng đăng nhập." }, { status: 401 });
-    const userIdHeader = auth.id;
-    const studentIdParam = auth.id;
-    const username = auth.username;
+    const studentIdParam = searchParams.get("studentId");
+    const usernameParam = searchParams.get("username");
+
+    const targetUserId = auth?.id || studentIdParam;
 
     let student = null;
-    if (studentIdParam || userIdHeader) {
+    if (targetUserId) {
       student = await prisma.user.findUnique({
-        where: { id: studentIdParam || userIdHeader || "" },
+        where: { id: targetUserId },
       });
     }
 
-    if (!student && username) {
-      student = await prisma.user.findFirst({ where: { username } });
+    if (!student && (usernameParam || auth?.username)) {
+      student = await prisma.user.findFirst({
+        where: { username: usernameParam || auth?.username || "" },
+      });
     }
 
     if (!student) {
@@ -76,6 +79,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, items });
   } catch (error) {
+    console.error("GET /my/wrong-questions error:", error);
     return NextResponse.json({ success: false, message: "Lỗi tải câu sai" }, { status: 500 });
   }
 }
@@ -83,20 +87,106 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUser(request);
-    if (!auth) return NextResponse.json({ success: false, message: "Vui lòng đăng nhập." }, { status: 401 });
-    if (!examWriteOrigin(request)) return NextResponse.json({ success: false, message: "Nguồn yêu cầu không hợp lệ." }, { status: 403 });
     const body = await request.json();
-    const { wrongQuestionId, isCorrect } = body;
+    const { action, wrongQuestionId, isCorrect, studentId, question } = body;
 
-    const student = await prisma.user.findFirst({
-      where: { id: auth.id },
-    });
+    const targetUserId = auth?.id || studentId;
+    let student = null;
+    if (targetUserId) {
+      student = await prisma.user.findUnique({
+        where: { id: targetUserId },
+      });
+    }
+
     if (!student) {
       return NextResponse.json({ success: false, message: "Không tìm thấy học sinh" }, { status: 404 });
     }
 
+    // 1. TRƯỜNG HỢP GHI NHẬN CÂU SAI MỚI KHI LUYỆN TẬP
+    if (action === "record_wrong" && question) {
+      const {
+        content,
+        pinyinPrompt,
+        options,
+        correctAnswer,
+        explanation,
+        skill = "GRAMMAR",
+        level = 1,
+      } = question;
+
+      if (!content || !correctAnswer) {
+        return NextResponse.json({ success: false, message: "Thiếu dữ liệu câu hỏi" }, { status: 400 });
+      }
+
+      // Tìm câu hỏi trong cơ sở dữ liệu hoặc tạo mới
+      const cleanContent = String(content).trim();
+      let dbQuestion = await prisma.question.findFirst({
+        where: { content: cleanContent },
+      });
+
+      const optionsJson = typeof options === "string" ? options : JSON.stringify(options || []);
+
+      if (!dbQuestion) {
+        dbQuestion = await prisma.question.create({
+          data: {
+            content: cleanContent,
+            pinyinPrompt: pinyinPrompt ? String(pinyinPrompt).trim() : null,
+            options: optionsJson,
+            correctAnswer: String(correctAnswer).trim(),
+            explanation: explanation ? String(explanation).trim() : null,
+            skill: String(skill).toUpperCase(),
+            level: Number(level) || 1,
+            type: "single_choice",
+          },
+        });
+      }
+
+      // Ghi nhận vào WrongQuestion
+      const existingWrong = await prisma.wrongQuestion.findUnique({
+        where: {
+          studentId_questionId: {
+            studentId: student.id,
+            questionId: dbQuestion.id,
+          },
+        },
+      });
+
+      let savedWrong;
+      if (existingWrong) {
+        savedWrong = await prisma.wrongQuestion.update({
+          where: { id: existingWrong.id },
+          data: {
+            wrongCount: { increment: 1 },
+            consecutiveRight: 0,
+            lastWrongAt: new Date(),
+          },
+        });
+      } else {
+        savedWrong = await prisma.wrongQuestion.create({
+          data: {
+            studentId: student.id,
+            questionId: dbQuestion.id,
+            wrongCount: 1,
+            consecutiveRight: 0,
+            lastWrongAt: new Date(),
+          },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Đã lưu câu sai vào Sổ câu sai & Bộ đề giải độc!",
+        wrongQuestionId: savedWrong.id,
+      });
+    }
+
+    // 2. TRƯỜNG HỢP ÔN LẠI CÂU SAI TRONG SỔ CÂU SAI (ĐÁNH GIÁ ĐÚNG/SAI)
+    if (!wrongQuestionId) {
+      return NextResponse.json({ success: false, message: "Thiếu wrongQuestionId" }, { status: 400 });
+    }
+
     const wrongItem = await prisma.wrongQuestion.findFirst({
-      where: { id: wrongQuestionId, studentId: auth.id },
+      where: { id: wrongQuestionId, studentId: student.id },
     });
     if (!wrongItem) {
       return NextResponse.json({ success: false, message: "Không tìm thấy bản ghi câu sai" }, { status: 404 });
@@ -109,7 +199,7 @@ export async function POST(request: Request) {
     if (isCorrect) {
       earnedXp = 5;
       if (updatedConsecutive >= 3) {
-        earnedXp += 15; // Thưởng đặc biệt khi khắc phục xong câu sai
+        earnedXp += 15; // Thưởng đặc biệt khi giải độc thành công câu sai
       }
 
       await prisma.user.update({
