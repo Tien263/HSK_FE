@@ -21,6 +21,8 @@ import {
   Globe,
   Radio,
   CheckCircle2,
+  Power,
+  ShieldOff,
 } from "lucide-react";
 
 export interface ExamAntiCheatProctorProps {
@@ -39,6 +41,8 @@ export interface ExamAntiCheatProctorProps {
     snapshot: string | null;
   }) => void;
   onOpenViolationLog?: () => void;
+  isProctorEnabled?: boolean;
+  onToggleProctor?: (enabled: boolean) => void;
 }
 
 export default function ExamAntiCheatProctor({
@@ -50,7 +54,44 @@ export default function ExamAntiCheatProctor({
   requireMic = true,
   onViolationRecorded,
   onOpenViolationLog,
+  isProctorEnabled: controlledEnabled,
+  onToggleProctor,
 }: ExamAntiCheatProctorProps) {
+  // Quyền Bật / Tắt Giám thị AI
+  const [isProctorEnabled, setIsProctorEnabled] = useState<boolean>(() => {
+    if (controlledEnabled !== undefined) return controlledEnabled;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("hanyu_disable_ai_proctor") !== "true";
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (controlledEnabled !== undefined) {
+      setIsProctorEnabled(controlledEnabled);
+      if (!controlledEnabled && streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        setCameraActive(false);
+        setMicActive(false);
+      }
+    }
+  }, [controlledEnabled]);
+
+  const handleToggleProctor = (enabled: boolean) => {
+    setIsProctorEnabled(enabled);
+    if (onToggleProctor) onToggleProctor(enabled);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("hanyu_disable_ai_proctor", enabled ? "false" : "true");
+    }
+    if (!enabled && streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setCameraActive(false);
+      setMicActive(false);
+    }
+  };
+
   // Trạng thái Camera & Mic
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -327,6 +368,9 @@ export default function ExamAntiCheatProctor({
   // Xử lý khi phát hiện hành vi gian lận (Có Debounce chống spam)
   const triggerViolation = useCallback(
     (violationType: string, details: string, extraParam: number = 0) => {
+      // Khi đã tắt giám thị AI -> Tuyệt đối không bao giờ ghi nhận vi phạm!
+      if (!isProctorEnabled) return;
+
       // Đang trong giai đoạn chuẩn bị (Setup phase), không ghi nhận vi phạm
       if (isSetupPhase) return;
 
@@ -372,7 +416,7 @@ export default function ExamAntiCheatProctor({
         return next;
       });
     },
-    [isSetupPhase, captureViolationEvidence, maxViolations, onForceSubmit, playWarningBeep, reportViolation, onViolationRecorded]
+    [isProctorEnabled, isSetupPhase, captureViolationEvidence, maxViolations, onForceSubmit, playWarningBeep, reportViolation, onViolationRecorded]
   );
 
   // Nút Kiểm Tra Chẩn Đoán AI An Toàn (Self-Check: Camera + Micro + Tư Thế - TUYỆT ĐỐI KHÔNG GÂY LỖI VI PHẠM THI)
@@ -447,7 +491,7 @@ export default function ExamAntiCheatProctor({
     let isMounted = true;
 
     async function initMedia() {
-      if (!requireCamera && !requireMic) return;
+      if (!isProctorEnabled || (!requireCamera && !requireMic)) return;
       if (
         typeof window === "undefined" ||
         typeof navigator === "undefined" ||
@@ -548,7 +592,16 @@ export default function ExamAntiCheatProctor({
       }
     }
 
-    initMedia();
+    if (isProctorEnabled) {
+      initMedia();
+    } else {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      setCameraActive(false);
+      setMicActive(false);
+    }
 
     return () => {
       isMounted = false;
@@ -560,7 +613,7 @@ export default function ExamAntiCheatProctor({
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [requireCamera, requireMic, triggerViolation]);
+  }, [isProctorEnabled, requireCamera, requireMic, triggerViolation]);
 
   /**
    * 3. BỘ THỊ GIÁC COMPUTER VISION NHẬN DIỆN THIẾT BỊ DI ĐỘNG & NGƯỜI
@@ -817,6 +870,7 @@ export default function ExamAntiCheatProctor({
     let leaveTimestamp = 0;
 
     const handleVisibilityChange = () => {
+      if (!isProctorEnabled) return;
       if (document.hidden) {
         leaveTimestamp = Date.now();
       } else {
@@ -830,6 +884,7 @@ export default function ExamAntiCheatProctor({
     };
 
     const handleWindowBlur = () => {
+      if (!isProctorEnabled) return;
       setTimeout(() => {
         if (!document.hasFocus() && !document.hidden) {
           triggerViolation("APP_SWITCH", "Thí sinh chuyển sang ứng dụng khác ngoài trình duyệt (Zalo/Word/ChatGPT...)", 2);
@@ -844,23 +899,26 @@ export default function ExamAntiCheatProctor({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
     };
-  }, [triggerViolation]);
+  }, [isProctorEnabled, triggerViolation]);
 
   // 5. Chặn chuột phải, Copy, Paste, DevTools (F12)
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
+      if (!isProctorEnabled) return;
       e.preventDefault();
       triggerViolation("RIGHT_CLICK_BLOCKED", "Cố tình nhấp chuột phải trong phòng thi");
       return false;
     };
 
     const handleCopyPaste = (e: ClipboardEvent) => {
+      if (!isProctorEnabled) return;
       e.preventDefault();
       triggerViolation("COPY_PASTE_BLOCKED", "Cố tình sao chép / dán nội dung đề thi");
       return false;
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isProctorEnabled) return;
       if (e.key === "F12" || (e.ctrlKey && e.shiftKey && ["I", "J", "C"].includes(e.key.toUpperCase()))) {
         e.preventDefault();
         triggerViolation("DEVTOOLS_ATTEMPT", "Cố tình mở mã nguồn / Inspect element");
@@ -886,7 +944,31 @@ export default function ExamAntiCheatProctor({
       document.removeEventListener("cut", handleCopyPaste);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [triggerViolation]);
+  }, [isProctorEnabled, triggerViolation]);
+
+  if (!isProctorEnabled) {
+    return (
+      <aside
+        className="fixed bottom-4 right-4 z-40 bg-[#1B362A]/95 backdrop-blur-md text-white px-3.5 py-2.5 rounded-2xl shadow-xl border border-[#315E48] flex items-center gap-3 text-xs select-none"
+        role="region"
+        aria-label="Chế độ làm bài tự do"
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+          <span className="text-stone-200 font-medium text-[11px]">Chế độ thi tự do (Giám thị AI: ĐÃ TẮT)</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => handleToggleProctor(true)}
+          className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] transition cursor-pointer shadow-sm flex items-center gap-1"
+          title="Bật lại AI giám thị"
+        >
+          <Power className="w-3 h-3 text-amber-300" />
+          <span>Bật lại AI</span>
+        </button>
+      </aside>
+    );
+  }
 
   return (
     <>
@@ -921,6 +1003,15 @@ export default function ExamAntiCheatProctor({
             >
               <Zap className="w-2.5 h-2.5 text-amber-300" />
               <span>Test AI</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleProctor(false)}
+              className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[9px] font-bold transition cursor-pointer flex items-center gap-0.5"
+              title="Tắt Giám thị AI để làm bài tự do"
+            >
+              <ShieldOff className="w-2.5 h-2.5" />
+              <span>Tắt AI</span>
             </button>
             <button
               type="button"
@@ -970,11 +1061,18 @@ export default function ExamAntiCheatProctor({
             />
 
             {!cameraActive && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-black/85 text-xs text-stone-300 gap-1.5">
-                <CameraOff className="w-6 h-6 text-red-400" />
-                <span className="text-[11px] text-red-300">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-black/90 text-xs text-stone-300 gap-1.5 z-10">
+                <CameraOff className="w-6 h-6 text-amber-400" />
+                <span className="text-[11px] text-amber-200 leading-tight">
                   {cameraError || "Đang kết nối camera..."}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleProctor(false)}
+                  className="mt-1 px-3 py-1 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold transition cursor-pointer shadow-md"
+                >
+                  Tắt Giám thị AI &amp; Thi tự do
+                </button>
               </div>
             )}
 
@@ -1117,14 +1215,27 @@ export default function ExamAntiCheatProctor({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowWarningModal(false)}
-              className="w-full py-3 rounded-2xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-bold text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-2"
-            >
-              <Eye className="w-4 h-4" />
-              <span>Tôi đã hiểu & Quay lại làm bài nghiêm túc</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowWarningModal(false)}
+                className="flex-1 py-3 rounded-2xl bg-[#204434] hover:bg-[#183629] text-[#FFFCF6] font-bold text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Làm bài tiếp</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowWarningModal(false);
+                  handleToggleProctor(false);
+                }}
+                className="px-3.5 py-3 rounded-2xl border border-stone-300 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition cursor-pointer whitespace-nowrap"
+                title="Tắt Giám thị AI để chuyển sang chế độ thi tự do, không bị cảnh báo"
+              >
+                Tắt AI (Thi tự do)
+              </button>
+            </div>
           </div>
         </div>
       )}

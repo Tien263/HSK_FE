@@ -178,6 +178,9 @@ export default function CurriculumBuilderWorkspace({
   const [isRevisionHistoryOpen, setIsRevisionHistoryOpen] = useState(false);
   const [autoFillingNewVocab, setAutoFillingNewVocab] = useState(false);
 
+  // State chọn bài học để xóa hàng loạt hoặc thao tác nhóm
+  const [selectedLessonNumbers, setSelectedLessonNumbers] = useState<number[]>([]);
+
   const hasUnpublishedChanges = revision !== null && loadedLessons.current !== lessons;
   const pendingChanges = saving || hasUnpublishedChanges ||
     (editingLesson !== null && !lessons.includes(editingLesson));
@@ -210,6 +213,7 @@ export default function CurriculumBuilderWorkspace({
         }
         loadedLessons.current = data.items;
         setLessons(data.items);
+        setSelectedLessonNumbers([]);
         setRevision(data.revision);
       } catch (error) {
         if (!isCancelled) {
@@ -858,12 +862,124 @@ export default function CurriculumBuilderWorkspace({
     showToast(`Đã thêm Bài ${nextNumber}. Mời bạn nhập nội dung chi tiết.`);
   };
 
-  // 4. XÓA BÀI HỌC
-  const handleDeleteLesson = (lessonNumber: number) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa Bài ${lessonNumber} khỏi giáo trình HSK ${selectedLevel} không?`)) return;
+  // 4. XÓA ĐƠN LẺ MỘT BÀI HỌC VÀ LƯU NGAY LÊN HỆ THỐNG
+  const handleDeleteLesson = async (lessonNumber: number) => {
+    if (!canEdit) return;
+    if (
+      !confirm(
+        `Bạn có chắc chắn muốn xóa vĩnh viễn Bài ${lessonNumber} khỏi giáo trình HSK ${selectedLevel} không?\nThao tác này sẽ tự động lưu và cập nhật ngay lên hệ thống.`
+      )
+    ) {
+      return;
+    }
     const filtered = lessons.filter((l) => l.number !== lessonNumber);
     setLessons(filtered);
-    showToast(`Đã xóa Bài ${lessonNumber}. Hãy bấm "Lưu & Xuất bản" để đồng bộ.`);
+    setSelectedLessonNumbers((prev) => prev.filter((n) => n !== lessonNumber));
+    if (await persistCurriculum(filtered)) {
+      showToast(`Đã xóa Bài ${lessonNumber} và đồng bộ lên máy chủ thành công.`);
+    }
+  };
+
+  // 4B. XÓA HÀNG LOẠT CÁC BÀI ĐÃ CHỌN
+  const handleBulkDeleteLessons = async () => {
+    if (!canEdit || selectedLessonNumbers.length === 0) return;
+    const count = selectedLessonNumbers.length;
+    if (
+      !confirm(
+        `XÁC NHẬN XÓA HÀNG LOẠT:\nBạn có chắc chắn muốn xóa ${count} bài học đã chọn khỏi HSK ${selectedLevel}?\n(Các bài: ${selectedLessonNumbers.sort((a, b) => a - b).join(", ")})\nThao tác này sẽ tự động đồng bộ ngay lên máy chủ.`
+      )
+    ) {
+      return;
+    }
+    const remaining = lessons.filter((l) => !selectedLessonNumbers.includes(l.number));
+    setLessons(remaining);
+    setSelectedLessonNumbers([]);
+    if (await persistCurriculum(remaining)) {
+      showToast(`Đã xóa thành công ${count} bài học khỏi HSK ${selectedLevel}.`);
+    }
+  };
+
+  // 4C. XÓA SẠCH TOÀN BỘ BÀI HỌC HSK ĐANG CHỌN (RESET TRẮNG)
+  const handleClearAllLessons = async () => {
+    if (!canEdit || lessons.length === 0) return;
+    const confirmation = prompt(
+      `⚠️ CẢNH BÁO QUAN TRỌNG: Bạn sắp XÓA SẠCH toàn bộ ${lessons.length} bài học của HSK ${selectedLevel} trên máy chủ!\nĐể xác nhận, vui lòng gõ đúng chữ "XOA HET" vào ô dưới đây:`
+    );
+    if (confirmation !== "XOA HET") {
+      if (confirmation !== null) {
+        showToast("Đã hủy thao tác xóa toàn bộ do nhập sai từ xác nhận.");
+      }
+      return;
+    }
+    setLessons([]);
+    setSelectedLessonNumbers([]);
+    if (await persistCurriculum([])) {
+      showToast(`Đã xóa sạch toàn bộ bài học HSK ${selectedLevel}. Bạn có thể nạp lại giáo trình mới.`);
+    }
+  };
+
+  // 4D. TẢI FILE HSK 1 CHUẨN QUỐC TẾ MẪU (JSON ĐẦY ĐỦ 15 BÀI)
+  const handleDownloadStandardHsk1 = async () => {
+    try {
+      const res = await fetch("/templates/HSK1_Chuan_Quoc_Te_Mau.json");
+      if (!res.ok) throw new Error("Chưa tìm thấy file mẫu trên máy chủ.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "HSK1_Chuan_Quoc_Te_Mau.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("Đã tải xuống file chuẩn HSK 1 quốc tế mẫu thành công!");
+    } catch (err: any) {
+      showToast("Lỗi tải file mẫu: " + err.message);
+    }
+  };
+
+  // 4E. NẠP NHANH 15 BÀI HSK 1 CHUẨN QUỐC TẾ VÀO HỆ THỐNG
+  const handleLoadStandardHsk1 = async () => {
+    if (!canEdit) return;
+    if (
+      lessons.length > 0 &&
+      !confirm(
+        `Giáo trình HSK 1 hiện đang có ${lessons.length} bài. Bạn có chắc chắn muốn nạp đè 15 bài học chuẩn quốc tế vào không?\n(Bạn nên tải bản sao lưu trước nếu cần).`
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch("/templates/HSK1_Chuan_Quoc_Te_Mau.json");
+      if (!res.ok) throw new Error("Không thể tải file mẫu từ máy chủ.");
+      const standardLessons = await res.json();
+      if (!Array.isArray(standardLessons) || standardLessons.length === 0) {
+        throw new Error("Dữ liệu file mẫu không hợp lệ.");
+      }
+      setLessons(standardLessons);
+      setSelectedLessonNumbers([]);
+      if (await persistCurriculum(standardLessons)) {
+        showToast(`Đã nạp thành công ${standardLessons.length} bài HSK 1 chuẩn quốc tế lên máy chủ!`);
+      }
+    } catch (err: any) {
+      showToast("Lỗi nạp bài học mẫu: " + err.message);
+    }
+  };
+
+  // Chọn hoặc bỏ chọn một bài học
+  const handleToggleSelectLesson = (num: number) => {
+    setSelectedLessonNumbers((prev) =>
+      prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num]
+    );
+  };
+
+  // Chọn hoặc bỏ chọn tất cả các bài học
+  const handleSelectAllLessons = () => {
+    if (selectedLessonNumbers.length === lessons.length) {
+      setSelectedLessonNumbers([]);
+    } else {
+      setSelectedLessonNumbers(lessons.map((l) => l.number));
+    }
   };
 
   // 5. LƯU & XUẤT BẢN TOÀN BỘ GIÁO TRÌNH LÊN DATABASE & KHO CHUNG
@@ -1292,6 +1408,38 @@ export default function CurriculumBuilderWorkspace({
             <button type="button" disabled={!canEdit} onClick={downloadCurriculum} className={toolbarButton}>
               <Download size={15} /> Xuất JSON
             </button>
+            {selectedLevel === 1 && (
+              <button
+                type="button"
+                onClick={handleDownloadStandardHsk1}
+                className={`${toolbarButton} bg-emerald-50 border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-100`}
+                title="Tải về file JSON chuẩn quốc tế 15 bài HSK 1 đầy đủ bài tập và từ vựng"
+              >
+                <Download size={15} /> Tải HSK 1 Chuẩn (15 bài JSON)
+              </button>
+            )}
+            {selectedLevel === 1 && (
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={handleLoadStandardHsk1}
+                className={`${toolbarButton} bg-amber-50 border-amber-300 text-amber-800 font-bold hover:bg-amber-100`}
+                title="Nạp ngay 15 bài học HSK 1 chuẩn quốc tế vào hệ thống"
+              >
+                <Sparkles size={15} /> Nạp 15 Bài HSK 1 Chuẩn
+              </button>
+            )}
+            {lessons.length > 0 && (
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={handleClearAllLessons}
+                className={`${toolbarButton} border-rose-200 text-rose-700 hover:bg-rose-50`}
+                title={`Xóa sạch toàn bộ ${lessons.length} bài học của HSK ${selectedLevel}`}
+              >
+                <Trash2 size={15} /> Xóa sạch HSK {selectedLevel}
+              </button>
+            )}
             <details key={selectedLevel} className="w-full">
               <summary className="w-fit cursor-pointer rounded-md px-1 py-1.5 text-xs font-semibold text-[#526c50]">
                 Mẫu nhập và công cụ
@@ -1299,6 +1447,7 @@ export default function CurriculumBuilderWorkspace({
               <div className="mt-2 flex flex-wrap gap-2">
                 <button type="button" onClick={handleDownloadTemplate} className={toolbarButton}>Mẫu bài học</button>
                 <button type="button" onClick={handleDownloadExerciseTemplate} className={toolbarButton}>Mẫu câu hỏi</button>
+                <button type="button" onClick={handleDownloadStandardHsk1} className={toolbarButton}>File HSK 1 chuẩn mẫu</button>
                 <button type="button" disabled={!canEdit || !lessons.length} onClick={() => setIsAuditorOpen(true)} className={toolbarButton}>
                   <ShieldCheck size={15} /> Kiểm tra nội dung
                 </button>
@@ -1333,27 +1482,88 @@ export default function CurriculumBuilderWorkspace({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {lessons.map((les) => {
-                const vCount = les.vocabList?.length || 0;
-                const gCount = les.grammarList?.length || 0;
-                const dCount = les.dialogue?.length || 0;
-                const exCount = les.grammarExercises?.length || 0;
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-[#FAF7F0] rounded-2xl border border-[#E5DEC9]">
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="select-all-lessons"
+                    checked={lessons.length > 0 && selectedLessonNumbers.length === lessons.length}
+                    onChange={handleSelectAllLessons}
+                    className="w-4 h-4 rounded text-[#204434] focus:ring-[#204434] cursor-pointer"
+                  />
+                  <label htmlFor="select-all-lessons" className="text-xs font-bold text-[#204434] cursor-pointer select-none">
+                    {selectedLessonNumbers.length === 0
+                      ? `Chọn tất cả (${lessons.length} bài)`
+                      : `Đã chọn ${selectedLessonNumbers.length} / ${lessons.length} bài`}
+                  </label>
+                </div>
 
-                return (
-                  <div
-                    key={les.number}
-                    className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/30 hover:border-[#204434] transition shadow-2xs hover:shadow-md space-y-4 flex flex-col justify-between"
+                <div className="flex items-center gap-2">
+                  {selectedLessonNumbers.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLessonNumbers([])}
+                        className="px-2.5 py-1.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold cursor-pointer"
+                      >
+                        Bỏ chọn
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canEdit}
+                        onClick={handleBulkDeleteLessons}
+                        className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Trash2 size={14} />
+                        <span>Xóa {selectedLessonNumbers.length} bài đã chọn</span>
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={!canEdit}
+                    onClick={handleClearAllLessons}
+                    className="px-2.5 py-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold cursor-pointer flex items-center gap-1"
+                    title={`Xóa sạch toàn bộ ${lessons.length} bài học của HSK ${selectedLevel}`}
                   >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="px-3 py-1 rounded-full bg-[#204434] text-white text-xs font-bold">
-                          Bài {String(les.number).padStart(2, "0")}
-                        </span>
-                        <span className="text-[11px] font-mono font-semibold text-[#8F6D3B]">
-                          HSK {selectedLevel}
-                        </span>
-                      </div>
+                    <Trash2 size={13} />
+                    <span>Xóa toàn bộ bài học HSK {selectedLevel}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {lessons.map((les) => {
+                  const vCount = les.vocabList?.length || 0;
+                  const gCount = les.grammarList?.length || 0;
+                  const dCount = les.dialogue?.length || 0;
+                  const exCount = les.grammarExercises?.length || 0;
+
+                  return (
+                    <div
+                      key={les.number}
+                      className="p-5 rounded-3xl bg-[#FFFCF6] border border-[#BC9B6B]/30 hover:border-[#204434] transition shadow-2xs hover:shadow-md space-y-4 flex flex-col justify-between"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedLessonNumbers.includes(les.number)}
+                              onChange={() => handleToggleSelectLesson(les.number)}
+                              className="w-4 h-4 rounded text-[#204434] focus:ring-[#204434] cursor-pointer"
+                              title={`Chọn Bài ${les.number}`}
+                            />
+                            <span className="px-3 py-1 rounded-full bg-[#204434] text-white text-xs font-bold">
+                              Bài {String(les.number).padStart(2, "0")}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-mono font-semibold text-[#8F6D3B]">
+                            HSK {selectedLevel}
+                          </span>
+                        </div>
 
                       <div
                         onClick={() => {
@@ -1432,7 +1642,8 @@ export default function CurriculumBuilderWorkspace({
                 );
               })}
             </div>
-          )}
+          </div>
+        )}
         </>
       )}
 

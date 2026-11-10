@@ -86,6 +86,14 @@ export default function ExamPlayer({
   >([]);
   const [showViolationsModal, setShowViolationsModal] = useState(false);
 
+  // Quyền Bật/Tắt Giám thị AI trong phòng thi (Học sinh & Admin có toàn quyền chủ động)
+  const [isAiProctorActive, setIsAiProctorActive] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("hanyu_disable_ai_proctor") !== "true";
+    }
+    return true;
+  });
+
   // Audio simulation state for Listening
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -428,41 +436,50 @@ export default function ExamPlayer({
         <div className={s.headerRight}>
           {/* AI Proctor Status & Violation Log Button */}
           {/* AI Proctor Status / Log Pill */}
-          {(attempt as any)?.proctorEnabled !== false ? (
+          {/* AI Proctor Status Toggle & Violation Log */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
               type="button"
-              onClick={() => setShowViolationsModal(true)}
-              className={`${s.saveBadge}`}
+              onClick={() => {
+                const nextVal = !isAiProctorActive;
+                setIsAiProctorActive(nextVal);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("hanyu_disable_ai_proctor", nextVal ? "false" : "true");
+                }
+              }}
+              className={s.saveBadge}
               style={{
                 cursor: "pointer",
                 border: "1px solid",
-                borderColor: violations.length > 0 ? "#e57373" : "#a8d5ba",
-                backgroundColor: violations.length > 0 ? "#fdeded" : "#f0f8f3",
-                color: violations.length > 0 ? "#b71c1c" : "#1c402e",
+                borderColor: isAiProctorActive ? "#a8d5ba" : "#d4decb",
+                backgroundColor: isAiProctorActive ? "#f0f8f3" : "#f4f7f1",
+                color: isAiProctorActive ? "#1c402e" : "#6b7d67",
                 fontWeight: 600,
               }}
-              title="Nhật ký Giám thị AI & Lỗi vi phạm phòng thi"
+              title="Nhấp để Bật hoặc Tắt Giám thị AI phòng thi bất kỳ lúc nào"
             >
-              <ShieldAlert size={14} color={violations.length > 0 ? "#d32f2f" : "#2e7d32"} />
-              <span>
-                {violations.length > 0 ? `Lỗi: ${violations.length}` : "Giám thị AI: Bật"}
-              </span>
+              <ShieldAlert size={14} color={isAiProctorActive ? "#2e7d32" : "#8a9c87"} />
+              <span>{isAiProctorActive ? "Giám thị AI: BẬT" : "Giám thị AI: TẮT"}</span>
             </button>
-          ) : (
-            <div
-              className={`${s.saveBadge}`}
-              style={{
-                border: "1px solid #d4decb",
-                backgroundColor: "#f4f7f1",
-                color: "#6b7d67",
-                fontWeight: 600,
-              }}
-              title="Bài thi này được tắt giám thị AI"
-            >
-              <ShieldAlert size={14} color="#8a9c87" />
-              <span>Giám thị AI: Tắt</span>
-            </div>
-          )}
+
+            {isAiProctorActive && violations.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowViolationsModal(true)}
+                className={s.saveBadge}
+                style={{
+                  cursor: "pointer",
+                  border: "1px solid #e57373",
+                  backgroundColor: "#fdeded",
+                  color: "#b71c1c",
+                  fontWeight: 700,
+                }}
+                title="Xem chi tiết các lỗi vi phạm đã ghi nhận"
+              >
+                <span>{violations.length} lỗi</span>
+              </button>
+            )}
+          </div>
 
           {/* Save Status Badge */}
           <div className={`${s.saveBadge} ${s[saveStatus]}`}>
@@ -996,8 +1013,8 @@ export default function ExamPlayer({
           </div>
         </div>
       )}
-      {/* AI Anti-Cheat Proctor Component (Chỉ kích hoạt khi Giáo viên / Admin bật Giám thị AI) */}
-      {!finished && attempt && (attempt as any)?.proctorEnabled !== false && (
+      {/* AI Anti-Cheat Proctor Component (Toàn quyền bật tắt bởi Thí sinh & Quản trị viên) */}
+      {!finished && attempt && (
         <ComponentErrorBoundary
           name="Giám thị AI"
           fallback={
@@ -1009,6 +1026,8 @@ export default function ExamPlayer({
         >
           <ExamAntiCheatProctor
             examTitle={`${attempt.title} (HSK ${attempt.level})`}
+            isProctorEnabled={isAiProctorActive}
+            onToggleProctor={(enabled) => setIsAiProctorActive(enabled)}
             onForceSubmit={(reason) => {
               setError(reason);
               void persist(true);

@@ -1,0 +1,4479 @@
+[
+  {
+    "id": "hsk1-01",
+    "desc": "Làm quen với AI trợ giảng Tiểu Ngữ, các cách chào hỏi cơ bản, phân biệt 你 và 您, hậu tố số nhiều 们 cùng văn hóa giao tiếp Trung Hoa.",
+    "number": 1,
+    "pinyin": "AI Xiǎoyǔ, nǐ hǎo!",
+    "culture": "8 Học liệu Văn hóa giao tiếp thực tế:\n• Nhóm 1: Mẫu câu vàng khuyên dùng: 1. 你好！– Lời chào phổ biến nhất khi gặp gỡ; 2. 老师好！– Lời chào thể hiện sự kính trọng dành cho giáo viên\n• Nhóm 2: Cách nói lịch sự & tôn trọng: 3. 您好！– Dùng cho người lớn tuổi, thầy cô, đối tác; 4. 谢谢！– Thể hiện lòng biết ơn chân thành; 5. 不客气！– Lời đáp nhã nhặn khiêm tốn\n• Nhóm 3: Lưu ý & Cấm kỵ văn hóa: 6. Không gọi thẳng tên giáo viên (Họ + 老师); 7. Biến điệu của 你好 (nǐ hǎo -> ní hǎo); 8. Tránh dùng 您 với bạn bè đồng trang lứa.",
+    "reading": {
+      "id": "hsk1-01-reading",
+      "titleVi": "Buổi học đầu tiên",
+      "titleZh": "第一天上课",
+      "keywords": [
+        "第一天 (ngày đầu tiên)",
+        "上课 (vào học)",
+        "同学们好 (chào các bạn)",
+        "老师好 (chào thầy)",
+        "您好 (chào kính ngữ)",
+        "再见 (tạm biệt)",
+        "谢谢 (cảm ơn)"
+      ],
+      "mainIdea": "Tạo dựng văn hóa chào hỏi lễ phép, thân thiện và ấm áp trong môi trường lớp học tiếng Trung.",
+      "contentPy": "Jīntiān shì dì-yī tiān shàngkè. Wáng lǎoshī zǒujìn jiàoshì, duì dàjiā shuō: “Tóngxuémen hǎo!” Xuéshengmen hěn gāoxìng, yìqǐ shuō: “Lǎoshī hǎo!” Xiǎoyǔ yě shuō: “Wáng lǎoshī, nín hǎo!” Wáng lǎoshī wēixiàozhe diǎndiǎn tóu. Xiàkè le, lǎoshī shuō: “Tóngxuémen, zàijiàn!” Dàjiā gāoxìng de shuō: “Lǎoshī, zàijiàn! Xièxie lǎoshī!”",
+      "contentVi": "Hôm nay là ngày học đầu tiên. Thầy Vương bước vào lớp học và nói với mọi người: “Chào các em học sinh!” Các bạn học sinh rất vui, đồng thanh nói: “Chúng em chào thầy ạ!” Tiểu Ngữ cũng lễ phép nói: “Em chào thầy Vương ạ!” Thầy Vương mỉm cười gật đầu. Tan học rồi, thầy nói: “Tạm biệt các em học sinh!” Mọi người vui vẻ đáp: “Chúng em chào thầy, hẹn gặp lại thầy! Cảm ơn thầy ạ!”",
+      "contentZh": "今天是第一天上课。王老师走进教室，对大家说：“同学们好！”学生们很高兴，一起说：“老师好！”小语也说：“王老师，您好！”王老师微笑着点点头。下课了，老师说：“同学们，再见！”大家高兴地说：“老师，再见！谢谢老师！”",
+      "mainEvent": "Thầy Vương cùng cả lớp chào hỏi nhau trong tiết học tiếng Trung đầu tiên và chào tạm biệt khi tan học.",
+      "wordCount": 78,
+      "commonTrap": "Bẫy câu hỏi suy luận: Đề thi có thể hỏi 'Tại sao Tiểu Ngữ dùng 您好 thay vì 你好?', đáp án chính xác là vì đối phương là giáo viên (bề trên), cần thể hiện sự lễ độ.",
+      "readingTip": "Chú ý phân biệt đối tượng người nói trong ngoặc kép: Thầy giáo chào '同学们好', học sinh đáp '老师好', Tiểu Ngữ kính chào '您好'.",
+      "extraVocabs": [
+        {
+          "id": "hsk1-01-reading-word-0",
+          "tag": "",
+          "hanzi": "今天",
+          "pinyin": "jīntiān",
+          "examplePy": "Jīntiān tiānqì hěn hǎo.",
+          "exampleVi": "Hôm nay thời tiết rất đẹp.",
+          "exampleZh": "今天天气很好。",
+          "meaningVi": "Hôm nay"
+        },
+        {
+          "id": "hsk1-01-reading-word-1",
+          "tag": "",
+          "hanzi": "上课",
+          "pinyin": "shàngkè",
+          "examplePy": "Wǒmen bā diǎn shàngkè.",
+          "exampleVi": "Chúng tôi vào học lúc 8 giờ.",
+          "exampleZh": "我们八点上课。",
+          "meaningVi": "Vào học, đi học"
+        },
+        {
+          "id": "hsk1-01-reading-word-2",
+          "tag": "",
+          "hanzi": "下课",
+          "pinyin": "xiàkè",
+          "examplePy": "Xiàkè le, dàjiā qù xiūxi.",
+          "exampleVi": "Tan học rồi, mọi người đi nghỉ ngơi.",
+          "exampleZh": "下课了，大家去休息。",
+          "meaningVi": "Tan học"
+        }
+      ],
+      "keySentence": "小语也说：“王老师，您好！”",
+      "translation": "Hôm nay là ngày học đầu tiên. Thầy Vương bước vào lớp học và nói với mọi người: “Chào các em học sinh!” Các bạn học sinh rất vui, đồng thanh nói: “Chúng em chào thầy ạ!” Tiểu Ngữ cũng lễ phép nói: “Em chào thầy Vương ạ!” Thầy Vương mỉm cười gật đầu. Tan học rồi, thầy nói: “Tạm biệt các em học sinh!” Mọi người vui vẻ đáp: “Chúng em chào thầy, hẹn gặp lại thầy! Cảm ơn thầy ạ!”",
+      "originalText": "今天是第一天上课。王老师走进教室，对大家说：“同学们好！”学生们很高兴，一起说：“老师好！”小语也说：“王老师，您好！”王老师微笑着点点头。下课了，老师说：“同学们，再见！”大家高兴地说：“老师，再见！谢谢老师！”",
+      "secondaryDetails": [
+        "Tiết học diễn ra vào ngày đầu tiên khai giảng.",
+        "Cả lớp đều rất hào hứng và vui vẻ khi gặp thầy giáo mới.",
+        "Thầy Vương mỉm cười thân thiện khi nghe Tiểu Ngữ chào bằng kính ngữ.",
+        "Cuối giờ, học sinh không quên nói lời cảm ơn và tạm biệt thầy giáo."
+      ],
+      "analysisExplanation": "Bài đọc ngắn mô tả không khí buổi học đầu tiên tại lớp tiếng Trung, qua đó rèn luyện phản xạ chào hỏi tự nhiên, cách xưng hô kính trọng với thầy cô giáo (您好) và lời chào tạm biệt kết thúc buổi học (再见).",
+      "evidenceExplanation": "Tiểu Ngữ dùng đại từ '您' để biểu thị sự lễ phép và tôn kính với thầy giáo trong lớp học.",
+      "mainIdeaExplanation": "Thông qua các câu chào hỏi tương tác giữa thầy và trò, người học nắm vững các mẫu câu giao tiếp cơ bản nhất của chuẩn HSK 1."
+    },
+    "titleVi": "Xin chào AI Tiểu Ngữ!",
+    "titleZh": "AI小语，你好！",
+    "dialogue": [
+      {
+        "vi": "Chào các em học sinh!",
+        "zh": "同学们好！",
+        "pinyin": "Tóngxuémen hǎo!",
+        "speaker": "王老师"
+      },
+      {
+        "vi": "Chúng em chào thầy ạ!",
+        "zh": "老师好！",
+        "pinyin": "Lǎoshī hǎo!",
+        "speaker": "学生们"
+      },
+      {
+        "vi": "Chào mừng mọi người đến với lớp học tiếng Trung!",
+        "zh": "欢迎大家来到中文课！",
+        "pinyin": "Huānyíng dàjiā lái dào zhōngwén kè!",
+        "speaker": "王老师"
+      },
+      {
+        "vi": "Em chào thầy ạ! Em là Tiểu Ngữ.",
+        "zh": "老师，您好！我是小语。",
+        "pinyin": "Lǎoshī, nín hǎo! Wǒ shì Xiǎoyǔ.",
+        "speaker": "小语"
+      },
+      {
+        "vi": "Chào em, Tiểu Ngữ!",
+        "zh": "你好，小语！",
+        "pinyin": "Nǐ hǎo, Xiǎoyǔ!",
+        "speaker": "王老师"
+      },
+      {
+        "vi": "Cảm ơn thầy ạ!",
+        "zh": "谢谢老师！",
+        "pinyin": "Xièxie lǎoshī!",
+        "speaker": "学生们"
+      },
+      {
+        "vi": "Không có gì!",
+        "zh": "不客气！",
+        "pinyin": "Bú kèqi!",
+        "speaker": "王老师"
+      },
+      {
+        "vi": "Tạm biệt các em học sinh!",
+        "zh": "同学们，再见！",
+        "pinyin": "Tóngxuémen, zàijiàn!",
+        "speaker": "王老师"
+      }
+    ],
+    "phonetics": {
+      "rule": "Đoạn văn ngắn: 今天是第一天上课。王老师走进教室，对大家说：“同学们好！”学生们很高兴，一起说：“老师好！”小语也说：“王老师，您好！”下课了，老师说：“同学们，再见！”大家说：“老师，再见！谢谢老师！”",
+      "title": "Luyện đọc hiểu & Ngữ cảnh: 第一天上课",
+      "examples": [
+        "今天 (jīntiān): Hôm nay [Từ vựng mở rộng]",
+        "第一天 (dì-yī tiān): Ngày đầu tiên [Từ vựng mở rộng]",
+        "上课 (shàngkè): Vào học, đi học [Từ vựng mở rộng]",
+        "说 (shuō): Nói [Từ vựng mở rộng]",
+        "下课 (xiàkè): Tan học [Từ vựng mở rộng]"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "你好",
+        "pinyin": "nǐ hǎo",
+        "meaning": "Xin chào",
+        "examples": [
+          {
+            "vi": "Xin chào, rất vui được làm quen với bạn!",
+            "zh": "你好，很高兴认识你！",
+            "pinyin": "Nǐ hǎo, hěn gāoxìng rènshí nǐ!"
+          },
+          {
+            "vi": "Chào Tiểu Ngữ! (Lưu ý: Hai thanh 3 đứng liền nhau, phát âm thành ní hǎo)",
+            "zh": "你好，小语！",
+            "pinyin": "Nǐ hǎo, Xiǎoyǔ!"
+          },
+          {
+            "vi": "Em chào thầy Vương ạ!",
+            "zh": "王老师，你好！",
+            "pinyin": "Wáng lǎoshī, nǐ hǎo!"
+          }
+        ],
+        "examplePy": "Nǐ hǎo, Xiǎoyǔ!",
+        "exampleVi": "Chào Tiểu Ngữ! (Lưu ý: Hai thanh 3 đứng liền nhau, 你好 thường được phát âm thành ní hǎo)",
+        "exampleZh": "你好，小语！",
+        "meaningVi": "Xin chào",
+        "comparison": "Phân biệt với 您好 (kính ngữ trang trọng dành cho người lớn tuổi, thầy cô giáo hoặc cấp trên).",
+        "usagePatterns": [
+          "Chào + Đại từ: 你好！",
+          "Chào số nhiều: 你们好！",
+          "Chào danh xưng: 老师，你好！"
+        ],
+        "commonMistakes": [
+          {
+            "correct": "你好！",
+            "incorrect": "你好吗？ (khi gặp người lạ lần đầu để chào)",
+            "explanation": "'你好吗？' mang nghĩa 'Bạn có khỏe không?', chỉ dùng cho người đã quen biết."
+          },
+          {
+            "correct": "你好",
+            "incorrect": "您好 (dùng cho bạn bè thân thiết cùng lứa)",
+            "explanation": "'您好' tạo cảm giác khách sáo, xa cách với bạn bè thân thiết."
+          }
+        ],
+        "usageExplanation": "Dùng để chào hỏi thông thường giữa bạn bè, người cùng trang lứa hoặc người mới quen lần đầu."
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "大家",
+        "pinyin": "dàjiā",
+        "meaning": "Mọi người",
+        "examples": [
+          {
+            "vi": "Chào mọi người!",
+            "zh": "大家好！",
+            "pinyin": "Dàjiā hǎo!"
+          }
+        ],
+        "examplePy": "Dàjiā hǎo!",
+        "exampleVi": "Chào mọi người!",
+        "exampleZh": "大家好！",
+        "meaningVi": "Mọi người",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "好",
+        "pinyin": "hǎo",
+        "meaning": "Tốt, khỏe",
+        "examples": [
+          {
+            "vi": "Xin chào!",
+            "zh": "你好！",
+            "pinyin": "Nǐ hǎo!"
+          }
+        ],
+        "examplePy": "Nǐ hǎo!",
+        "exampleVi": "Xin chào!",
+        "exampleZh": "你好！",
+        "meaningVi": "Tốt, khỏe",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "学生",
+        "pinyin": "xuésheng",
+        "meaning": "Học sinh, sinh viên",
+        "examples": [
+          {
+            "vi": "Chào các em học sinh!",
+            "zh": "学生们，你们好！",
+            "pinyin": "Xuéshengmen, nǐmen hǎo!"
+          }
+        ],
+        "examplePy": "Xuéshengmen, nǐmen hǎo!",
+        "exampleVi": "Chào các em học sinh!",
+        "exampleZh": "学生们，你们好！",
+        "meaningVi": "Học sinh, sinh viên",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "们",
+        "pinyin": "men",
+        "meaning": "Hậu tố chỉ số nhiều",
+        "examples": [
+          {
+            "vi": "Chào các bạn!",
+            "zh": "你们好！",
+            "pinyin": "Nǐmen hǎo!"
+          }
+        ],
+        "examplePy": "Nǐmen hǎo!",
+        "exampleVi": "Chào các bạn!",
+        "exampleZh": "你们好！",
+        "meaningVi": "Hậu tố chỉ số nhiều",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "老师",
+        "pinyin": "lǎoshī",
+        "meaning": "Thầy giáo, cô giáo",
+        "examples": [
+          {
+            "vi": "Em chào thầy/cô ạ!",
+            "zh": "老师，您好！",
+            "pinyin": "Lǎoshī, nín hǎo!"
+          }
+        ],
+        "examplePy": "Lǎoshī, nín hǎo!",
+        "exampleVi": "Em chào thầy/cô ạ!",
+        "exampleZh": "老师，您好！",
+        "meaningVi": "Thầy giáo, cô giáo",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "您",
+        "pinyin": "nín",
+        "meaning": "Đại từ kính trọng",
+        "examples": [
+          {
+            "vi": "Em chào thầy/cô Vương ạ!",
+            "zh": "王老师，您好！",
+            "pinyin": "Wáng lǎoshī, nín hǎo!"
+          }
+        ],
+        "examplePy": "Wáng lǎoshī, nín hǎo!",
+        "exampleVi": "Em chào thầy/cô Vương ạ!",
+        "exampleZh": "王老师，您好！",
+        "meaningVi": "Đại từ kính trọng",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "你们",
+        "pinyin": "nǐmen",
+        "meaning": "Các bạn (ngôi 2 số nhiều)",
+        "examples": [
+          {
+            "vi": "Chào các bạn!",
+            "zh": "你们好！",
+            "pinyin": "Nǐmen hǎo!"
+          }
+        ],
+        "examplePy": "Nǐmen hǎo!",
+        "exampleVi": "Chào các bạn!",
+        "exampleZh": "你们好！",
+        "meaningVi": "Các bạn (ngôi 2 số nhiều)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "谢谢",
+        "pinyin": "xièxie",
+        "meaning": "Cảm ơn",
+        "examples": [
+          {
+            "vi": "Em cảm ơn thầy/cô!",
+            "zh": "谢谢老师！",
+            "pinyin": "Xièxie lǎoshī!"
+          }
+        ],
+        "examplePy": "Xièxie lǎoshī!",
+        "exampleVi": "Em cảm ơn thầy/cô!",
+        "exampleZh": "谢谢老师！",
+        "meaningVi": "Cảm ơn",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "不客气",
+        "pinyin": "bú kèqi",
+        "meaning": "Không có gì",
+        "examples": [
+          {
+            "vi": "Không có gì!",
+            "zh": "不客气！",
+            "pinyin": "Bú kèqi!"
+          }
+        ],
+        "examplePy": "Bú kèqi!",
+        "exampleVi": "Không có gì!",
+        "exampleZh": "不客气！",
+        "meaningVi": "Không có gì",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "同学",
+        "pinyin": "tóngxué",
+        "meaning": "Bạn học",
+        "examples": [
+          {
+            "vi": "Tạm biệt các bạn học!",
+            "zh": "同学们，再见！",
+            "pinyin": "Tóngxuémen, zàijiàn!"
+          }
+        ],
+        "examplePy": "Tóngxuémen, zàijiàn!",
+        "exampleVi": "Tạm biệt các bạn học!",
+        "exampleZh": "同学们，再见！",
+        "meaningVi": "Bạn học",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "再见",
+        "pinyin": "zàijiàn",
+        "meaning": "Tạm biệt",
+        "examples": [
+          {
+            "vi": "Tạm biệt thầy/cô ạ!",
+            "zh": "老师，再见！",
+            "pinyin": "Lǎoshī, zàijiàn!"
+          }
+        ],
+        "examplePy": "Lǎoshī, zàijiàn!",
+        "exampleVi": "Tạm biệt thầy/cô ạ!",
+        "exampleZh": "老师，再见！",
+        "meaningVi": "Tạm biệt",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 12,
+    "durationMin": 30,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Ngữ pháp 1: Cấu trúc chào hỏi với 好",
+        "usage": "Trong tiếng Trung, có thể kết hợp đại từ nhân xưng hoặc danh xưng với 好 để hình thành câu chào. Lưu ý phát âm: 你好 viết nǐ hǎo nhưng khi đọc thông thường biến điệu thành ní hǎo.",
+        "example": "王老师，您好！",
+        "summary": "Cấu trúc chào hỏi cơ bản và chuẩn mực nhất trong tiếng Trung.",
+        "titleZh": "问候语结构：……+ 好",
+        "examples": [
+          {
+            "vi": "Em chào thầy Vương ạ!",
+            "zh": "王老师，您好！",
+            "pinyin": "Wáng lǎoshī, nín hǎo!",
+            "explanationVi": "Chào thầy cô bằng kính ngữ."
+          },
+          {
+            "vi": "Chào các em học sinh!",
+            "zh": "同学们好！",
+            "pinyin": "Tóngxuémen hǎo!",
+            "explanationVi": "Giáo viên chào cả lớp."
+          },
+          {
+            "vi": "Chào mọi người!",
+            "zh": "大家好！",
+            "pinyin": "Dàjiā hǎo!",
+            "explanationVi": "Lời chào thân thiện trước đám đông."
+          }
+        ],
+        "structure": "Đối tượng được chào + 好！",
+        "comparison": "Bạn (你) dùng cho quan hệ bình đẳng; Ngài/Thầy/Cô (您) dùng cho người lớn tuổi, cấp trên.",
+        "usageSteps": [
+          "Bước 1: Xác định đối tượng cần chào (thầy cô, bạn bè, nhiều người).",
+          "Bước 2: Đặt tên danh xưng lên trước (老师, 大家, 同学们).",
+          "Bước 3: Thêm '好' vào sau cùng."
+        ],
+        "explanation": "Trong tiếng Trung, có thể kết hợp đại từ nhân xưng hoặc danh xưng với 好 để hình thành câu chào.",
+        "usageContexts": [
+          "Gặp mặt bạn bè hoặc người cùng lứa tuổi.",
+          "Gặp gỡ thầy cô giáo tại trường học hoặc người lớn tuổi.",
+          "Chào cả lớp hoặc tập thể."
+        ],
+        "commonMistakes": [
+          {
+            "correct": "王老师好！ / 王老师，您好！",
+            "incorrect": "好王老师！",
+            "explanation": "Danh xưng phải đứng trước chữ '好'."
+          }
+        ],
+        "usageExplanation": "Trong tiếng Trung, có thể kết hợp đại từ nhân xưng hoặc danh xưng với 好 để hình thành câu chào. Lưu ý phát âm: 你好 viết nǐ hǎo nhưng khi đọc thông thường biến điệu thành ní hǎo."
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Ngữ pháp 2: Phân biệt 你 và 您",
+        "usage": "你 (nǐ): Bạn, sử dụng trong giao tiếp thông thường. 您 (nín): Đại từ kính trọng, sử dụng khi giao tiếp lịch sự với thầy cô, người lớn tuổi hoặc người cần thể hiện sự tôn trọng.",
+        "example": "王老师，您好！",
+        "summary": "Phân biệt sắc thái giữa ngôi thứ hai thông thường và kính ngữ trang trọng.",
+        "titleZh": "人称代词与尊称“您”",
+        "examples": [
+          {
+            "vi": "Chào Tiểu Ngữ!",
+            "zh": "小语，你好！",
+            "pinyin": "Xiǎoyǔ, nǐ hǎo!",
+            "explanationVi": "Chào bạn bè cùng trang lứa."
+          },
+          {
+            "vi": "Em chào thầy Vương ạ!",
+            "zh": "王老师，您好！",
+            "pinyin": "Wáng lǎoshī, nín hǎo!",
+            "explanationVi": "Kính chào giáo viên bề trên."
+          }
+        ],
+        "structure": "你 (thân mật, cùng lứa) vs 您 (kính trọng, bề trên)",
+        "comparison": "Bạn (你) dùng cho quan hệ bình đẳng; Ngài/Thầy/Cô (您) dùng cho người lớn tuổi, cấp trên.",
+        "usageSteps": [
+          "Bước 1: Nhận diện đối tượng là người lớn tuổi, thầy cô hay khách hàng.",
+          "Bước 2: Thay '你' bằng '您'.",
+          "Bước 3: Tuyệt đối không dùng '您' kèm '们'."
+        ],
+        "explanation": "您 (nín): Đại từ kính trọng, sử dụng khi giao tiếp lịch sự với thầy cô, người lớn tuổi.",
+        "usageContexts": [],
+        "commonMistakes": [
+          {
+            "correct": "老师们，大家好！ / 各位老师好！",
+            "incorrect": "老师们，您们好！",
+            "explanation": "Trong tiếng Hán chuẩn, '您' không đi với '们'."
+          }
+        ],
+        "usageExplanation": "你 (nǐ): Bạn, sử dụng trong giao tiếp thông thường. 您 (nín): Đại từ kính trọng, sử dụng khi giao tiếp lịch sự với thầy cô, người lớn tuổi hoặc người cần thể hiện sự tôn trọng."
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Ngữ pháp 3: Hậu tố số nhiều 们",
+        "usage": "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều. Lưu ý: Không thêm 们 ngay sau một danh từ đã có số lượng cụ thể như 三个学生.",
+        "example": "同学们好！",
+        "summary": "Quy tắc thêm hậu tố số nhiều sau danh từ chỉ người và đại từ.",
+        "titleZh": "复数词缀“们”的用法",
+        "examples": [
+          {
+            "vi": "Chúng tôi đều là học sinh.",
+            "zh": "我们都是学生。",
+            "pinyin": "Wǒmen dōu shì xuésheng.",
+            "explanationVi": "我 + 们 = Chúng tôi."
+          },
+          {
+            "vi": "Tạm biệt các bạn học!",
+            "zh": "同学们，再见！",
+            "pinyin": "Tóngxuémen, zàijiàn!",
+            "explanationVi": "同学 + 们 = Các bạn học."
+          }
+        ],
+        "structure": "Đại từ nhân xưng / danh từ chỉ người + 们",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều.",
+        "usageContexts": [],
+        "commonMistakes": [
+          {
+            "correct": "五个学生",
+            "incorrect": "五个学生们",
+            "explanation": "Khi đã có số lượng từ xác định thì KHÔNG được thêm '们'."
+          }
+        ],
+        "usageExplanation": "Đặt sau đại từ nhân xưng hoặc danh từ chỉ người để biểu thị số nhiều. Lưu ý: Không thêm 们 ngay sau một danh từ đã có số lượng cụ thể như 三个学生."
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Không gọi thẳng tên giáo viên (Họ + 老师)",
+        "Biến điệu của 你好 (nǐ hǎo -> ní hǎo)",
+        "Tránh dùng 您 với bạn bè đồng trang lứa."
+      ],
+      "politeExpressions": [
+        {
+          "py": "",
+          "vi": "",
+          "zh": "您好！",
+          "note": "Dùng cho người lớn tuổi, thầy cô, đối tác",
+          "usage": "Dùng cho người lớn tuổi, thầy cô, đối tác"
+        },
+        {
+          "py": "",
+          "vi": "",
+          "zh": "谢谢！",
+          "note": "Thể hiện lòng biết ơn chân thành",
+          "usage": "Thể hiện lòng biết ơn chân thành"
+        },
+        {
+          "py": "",
+          "vi": "",
+          "zh": "不客气！",
+          "note": "Lời đáp nhã nhặn khiêm tốn",
+          "usage": "Lời đáp nhã nhặn khiêm tốn"
+        }
+      ],
+      "naturalExpressions": [
+        {
+          "py": "",
+          "vi": "",
+          "zh": "你好！",
+          "note": "Lời chào phổ biến nhất khi gặp gỡ",
+          "usage": "Lời chào phổ biến nhất khi gặp gỡ"
+        },
+        {
+          "py": "",
+          "vi": "",
+          "zh": "老师好！",
+          "note": "Lời chào thể hiện sự kính trọng dành cho giáo viên",
+          "usage": "Lời chào thể hiện sự kính trọng dành cho giáo viên"
+        }
+      ]
+    },
+    "grammarCount": 3,
+    "grammarExercises": [
+      {
+        "id": "hsk1-01-ex-01",
+        "mode": "choose_correct",
+        "prompt": "Chọn câu chào hỏi thầy giáo Vương đúng trật tự và lịch sự nhất:",
+        "options": [
+          "A. 好王老师！",
+          "B. 王老师，您好！",
+          "C. 王老师，你好们！",
+          "D. 您好王老师是！"
+        ],
+        "explanation": "Quy tắc chào hỏi: Danh từ/Chức danh + 您好 (王老师，您好！). Dùng '您' để thể hiện sự tôn trọng với thầy cô, không đảo '好' lên trước danh xưng.",
+        "grammarRule": "Quy tắc chào hỏi lịch sự & xưng hô",
+        "correctAnswer": "B"
+      },
+      {
+        "id": "hsk1-01-ex-02",
+        "mode": "choose_correct",
+        "prompt": "Khi gặp người lớn tuổi hoặc thầy cô giáo, ta nên dùng đại từ nào để xưng hô lịch sự?",
+        "options": [
+          "A. 你 (nǐ)",
+          "B. 您 (nín)",
+          "C. 你们 (nǐmen)",
+          "D. 他 (tā)"
+        ],
+        "explanation": "'您' (nín) là đại từ nhân xưng ngôi thứ hai dạng kính trọng, dùng cho người lớn tuổi, thầy cô giáo hoặc đối tác tôn kính.",
+        "grammarRule": "Phân biệt đại từ 你 và 您",
+        "correctAnswer": "B"
+      },
+      {
+        "id": "hsk1-01-ex-03",
+        "mode": "choose_correct",
+        "prompt": "Chọn câu dùng hậu tố số nhiều '们' đúng quy tắc ngữ pháp:",
+        "options": [
+          "A. 同学们，你们好！",
+          "B. 三个学生们好！",
+          "C. 老师们好一个！",
+          "D. 你们两个们好！"
+        ],
+        "explanation": "Hậu tố '们' đứng sau đại từ hoặc danh từ chỉ người (同学们, 你们). Lưu ý: Khi đã có số lượng từ cụ thể (như 三个) thì tuyệt đối KHÔNG thêm '们'.",
+        "grammarRule": "Hậu tố số nhiều 们",
+        "correctAnswer": "A"
+      },
+      {
+        "id": "hsk1-01-ex-04",
+        "mode": "fill_blank",
+        "prompt": "Điền từ thích hợp vào chỗ trống: 小语遇见王老师，礼貌地说：“王老师，____ 好！”",
+        "options": [
+          "A. 您",
+          "B. 们",
+          "C. 谁",
+          "D. 吗"
+        ],
+        "explanation": "Chào thầy cô cần dùng '您好' (Nín hǎo) để thể hiện sự lễ phép và tôn kính.",
+        "grammarRule": "Đại từ kính trọng 您",
+        "correctAnswer": "A"
+      },
+      {
+        "id": "hsk1-01-ex-05",
+        "mode": "fill_blank",
+        "prompt": "Điền từ thích hợp vào chỗ trống: 老师走进教室，对全班说：“____ 好！”",
+        "options": [
+          "A. 同学们",
+          "B. 老师",
+          "C. 一个同学",
+          "D. 您"
+        ],
+        "explanation": "Giáo viên chào cả lớp gồm nhiều học sinh nên dùng '同学们好！' (Chào các em học sinh!).",
+        "grammarRule": "Hậu tố số nhiều 们",
+        "correctAnswer": "A"
+      },
+      {
+        "id": "hsk1-01-ex-06",
+        "mode": "reorder",
+        "prompt": "Sắp xếp các từ sau thành câu chào hỏi chuẩn xác: [您好] [王老师] [，] [！]",
+        "explanation": "Trật tự chào hỏi tiếng Trung: Danh xưng/Tên người + Dấu phẩy + Lời chào (王老师，您好！).",
+        "grammarRule": "Trật tự câu chào hỏi",
+        "correctAnswer": "王老师，您好！",
+        "scrambledWords": [
+          "您好",
+          "，",
+          "王老师",
+          "！"
+        ]
+      },
+      {
+        "id": "hsk1-01-ex-07",
+        "mode": "reorder",
+        "prompt": "Sắp xếp các từ sau thành câu chào: [好] [同学们] [！]",
+        "explanation": "Đối tượng được chào (同学们) đứng trước tính từ '好' (同学们好！).",
+        "grammarRule": "Hậu tố số nhiều 们 & Chào hỏi",
+        "correctAnswer": "同学们好！",
+        "scrambledWords": [
+          "好",
+          "同学们",
+          "！"
+        ]
+      },
+      {
+        "id": "hsk1-01-ex-08",
+        "mode": "correct_mistake",
+        "prompt": "Tìm và sửa lỗi sai trong câu: '教室里有五个学生们。'",
+        "options": [
+          "A. Bỏ '们', sửa thành: 教室里有五个学生。",
+          "B. Đổi '五个' thành '两'",
+          "C. Thêm '好' vào cuối câu",
+          "D. Câu trên hoàn toàn đúng"
+        ],
+        "explanation": "Trong tiếng Trung, danh từ chỉ người khi đã có số từ và lượng từ xác định phía trước (五个) thì KHÔNG được thêm hậu tố '们'. Viết đúng là: 五个学生.",
+        "grammarRule": "Lỗi dùng 们 sau số từ cụ thể",
+        "correctAnswer": "A",
+        "wrongSentence": "教室里有五个学生们。"
+      },
+      {
+        "id": "hsk1-01-ex-09",
+        "mode": "correct_mistake",
+        "prompt": "Sửa câu chào sai trật tự từ: '好王老师！'",
+        "options": [
+          "A. Sửa thành: 王老师好！ hoặc 王老师，您好！",
+          "B. Sửa thành: 王老师是好！",
+          "C. Sửa thành: 老师好王！",
+          "D. Sửa thành: 好老师王！"
+        ],
+        "explanation": "Không được dịch từng từ từ tiếng Việt hay tiếng Anh sang đặt '好' lên đầu. Phải đặt danh từ gọi trước: 王老师好！",
+        "grammarRule": "Lỗi đảo vị trí trong câu chào",
+        "correctAnswer": "A",
+        "wrongSentence": "好王老师！"
+      },
+      {
+        "id": "hsk1-01-ex-10",
+        "mode": "listen_dialogue",
+        "prompt": "Nghe đoạn thoại ngắn giữa Tiểu Ngữ và thầy Vương, trả lời câu hỏi:",
+        "options": [
+          "A. Tiểu Ngữ dùng '您' vì thầy Vương là giáo viên, cần thể hiện sự kính trọng",
+          "B. Tiểu Ngữ dùng '您' vì thầy Vương là bạn học cùng lớp",
+          "C. Thầy Vương dùng '您' để chào Tiểu Ngữ",
+          "D. Tiểu Ngữ và thầy Vương không quen biết nhau"
+        ],
+        "audioText": "小语：王老师，您好！我是小语。王老师：你好，小语！欢迎来到中文课。",
+        "explanation": "Học sinh chào giáo viên cần dùng đại từ '您' để bày tỏ sự lễ phép và tôn kính đối với thầy cô giáo.",
+        "grammarRule": "Nghe hiểu hội thoại chào hỏi",
+        "correctAnswer": "A",
+        "dialogueLines": [
+          {
+            "vi": "Em chào thầy Vương ạ! Em là Tiểu Ngữ.",
+            "zh": "王老师，您好！我是小语。",
+            "pinyin": "Wáng lǎoshī, nín hǎo! Wǒ shì Xiǎoyǔ.",
+            "speaker": "小语"
+          },
+          {
+            "vi": "Chào Tiểu Ngữ! Chào mừng em đến lớp tiếng Trung.",
+            "zh": "你好，小语！欢迎来到中文课。",
+            "pinyin": "Nǐ hǎo, Xiǎoyǔ! Huānyíng lái dào zhōngwén kè.",
+            "speaker": "王老师"
+          }
+        ]
+      }
+    ],
+    "isUnlockedDefault": true,
+    "unlockedScheduleText": "Đã mở theo lịch giảng dạy"
+  },
+  {
+    "id": "hsk1-02",
+    "desc": "Cách hỏi và giới thiệu họ tên, làm quen bạn mới với động từ 叫 (jiào) và đại từ nghi vấn 什么 (shénme).",
+    "number": 2,
+    "pinyin": "Wǒ jiào Lǐ Wén",
+    "culture": "Quy tắc đặt tên truyền thống Trung Hoa: Người Trung Quốc coi trọng ý nghĩa tên gọi, thường gửi gắm phẩm đức, trí tuệ hoặc vẻ đẹp thiên nhiên vào tên con.",
+    "titleVi": "Mình tên là Lý Văn",
+    "titleZh": "我叫李文",
+    "dialogue": [
+      {
+        "vi": "Chào bạn! Cho mình hỏi bạn tên là gì?",
+        "zh": "你好！请问你叫什么名字？",
+        "pinyin": "Nǐ hǎo! Qǐngwèn nǐ jiào shénme míngzi?",
+        "speaker": "王明"
+      },
+      {
+        "vi": "Chào bạn! Mình tên là Lý Văn. Còn bạn thì sao?",
+        "zh": "你好！我叫李文。你呢？",
+        "pinyin": "Nǐ hǎo! Wǒ jiào Lǐ Wén. Nǐ ne?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Mình tên là Vương Minh. Rất vui được làm quen với bạn!",
+        "zh": "我叫王明。很高兴认识你！",
+        "pinyin": "Wǒ jiào Wáng Míng. Hěn gāoxìng rènshi nǐ!",
+        "speaker": "王明"
+      },
+      {
+        "vi": "Làm quen với bạn mình cũng rất vui!",
+        "zh": "认识你我也很高兴！",
+        "pinyin": "Rènshi nǐ wǒ yě hěn gāoxìng!",
+        "speaker": "李文"
+      }
+    ],
+    "phonetics": {
+      "rule": "Phân biệt âm tắc vô thanh không bật hơi [d] và có bật hơi mạnh [t].",
+      "title": "Luyện ngữ âm bài 2: Thanh mẫu đầu lưỡi d, t, n, l",
+      "examples": [
+        "dà (lớn)",
+        "tā (anh ấy)",
+        "nǐ (bạn)",
+        "lì (sức lực)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "叫",
+        "pinyin": "jiào",
+        "meaning": "Gọi là, tên là",
+        "examples": [
+          {
+            "vi": "Tôi tên là Lý Văn.",
+            "zh": "我叫李文。",
+            "pinyin": "Wǒ jiào Lǐ Wén."
+          }
+        ],
+        "examplePy": "Wǒ jiào Lǐ Wén.",
+        "exampleVi": "Tôi tên là Lý Văn.",
+        "exampleZh": "我叫李文。",
+        "meaningVi": "Gọi là, tên là",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "什么",
+        "pinyin": "shénme",
+        "meaning": "Cái gì, gì (đại từ hỏi)",
+        "examples": [
+          {
+            "vi": "Đây là cái gì?",
+            "zh": "这是什么？",
+            "pinyin": "Zhè shì shénme?"
+          }
+        ],
+        "examplePy": "Zhè shì shénme?",
+        "exampleVi": "Đây là cái gì?",
+        "exampleZh": "这是什么？",
+        "meaningVi": "Cái gì, gì (đại từ hỏi)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "名字",
+        "pinyin": "míngzi",
+        "meaning": "Tên",
+        "examples": [
+          {
+            "vi": "Bạn tên là gì?",
+            "zh": "你叫什么名字？",
+            "pinyin": "Nǐ jiào shénme míngzi?"
+          }
+        ],
+        "examplePy": "Nǐ jiào shénme míngzi?",
+        "exampleVi": "Bạn tên là gì?",
+        "exampleZh": "你叫什么名字？",
+        "meaningVi": "Tên",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "我",
+        "pinyin": "wǒ",
+        "meaning": "Tôi, mình, em (ngôi thứ 1)",
+        "examples": [
+          {
+            "vi": "Tôi là học sinh.",
+            "zh": "我是学生。",
+            "pinyin": "Wǒ shì xuésheng."
+          }
+        ],
+        "examplePy": "Wǒ shì xuésheng.",
+        "exampleVi": "Tôi là học sinh.",
+        "exampleZh": "我是学生。",
+        "meaningVi": "Tôi, mình, em (ngôi thứ 1)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "是",
+        "pinyin": "shì",
+        "meaning": "Là (động từ 是)",
+        "examples": [
+          {
+            "vi": "Thầy ấy là giáo viên.",
+            "zh": "他是老师。",
+            "pinyin": "Tā shì lǎoshī."
+          }
+        ],
+        "examplePy": "Tā shì lǎoshī.",
+        "exampleVi": "Thầy ấy là giáo viên.",
+        "exampleZh": "他是老师。",
+        "meaningVi": "Là (động từ 是)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "人",
+        "pinyin": "rén",
+        "meaning": "Người",
+        "examples": [
+          {
+            "vi": "Người Trung Quốc",
+            "zh": "中国人",
+            "pinyin": "Zhōngguó rén"
+          }
+        ],
+        "examplePy": "Zhōngguó rén",
+        "exampleVi": "Người Trung Quốc",
+        "exampleZh": "中国人",
+        "meaningVi": "Người",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "李文",
+        "pinyin": "Lǐ Wén",
+        "meaning": "Lý Văn (tên người)",
+        "examples": [
+          {
+            "vi": "Lý Văn là bạn tốt của tôi.",
+            "zh": "李文是我的好朋友。",
+            "pinyin": "Lǐ Wén shì wǒ de hǎo péngyou."
+          }
+        ],
+        "examplePy": "Lǐ Wén shì wǒ de hǎo péngyou.",
+        "exampleVi": "Lý Văn là bạn tốt của tôi.",
+        "exampleZh": "李文是我的好朋友。",
+        "meaningVi": "Lý Văn (tên người)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "高兴",
+        "pinyin": "gāoxìng",
+        "meaning": "Vui mừng, phấn khởi",
+        "examples": [
+          {
+            "vi": "Rất vui được quen biết bạn!",
+            "zh": "很高兴认识你！",
+            "pinyin": "Hěn gāoxìng rènshi nǐ!"
+          }
+        ],
+        "examplePy": "Hěn gāoxìng rènshi nǐ!",
+        "exampleVi": "Rất vui được quen biết bạn!",
+        "exampleZh": "很高兴认识你！",
+        "meaningVi": "Vui mừng, phấn khởi",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 8,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Hỏi và trả lời tên với động từ 叫 (Jiào)",
+        "usage": "Trong tiếng Trung, họ luôn đứng trước tên (ví dụ: Họ Lý + Tên Văn ➔ 李文).",
+        "example": "你叫什么名字？ ➔ 我叫李文。",
+        "summary": "Trong tiếng Trung, họ luôn đứng trước tên (ví dụ: Họ Lý + Tên Văn ➔ 李文).",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "你叫什么名字？ ➔ 我叫李文。",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 叫 + 什么 + 名字？ ➔ Chủ ngữ + 叫 + [Tên].",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "Trong tiếng Trung, họ luôn đứng trước tên (ví dụ: Họ Lý + Tên Văn ➔ 李文).",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": "Trong tiếng Trung, họ luôn đứng trước tên (ví dụ: Họ Lý + Tên Văn ➔ 李文)."
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Câu phán đoán khẳng định và phủ định với 是",
+        "usage": "Phó từ '不' đọc thành 'bú' khi đứng trước từ mang thanh 4 như 是 (shì).",
+        "example": "我是学生。(Tôi là học sinh.) · 我不是老师。(Tôi không phải giáo viên.)",
+        "summary": "Phó từ '不' đọc thành 'bú' khi đứng trước từ mang thanh 4 như 是 (shì).",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我是学生。(Tôi là học sinh.) · 我不是老师。(Tôi không phải giáo viên.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "A + 是 + B / A + 不是 + B",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "Phó từ '不' đọc thành 'bú' khi đứng trước từ mang thanh 4 như 是 (shì).",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": "Phó từ '不' đọc thành 'bú' khi đứng trước từ mang thanh 4 như 是 (shì)."
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Quy tắc đặt tên truyền thống Trung Hoa: Người Trung Quốc coi trọng ý nghĩa tên gọi, thường gửi gắm phẩm đức, trí tuệ hoặc vẻ đẹp thiên nhiên vào tên con."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": true,
+    "unlockedScheduleText": "Đã mở theo lịch giảng dạy"
+  },
+  {
+    "id": "hsk1-03",
+    "desc": "Nói về quốc tịch, quê hương với cấu trúc Tên nước + 人 và trợ từ nghi vấn 吗 (ma).",
+    "number": 3,
+    "pinyin": "Wǒ shì Zhōngguó rén",
+    "culture": "Cách người Trung Quốc dùng tên địa danh và quốc gia: Nước đông dân và có nền văn hóa lâu đời, luôn đề cao tinh thần hữu nghị quốc tế.",
+    "titleVi": "Mình là người Trung Quốc",
+    "titleZh": "我是中国人",
+    "dialogue": [
+      {
+        "vi": "David, bạn là người nước nào?",
+        "zh": "大卫，你是哪国人？",
+        "pinyin": "Dàwèi, nǐ shì nǎ guó rén?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Mình là người Mỹ. Lý Văn, bạn là người nước nào?",
+        "zh": "我是美国人。李文，你是哪国人？",
+        "pinyin": "Wǒ shì Měiguó rén. Lǐ Wén, nǐ shì nǎ guó rén?",
+        "speaker": "大卫"
+      },
+      {
+        "vi": "Mình là người Trung Quốc. Bạn là giáo viên à?",
+        "zh": "我是中国人。你是老师吗？",
+        "pinyin": "Wǒ shì Zhōngguó rén. Nǐ shì lǎoshī ma?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Mình không phải giáo viên, mình là học sinh.",
+        "zh": "我不是老师，我是学生。",
+        "pinyin": "Wǒ bú shì lǎoshī, wǒ shì xuésheng.",
+        "speaker": "大卫"
+      }
+    ],
+    "phonetics": {
+      "rule": "Phát âm tại vị trí cuống lưỡi nâng lên chạm vào ngạc mềm. Âm [k] cần đẩy hơi bật mạnh dứt khoát.",
+      "title": "Luyện ngữ âm bài 3: Thanh mẫu cuống lưỡi g, k, h",
+      "examples": [
+        "gēge (anh trai)",
+        "kǎoshì (thi cử)",
+        "hǎokàn (đẹp mắt)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "中国",
+        "pinyin": "Zhōngguó",
+        "meaning": "Trung Quốc",
+        "examples": [
+          {
+            "vi": "Trung Quốc rất rộng lớn.",
+            "zh": "中国很大。",
+            "pinyin": "Zhōngguó hěn dà."
+          }
+        ],
+        "examplePy": "Zhōngguó hěn dà.",
+        "exampleVi": "Trung Quốc rất rộng lớn.",
+        "exampleZh": "中国很大。",
+        "meaningVi": "Trung Quốc",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "越南",
+        "pinyin": "Yuènán",
+        "meaning": "Việt Nam",
+        "examples": [
+          {
+            "vi": "Tôi là người Việt Nam.",
+            "zh": "我是越南人。",
+            "pinyin": "Wǒ shì Yuènán rén."
+          }
+        ],
+        "examplePy": "Wǒ shì Yuènán rén.",
+        "exampleVi": "Tôi là người Việt Nam.",
+        "exampleZh": "我是越南人。",
+        "meaningVi": "Việt Nam",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "美国",
+        "pinyin": "Měiguó",
+        "meaning": "Mỹ, Hoa Kỳ",
+        "examples": [
+          {
+            "vi": "Người Mỹ",
+            "zh": "美国人",
+            "pinyin": "Měiguó rén"
+          }
+        ],
+        "examplePy": "Měiguó rén",
+        "exampleVi": "Người Mỹ",
+        "exampleZh": "美国人",
+        "meaningVi": "Mỹ, Hoa Kỳ",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "吗",
+        "pinyin": "ma",
+        "meaning": "Không, phải không (trợ từ hỏi)",
+        "examples": [
+          {
+            "vi": "Bạn là người Trung Quốc phải không?",
+            "zh": "你是中国人吗？",
+            "pinyin": "Nǐ shì Zhōngguó rén ma?"
+          }
+        ],
+        "examplePy": "Nǐ shì Zhōngguó rén ma?",
+        "exampleVi": "Bạn là người Trung Quốc phải không?",
+        "exampleZh": "你是中国人吗？",
+        "meaningVi": "Không, phải không (trợ từ hỏi)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "不",
+        "pinyin": "bù",
+        "meaning": "Không (phó từ phủ định)",
+        "examples": [
+          {
+            "vi": "Không phải",
+            "zh": "不是",
+            "pinyin": "bú shì"
+          }
+        ],
+        "examplePy": "bú shì",
+        "exampleVi": "Không phải",
+        "exampleZh": "不是",
+        "meaningVi": "Không (phó từ phủ định)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "老师",
+        "pinyin": "lǎoshī",
+        "meaning": "Thầy/cô giáo",
+        "examples": [
+          {
+            "vi": "Thầy Vương",
+            "zh": "王老师",
+            "pinyin": "Wáng lǎoshī"
+          }
+        ],
+        "examplePy": "Wáng lǎoshī",
+        "exampleVi": "Thầy Vương",
+        "exampleZh": "王老师",
+        "meaningVi": "Thầy/cô giáo",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "学生",
+        "pinyin": "xuésheng",
+        "meaning": "Học sinh, sinh viên",
+        "examples": [
+          {
+            "vi": "Chúng tôi đều là học sinh.",
+            "zh": "我们都是学生。",
+            "pinyin": "Wǒmen dōu shì xuésheng."
+          }
+        ],
+        "examplePy": "Wǒmen dōu shì xuésheng.",
+        "exampleVi": "Chúng tôi đều là học sinh.",
+        "exampleZh": "我们都是学生。",
+        "meaningVi": "Học sinh, sinh viên",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "也",
+        "pinyin": "yě",
+        "meaning": "Cũng",
+        "examples": [
+          {
+            "vi": "Tôi cũng là người Trung Quốc.",
+            "zh": "我也是中国人。",
+            "pinyin": "Wǒ yě shì Zhōngguó rén."
+          }
+        ],
+        "examplePy": "Wǒ yě shì Zhōngguó rén.",
+        "exampleVi": "Tôi cũng là người Trung Quốc.",
+        "exampleZh": "我也是中国人。",
+        "meaningVi": "Cũng",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "哪",
+        "pinyin": "nǎ",
+        "meaning": "Nào (đại từ nghi vấn)",
+        "examples": [
+          {
+            "vi": "Bạn là người nước nào?",
+            "zh": "你是哪国人？",
+            "pinyin": "Nǐ shì nǎ guó rén?"
+          }
+        ],
+        "examplePy": "Nǐ shì nǎ guó rén?",
+        "exampleVi": "Bạn là người nước nào?",
+        "exampleZh": "你是哪国人？",
+        "meaningVi": "Nào (đại từ nghi vấn)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 9,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Hỏi và nói về quốc tịch",
+        "usage": "",
+        "example": "你是哪国人？ ➔ 我是中国人 / 我是越南人。",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "你是哪国人？ ➔ 我是中国人 / 我是越南人。",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 是 + 哪国人？ ➔ Chủ ngữ + 是 + [Tên quốc gia] + 人。",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Câu hỏi nghi vấn Yes/No với trợ từ 吗 (Ma)",
+        "usage": "",
+        "example": "你是学生吗？ ➔ 是，我是学生。 / 不是，我是老师。",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "你是学生吗？ ➔ 是，我是学生。 / 不是，我是老师。",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Câu trần thuật + 吗？",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Cách người Trung Quốc dùng tên địa danh và quốc gia: Nước đông dân và có nền văn hóa lâu đời, luôn đề cao tinh thần hữu nghị quốc tế."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần tới của giáo viên"
+  },
+  {
+    "id": "hsk1-04",
+    "desc": "Nói về các thành viên gia đình, biểu đạt số lượng với 有 (có), lượng từ 个 (gè) và phân biệt 二 với 两.",
+    "number": 4,
+    "pinyin": "Wǒ yǒu liǎng gè háizi",
+    "culture": "Quan niệm gia đình truyền thống Trung Hoa: Coi trọng chữ Hiếu và sự sum vầy 'Đoàn viên' (团圆) trong các dịp lễ tết.",
+    "titleVi": "Chị có hai con",
+    "titleZh": "我有两个孩子",
+    "dialogue": [
+      {
+        "vi": "Thầy Trương, nhà thầy có mấy người ạ?",
+        "zh": "张老师，你家有几口人？",
+        "pinyin": "Zhāng lǎoshī, nǐ jiā yǒu jǐ kǒu rén?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Nhà thầy có bốn người: thầy, vợ thầy và hai đứa con.",
+        "zh": "我家有四口人：我、我妻子和两个孩子。",
+        "pinyin": "Wǒ jiā yǒu sì kǒu rén: wǒ, wǒ qīzi hé liǎng gè háizi.",
+        "speaker": "张老师"
+      },
+      {
+        "vi": "Các cháu nhà thầy bao nhiêu tuổi rồi ạ?",
+        "zh": "你孩子多大了？",
+        "pinyin": "Nǐ háizi duō dà le?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Con trai tám tuổi, con gái năm tuổi.",
+        "zh": "儿子八岁，女儿五岁。",
+        "pinyin": "Érzi bā suì, nǚ'ér wǔ suì.",
+        "speaker": "张老师"
+      }
+    ],
+    "phonetics": {
+      "rule": "Âm tiết thứ hai trong các từ xưng hô lặp lại phát âm nhẹ và ngắn: bàba, māma, gēge, mèimei.",
+      "title": "Luyện ngữ âm bài 4: Thanh nhẹ (Khinh thanh) trong từ xưng hô gia đình",
+      "examples": [
+        "bàba",
+        "māma",
+        "dìdi",
+        "jiějie"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "家",
+        "pinyin": "jiā",
+        "meaning": "Nhà, gia đình",
+        "examples": [
+          {
+            "vi": "Nhà tôi ở Bắc Kinh.",
+            "zh": "我家在北京。",
+            "pinyin": "Wǒ jiā zài Běijīng."
+          }
+        ],
+        "examplePy": "Wǒ jiā zài Běijīng.",
+        "exampleVi": "Nhà tôi ở Bắc Kinh.",
+        "exampleZh": "我家在北京。",
+        "meaningVi": "Nhà, gia đình",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "有",
+        "pinyin": "yǒu",
+        "meaning": "Có",
+        "examples": [
+          {
+            "vi": "Chị có hai con.",
+            "zh": "我有两个孩子。",
+            "pinyin": "Wǒ yǒu liǎng gè háizi."
+          }
+        ],
+        "examplePy": "Wǒ yǒu liǎng gè háizi.",
+        "exampleVi": "Chị có hai con.",
+        "exampleZh": "我有两个孩子。",
+        "meaningVi": "Có",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "口",
+        "pinyin": "kǒu",
+        "meaning": "Lượng từ chỉ số nhân khẩu gia đình",
+        "examples": [
+          {
+            "vi": "3 miệng ăn, 3 người",
+            "zh": "三口人",
+            "pinyin": "sān kǒu rén"
+          }
+        ],
+        "examplePy": "sān kǒu rén",
+        "exampleVi": "3 miệng ăn, 3 người",
+        "exampleZh": "三口人",
+        "meaningVi": "Lượng từ chỉ số nhân khẩu gia đình",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "个",
+        "pinyin": "gè",
+        "meaning": "Cái, chiếc (lượng từ thông dụng nhất)",
+        "examples": [
+          {
+            "vi": "hai người",
+            "zh": "两个人",
+            "pinyin": "liǎng gè rén"
+          }
+        ],
+        "examplePy": "liǎng gè rén",
+        "exampleVi": "hai người",
+        "exampleZh": "两个人",
+        "meaningVi": "Cái, chiếc (lượng từ thông dụng nhất)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "两",
+        "pinyin": "liǎng",
+        "meaning": "Hai (dùng trước lượng từ)",
+        "examples": [
+          {
+            "vi": "hai cái",
+            "zh": "两个",
+            "pinyin": "liǎng gè"
+          }
+        ],
+        "examplePy": "liǎng gè",
+        "exampleVi": "hai cái",
+        "exampleZh": "两个",
+        "meaningVi": "Hai (dùng trước lượng từ)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "孩子",
+        "pinyin": "háizi",
+        "meaning": "Đứa con, trẻ em",
+        "examples": [
+          {
+            "vi": "con của tôi",
+            "zh": "我的孩子",
+            "pinyin": "wǒ de háizi"
+          }
+        ],
+        "examplePy": "wǒ de háizi",
+        "exampleVi": "con của tôi",
+        "exampleZh": "我的孩子",
+        "meaningVi": "Đứa con, trẻ em",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "爸爸",
+        "pinyin": "bàba",
+        "meaning": "Bố, ba",
+        "examples": [
+          {
+            "vi": "bố tôi",
+            "zh": "我爸爸",
+            "pinyin": "wǒ bàba"
+          }
+        ],
+        "examplePy": "wǒ bàba",
+        "exampleVi": "bố tôi",
+        "exampleZh": "我爸爸",
+        "meaningVi": "Bố, ba",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "妈妈",
+        "pinyin": "māma",
+        "meaning": "Mẹ, má",
+        "examples": [
+          {
+            "vi": "Mẹ tôi là bác sĩ.",
+            "zh": "我妈妈是医生。",
+            "pinyin": "Wǒ māma shì yīshēng."
+          }
+        ],
+        "examplePy": "Wǒ māma shì yīshēng.",
+        "exampleVi": "Mẹ tôi là bác sĩ.",
+        "exampleZh": "我妈妈是医生。",
+        "meaningVi": "Mẹ, má",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "女儿",
+        "pinyin": "nǚ'ér",
+        "meaning": "Con gái",
+        "examples": [
+          {
+            "vi": "Chị ấy có một cô con gái.",
+            "zh": "她有一个女儿。",
+            "pinyin": "Tā yǒu yí gè nǚ'ér."
+          }
+        ],
+        "examplePy": "Tā yǒu yí gè nǚ'ér.",
+        "exampleVi": "Chị ấy có một cô con gái.",
+        "exampleZh": "她有一个女儿。",
+        "meaningVi": "Con gái",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 9,
+    "durationMin": 40,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Biểu đạt sự sở hữu với động từ 有 (Yǒu) và phủ định 没有",
+        "usage": "",
+        "example": "我有两个孩子。(Chị có hai con.) · 我没有女儿。(Tôi không có con gái.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我有两个孩子。(Chị có hai con.) · 我没有女儿。(Tôi không có con gái.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 有 + Tân ngữ / Chủ ngữ + 没有 + Tân ngữ",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Quy tắc dùng 两 (Liǎng) thay vì 二 (Èr) trước lượng từ",
+        "usage": "",
+        "example": "两个孩子 (Hai đứa con) · 两口人 (Hai người trong nhà)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "两个孩子 (Hai đứa con) · 两口人 (Hai người trong nhà)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "两 + Lượng từ + Danh từ (KHÔNG DÙNG: 二 + Lượng từ)",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Quan niệm gia đình truyền thống Trung Hoa: Coi trọng chữ Hiếu và sự sum vầy 'Đoàn viên' (团圆) trong các dịp lễ tết."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 2 của giáo viên"
+  },
+  {
+    "id": "hsk1-05",
+    "desc": "Nói về thứ ngày trong tuần, sinh hoạt nghỉ ngơi, hẹn hò rủ rê bạn bè với trợ từ ngữ khí 吧 (ba).",
+    "number": 5,
+    "pinyin": "Jīntiān wǒ xiūxi",
+    "culture": "Văn hóa uống trà và giao lưu ngày nghỉ ở Trung Quốc: Quán trà truyền thống là không gian thư giãn, đàm đạo tao nhã sau chuỗi ngày làm việc.",
+    "titleVi": "Hôm nay anh được nghỉ",
+    "titleZh": "今天我休息",
+    "dialogue": [
+      {
+        "vi": "Hôm nay là thứ mấy thế?",
+        "zh": "今天星期几？",
+        "pinyin": "Jīntiān xīngqī jǐ?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Hôm nay là Chủ nhật. Bạn có đi làm không?",
+        "zh": "今天星期天。你上班吗？",
+        "pinyin": "Jīntiān xīngqītiān. Nǐ shàngbān ma?",
+        "speaker": "王明"
+      },
+      {
+        "vi": "Hôm nay anh được nghỉ! Chúng mình cùng đi uống cà phê đi.",
+        "zh": "今天我休息！我们一起去喝咖啡吧。",
+        "pinyin": "Jīntiān wǒ xiūxi! Wǒmen yìqǐ qù hē kāfēi ba.",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Tuyệt quá, đi thôi!",
+        "zh": "太好了，走吧！",
+        "pinyin": "Tài hǎo le, zǒu ba!",
+        "speaker": "王明"
+      }
+    ],
+    "phonetics": {
+      "rule": "Chuyển động môi mượt mà từ âm chính sang âm phụ, giữ trường độ âm đầu dài hơn âm sau.",
+      "title": "Luyện ngữ âm bài 5: Vận mẫu kép ai, ei, ao, ou",
+      "examples": [
+        "bái (trắng)",
+        "měi (đẹp)",
+        "gāo (cao)",
+        "dǒu (đấu)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "今天",
+        "pinyin": "jīntiān",
+        "meaning": "Hôm nay",
+        "examples": [
+          {
+            "vi": "Hôm nay anh được nghỉ.",
+            "zh": "今天我休息。",
+            "pinyin": "Jīntiān wǒ xiūxi."
+          }
+        ],
+        "examplePy": "Jīntiān wǒ xiūxi.",
+        "exampleVi": "Hôm nay anh được nghỉ.",
+        "exampleZh": "今天我休息。",
+        "meaningVi": "Hôm nay",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "明天",
+        "pinyin": "míngtiān",
+        "meaning": "Ngày mai",
+        "examples": [
+          {
+            "vi": "Ngày mai gặp nhé!",
+            "zh": "明天见！",
+            "pinyin": "Míngtiān jiàn!"
+          }
+        ],
+        "examplePy": "Míngtiān jiàn!",
+        "exampleVi": "Ngày mai gặp nhé!",
+        "exampleZh": "明天见！",
+        "meaningVi": "Ngày mai",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "昨天",
+        "pinyin": "zuótiān",
+        "meaning": "Hôm qua",
+        "examples": [
+          {
+            "vi": "Hôm qua mình rất bận.",
+            "zh": "昨天我很忙。",
+            "pinyin": "Zuótiān wǒ hěn máng."
+          }
+        ],
+        "examplePy": "Zuótiān wǒ hěn máng.",
+        "exampleVi": "Hôm qua mình rất bận.",
+        "exampleZh": "昨天我很忙。",
+        "meaningVi": "Hôm qua",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "星期",
+        "pinyin": "xīngqī",
+        "meaning": "Thứ, tuần lễ",
+        "examples": [
+          {
+            "vi": "Chủ nhật",
+            "zh": "星期天",
+            "pinyin": "xīngqītiān"
+          }
+        ],
+        "examplePy": "xīngqītiān",
+        "exampleVi": "Chủ nhật",
+        "exampleZh": "星期天",
+        "meaningVi": "Thứ, tuần lễ",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "休息",
+        "pinyin": "xiūxi",
+        "meaning": "Nghỉ ngơi, được nghỉ",
+        "examples": [
+          {
+            "vi": "Hôm nay bạn có được nghỉ không?",
+            "zh": "今天你休息吗？",
+            "pinyin": "Jīntiān nǐ xiūxi ma?"
+          }
+        ],
+        "examplePy": "Jīntiān nǐ xiūxi ma?",
+        "exampleVi": "Hôm nay bạn có được nghỉ không?",
+        "exampleZh": "今天你休息吗？",
+        "meaningVi": "Nghỉ ngơi, được nghỉ",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "喝",
+        "pinyin": "hē",
+        "meaning": "Uống",
+        "examples": [
+          {
+            "vi": "Uống trà",
+            "zh": "喝茶",
+            "pinyin": "hē chá"
+          }
+        ],
+        "examplePy": "hē chá",
+        "exampleVi": "Uống trà",
+        "exampleZh": "喝茶",
+        "meaningVi": "Uống",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "茶",
+        "pinyin": "chá",
+        "meaning": "Trà",
+        "examples": [
+          {
+            "vi": "Uống trà Trung Quốc",
+            "zh": "喝中国茶",
+            "pinyin": "hē Zhōngguó chá"
+          }
+        ],
+        "examplePy": "hē Zhōngguó chá",
+        "exampleVi": "Uống trà Trung Quốc",
+        "exampleZh": "喝中国茶",
+        "meaningVi": "Trà",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "咖啡",
+        "pinyin": "kāfēi",
+        "meaning": "Cà phê",
+        "examples": [
+          {
+            "vi": "Uống cà phê",
+            "zh": "喝咖啡",
+            "pinyin": "hē kāfēi"
+          }
+        ],
+        "examplePy": "hē kāfēi",
+        "exampleVi": "Uống cà phê",
+        "exampleZh": "喝咖啡",
+        "meaningVi": "Cà phê",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "吧",
+        "pinyin": "ba",
+        "meaning": "Đi, nhé (trợ từ ngữ khí rủ rê)",
+        "examples": [
+          {
+            "vi": "Chúng mình đi uống cà phê đi!",
+            "zh": "我们去喝咖啡吧！",
+            "pinyin": "Wǒmen qù hē kāfēi ba!"
+          }
+        ],
+        "examplePy": "Wǒmen qù hē kāfēi ba!",
+        "exampleVi": "Chúng mình đi uống cà phê đi!",
+        "exampleZh": "我们去喝咖啡吧！",
+        "meaningVi": "Đi, nhé (trợ từ ngữ khí rủ rê)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 9,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Cách nói thứ ngày trong tuần",
+        "usage": "",
+        "example": "星期一 (Thứ 2) · 星期六 (Thứ 7) · 星期天 / 星期日 (Chủ nhật)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "星期一 (Thứ 2) · 星期六 (Thứ 7) · 星期天 / 星期日 (Chủ nhật)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "星期 + Số từ (1, 2, 3, 4, 5, 6) / 星期天 (Chủ nhật)",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Trợ từ ngữ khí đề xuất 吧 (Ba)",
+        "usage": "",
+        "example": "我们去喝茶吧！(Chúng mình đi uống trà đi!)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我们去喝茶吧！(Chúng mình đi uống trà đi!)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Mệnh đề + 吧！",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Văn hóa uống trà và giao lưu ngày nghỉ ở Trung Quốc: Quán trà truyền thống là không gian thư giãn, đàm đạo tao nhã sau chuỗi ngày làm việc."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 2 của giáo viên"
+  },
+  {
+    "id": "hsk1-06",
+    "desc": "Đọc số đếm từ 0 đến 100, cách hỏi số điện thoại với 多少 (duōshao) và cách đọc số 1 là 'yāo'.",
+    "number": 6,
+    "pinyin": "Nǐ de shǒujī hào shì duōshao?",
+    "culture": "Ý nghĩa phong thủy của các con số ở Trung Quốc: Số 8 (Bát - 发) tượng trưng cho phát tài phát lộc; số 6 (Lục - 流) tượng trưng cho mọi sự hanh thông thuận lợi.",
+    "titleVi": "Số điện thoại của bạn là bao nhiêu?",
+    "titleZh": "你的手机号是多少？",
+    "dialogue": [
+      {
+        "vi": "Tiểu Minh, số điện thoại của bạn là bao nhiêu?",
+        "zh": "小明，你的手机号是多少？",
+        "pinyin": "Xiǎomíng, nǐ de shǒujī hào shì duōshao?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Số điện thoại của mình là 139-1234-5678.",
+        "zh": "我的手机号是139-1234-5678。",
+        "pinyin": "Wǒ de shǒujī hào shì yāo sān jiǔ, yāo èr sān sì, wǔ liù qī bā.",
+        "speaker": "小明"
+      },
+      {
+        "vi": "Được rồi, tối nay mình sẽ gọi cho bạn.",
+        "zh": "好的，晚上我给你打电话。",
+        "pinyin": "Hǎo de, wǎnshang wǒ gěi nǐ dǎ diànhuà.",
+        "speaker": "李文"
+      }
+    ],
+    "phonetics": {
+      "rule": "Mặt lưỡi áp sát ngạc cứng. Âm [q] bật hơi mạnh. j, q, x chỉ đi với nguyên âm i và ü (viết là u bỏ dấu 2 chấm).",
+      "title": "Luyện ngữ âm bài 6: Thanh mẫu mặt lưỡi j, q, x",
+      "examples": [
+        "jī (gà)",
+        "qī (bảy)",
+        "xī (tây)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "电话",
+        "pinyin": "diànhuà",
+        "meaning": "Điện thoại",
+        "examples": [
+          {
+            "vi": "Gọi điện thoại",
+            "zh": "打电话",
+            "pinyin": "dǎ diànhuà"
+          }
+        ],
+        "examplePy": "dǎ diànhuà",
+        "exampleVi": "Gọi điện thoại",
+        "exampleZh": "打电话",
+        "meaningVi": "Điện thoại",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "手机",
+        "pinyin": "shǒujī",
+        "meaning": "Điện thoại di động",
+        "examples": [
+          {
+            "vi": "Điện thoại của tôi",
+            "zh": "我的手机",
+            "pinyin": "wǒ de shǒujī"
+          }
+        ],
+        "examplePy": "wǒ de shǒujī",
+        "exampleVi": "Điện thoại của tôi",
+        "exampleZh": "我的手机",
+        "meaningVi": "Điện thoại di động",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "号",
+        "pinyin": "hào",
+        "meaning": "Số, ngày",
+        "examples": [
+          {
+            "vi": "Số điện thoại",
+            "zh": "手机号",
+            "pinyin": "shǒujī hào"
+          }
+        ],
+        "examplePy": "shǒujī hào",
+        "exampleVi": "Số điện thoại",
+        "exampleZh": "手机号",
+        "meaningVi": "Số, ngày",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "多少",
+        "pinyin": "duōshao",
+        "meaning": "Bao nhiêu (đại từ hỏi số lượng > 10)",
+        "examples": [
+          {
+            "vi": "Bao nhiêu tiền?",
+            "zh": "多少钱？",
+            "pinyin": "Duōshao qián?"
+          }
+        ],
+        "examplePy": "Duōshao qián?",
+        "exampleVi": "Bao nhiêu tiền?",
+        "exampleZh": "多少钱？",
+        "meaningVi": "Bao nhiêu (đại từ hỏi số lượng > 10)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "零",
+        "pinyin": "líng",
+        "meaning": "Số 0",
+        "examples": [
+          {
+            "vi": "0 giờ",
+            "zh": "零点",
+            "pinyin": "líng diǎn"
+          }
+        ],
+        "examplePy": "líng diǎn",
+        "exampleVi": "0 giờ",
+        "exampleZh": "零点",
+        "meaningVi": "Số 0",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "一",
+        "pinyin": "yī / yāo",
+        "meaning": "Số 1 (đọc yāo trong dãy số)",
+        "examples": [
+          {
+            "vi": "một ba tám",
+            "zh": "138",
+            "pinyin": "yāo sān bā"
+          }
+        ],
+        "examplePy": "yāo sān bā",
+        "exampleVi": "một ba tám",
+        "exampleZh": "138",
+        "meaningVi": "Số 1 (đọc yāo trong dãy số)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "百",
+        "pinyin": "bǎi",
+        "meaning": "Trăm (100)",
+        "examples": [
+          {
+            "vi": "Một trăm",
+            "zh": "一百",
+            "pinyin": "yì bǎi"
+          }
+        ],
+        "examplePy": "yì bǎi",
+        "exampleVi": "Một trăm",
+        "exampleZh": "一百",
+        "meaningVi": "Trăm (100)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "给",
+        "pinyin": "gěi",
+        "meaning": "Cho, gọi cho",
+        "examples": [
+          {
+            "vi": "Gọi điện thoại cho tôi",
+            "zh": "给我打电话",
+            "pinyin": "gěi wǒ dǎ diànhuà"
+          }
+        ],
+        "examplePy": "gěi wǒ dǎ diànhuà",
+        "exampleVi": "Gọi điện thoại cho tôi",
+        "exampleZh": "给我打电话",
+        "meaningVi": "Cho, gọi cho",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 8,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Hỏi số lượng lớn hoặc thông tin số với 多少 (Duōshao)",
+        "usage": "",
+        "example": "你的手机号是多少？ (Số điện thoại của bạn là bao nhiêu?)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "你的手机号是多少？ (Số điện thoại của bạn là bao nhiêu?)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 是 + 多少？",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Quy tắc đọc số 1 là 'Yāo' trong số điện thoại và phòng ốc",
+        "usage": "",
+        "example": "13812345678 ➔ yāo sān bā yāo èr sān sì wǔ liù qī bā",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "13812345678 ➔ yāo sān bā yāo èr sān sì wǔ liù qī bā",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Khi đọc dãy số thứ tự, đọc số 1 là yāo để tránh nhầm với số 7 (qī)",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Ý nghĩa phong thủy của các con số ở Trung Quốc: Số 8 (Bát - 发) tượng trưng cho phát tài phát lộc; số 6 (Lục - 流) tượng trưng cho mọi sự hanh thông thuận lợi."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 3 của giáo viên"
+  },
+  {
+    "id": "hsk1-07",
+    "desc": "Biểu đạt thời gian, giờ giấc trong ngày (sáng, trưa, tối), cấu trúc Điểm + Phút + 半 (rưỡi).",
+    "number": 7,
+    "pinyin": "Wǒ wǎnshang liù diǎn bàn xiàbān",
+    "culture": "Thói quen sinh hoạt và nghỉ trưa (午休) của người Trung Quốc: Giờ nghỉ trưa rất được coi trọng để nạp lại năng lượng cho buổi chiều làm việc hiệu quả.",
+    "titleVi": "Em tan làm lúc 6 rưỡi tối",
+    "titleZh": "我晚上六点半下班",
+    "dialogue": [
+      {
+        "vi": "Vương Phương, hôm nay mấy giờ bạn tan làm?",
+        "zh": "王芳，你今天几点下班？",
+        "pinyin": "Wáng Fāng, nǐ jīntiān jǐ diǎn xiàbān?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Em tan làm lúc 6 rưỡi tối. Có việc gì thế anh?",
+        "zh": "我晚上六点半下班。怎么了？",
+        "pinyin": "Wǒ wǎnshang liù diǎn bàn xiàbān. Zěnme le?",
+        "speaker": "王芳"
+      },
+      {
+        "vi": "Bảy giờ tụi mình cùng đi ăn tối nhé, được không?",
+        "zh": "七点我们一起吃晚饭，好吗？",
+        "pinyin": "Qī diǎn wǒmen yìqǐ chī wǎnfàn, hǎo ma?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Tuyệt quá, 7 giờ gặp anh nhé!",
+        "zh": "太好了，七点见！",
+        "pinyin": "Tài hǎo le, qī diǎn jiàn!",
+        "speaker": "王芳"
+      }
+    ],
+    "phonetics": {
+      "rule": "Đầu lưỡi cong lên chạm vào vòm họng ngạc cứng. Âm [ch] bật hơi mạnh. Âm [r] rung nhẹ.",
+      "title": "Luyện ngữ âm bài 7: Âm uốn lưỡi zh, ch, sh, r",
+      "examples": [
+        "zhōng (trung)",
+        "chī (ăn)",
+        "shàng (lên)",
+        "rì (ngày)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "点",
+        "pinyin": "diǎn",
+        "meaning": "Giờ (thời điểm)",
+        "examples": [
+          {
+            "vi": "6 giờ",
+            "zh": "六点",
+            "pinyin": "liù diǎn"
+          }
+        ],
+        "examplePy": "liù diǎn",
+        "exampleVi": "6 giờ",
+        "exampleZh": "六点",
+        "meaningVi": "Giờ (thời điểm)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "分",
+        "pinyin": "fēn",
+        "meaning": "Phút",
+        "examples": [
+          {
+            "vi": "10 phút",
+            "zh": "十分",
+            "pinyin": "shí fēn"
+          }
+        ],
+        "examplePy": "shí fēn",
+        "exampleVi": "10 phút",
+        "exampleZh": "十分",
+        "meaningVi": "Phút",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "半",
+        "pinyin": "bàn",
+        "meaning": "Nửa, rưỡi (30 phút)",
+        "examples": [
+          {
+            "vi": "6 rưỡi",
+            "zh": "六点半",
+            "pinyin": "liù diǎn bàn"
+          }
+        ],
+        "examplePy": "liù diǎn bàn",
+        "exampleVi": "6 rưỡi",
+        "exampleZh": "六点半",
+        "meaningVi": "Nửa, rưỡi (30 phút)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "早上",
+        "pinyin": "zǎoshang",
+        "meaning": "Sáng sớm",
+        "examples": [
+          {
+            "vi": "Chào buổi sáng!",
+            "zh": "早上好！",
+            "pinyin": "Zǎoshang hǎo!"
+          }
+        ],
+        "examplePy": "Zǎoshang hǎo!",
+        "exampleVi": "Chào buổi sáng!",
+        "exampleZh": "早上好！",
+        "meaningVi": "Sáng sớm",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "上午",
+        "pinyin": "shàngwǔ",
+        "meaning": "Buổi sáng (9h-11h)",
+        "examples": [
+          {
+            "vi": "Buổi sáng lên lớp",
+            "zh": "上午上课",
+            "pinyin": "shàngwǔ shàngkè"
+          }
+        ],
+        "examplePy": "shàngwǔ shàngkè",
+        "exampleVi": "Buổi sáng lên lớp",
+        "exampleZh": "上午上课",
+        "meaningVi": "Buổi sáng (9h-11h)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "中午",
+        "pinyin": "zhōngwǔ",
+        "meaning": "Buổi trưa",
+        "examples": [
+          {
+            "vi": "Buổi trưa ăn cơm",
+            "zh": "中午吃饭",
+            "pinyin": "zhōngwǔ chīfàn"
+          }
+        ],
+        "examplePy": "zhōngwǔ chīfàn",
+        "exampleVi": "Buổi trưa ăn cơm",
+        "exampleZh": "中午吃饭",
+        "meaningVi": "Buổi trưa",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "下午",
+        "pinyin": "xiàwǔ",
+        "meaning": "Buổi chiều",
+        "examples": [
+          {
+            "vi": "Buổi chiều họp",
+            "zh": "下午开会",
+            "pinyin": "xiàwǔ kāihuì"
+          }
+        ],
+        "examplePy": "xiàwǔ kāihuì",
+        "exampleVi": "Buổi chiều họp",
+        "exampleZh": "下午开会",
+        "meaningVi": "Buổi chiều",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "晚上",
+        "pinyin": "wǎnshang",
+        "meaning": "Buổi tối",
+        "examples": [
+          {
+            "vi": "6 giờ tối",
+            "zh": "晚上六点",
+            "pinyin": "wǎnshang liù diǎn"
+          }
+        ],
+        "examplePy": "wǎnshang liù diǎn",
+        "exampleVi": "6 giờ tối",
+        "exampleZh": "晚上六点",
+        "meaningVi": "Buổi tối",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "下班",
+        "pinyin": "xiàbān",
+        "meaning": "Tan làm, hết ca",
+        "examples": [
+          {
+            "vi": "Tôi tan làm rồi.",
+            "zh": "我下班了。",
+            "pinyin": "Wǒ xiàbān le."
+          }
+        ],
+        "examplePy": "Wǒ xiàbān le.",
+        "exampleVi": "Tôi tan làm rồi.",
+        "exampleZh": "我下班了。",
+        "meaningVi": "Tan làm, hết ca",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 9,
+    "durationMin": 40,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Quy tắc trật tự thời gian từ lớn đến nhỏ trong tiếng Trung",
+        "usage": "",
+        "example": "晚上六点半 (6 giờ rưỡi tối) · 上午八点十分 (8 giờ 10 phút sáng)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "晚上六点半 (6 giờ rưỡi tối) · 上午八点十分 (8 giờ 10 phút sáng)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Buổi trong ngày + Giờ + Phút / 半",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Trạng ngữ chỉ thời gian đứng trước hoặc sau chủ ngữ",
+        "usage": "",
+        "example": "我晚上六点半下班。(Em tan làm lúc 6 rưỡi tối.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我晚上六点半下班。(Em tan làm lúc 6 rưỡi tối.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + Thời gian + Động từ (hoặc: Thời gian + Chủ ngữ + Động từ)",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Thói quen sinh hoạt và nghỉ trưa (午休) của người Trung Quốc: Giờ nghỉ trưa rất được coi trọng để nạp lại năng lượng cho buổi chiều làm việc hiệu quả."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 3 của giáo viên"
+  },
+  {
+    "id": "hsk1-08",
+    "desc": "Nói về nơi chốn và địa điểm làm việc với giới từ 在 (zài), các nghề nghiệp phổ biến như bác sĩ, giáo viên.",
+    "number": 8,
+    "pinyin": "Wǒ bàba yě zài yīyuàn gōngzuò",
+    "culture": "Nghề thầy thuốc và y đức trong văn hóa truyền thống Trung Hoa: Tôn vinh danh xưng 'Lương y như từ mẫu' và sự kết hợp hài hòa giữa Đông y và Tây y hiện đại.",
+    "titleVi": "Bố em cũng làm việc ở bệnh viện",
+    "titleZh": "我爸爸也在医院工作",
+    "dialogue": [
+      {
+        "vi": "Trương Đình, mẹ bạn là bác sĩ à?",
+        "zh": "张婷，你妈妈是医生吗？",
+        "pinyin": "Zhāng Tíng, nǐ māma shì yīshēng ma?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Đúng rồi, bà ấy làm việc ở Bệnh viện số 1 Bắc Kinh.",
+        "zh": "对，她在北京第一医院工作。",
+        "pinyin": "Duì, tā zài Běijīng Dì-yī Yīyuàn gōngzuò.",
+        "speaker": "张婷"
+      },
+      {
+        "vi": "Trùng hợp thật! Bố em cũng làm việc ở bệnh viện, ông ấy cũng là bác sĩ.",
+        "zh": "真巧！我爸爸也在医院工作，他也是医生。",
+        "pinyin": "Zhēn qiǎo! Wǒ bàba yě zài yīyuàn gōngzuò, tā yě shì yīshēng.",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Tuyệt quá!",
+        "zh": "太好了！",
+        "pinyin": "Tài hǎo le!",
+        "speaker": "张婷"
+      }
+    ],
+    "phonetics": {
+      "rule": "Đầu lưỡi đặt phẳng chạm vào mặt sau của răng cửa trên. Âm [c] bật hơi mạnh.",
+      "title": "Luyện ngữ âm bài 8: Âm đầu lưỡi trước z, c, s",
+      "examples": [
+        "zài (ở)",
+        "cài (món ăn)",
+        "sān (ba)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "在",
+        "pinyin": "zài",
+        "meaning": "Ở, tại (giới từ chỉ địa điểm)",
+        "examples": [
+          {
+            "vi": "Anh ấy ở Bắc Kinh.",
+            "zh": "他在北京。",
+            "pinyin": "Tā zài Běijīng."
+          }
+        ],
+        "examplePy": "Tā zài Běijīng.",
+        "exampleVi": "Anh ấy ở Bắc Kinh.",
+        "exampleZh": "他在北京。",
+        "meaningVi": "Ở, tại (giới từ chỉ địa điểm)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "医院",
+        "pinyin": "yīyuàn",
+        "meaning": "Bệnh viện",
+        "examples": [
+          {
+            "vi": "Đi bệnh viện",
+            "zh": "去医院",
+            "pinyin": "qù yīyuàn"
+          }
+        ],
+        "examplePy": "qù yīyuàn",
+        "exampleVi": "Đi bệnh viện",
+        "exampleZh": "去医院",
+        "meaningVi": "Bệnh viện",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "医生",
+        "pinyin": "yīshēng",
+        "meaning": "Bác sĩ",
+        "examples": [
+          {
+            "vi": "Tôi là bác sĩ.",
+            "zh": "我是医生。",
+            "pinyin": "Wǒ shì yīshēng."
+          }
+        ],
+        "examplePy": "Wǒ shì yīshēng.",
+        "exampleVi": "Tôi là bác sĩ.",
+        "exampleZh": "我是医生。",
+        "meaningVi": "Bác sĩ",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "学校",
+        "pinyin": "xuéxiào",
+        "meaning": "Trường học",
+        "examples": [
+          {
+            "vi": "Học ở trường",
+            "zh": "在学校学习",
+            "pinyin": "zài xuéxiào xuéxí"
+          }
+        ],
+        "examplePy": "zài xuéxiào xuéxí",
+        "exampleVi": "Học ở trường",
+        "exampleZh": "在学校学习",
+        "meaningVi": "Trường học",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "工作",
+        "pinyin": "gōngzuò",
+        "meaning": "Làm việc, công việc",
+        "examples": [
+          {
+            "vi": "Bạn làm việc ở đâu?",
+            "zh": "你在哪儿工作？",
+            "pinyin": "Nǐ zài nǎr gōngzuò?"
+          }
+        ],
+        "examplePy": "Nǐ zài nǎr gōngzuò?",
+        "exampleVi": "Bạn làm việc ở đâu?",
+        "exampleZh": "你在哪儿工作？",
+        "meaningVi": "Làm việc, công việc",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "哪儿",
+        "pinyin": "nǎr",
+        "meaning": "Ở đâu, chỗ nào",
+        "examples": [
+          {
+            "vi": "Bạn đi đâu?",
+            "zh": "你去哪儿？",
+            "pinyin": "Nǐ qù nǎr?"
+          }
+        ],
+        "examplePy": "Nǐ qù nǎr?",
+        "exampleVi": "Bạn đi đâu?",
+        "exampleZh": "你去哪儿？",
+        "meaningVi": "Ở đâu, chỗ nào",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "公司",
+        "pinyin": "gōngsī",
+        "meaning": "Công ty",
+        "examples": [
+          {
+            "vi": "Làm việc tại công ty",
+            "zh": "在公司上班",
+            "pinyin": "zài gōngsī shàngbān"
+          }
+        ],
+        "examplePy": "zài gōngsī shàngbān",
+        "exampleVi": "Làm việc tại công ty",
+        "exampleZh": "在公司上班",
+        "meaningVi": "Công ty",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "爸爸",
+        "pinyin": "bàba",
+        "meaning": "Bố",
+        "examples": [
+          {
+            "vi": "Bố tôi",
+            "zh": "我爸爸",
+            "pinyin": "wǒ bàba"
+          }
+        ],
+        "examplePy": "wǒ bàba",
+        "exampleVi": "Bố tôi",
+        "exampleZh": "我爸爸",
+        "meaningVi": "Bố",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 8,
+    "durationMin": 40,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Cấu trúc giới từ chỉ nơi chốn hành động với 在 (Zài)",
+        "usage": "Chú ý: Trong tiếng Trung, cụm giới từ chỉ địa điểm luôn đứng TRƯỚC động từ chính.",
+        "example": "我爸爸在医院工作。(Bố em làm việc ở bệnh viện.)",
+        "summary": "Chú ý: Trong tiếng Trung, cụm giới từ chỉ địa điểm luôn đứng TRƯỚC động từ chính.",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我爸爸在医院工作。(Bố em làm việc ở bệnh viện.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 在 + Nơi chốn + Động từ + Tân ngữ",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "Chú ý: Trong tiếng Trung, cụm giới từ chỉ địa điểm luôn đứng TRƯỚC động từ chính.",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": "Chú ý: Trong tiếng Trung, cụm giới từ chỉ địa điểm luôn đứng TRƯỚC động từ chính."
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Hỏi nơi chốn với đại từ 在哪儿 (Zài nǎr)",
+        "usage": "",
+        "example": "你在哪儿工作？ ➔ 我在学校工作。",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "你在哪儿工作？ ➔ 我在学校工作。",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 在哪儿 + Động từ？",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Nghề thầy thuốc và y đức trong văn hóa truyền thống Trung Hoa: Tôn vinh danh xưng 'Lương y như từ mẫu' và sự kết hợp hài hòa giữa Đông y và Tây y hiện đại."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 4 của giáo viên"
+  },
+  {
+    "id": "hsk1-09",
+    "desc": "Cấu trúc câu hoàn chỉnh kết hợp Thời gian + Địa điểm + Hành động; các môn học và hoạt động học đường.",
+    "number": 9,
+    "pinyin": "Wǒ míngtiān shàngwǔ zài xuéxiào xuéxí",
+    "culture": "Truyền thống tôn sư trọng đạo và tinh thần hiếu học: 'Học như thuyền đi ngược dòng nước, không tiến ắt sẽ lùi'.",
+    "titleVi": "Sáng mai mình học ở trường",
+    "titleZh": "我明天上午在学校学习",
+    "dialogue": [
+      {
+        "vi": "Sáng mai bạn có rảnh không?",
+        "zh": "明天上午你有空吗？",
+        "pinyin": "Míngtiān shàngwǔ nǐ yǒu kòng ma?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Sáng mai mình học tiếng Trung ở trường, buổi chiều thì rảnh.",
+        "zh": "明天上午我在学校学习汉语，下午有空。",
+        "pinyin": "Míngtiān shàngwǔ wǒ zài xuéxiào xuéxí hànyǔ, xiàwǔ yǒu kòng.",
+        "speaker": "大卫"
+      },
+      {
+        "vi": "Vậy chiều tụi mình cùng làm bài tập nhé!",
+        "zh": "那下午我们一起做作业吧！",
+        "pinyin": "Nà xiàwǔ wǒmen yìqǐ zuò zuòyè ba!",
+        "speaker": "李文"
+      }
+    ],
+    "phonetics": {
+      "rule": "Đầu lưỡi nâng lên chạm ngạc cứng chặn luồng hơi, âm vang qua khoang mũi.",
+      "title": "Luyện ngữ âm bài 9: Vận mẫu mũi trước an, en, in, ün",
+      "examples": [
+        "shān (núi)",
+        "mén (cửa)",
+        "xīn (tim)",
+        "yún (mây)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "学习",
+        "pinyin": "xuéxí",
+        "meaning": "Học tập, học",
+        "examples": [
+          {
+            "vi": "Học tiếng Trung",
+            "zh": "学习汉语",
+            "pinyin": "xuéxí hànyǔ"
+          }
+        ],
+        "examplePy": "xuéxí hànyǔ",
+        "exampleVi": "Học tiếng Trung",
+        "exampleZh": "学习汉语",
+        "meaningVi": "Học tập, học",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "汉语",
+        "pinyin": "hànyǔ",
+        "meaning": "Tiếng Hán, tiếng Trung",
+        "examples": [
+          {
+            "vi": "Nói tiếng Trung",
+            "zh": "说汉语",
+            "pinyin": "shuō hànyǔ"
+          }
+        ],
+        "examplePy": "shuō hànyǔ",
+        "exampleVi": "Nói tiếng Trung",
+        "exampleZh": "说汉语",
+        "meaningVi": "Tiếng Hán, tiếng Trung",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "看书",
+        "pinyin": "kànshū",
+        "meaning": "Đọc sách",
+        "examples": [
+          {
+            "vi": "Đọc sách ở thư viện",
+            "zh": "在图书馆看书",
+            "pinyin": "zài túshūguǎn kànshū"
+          }
+        ],
+        "examplePy": "zài túshūguǎn kànshū",
+        "exampleVi": "Đọc sách ở thư viện",
+        "exampleZh": "在图书馆看书",
+        "meaningVi": "Đọc sách",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "写",
+        "pinyin": "xiě",
+        "meaning": "Viết",
+        "examples": [
+          {
+            "vi": "Viết chữ Hán",
+            "zh": "写汉字",
+            "pinyin": "xiě hànzì"
+          }
+        ],
+        "examplePy": "xiě hànzì",
+        "exampleVi": "Viết chữ Hán",
+        "exampleZh": "写汉字",
+        "meaningVi": "Viết",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "汉字",
+        "pinyin": "hànzì",
+        "meaning": "Chữ Hán",
+        "examples": [
+          {
+            "vi": "Chữ Hán rất thú vị.",
+            "zh": "汉字很有意思。",
+            "pinyin": "Hànzì hěn yǒu yìsi."
+          }
+        ],
+        "examplePy": "Hànzì hěn yǒu yìsi.",
+        "exampleVi": "Chữ Hán rất thú vị.",
+        "exampleZh": "汉字很有意思。",
+        "meaningVi": "Chữ Hán",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "做",
+        "pinyin": "zuò",
+        "meaning": "Làm",
+        "examples": [
+          {
+            "vi": "Bạn làm gì?",
+            "zh": "你做什么？",
+            "pinyin": "Nǐ zuò shénme?"
+          }
+        ],
+        "examplePy": "Nǐ zuò shénme?",
+        "exampleVi": "Bạn làm gì?",
+        "exampleZh": "你做什么？",
+        "meaningVi": "Làm",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "作业",
+        "pinyin": "zuòyè",
+        "meaning": "Bài tập về nhà",
+        "examples": [
+          {
+            "vi": "Làm bài tập",
+            "zh": "做作业",
+            "pinyin": "zuò zuòyè"
+          }
+        ],
+        "examplePy": "zuò zuòyè",
+        "exampleVi": "Làm bài tập",
+        "exampleZh": "做作业",
+        "meaningVi": "Bài tập về nhà",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 7,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Trật tự câu đa thành phần chuẩn mực trong tiếng Trung",
+        "usage": "",
+        "example": "我明天上午在学校学习汉语。(Sáng mai tôi học tiếng Trung ở trường.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我明天上午在学校学习汉语。(Sáng mai tôi học tiếng Trung ở trường.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + [Thời gian] + [Địa điểm: 在...] + Động từ + Tân ngữ",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Truyền thống tôn sư trọng đạo và tinh thần hiếu học: 'Học như thuyền đi ngược dòng nước, không tiến ắt sẽ lùi'."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 1,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 4 của giáo viên"
+  },
+  {
+    "id": "hsk1-10",
+    "desc": "Mua sắm, hỏi giá cả hàng hóa, khen ngợi với phó từ 真 (zhēn) và đơn vị tiền tệ Trung Quốc (块/元).",
+    "number": 10,
+    "pinyin": "Zhèr de píngguǒ zhēn piányi!",
+    "culture": "Thanh toán di động (移动支付) tại Trung Quốc: WeChat Pay và Alipay là phương thức mua sắm phổ biến không cần dùng tiền mặt kể cả ở chợ dân sinh.",
+    "titleVi": "Táo ở đây rẻ thật!",
+    "titleZh": "这儿的苹果真便宜！",
+    "dialogue": [
+      {
+        "vi": "Ông chủ ơi, táo bao nhiêu tiền một cân (500g) thế?",
+        "zh": "老板，苹果多少钱一斤？",
+        "pinyin": "Lǎobǎn, píngguǒ duōshao qián yì jīn?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Ba tệ rưỡi một cân. Ngọt lắm đấy!",
+        "zh": "三块五一斤。很甜的！",
+        "pinyin": "Sān kuài wǔ yì jīn. Hěn tián de!",
+        "speaker": "老板"
+      },
+      {
+        "vi": "Táo ở đây rẻ thật! Cho tôi ba cân nhé.",
+        "zh": "这儿的苹果真便宜！给我来三斤。",
+        "pinyin": "Zhèr de píngguǒ zhēn piányi! Gěi wǒ lái sān jīn.",
+        "speaker": "李文"
+      }
+    ],
+    "phonetics": {
+      "rule": "Cuống lưỡi nâng lên chạm ngạc mềm, luồng khí hoàn toàn thoát qua mũi tạo âm trầm vang.",
+      "title": "Luyện ngữ âm bài 10: Vận mẫu mũi sau ang, eng, ing, ong",
+      "examples": [
+        "bāng (giúp)",
+        "péng (bạn)",
+        "míng (tên)",
+        "hóng (đỏ)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "苹果",
+        "pinyin": "píngguǒ",
+        "meaning": "Quả táo",
+        "examples": [
+          {
+            "vi": "Mua táo",
+            "zh": "买苹果",
+            "pinyin": "mǎi píngguǒ"
+          }
+        ],
+        "examplePy": "mǎi píngguǒ",
+        "exampleVi": "Mua táo",
+        "exampleZh": "买苹果",
+        "meaningVi": "Quả táo",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "这儿",
+        "pinyin": "zhèr",
+        "meaning": "Ở đây, chỗ này",
+        "examples": [
+          {
+            "vi": "Ở đây đẹp thật.",
+            "zh": "这儿很漂亮。",
+            "pinyin": "Zhèr hěn piàoliang."
+          }
+        ],
+        "examplePy": "Zhèr hěn piàoliang.",
+        "exampleVi": "Ở đây đẹp thật.",
+        "exampleZh": "这儿很漂亮。",
+        "meaningVi": "Ở đây, chỗ này",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "真",
+        "pinyin": "zhēn",
+        "meaning": "Thật là, thật sự",
+        "examples": [
+          {
+            "vi": "Ngon thật đấy!",
+            "zh": "真好吃！",
+            "pinyin": "Zhēn hǎochī!"
+          }
+        ],
+        "examplePy": "Zhēn hǎochī!",
+        "exampleVi": "Ngon thật đấy!",
+        "exampleZh": "真好吃！",
+        "meaningVi": "Thật là, thật sự",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "便宜",
+        "pinyin": "piányi",
+        "meaning": "Rẻ",
+        "examples": [
+          {
+            "vi": "Rất rẻ",
+            "zh": "很便宜",
+            "pinyin": "hěn piányi"
+          }
+        ],
+        "examplePy": "hěn piányi",
+        "exampleVi": "Rất rẻ",
+        "exampleZh": "很便宜",
+        "meaningVi": "Rẻ",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "贵",
+        "pinyin": "guì",
+        "meaning": "Đắt, quý",
+        "examples": [
+          {
+            "vi": "Đắt quá rồi!",
+            "zh": "太贵了！",
+            "pinyin": "Tài guì le!"
+          }
+        ],
+        "examplePy": "Tài guì le!",
+        "exampleVi": "Đắt quá rồi!",
+        "exampleZh": "太贵了！",
+        "meaningVi": "Đắt, quý",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "买",
+        "pinyin": "mǎi",
+        "meaning": "Mua",
+        "examples": [
+          {
+            "vi": "Bạn muốn mua gì?",
+            "zh": "你想买什么？",
+            "pinyin": "Nǐ xiǎng mǎi shénme?"
+          }
+        ],
+        "examplePy": "Nǐ xiǎng mǎi shénme?",
+        "exampleVi": "Bạn muốn mua gì?",
+        "exampleZh": "你想买什么？",
+        "meaningVi": "Mua",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "块",
+        "pinyin": "kuài",
+        "meaning": "Đồng, tệ (khẩu ngữ tiền tệ)",
+        "examples": [
+          {
+            "vi": "Năm tệ",
+            "zh": "五块钱",
+            "pinyin": "wǔ kuài qián"
+          }
+        ],
+        "examplePy": "wǔ kuài qián",
+        "exampleVi": "Năm tệ",
+        "exampleZh": "五块钱",
+        "meaningVi": "Đồng, tệ (khẩu ngữ tiền tệ)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "斤",
+        "pinyin": "jīn",
+        "meaning": "Cân Trung Quốc (= 500 gram)",
+        "examples": [
+          {
+            "vi": "Một cân táo (500g)",
+            "zh": "一斤苹果",
+            "pinyin": "yì jīn píngguǒ"
+          }
+        ],
+        "examplePy": "yì jīn píngguǒ",
+        "exampleVi": "Một cân táo (500g)",
+        "exampleZh": "一斤苹果",
+        "meaningVi": "Cân Trung Quốc (= 500 gram)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 8,
+    "durationMin": 40,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Câu cảm thán với phó từ 真 (Zhēn)",
+        "usage": "",
+        "example": "这儿的苹果真便宜！(Táo ở đây rẻ thật!) · 这件衣服真漂亮！(Bộ đồ này đẹp quá!)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "这儿的苹果真便宜！(Táo ở đây rẻ thật!) · 这件衣服真漂亮！(Bộ đồ này đẹp quá!)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 真 + Tính từ！",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Hỏi giá tiền với 多少钱 (Duōshao qián)",
+        "usage": "",
+        "example": "苹果多少钱一斤？ ➔ 三块钱一斤。(Táo bao nhiêu một cân? ➔ 3 tệ một cân.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "苹果多少钱一斤？ ➔ 三块钱一斤。(Táo bao nhiêu một cân? ➔ 3 tệ một cân.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Danh từ + 多少钱 + (一斤 / 一个)？",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Thanh toán di động (移动支付) tại Trung Quốc: WeChat Pay và Alipay là phương thức mua sắm phổ biến không cần dùng tiền mặt kể cả ở chợ dân sinh."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 5 của giáo viên"
+  },
+  {
+    "id": "hsk1-11",
+    "desc": "Biểu đạt hành động đang tiếp diễn với trợ từ 呢 (ne), nói về trường lớp và các bậc học.",
+    "number": 11,
+    "pinyin": "Wǒ dú dàxué ne",
+    "culture": "Đời sống sinh viên đại học ở Trung Quốc: Ký túc xá sinh viên là nơi gắn kết tình bạn sâu sắc 'Tình đồng học' (同学情) suốt cả cuộc đời.",
+    "titleVi": "Em đang học đại học",
+    "titleZh": "我读大学呢",
+    "dialogue": [
+      {
+        "vi": "Tiểu Ngữ, bạn đang làm gì đấy?",
+        "zh": "小语，你在做什么呢？",
+        "pinyin": "Xiǎoyǔ, nǐ zài zuò shénme ne?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Mình đang chuẩn bị bài giảng tiếng Trung ngày mai đây. Em gái bạn giờ làm gì rồi?",
+        "zh": "我在准备明天的汉语课呢。你妹妹现在做什么？",
+        "pinyin": "Wǒ zài zhǔnbèi míngtiān de hànyǔ kè ne. Nǐ mèimei xiànzài zuò shénme?",
+        "speaker": "AI小语"
+      },
+      {
+        "vi": "Em ấy đang học đại học, ngày nào cũng rất chăm chỉ.",
+        "zh": "她读大学呢，天天都很用功。",
+        "pinyin": "Tā dú dàxué ne, tiāntiān dōu hěn yònggōng.",
+        "speaker": "李文"
+      }
+    ],
+    "phonetics": {
+      "rule": "Yī đọc thanh 4 trước từ thanh 1, 2, 3 (yí gè, yí bēi); đọc thanh 2 trước từ thanh 4 (yí kuài, yí dìng).",
+      "title": "Luyện ngữ âm bài 11: Biến điệu của '一' (Yī)",
+      "examples": [
+        "yì tiān (thanh 4)",
+        "yí piàn (thanh 2)"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "读",
+        "pinyin": "dú",
+        "meaning": "Đọc, theo học",
+        "examples": [
+          {
+            "vi": "Đi học, đọc sách",
+            "zh": "读书",
+            "pinyin": "dúshū"
+          }
+        ],
+        "examplePy": "dúshū",
+        "exampleVi": "Đi học, đọc sách",
+        "exampleZh": "读书",
+        "meaningVi": "Đọc, theo học",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "大学",
+        "pinyin": "dàxué",
+        "meaning": "Trường đại học",
+        "examples": [
+          {
+            "vi": "Đại học Bắc Kinh",
+            "zh": "北京大学",
+            "pinyin": "Běijīng Dàxué"
+          }
+        ],
+        "examplePy": "Běijīng Dàxué",
+        "exampleVi": "Đại học Bắc Kinh",
+        "exampleZh": "北京大学",
+        "meaningVi": "Trường đại học",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "中学",
+        "pinyin": "zhōngxué",
+        "meaning": "Trường trung học",
+        "examples": [
+          {
+            "vi": "Học sinh cấp 2-3",
+            "zh": "中学生",
+            "pinyin": "zhōngxuéshēng"
+          }
+        ],
+        "examplePy": "zhōngxuéshēng",
+        "exampleVi": "Học sinh cấp 2-3",
+        "exampleZh": "中学生",
+        "meaningVi": "Trường trung học",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "小学",
+        "pinyin": "xiǎoxué",
+        "meaning": "Trường tiểu học",
+        "examples": [
+          {
+            "vi": "Học sinh tiểu học",
+            "zh": "小学生",
+            "pinyin": "xiǎoxuéshēng"
+          }
+        ],
+        "examplePy": "xiǎoxuéshēng",
+        "exampleVi": "Học sinh tiểu học",
+        "exampleZh": "小学生",
+        "meaningVi": "Trường tiểu học",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "呢",
+        "pinyin": "ne",
+        "meaning": "Đang (trợ từ biểu thị tiếp diễn / ngữ khí)",
+        "examples": [
+          {
+            "vi": "Anh ấy đang đọc sách đấy.",
+            "zh": "他在看书呢。",
+            "pinyin": "Tā zài kànshū ne."
+          }
+        ],
+        "examplePy": "Tā zài kànshū ne.",
+        "exampleVi": "Anh ấy đang đọc sách đấy.",
+        "exampleZh": "他在看书呢。",
+        "meaningVi": "Đang (trợ từ biểu thị tiếp diễn / ngữ khí)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "同屋",
+        "pinyin": "tóngwū",
+        "meaning": "Bạn cùng phòng (ký túc xá)",
+        "examples": [
+          {
+            "vi": "Bạn cùng phòng của tôi",
+            "zh": "我的同屋",
+            "pinyin": "wǒ de tóngwū"
+          }
+        ],
+        "examplePy": "wǒ de tóngwū",
+        "exampleVi": "Bạn cùng phòng của tôi",
+        "exampleZh": "我的同屋",
+        "meaningVi": "Bạn cùng phòng (ký túc xá)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "朋友",
+        "pinyin": "péngyou",
+        "meaning": "Bạn bè",
+        "examples": [
+          {
+            "vi": "Bạn tốt",
+            "zh": "好朋友",
+            "pinyin": "hǎo péngyou"
+          }
+        ],
+        "examplePy": "hǎo péngyou",
+        "exampleVi": "Bạn tốt",
+        "exampleZh": "好朋友",
+        "meaningVi": "Bạn bè",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 7,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Biểu đạt hành động đang tiếp diễn với trợ từ 呢 (Ne)",
+        "usage": "",
+        "example": "我读大学呢。(Em đang học đại học đấy.) · 他睡觉呢。(Cậu ấy đang ngủ.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我读大学呢。(Em đang học đại học đấy.) · 他睡觉呢。(Cậu ấy đang ngủ.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + (在 / 正在) + Động từ + (Tân ngữ) + 呢",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Đời sống sinh viên đại học ở Trung Quốc: Ký túc xá sinh viên là nơi gắn kết tình bạn sâu sắc 'Tình đồng học' (同学情) suốt cả cuộc đời."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 1,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 5 của giáo viên"
+  },
+  {
+    "id": "hsk1-12",
+    "desc": "Nói về thời tiết, khí hậu (mưa, tuyết, lạnh, nóng) và trợ từ ngữ khí biểu thị sự thay đổi 了 (le).",
+    "number": 12,
+    "pinyin": "Zuótiān xiàxuě le",
+    "culture": "Bốn mùa và vẻ đẹp mùa đông ở miền Bắc Trung Quốc: Mùa đông Bắc Kinh với tuyết trắng phủ lên mái ngói vàng Tử Cấm Thành là cảnh tượng kỳ vĩ đậm chất thơ.",
+    "titleVi": "Hôm qua tuyết rơi rồi",
+    "titleZh": "昨天下雪了",
+    "dialogue": [
+      {
+        "vi": "David, thời tiết Bắc Kinh hôm qua thế nào?",
+        "zh": "大卫，昨天北京的天气怎么样？",
+        "pinyin": "Dàwèi, zuótiān Běijīng de tiānqì zěnmeyàng?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Hôm qua tuyết rơi rồi! Thời tiết lạnh quá.",
+        "zh": "昨天下雪了！天气太冷了。",
+        "pinyin": "Zuótiān xiàxuě le! Tiānqì tài lěng le.",
+        "speaker": "大卫"
+      },
+      {
+        "vi": "Hôm nay còn tuyết rơi nữa không?",
+        "zh": "今天还下雪吗？",
+        "pinyin": "Jīntiān hái xiàxuě ma?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Hôm nay không rơi tuyết nữa rồi, nhưng gió rất to.",
+        "zh": "今天不下雪了，但是风很大。",
+        "pinyin": "Jīntiān bú xiàxuě le, dànshì fēng hěn dà.",
+        "speaker": "大卫"
+      }
+    ],
+    "phonetics": {
+      "rule": "Đọc 'bù' mang thanh 4 trước thanh 1, 2, 3 (bù lěng, bù rè); đọc 'bú' mang thanh 2 trước từ thanh 4 (bú xiè, bú shì).",
+      "title": "Luyện ngữ âm bài 12: Biến điệu của '不' (Bù)",
+      "examples": [
+        "bù lěng",
+        "bú duì"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "天气",
+        "pinyin": "tiānqì",
+        "meaning": "Thời tiết",
+        "examples": [
+          {
+            "vi": "Hôm nay thời tiết rất đẹp.",
+            "zh": "今天天气很好。",
+            "pinyin": "Jīntiān tiānqì hěn hǎo."
+          }
+        ],
+        "examplePy": "Jīntiān tiānqì hěn hǎo.",
+        "exampleVi": "Hôm nay thời tiết rất đẹp.",
+        "exampleZh": "今天天气很好。",
+        "meaningVi": "Thời tiết",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "下雨",
+        "pinyin": "xiàyǔ",
+        "meaning": "Mưa, trời mưa",
+        "examples": [
+          {
+            "vi": "Bên ngoài trời mưa rồi.",
+            "zh": "外面下雨了。",
+            "pinyin": "Wàimiàn xiàyǔ le."
+          }
+        ],
+        "examplePy": "Wàimiàn xiàyǔ le.",
+        "exampleVi": "Bên ngoài trời mưa rồi.",
+        "exampleZh": "外面下雨了。",
+        "meaningVi": "Mưa, trời mưa",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "下雪",
+        "pinyin": "xiàxuě",
+        "meaning": "Tuyết rơi",
+        "examples": [
+          {
+            "vi": "Hôm qua tuyết rơi rồi.",
+            "zh": "昨天下雪了。",
+            "pinyin": "Zuótiān xiàxuě le."
+          }
+        ],
+        "examplePy": "Zuótiān xiàxuě le.",
+        "exampleVi": "Hôm qua tuyết rơi rồi.",
+        "exampleZh": "昨天下雪了。",
+        "meaningVi": "Tuyết rơi",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "冷",
+        "pinyin": "lěng",
+        "meaning": "Lạnh",
+        "examples": [
+          {
+            "vi": "Hôm nay lạnh quá!",
+            "zh": "今天太冷了！",
+            "pinyin": "Jīntiān tài lěng le!"
+          }
+        ],
+        "examplePy": "Jīntiān tài lěng le!",
+        "exampleVi": "Hôm nay lạnh quá!",
+        "exampleZh": "今天太冷了！",
+        "meaningVi": "Lạnh",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "热",
+        "pinyin": "rè",
+        "meaning": "Nóng",
+        "examples": [
+          {
+            "vi": "Thời tiết rất nóng.",
+            "zh": "天气很热。",
+            "pinyin": "Tiānqì hěn rè."
+          }
+        ],
+        "examplePy": "Tiānqì hěn rè.",
+        "exampleVi": "Thời tiết rất nóng.",
+        "exampleZh": "天气很热。",
+        "meaningVi": "Nóng",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "了",
+        "pinyin": "le",
+        "meaning": "Rồi (trợ từ biểu thị sự thay đổi hoặc hoàn thành)",
+        "examples": [
+          {
+            "vi": "Rơi tuyết rồi",
+            "zh": "下雪了",
+            "pinyin": "xiàxuě le"
+          }
+        ],
+        "examplePy": "xiàxuě le",
+        "exampleVi": "Rơi tuyết rồi",
+        "exampleZh": "下雪了",
+        "meaningVi": "Rồi (trợ từ biểu thị sự thay đổi hoặc hoàn thành)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "怎么样",
+        "pinyin": "zěnmeyàng",
+        "meaning": "Thế nào, ra sao",
+        "examples": [
+          {
+            "vi": "Thời tiết thế nào?",
+            "zh": "天气怎么样？",
+            "pinyin": "Tiānqì zěnmeyàng?"
+          }
+        ],
+        "examplePy": "Tiānqì zěnmeyàng?",
+        "exampleVi": "Thời tiết thế nào?",
+        "exampleZh": "天气怎么样？",
+        "meaningVi": "Thế nào, ra sao",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 7,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Trợ từ ngữ khí 了 biểu thị sự xuất hiện tình huống mới hoặc thay đổi",
+        "usage": "",
+        "example": "昨天下雪了。(Hôm qua tuyết rơi rồi - trước đó chưa rơi).",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "昨天下雪了。(Hôm qua tuyết rơi rồi - trước đó chưa rơi).",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Câu / Vị ngữ + 了",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Cấu trúc quá mức với 太...了 (Tài... le)",
+        "usage": "",
+        "example": "今天太冷了！(Hôm nay lạnh quá!) · 太好了！(Tuyệt vời quá!)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "今天太冷了！(Hôm nay lạnh quá!) · 太好了！(Tuyệt vời quá!)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "太 + Tính từ + 了",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Bốn mùa và vẻ đẹp mùa đông ở miền Bắc Trung Quốc: Mùa đông Bắc Kinh với tuyết trắng phủ lên mái ngói vàng Tử Cấm Thành là cảnh tượng kỳ vĩ đậm chất thơ."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 6 của giáo viên"
+  },
+  {
+    "id": "hsk1-13",
+    "desc": "Cách yêu cầu, thỉnh cầu lịch sự với 请 (qǐng), gọi đồ ăn thức uống tại nhà hàng và lượng từ 杯 (bēi).",
+    "number": 13,
+    "pinyin": "Qǐng gěi wǒ yì bēi chá",
+    "culture": "Nghệ thuật Trà đạo Trung Hoa: Khách đến nhà rót trà kính mời là nét đẹp lễ nghĩa hiếu khách ngàn đời.",
+    "titleVi": "Cho tôi một cốc trà",
+    "titleZh": "请给我一杯茶",
+    "dialogue": [
+      {
+        "vi": "Kính chào quý khách! Xin hỏi quý khách muốn dùng đồ uống gì ạ?",
+        "zh": "您好！请问您想喝点什么？",
+        "pinyin": "Nín hǎo! Qǐngwèn nín xiǎng hē diǎn shénme?",
+        "speaker": "服务员"
+      },
+      {
+        "vi": "Làm ơn cho tôi một cốc trà, cảm ơn bạn.",
+        "zh": "请给我一杯茶，谢谢。",
+        "pinyin": "Qǐng gěi wǒ yì bēi chá, xièxie.",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Dạ được, xin vui lòng đợi một lát ạ!",
+        "zh": "好的，请稍等！",
+        "pinyin": "Hǎo de, qǐng shāoděng!",
+        "speaker": "服务员"
+      }
+    ],
+    "phonetics": {
+      "rule": "Đuôi từ có âm r uốn lưỡi: zhèr (ở đây), nǎr (ở đâu), yìdiǎnr (một chút).",
+      "title": "Luyện ngữ âm bài 13: Âm uốn lưỡi Nhi hóa (儿化音)",
+      "examples": [
+        "yìdiǎnr",
+        "zhèr",
+        "nǎr"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "请",
+        "pinyin": "qǐng",
+        "meaning": "Xin mời, làm ơn",
+        "examples": [
+          {
+            "vi": "Xin mời ngồi",
+            "zh": "请坐",
+            "pinyin": "qǐng zuò"
+          }
+        ],
+        "examplePy": "qǐng zuò",
+        "exampleVi": "Xin mời ngồi",
+        "exampleZh": "请坐",
+        "meaningVi": "Xin mời, làm ơn",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "给",
+        "pinyin": "gěi",
+        "meaning": "Đưa, cho",
+        "examples": [
+          {
+            "vi": "Đưa cho tôi",
+            "zh": "给我",
+            "pinyin": "gěi wǒ"
+          }
+        ],
+        "examplePy": "gěi wǒ",
+        "exampleVi": "Đưa cho tôi",
+        "exampleZh": "给我",
+        "meaningVi": "Đưa, cho",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "杯",
+        "pinyin": "bēi",
+        "meaning": "Cốc, ly (lượng từ)",
+        "examples": [
+          {
+            "vi": "Một cốc trà",
+            "zh": "一杯茶",
+            "pinyin": "yì bēi chá"
+          }
+        ],
+        "examplePy": "yì bēi chá",
+        "exampleVi": "Một cốc trà",
+        "exampleZh": "一杯茶",
+        "meaningVi": "Cốc, ly (lượng từ)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "水",
+        "pinyin": "shuǐ",
+        "meaning": "Nước",
+        "examples": [
+          {
+            "vi": "Uống nước",
+            "zh": "喝水",
+            "pinyin": "hē shuǐ"
+          }
+        ],
+        "examplePy": "hē shuǐ",
+        "exampleVi": "Uống nước",
+        "exampleZh": "喝水",
+        "meaningVi": "Nước",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "米饭",
+        "pinyin": "mǐfàn",
+        "meaning": "Cơm trắng",
+        "examples": [
+          {
+            "vi": "Ăn cơm",
+            "zh": "吃米饭",
+            "pinyin": "chī mǐfàn"
+          }
+        ],
+        "examplePy": "chī mǐfàn",
+        "exampleVi": "Ăn cơm",
+        "exampleZh": "吃米饭",
+        "meaningVi": "Cơm trắng",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "菜",
+        "pinyin": "cài",
+        "meaning": "Món ăn, rau",
+        "examples": [
+          {
+            "vi": "Món ăn Trung Quốc",
+            "zh": "中国菜",
+            "pinyin": "Zhōngguó cài"
+          }
+        ],
+        "examplePy": "Zhōngguó cài",
+        "exampleVi": "Món ăn Trung Quốc",
+        "exampleZh": "中国菜",
+        "meaningVi": "Món ăn, rau",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "想",
+        "pinyin": "xiǎng",
+        "meaning": "Muốn, nhớ, nghĩ",
+        "examples": [
+          {
+            "vi": "Tôi muốn ăn món Trung Quốc.",
+            "zh": "我想吃中国菜。",
+            "pinyin": "Wǒ xiǎng chī Zhōngguó cài."
+          }
+        ],
+        "examplePy": "Wǒ xiǎng chī Zhōngguó cài.",
+        "exampleVi": "Tôi muốn ăn món Trung Quốc.",
+        "exampleZh": "我想吃中国菜。",
+        "meaningVi": "Muốn, nhớ, nghĩ",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 7,
+    "durationMin": 35,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Câu cầu khiến lịch sự với 请 (Qǐng)",
+        "usage": "",
+        "example": "请给我一杯茶。(Làm ơn cho tôi một cốc trà.) · 请进！(Xin mời vào!)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "请给我一杯茶。(Làm ơn cho tôi một cốc trà.) · 请进！(Xin mời vào!)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "请 + Động từ + Tân ngữ",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Động từ năng nguyện 想 (Xiǎng) biểu thị mong muốn",
+        "usage": "",
+        "example": "我想喝一杯热茶。(Tôi muốn uống một cốc trà nóng.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我想喝一杯热茶。(Tôi muốn uống một cốc trà nóng.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 想 + Động từ + Tân ngữ",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Nghệ thuật Trà đạo Trung Hoa: Khách đến nhà rót trà kính mời là nét đẹp lễ nghĩa hiếu khách ngàn đời."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 6 của giáo viên"
+  },
+  {
+    "id": "hsk1-14",
+    "desc": "Biểu đạt hành động đã hoàn thành trong quá khứ với trợ từ động thái 了 (le) sau động từ.",
+    "number": 14,
+    "pinyin": "Wǒ kànle yí gè diànyǐng",
+    "culture": "Điện ảnh Trung Quốc đương đại: Các tác phẩm hoạt hình và phim lịch sử hiện đại đem tiếng Hán lan tỏa ra khắp thế giới.",
+    "titleVi": "Mình đã xem một bộ phim",
+    "titleZh": "我看了一个电影",
+    "dialogue": [
+      {
+        "vi": "Tối hôm qua bạn đã làm gì thế?",
+        "zh": "昨天晚上你做什么了？",
+        "pinyin": "Zuótiān wǎnshang nǐ zuò shénme le?",
+        "speaker": "王明"
+      },
+      {
+        "vi": "Mình đã xem một bộ phim Trung Quốc, rất hay và thú vị!",
+        "zh": "我看了一个中国电影，很有意思！",
+        "pinyin": "Wǒ kànle yí gè Zhōngguó diànyǐng, hěn yǒu yìsi!",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Phim tên là gì thế? Mình cũng muốn xem.",
+        "zh": "叫什么名字？我也想看。",
+        "pinyin": "Jiào shénme míngzi? Wǒ yě xiǎng kàn.",
+        "speaker": "王明"
+      }
+    ],
+    "phonetics": {
+      "rule": "Câu trần thuật tiếng Trung có ngữ điệu xuống dần ở cuối câu; ngắt hơi tự nhiên giữa cụm chủ vị và cụm động tân.",
+      "title": "Luyện ngữ âm bài 14: Nhịp điệu và ngữ điệu câu trần thuật",
+      "examples": [
+        "Wǒ kànle / yí gè diànyǐng."
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "看",
+        "pinyin": "kàn",
+        "meaning": "Xem, nhìn, đọc",
+        "examples": [
+          {
+            "vi": "Xem phim",
+            "zh": "看电影",
+            "pinyin": "kàn diànyǐng"
+          }
+        ],
+        "examplePy": "kàn diànyǐng",
+        "exampleVi": "Xem phim",
+        "exampleZh": "看电影",
+        "meaningVi": "Xem, nhìn, đọc",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "电影",
+        "pinyin": "diànyǐng",
+        "meaning": "Bộ phim điện ảnh",
+        "examples": [
+          {
+            "vi": "Phim Trung Quốc",
+            "zh": "中国电影",
+            "pinyin": "Zhōngguó diànyǐng"
+          }
+        ],
+        "examplePy": "Zhōngguó diànyǐng",
+        "exampleVi": "Phim Trung Quốc",
+        "exampleZh": "中国电影",
+        "meaningVi": "Bộ phim điện ảnh",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "听",
+        "pinyin": "tīng",
+        "meaning": "Nghe",
+        "examples": [
+          {
+            "vi": "Nghe nhạc",
+            "zh": "听音乐",
+            "pinyin": "tīng yīnyuè"
+          }
+        ],
+        "examplePy": "tīng yīnyuè",
+        "exampleVi": "Nghe nhạc",
+        "exampleZh": "听音乐",
+        "meaningVi": "Nghe",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "音乐",
+        "pinyin": "yīnyuè",
+        "meaning": "Âm nhạc",
+        "examples": [
+          {
+            "vi": "Âm nhạc hay",
+            "zh": "好听的音乐",
+            "pinyin": "hǎotīng de yīnyuè"
+          }
+        ],
+        "examplePy": "hǎotīng de yīnyuè",
+        "exampleVi": "Âm nhạc hay",
+        "exampleZh": "好听的音乐",
+        "meaningVi": "Âm nhạc",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "买了",
+        "pinyin": "mǎi le",
+        "meaning": "Đã mua",
+        "examples": [
+          {
+            "vi": "Tôi đã mua một cuốn sách.",
+            "zh": "我买了一本书。",
+            "pinyin": "Wǒ mǎi le yì běn shū."
+          }
+        ],
+        "examplePy": "Wǒ mǎi le yì běn shū.",
+        "exampleVi": "Tôi đã mua một cuốn sách.",
+        "exampleZh": "我买了一本书。",
+        "meaningVi": "Đã mua",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "去",
+        "pinyin": "qù",
+        "meaning": "Đi",
+        "examples": [
+          {
+            "vi": "Đi cửa hàng",
+            "zh": "去商店",
+            "pinyin": "qù shāngdiàn"
+          }
+        ],
+        "examplePy": "qù shāngdiàn",
+        "exampleVi": "Đi cửa hàng",
+        "exampleZh": "去商店",
+        "meaningVi": "Đi",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "商店",
+        "pinyin": "shāngdiàn",
+        "meaning": "Cửa hàng, tiệm buôn",
+        "examples": [
+          {
+            "vi": "Mua đồ ở cửa hàng",
+            "zh": "在商店买东西",
+            "pinyin": "zài shāngdiàn mǎi dōngxi"
+          }
+        ],
+        "examplePy": "zài shāngdiàn mǎi dōngxi",
+        "exampleVi": "Mua đồ ở cửa hàng",
+        "exampleZh": "在商店买东西",
+        "meaningVi": "Cửa hàng, tiệm buôn",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 7,
+    "durationMin": 40,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Trợ từ động thái 了 biểu thị hành động đã hoàn thành",
+        "usage": "",
+        "example": "我看了一个电影。(Mình đã xem một bộ phim.) · 我买了一件衣服。(Tôi đã mua một chiếc áo.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我看了一个电影。(Mình đã xem một bộ phim.) · 我买了一件衣服。(Tôi đã mua một chiếc áo.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + Động từ + 了 + Số lượng + Tân ngữ",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Điện ảnh Trung Quốc đương đại: Các tác phẩm hoạt hình và phim lịch sử hiện đại đem tiếng Hán lan tỏa ra khắp thế giới."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 1,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 7 của giáo viên"
+  },
+  {
+    "id": "hsk1-15",
+    "desc": "Phương tiện giao thông (máy bay, taxi), địa điểm sân bay, chào tạm biệt và hẹn gặp lại với 见 (jiàn).",
+    "number": 15,
+    "pinyin": "Dàxīng jīchǎng jiàn!",
+    "culture": "Sân bay Quốc tế Đại Hưng Bắc Kinh (PKX): Kỳ quan kiến trúc hình hoa hải đường lộng lẫy do kiến trúc sư Zaha Hadid thiết kế, biểu tượng cho sự hội nhập hiện đại của Trung Hoa.",
+    "titleVi": "Hẹn gặp ở sân bay Đại Hưng!",
+    "titleZh": "大兴机场见！",
+    "dialogue": [
+      {
+        "vi": "Tiểu Ngữ, khi nào bạn ra sân bay thế?",
+        "zh": "小语，你什么时候去机场？",
+        "pinyin": "Xiǎoyǔ, nǐ shénme shíhou qù jīchǎng?",
+        "speaker": "李文"
+      },
+      {
+        "vi": "Mình đi taxi ra lúc 3 giờ chiều. Chúng mình hẹn gặp ở sân bay Đại Hưng nhé!",
+        "zh": "我下午三点坐出租车去。我们大兴机场见！",
+        "pinyin": "Wǒ xiàwǔ sān diǎn zuò chūzūchē qù. Wǒmen Dàxīng Jīchǎng jiàn!",
+        "speaker": "AI小语"
+      },
+      {
+        "vi": "Tuyệt quá, chúc bạn lên đường bình an, hẹn gặp ở sân bay Đại Hưng!",
+        "zh": "太好了，一路平安，大兴机场见！",
+        "pinyin": "Tài hǎo le, yílù píng'ān, Dàxīng jīchǎng jiàn!",
+        "speaker": "李文"
+      }
+    ],
+    "phonetics": {
+      "rule": "Ôn tập 21 thanh mẫu, 36 vận mẫu, 4 thanh điệu chuẩn và cách biến âm trong giao tiếp thực tế.",
+      "title": "Tổng kết toàn bộ hệ thống phát âm HSK 1",
+      "examples": [
+        "Nǐ hǎo",
+        "Xièxie",
+        "Zàijiàn",
+        "Dàxīng jīchǎng jiàn!"
+      ]
+    },
+    "vocabList": [
+      {
+        "type": "Từ vựng",
+        "hanzi": "飞机",
+        "pinyin": "fēijī",
+        "meaning": "Máy bay",
+        "examples": [
+          {
+            "vi": "Đi máy bay",
+            "zh": "坐飞机",
+            "pinyin": "zuò fēijī"
+          }
+        ],
+        "examplePy": "zuò fēijī",
+        "exampleVi": "Đi máy bay",
+        "exampleZh": "坐飞机",
+        "meaningVi": "Máy bay",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "机场",
+        "pinyin": "jīchǎng",
+        "meaning": "Sân bay, phi trường",
+        "examples": [
+          {
+            "vi": "Đi sân bay",
+            "zh": "去机场",
+            "pinyin": "qù jīchǎng"
+          }
+        ],
+        "examplePy": "qù jīchǎng",
+        "exampleVi": "Đi sân bay",
+        "exampleZh": "去机场",
+        "meaningVi": "Sân bay, phi trường",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "大兴",
+        "pinyin": "Dàxīng",
+        "meaning": "Đại Hưng (sân bay quốc tế lớn của Bắc Kinh)",
+        "examples": [
+          {
+            "vi": "Sân bay Đại Hưng",
+            "zh": "大兴机场",
+            "pinyin": "Dàxīng Jīchǎng"
+          }
+        ],
+        "examplePy": "Dàxīng Jīchǎng",
+        "exampleVi": "Sân bay Đại Hưng",
+        "exampleZh": "大兴机场",
+        "meaningVi": "Đại Hưng (sân bay quốc tế lớn của Bắc Kinh)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "坐",
+        "pinyin": "zuò",
+        "meaning": "Ngồi, đi (phương tiện)",
+        "examples": [
+          {
+            "vi": "Đi taxi",
+            "zh": "坐出租车",
+            "pinyin": "zuò chūzūchē"
+          }
+        ],
+        "examplePy": "zuò chūzūchē",
+        "exampleVi": "Đi taxi",
+        "exampleZh": "坐出租车",
+        "meaningVi": "Ngồi, đi (phương tiện)",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "出租车",
+        "pinyin": "chūzūchē",
+        "meaning": "Xe taxi",
+        "examples": [
+          {
+            "vi": "Gọi xe taxi",
+            "zh": "叫出租车",
+            "pinyin": "jiào chūzūchē"
+          }
+        ],
+        "examplePy": "jiào chūzūchē",
+        "exampleVi": "Gọi xe taxi",
+        "exampleZh": "叫出租车",
+        "meaningVi": "Xe taxi",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "见",
+        "pinyin": "jiàn",
+        "meaning": "Gặp, thấy",
+        "examples": [
+          {
+            "vi": "Ngày mai gặp",
+            "zh": "明天见",
+            "pinyin": "míngtiān jiàn"
+          }
+        ],
+        "examplePy": "míngtiān jiàn",
+        "exampleVi": "Ngày mai gặp",
+        "exampleZh": "明天见",
+        "meaningVi": "Gặp, thấy",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "type": "Từ vựng",
+        "hanzi": "什么时候",
+        "pinyin": "shénme shíhou",
+        "meaning": "Khi nào, lúc nào",
+        "examples": [
+          {
+            "vi": "Khi nào bạn đi?",
+            "zh": "你什么时候去？",
+            "pinyin": "Nǐ shénme shíhou qù?"
+          }
+        ],
+        "examplePy": "Nǐ shénme shíhou qù?",
+        "exampleVi": "Khi nào bạn đi?",
+        "exampleZh": "你什么时候去？",
+        "meaningVi": "Khi nào, lúc nào",
+        "comparison": "",
+        "usagePatterns": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "vocabCount": 7,
+    "durationMin": 45,
+    "grammarList": [
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Cấu trúc đi bằng phương tiện với 坐 (Zuò)",
+        "usage": "",
+        "example": "我坐出租车去大兴机场。(Tôi đi taxi ra sân bay Đại Hưng.)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "我坐出租车去大兴机场。(Tôi đi taxi ra sân bay Đại Hưng.)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Chủ ngữ + 坐 + Phương tiện + 去 + Nơi chốn",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      },
+      {
+        "memo": "",
+        "notes": "",
+        "title": "Lời chào hẹn gặp tại địa điểm hoặc thời gian",
+        "usage": "",
+        "example": "大兴机场见！(Hẹn gặp ở sân bay Đại Hưng!) · 明天见！(Ngày mai gặp!)",
+        "summary": "",
+        "titleZh": "",
+        "examples": [
+          {
+            "vi": "",
+            "zh": "大兴机场见！(Hẹn gặp ở sân bay Đại Hưng!) · 明天见！(Ngày mai gặp!)",
+            "pinyin": "",
+            "explanationVi": ""
+          }
+        ],
+        "structure": "Thời gian / Địa điểm + 见！",
+        "comparison": "",
+        "usageSteps": [],
+        "explanation": "",
+        "usageContexts": [],
+        "commonMistakes": [],
+        "usageExplanation": ""
+      }
+    ],
+    "culturalNote": {
+      "cautionNotes": [
+        "Sân bay Quốc tế Đại Hưng Bắc Kinh (PKX): Kỳ quan kiến trúc hình hoa hải đường lộng lẫy do kiến trúc sư Zaha Hadid thiết kế, biểu tượng cho sự hội nhập hiện đại của Trung Hoa."
+      ],
+      "politeExpressions": [],
+      "naturalExpressions": []
+    },
+    "grammarCount": 2,
+    "grammarExercises": [],
+    "isUnlockedDefault": false,
+    "unlockedScheduleText": "Mở theo lịch tuần 7 của giáo viên"
+  }
+]
