@@ -607,6 +607,23 @@ export default function ExamPlayer({
             </div>
           </div>
 
+          {/* Group Section Title / Instruction if present */}
+          {(currentQ as any).groupTitle && (
+            <div style={{ marginBottom: 12, padding: "6px 14px", background: "#f0f5e9", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#2d4b29", borderLeft: "4px solid #4a7c43" }}>
+              📌 {(currentQ as any).groupTitle}
+            </div>
+          )}
+
+          {/* Reading Passage (Đoạn văn đọc hiểu chung nếu có) */}
+          {(currentQ as any).passage && (
+            <div style={{ marginBottom: 18, padding: "16px 20px", background: "#fdfdf9", borderRadius: 12, border: "1px solid #dce4cb", fontSize: 15, lineHeight: 1.8, color: "#223824" }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "#5d7a55", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                📖 <span>Đoạn văn đọc hiểu:</span>
+              </div>
+              <div style={{ whiteSpace: "pre-line" }}>{(currentQ as any).passage}</div>
+            </div>
+          )}
+
           {/* Question Prompt */}
           <div className={s.promptRow}>
             <Volume2 size={20} className={s.speakerIcon} />

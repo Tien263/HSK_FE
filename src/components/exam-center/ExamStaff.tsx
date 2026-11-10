@@ -6,7 +6,10 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
+  Copy,
   Download,
   Eye,
   FileCheck2,
@@ -15,6 +18,7 @@ import {
   Image as ImageIcon,
   Layers,
   Mic,
+  Music,
   Play,
   Plus,
   RefreshCw,
@@ -22,6 +26,7 @@ import {
   Trash2,
   Trophy,
   Upload,
+  Volume2,
   X,
 } from "lucide-react";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
@@ -29,7 +34,16 @@ import { EXAM_LEVELS, levelGroup, levelLabel } from "@/lib/exam-center-core";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
 import ExamPlayer from "./ExamPlayer";
-import { getSampleQuestionsForLevel, type ImportedQuestion } from "./hsk-sample-templates";
+import {
+  getSampleQuestionsForLevel,
+  type ImportedQuestion,
+  type ExamSectionGroup,
+  type QuestionItem,
+  type QuestionOption,
+  buildDefaultGroups,
+  flattenGroups,
+  unflattenToGroups,
+} from "./hsk-sample-templates";
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamCenter.module.css";
 
@@ -54,12 +68,18 @@ export default function ExamStaff({
   const [busy, setBusy] = useState(false);
 
   // Authoring state
-  const [authorLevel, setAuthorLevel] = useState<number>(3);
-  const [authorTitle, setAuthorTitle] = useState("Đề thi thử chuẩn HSK 3 · Mẫu 01");
-  const [authorDesc, setAuthorDesc] = useState("Đề thi mô phỏng theo cấu trúc chuẩn HSK 3.0 CTI / Hanban.");
-  const [authorDuration, setAuthorDuration] = useState<number>(83);
-  const [authorPass, setAuthorPass] = useState<number | string>(180);
+  const [authorLevel, setAuthorLevel] = useState<number>(1);
+  const [authorTitle, setAuthorTitle] = useState("Đề thi thử chuẩn HSK 1 (CTI Hanban 样卷)");
+  const [authorDesc, setAuthorDesc] = useState("Đề thi mô phỏng chuẩn cấu trúc đề thật HSK 3.0 Cấp 1 (CTI / Hanban).");
+  const [authorDuration, setAuthorDuration] = useState<number>(40);
+  const [authorPass, setAuthorPass] = useState<number | string>(120);
+
+  // Mode: "grouped" (visual group editor - recommended) or "raw" (JSON editor)
+  const [authorMode, setAuthorMode] = useState<"grouped" | "raw">("grouped");
+  const [groups, setGroups] = useState<ExamSectionGroup[]>(() => buildDefaultGroups(1));
+  const [activeGroupId, setActiveGroupId] = useState<string>("group_1");
   const [jsonInput, setJsonInput] = useState("");
+
   const [previewPaper, setPreviewPaper] = useState<any | null>(null);
   const [previewAttemptView, setPreviewAttemptView] = useState<any | null>(null);
   const [previewStep, setPreviewStep] = useState<"lobby" | "player">("lobby");
@@ -71,7 +91,7 @@ export default function ExamStaff({
     if (bp) {
       setAuthorDuration(bp.durationMin);
       setAuthorPass(bp.targetScore ?? "");
-      setAuthorTitle(`Đề thi thử chuẩn ${levelLabel(authorLevel)} · Mẫu 01`);
+      setAuthorTitle(`Đề thi thử chuẩn ${levelLabel(authorLevel)} (CTI Hanban 样卷)`);
     }
   }, [authorLevel]);
 
@@ -95,15 +115,18 @@ export default function ExamStaff({
   // Load official HSK 3.0 sample template from HSK3.0 directory
   const loadSampleTemplate = (lvl: number) => {
     const bp = examBlueprint.levels.find((l) => l.level === lvl);
-    const sampleQuestions = getSampleQuestionsForLevel(lvl);
+    const defGroups = buildDefaultGroups(lvl);
+    const flat = flattenGroups(defGroups);
 
     setAuthorLevel(lvl);
     setAuthorTitle(`Đề thi mẫu chuẩn ${levelLabel(lvl)} (CTI Hanban 样卷)`);
     setAuthorDesc(`Đề thi mô phỏng chuẩn cấu trúc đề thật HSK 3.0 Cấp ${lvl} (CTI / Hanban).`);
     setAuthorDuration(bp?.durationMin || (lvl === 1 ? 40 : lvl === 2 ? 60 : 83));
     setAuthorPass(bp?.targetScore || (lvl <= 2 ? 120 : 180));
-    setJsonInput(JSON.stringify(sampleQuestions, null, 2));
-    setMessage(`Đã nạp ${sampleQuestions.length} câu hỏi chuẩn HSK ${lvl} từ thư mục HSK3.0. Bấm "Xem trước" để kiểm tra giao diện học sinh.`);
+    setGroups(defGroups);
+    setActiveGroupId(defGroups[0]?.id || "group_1");
+    setJsonInput(JSON.stringify(flat, null, 2));
+    setMessage(`Đã nạp ${flat.length} câu hỏi chuẩn HSK ${lvl} chia thành ${defGroups.length} nhóm bài chuẩn. Bấm "Xem trước" để kiểm tra giao diện học sinh.`);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,6 +141,9 @@ export default function ExamStaff({
           throw new Error("Tệp JSON phải chứa một danh sách các câu hỏi [ ... ].");
         }
         setJsonInput(JSON.stringify(parsed, null, 2));
+        const importedGroups = unflattenToGroups(parsed, authorLevel);
+        setGroups(importedGroups);
+        if (importedGroups.length > 0) setActiveGroupId(importedGroups[0].id);
         setMessage(`Đã nạp thành công ${parsed.length} câu hỏi từ tệp "${file.name}". Bấm "Xem trước" để kiểm tra.`);
         setError("");
       } catch (err) {
@@ -130,8 +156,8 @@ export default function ExamStaff({
 
   const handleDownloadTemplate = () => {
     try {
-      const sample = getSampleQuestionsForLevel(authorLevel);
-      const blob = new Blob([JSON.stringify(sample, null, 2)], { type: "application/json" });
+      const flat = authorMode === "grouped" ? flattenGroups(groups) : (jsonInput ? JSON.parse(jsonInput) : getSampleQuestionsForLevel(authorLevel));
+      const blob = new Blob([JSON.stringify(flat, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -143,6 +169,7 @@ export default function ExamStaff({
     }
   };
 
+  // Xóa toàn bộ đề thi cũ an toàn (fix triệt để lỗi "Yêu cầu không hợp lệ")
   const handlePurgeOld = async () => {
     if (
       !window.confirm(
@@ -155,7 +182,7 @@ export default function ExamStaff({
     setError("");
     setMessage("");
     try {
-      const res = await examApi<{ success: boolean; deletedSets: number; deletedLogs: number }>("purgeOldMockExams");
+      const res = await examApi<{ success: boolean; deletedSets: number; deletedLogs: number }>("purgeOldMockExams", {});
       setMessage(`Đã dọn sạch kho đề! Đã xóa ${res.deletedSets} bộ đề cũ và ${res.deletedLogs} bản ghi lịch sử.`);
       onChanged();
       load();
@@ -166,13 +193,195 @@ export default function ExamStaff({
     }
   };
 
+  // Xóa 1 đề thi cụ thể (Xóa đơn)
+  const handleDeletePaper = async (paperId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn đề thi này không? Toàn bộ câu hỏi của đề sẽ bị xóa.")) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await examApi("deletePaper", { paperId });
+      setMessage("Đã xóa vĩnh viễn đề thi thành công!");
+      onChanged();
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Thêm nhóm bài mới
+  const handleAddGroup = () => {
+    const newId = `group_${Date.now()}`;
+    const newGroup: ExamSectionGroup = {
+      id: newId,
+      title: `Nhóm ${groups.length + 1}: Phần câu hỏi mới`,
+      skill: "READING",
+      instruction: "Đọc câu hỏi và chọn đáp án chính xác.",
+      questions: [
+        {
+          id: `q_${Date.now()}_1`,
+          type: "multiple_choice",
+          content: "第 1 题：请选择正确答案。",
+          points: 2.5,
+          correctAnswer: "A",
+          options: [
+            { id: "A", text: "Lựa chọn A" },
+            { id: "B", text: "Lựa chọn B" },
+            { id: "C", text: "Lựa chọn C" },
+            { id: "D", text: "Lựa chọn D" },
+          ],
+        },
+      ],
+    };
+    setGroups([...groups, newGroup]);
+    setActiveGroupId(newId);
+  };
+
+  // Xóa nhóm bài
+  const handleDeleteGroup = (groupId: string) => {
+    if (groups.length <= 1) {
+      setError("Đề thi phải có ít nhất 1 nhóm bài.");
+      return;
+    }
+    if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ nhóm bài này và các câu hỏi bên trong?")) return;
+    const next = groups.filter((g) => g.id !== groupId);
+    setGroups(next);
+    if (activeGroupId === groupId) {
+      setActiveGroupId(next[0]?.id || "");
+    }
+  };
+
+  // Cập nhật thông tin nhóm bài
+  const handleUpdateGroup = (groupId: string, patch: Partial<ExamSectionGroup>) => {
+    setGroups((prev) =>
+      prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g))
+    );
+  };
+
+  // Thêm câu hỏi vào nhóm
+  const handleAddQuestionToGroup = (groupId: string) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const totalInGroup = g.questions.length + 1;
+        const newQ: QuestionItem = {
+          id: `q_${Date.now()}_${totalInGroup}`,
+          type: g.skill === "LISTENING" ? "listening_choice" : "multiple_choice",
+          content: `第 ${totalInGroup} 题：请根据题目选择正确答案。`,
+          points: 2.5,
+          correctAnswer: "A",
+          options: [
+            { id: "A", text: "Lựa chọn A" },
+            { id: "B", text: "Lựa chọn B" },
+            { id: "C", text: "Lựa chọn C" },
+            { id: "D", text: "Lựa chọn D" },
+          ],
+        };
+        return { ...g, questions: [...g.questions, newQ] };
+      })
+    );
+  };
+
+  // Xóa câu hỏi trong nhóm
+  const handleDeleteQuestion = (groupId: string, qId: string) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        if (g.questions.length <= 1) {
+          setError("Mỗi nhóm bài phải có ít nhất 1 câu hỏi.");
+          return g;
+        }
+        return { ...g, questions: g.questions.filter((q) => q.id !== qId) };
+      })
+    );
+  };
+
+  // Cập nhật câu hỏi trong nhóm
+  const handleUpdateQuestion = (groupId: string, qId: string, patch: Partial<QuestionItem>) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          questions: g.questions.map((q) => (q.id === qId ? { ...q, ...patch } : q)),
+        };
+      })
+    );
+  };
+
+  // Upload ảnh cho câu hỏi
+  const handleUploadQuestionImage = (groupId: string, qId: string, file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      handleUpdateQuestion(groupId, qId, { imageUrl: dataUrl });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Upload ảnh cho lựa chọn đáp án
+  const handleUploadOptionImage = (groupId: string, qId: string, optId: string, file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== groupId) return g;
+          return {
+            ...g,
+            questions: g.questions.map((q) => {
+              if (q.id !== qId) return q;
+              return {
+                ...q,
+                options: q.options.map((opt) => (opt.id === optId ? { ...opt, imageUrl: dataUrl } : opt)),
+              };
+            }),
+          };
+        })
+      );
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Đổi chế độ Soạn bài
+  const handleSwitchMode = (targetMode: "grouped" | "raw") => {
+    if (targetMode === "raw") {
+      const flat = flattenGroups(groups);
+      setJsonInput(JSON.stringify(flat, null, 2));
+      setAuthorMode("raw");
+    } else {
+      try {
+        if (jsonInput.trim()) {
+          const parsed = JSON.parse(jsonInput);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const imported = unflattenToGroups(parsed, authorLevel);
+            setGroups(imported);
+            if (imported.length > 0) setActiveGroupId(imported[0].id);
+          }
+        }
+      } catch {
+        setError("JSON chưa đúng định dạng. Đã giữ nguyên cấu trúc nhóm bài cũ.");
+      }
+      setAuthorMode("grouped");
+    }
+  };
+
+  // Preview giao diện học sinh
   const handlePreview = () => {
     let parsed: ImportedQuestion[] = [];
-    try {
-      parsed = jsonInput.trim() ? JSON.parse(jsonInput) : [];
-    } catch {
-      setError("Cấu trúc JSON câu hỏi chưa đúng định dạng. Hãy kiểm tra lại dấu phẩy hoặc ngoặc kép.");
-      return;
+    if (authorMode === "grouped") {
+      parsed = flattenGroups(groups);
+    } else {
+      try {
+        parsed = jsonInput.trim() ? JSON.parse(jsonInput) : [];
+      } catch {
+        setError("Cấu trúc JSON câu hỏi chưa đúng định dạng. Hãy kiểm tra lại dấu phẩy hoặc ngoặc kép.");
+        return;
+      }
     }
     if (!parsed.length) {
       setError("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm nút nạp mẫu đề HSK 3.0 trước khi xem trước.");
@@ -231,6 +440,8 @@ export default function ExamStaff({
         pinyin: q.pinyin || "",
         audioUrl: q.audioUrl || "",
         imageUrl: q.imageUrl || "",
+        passage: (q as any).passage || "",
+        groupTitle: (q as any).groupTitle || "",
         options: Array.isArray(q.options)
           ? q.options.map((opt: any, optIdx: number) => ({
               id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),
@@ -248,14 +459,19 @@ export default function ExamStaff({
     setError("");
   };
 
+  // Lưu & Xuất bản đề thi
   const handleSaveImport = async () => {
     setBusy(true);
     setError("");
     setMessage("");
     try {
       let parsed: ImportedQuestion[] = [];
-      if (jsonInput.trim()) {
-        parsed = JSON.parse(jsonInput);
+      if (authorMode === "grouped") {
+        parsed = flattenGroups(groups);
+      } else {
+        if (jsonInput.trim()) {
+          parsed = JSON.parse(jsonInput);
+        }
       }
       if (!parsed.length) {
         throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
@@ -270,7 +486,7 @@ export default function ExamStaff({
         questions: parsed,
       });
 
-      setMessage("Đã chuyển hóa tài liệu và xuất bản đề thi thành công! Học sinh đã có thể vào phòng thi làm bài.");
+      setMessage(`Đã xuất bản thành công đề thi "${authorTitle}" (${parsed.length} câu)! Học sinh đã có thể vào phòng thi làm bài.`);
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -278,6 +494,14 @@ export default function ExamStaff({
       setBusy(false);
     }
   };
+
+  const totalQuestionsCount = authorMode === "grouped"
+    ? groups.reduce((sum, g) => sum + g.questions.length, 0)
+    : 0;
+
+  const totalPointsSum = authorMode === "grouped"
+    ? groups.reduce((sum, g) => sum + g.questions.reduce((qSum, q) => qSum + (Number(q.points) || 0), 0), 0)
+    : 0;
 
   return (
     <section className={s.panel} aria-label="Khu vực quản lý khảo thí">
@@ -305,7 +529,7 @@ export default function ExamStaff({
 
       <h1>
         {view === "authoring"
-          ? "Nhập tài liệu & chuyển hóa thành đề HSK 3.0"
+          ? "Soạn đề & Quản lý đề thi chuẩn HSK 3.0"
           : view === "grading"
           ? "Chấm bài tự luận"
           : "Duyệt & cấu hình đề chính thức"}
@@ -313,10 +537,10 @@ export default function ExamStaff({
 
       <p>
         {view === "authoring"
-          ? "Admin nhập tài liệu đề thi chuẩn cấu trúc (có audio, hình ảnh đáp án, câu hỏi sắp xếp từ, chữ Hán) thay vì để AI sinh đề ngẫu nhiên. Có chế độ xem trước đúng giao diện học sinh."
+          ? "Admin soạn đề thi trực quan theo từng Nhóm bài (Câu 1-5, Câu 6-10, bài đọc chung, audio bài nghe, ảnh đề & ảnh đáp án). Có chế độ xem trước đúng 100% giao diện học sinh."
           : view === "grading"
           ? "Điểm các câu tự luận được cộng với phần chấm tự động sau khi lưu."
-          : "Duyệt nội dung sẵn sàng, đặt thời gian và ngưỡng đạt trước khi mở cho học sinh."}
+          : "Duyệt nội dung sẵn sàng, xóa đề lỗi/đề thử nghiệm, đặt thời gian và ngưỡng đạt trước khi mở cho học sinh."}
       </p>
 
       {error && <p className={s.error} role="alert">{error}</p>}
@@ -330,14 +554,14 @@ export default function ExamStaff({
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#375531" }}>
                 <Sparkles size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                Nạp mẫu đề HSK 3.0:
+                Nạp mẫu khung chuẩn:
               </span>
               {EXAM_LEVELS.map((lvl) => (
                 <button
                   key={lvl}
                   type="button"
-                  className={s.secondary}
-                  style={{ fontSize: 12, padding: "5px 10px", minHeight: 30 }}
+                  className={authorLevel === lvl ? s.primary : s.secondary}
+                  style={{ fontSize: 12, padding: "5px 12px", minHeight: 30 }}
                   onClick={() => loadSampleTemplate(lvl)}
                 >
                   {levelLabel(lvl)}
@@ -351,9 +575,9 @@ export default function ExamStaff({
                 className={s.secondary}
                 style={{ fontSize: 12, padding: "6px 12px", minHeight: 32, display: "inline-flex", alignItems: "center", gap: 5 }}
                 onClick={handleDownloadTemplate}
-                title="Tải tệp mẫu JSON về máy tính để soạn thảo"
+                title="Tải tệp mẫu JSON về máy tính để sao lưu"
               >
-                <Download size={14} /> Tải mẫu JSON cấp {authorLevel}
+                <Download size={14} /> Tải tệp JSON cấp {authorLevel}
               </button>
 
               <button
@@ -363,7 +587,7 @@ export default function ExamStaff({
                 onClick={() => fileInputRef.current?.click()}
                 title="Tải tệp .json từ máy tính lên hệ thống"
               >
-                <Upload size={14} /> Tải tệp JSON từ máy
+                <Upload size={14} /> Nạp tệp JSON từ máy
               </button>
               <input
                 ref={fileInputRef}
@@ -387,24 +611,22 @@ export default function ExamStaff({
                   border: "1px solid #f87171",
                   borderRadius: 10,
                   cursor: "pointer",
-                  fontWeight: 600
+                  fontWeight: 600,
                 }}
                 onClick={handlePurgeOld}
-                title="Xóa toàn bộ đề thi thử cũ và lịch sử bài làm"
+                title="Xóa toàn bộ đề thi thử cũ và dọn sạch dữ liệu"
               >
                 <Trash2 size={14} /> Xóa tất cả đề cũ
               </button>
             </div>
           </div>
 
-          {/* Form Configuration */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleSaveImport();
-            }}
-            style={{ display: "grid", gap: 18 }}
-          >
+          {/* Form Configuration Metadata */}
+          <div style={{ background: "#ffffff", padding: 20, borderRadius: 14, border: "1px solid #e0e7d5" }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 16, color: "#223824", display: "flex", alignItems: "center", gap: 8 }}>
+              <FileCheck2 size={18} color="#3e6234" />
+              Thông tin chung bộ đề thi
+            </h3>
             <div className={s.formColumns}>
               <label>
                 Cấp độ HSK *
@@ -426,12 +648,12 @@ export default function ExamStaff({
                   required
                   value={authorTitle}
                   onChange={(e) => setAuthorTitle(e.target.value)}
-                  placeholder="Ví dụ: Đề thi mô phỏng HSK 3 · Đề số 01"
+                  placeholder="Ví dụ: Đề thi thử chuẩn HSK 1 · Đề số 01"
                 />
               </label>
             </div>
 
-            <div className={s.formColumns}>
+            <div className={s.formColumns} style={{ marginTop: 12 }}>
               <label>
                 Thời gian làm bài (phút) *
                 <input
@@ -448,28 +670,645 @@ export default function ExamStaff({
                 Mốc điểm đạt (Mục tiêu)
                 <input
                   type="number"
-                  placeholder="Để trống nếu là HSK 7-9 phân loại"
+                  placeholder="HSK 1-2: 120 điểm | HSK 3-6: 180 điểm"
                   value={authorPass}
                   onChange={(e) => setAuthorPass(e.target.value)}
                 />
               </label>
             </div>
 
-            <label>
+            <label style={{ marginTop: 12, display: "block" }}>
               Mô tả đề thi
               <input
                 value={authorDesc}
                 onChange={(e) => setAuthorDesc(e.target.value)}
-                placeholder="Ví dụ: Đề thi chuẩn HSK 3.0 giúp học viên luyện tập kỹ năng Nghe, Đọc, Viết..."
+                placeholder="Ví dụ: Đề thi chuẩn HSK 3.0 Hanban mô phỏng cấu trúc đề thi thật..."
               />
             </label>
+          </div>
 
-            {/* Questions JSON Data Editor */}
-            <label>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span>Dữ liệu danh sách câu hỏi (JSON chuẩn HSK 3.0)</span>
+          {/* Mode Switcher: Form Nhóm Bài trực quan vs JSON nâng cao */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <div className={s.filters} style={{ margin: 0 }}>
+              <button
+                type="button"
+                aria-pressed={authorMode === "grouped"}
+                onClick={() => handleSwitchMode("grouped")}
+                style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <Layers size={15} /> Soạn theo nhóm bài (Trực quan - Khuyên dùng)
+              </button>
+              <button
+                type="button"
+                aria-pressed={authorMode === "raw"}
+                onClick={() => handleSwitchMode("raw")}
+                style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <FileText size={15} /> Nhập mã JSON (Nâng cao)
+              </button>
+            </div>
+
+            {authorMode === "grouped" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "#3e5b38" }}>
+                <span>Tổng cộng: <strong>{totalQuestionsCount} câu hỏi</strong></span>
+                <span>•</span>
+                <span>Tổng điểm: <strong>{totalPointsSum.toFixed(1)} điểm</strong></span>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={handleAddGroup}
+                  style={{
+                    background: "#2f5231",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}
+                >
+                  <Plus size={14} /> Thêm nhóm bài mới
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* MODE 1: SOẠN THEO NHÓM BÀI (GROUPED FORM EDITOR) */}
+          {authorMode === "grouped" && (
+            <div style={{ display: "grid", gap: 20 }}>
+              {groups.map((group, gIdx) => {
+                const isExpanded = activeGroupId === group.id;
+                return (
+                  <div
+                    key={group.id}
+                    style={{
+                      background: "#ffffff",
+                      borderRadius: 14,
+                      border: isExpanded ? "2px solid #5a8a50" : "1px solid #dbe4ce",
+                      overflow: "hidden",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      transition: "border 0.2s ease",
+                    }}
+                  >
+                    {/* Group Header */}
+                    <div
+                      style={{
+                        padding: "14px 18px",
+                        background: isExpanded ? "#f2f7ec" : "#fafbf7",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
+                        borderBottom: isExpanded ? "1px solid #d8e3ca" : "none",
+                      }}
+                      onClick={() => setActiveGroupId(isExpanded ? "" : group.id)}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                        <div
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            background: group.skill === "LISTENING" ? "#dcfce7" : group.skill === "READING" ? "#e0e7ff" : "#fef3c7",
+                            color: group.skill === "LISTENING" ? "#166534" : group.skill === "READING" ? "#3730a3" : "#92400e",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {group.skill === "LISTENING" ? <Headphones size={18} /> : group.skill === "READING" ? <BookOpen size={18} /> : <FileText size={18} />}
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: 15, color: "#1e3321" }}>
+                            {group.title || `Nhóm bài ${gIdx + 1}`}
+                          </strong>
+                          <div style={{ fontSize: 12, color: "#617d5c", marginTop: 2 }}>
+                            {skillNames[group.skill] || group.skill} • {group.questions.length} câu hỏi • Tổng {group.questions.reduce((s, q) => s + (Number(q.points) || 0), 0)} điểm
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => handleAddQuestionToGroup(group.id)}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 6,
+                            background: "#e4ecdb",
+                            color: "#2a4727",
+                            border: "none",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                          title="Thêm câu hỏi vào nhóm này"
+                        >
+                          <Plus size={13} /> Thêm câu
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGroup(group.id)}
+                          style={{
+                            padding: "5px 8px",
+                            borderRadius: 6,
+                            background: "#fee2e2",
+                            color: "#991b1b",
+                            border: "none",
+                            fontSize: 12,
+                            cursor: "pointer",
+                          }}
+                          title="Xóa nhóm bài này"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveGroupId(isExpanded ? "" : group.id)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#54744f",
+                            cursor: "pointer",
+                            padding: 4,
+                          }}
+                        >
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Group Details (if expanded) */}
+                    {isExpanded && (
+                      <div style={{ padding: 20 }}>
+                        {/* Group Configuration Fields */}
+                        <div style={{ background: "#fdfdf9", padding: 16, borderRadius: 12, border: "1px solid #e5ecd9", marginBottom: 20 }}>
+                          <div className={s.formColumns}>
+                            <label>
+                              Tiêu đề nhóm bài *
+                              <input
+                                value={group.title}
+                                onChange={(e) => handleUpdateGroup(group.id, { title: e.target.value })}
+                                placeholder="Ví dụ: Phần 1 Nghe: Phán đoán tranh Đúng / Sai (Câu 1 - 5)"
+                              />
+                            </label>
+
+                            <label>
+                              Kỹ năng *
+                              <select
+                                value={group.skill}
+                                onChange={(e) => handleUpdateGroup(group.id, { skill: e.target.value as any })}
+                              >
+                                <option value="LISTENING">🎧 Nghe (LISTENING)</option>
+                                <option value="READING">📖 Đọc (READING)</option>
+                                <option value="WRITING">✍️ Viết (WRITING)</option>
+                                <option value="SPEAKING">🗣️ Nói (SPEAKING)</option>
+                              </select>
+                            </label>
+                          </div>
+
+                          <label style={{ marginTop: 12, display: "block" }}>
+                            Hướng dẫn làm bài cho nhóm
+                            <input
+                              value={group.instruction || ""}
+                              onChange={(e) => handleUpdateGroup(group.id, { instruction: e.target.value })}
+                              placeholder="Ví dụ: Nghe ghi âm và phán đoán câu nói có khớp với bức tranh hay không."
+                            />
+                          </label>
+
+                          {/* File bài nghe chung của nhóm (cho phần Nghe) */}
+                          {group.skill === "LISTENING" && (
+                            <div style={{ marginTop: 14, padding: 12, background: "#f2f8eb", borderRadius: 10, border: "1px solid #d4e3cb" }}>
+                              <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                <Music size={16} /> File bài nghe âm thanh (.mp3) chung cho nhóm này:
+                              </label>
+                              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                <input
+                                  style={{ flex: 1 }}
+                                  value={group.audioUrl || ""}
+                                  onChange={(e) => handleUpdateGroup(group.id, { audioUrl: e.target.value })}
+                                  placeholder={`Ví dụ: /HSK3.0/HSK/音频/HSK（${authorLevel === 1 ? "一" : authorLevel === 2 ? "二" : authorLevel === 3 ? "三" : "四"}级）样卷.mp3 hoặc dán link`}
+                                />
+                                <label style={{ cursor: "pointer", background: "#e0ebdb", padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "#254422", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                  <Upload size={14} /> Tải MP3
+                                  <input
+                                    type="file"
+                                    accept="audio/*"
+                                    style={{ display: "none" }}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const r = new FileReader();
+                                        r.onload = () => handleUpdateGroup(group.id, { audioUrl: String(r.result) });
+                                        r.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                              {group.audioUrl && (
+                                <div style={{ marginTop: 8 }}>
+                                  <audio controls src={group.audioUrl} style={{ width: "100%", height: 36 }} />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Đoạn văn đọc hiểu chung (cho phần Đọc) */}
+                          {group.skill === "READING" && (
+                            <div style={{ marginTop: 14 }}>
+                              <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                <BookOpen size={16} /> Đoạn văn đọc hiểu chung (nếu các câu hỏi bên dưới cùng đọc 1 bài):
+                              </label>
+                              <textarea
+                                rows={4}
+                                value={group.passage || ""}
+                                onChange={(e) => handleUpdateGroup(group.id, { passage: e.target.value })}
+                                placeholder="Nếu đây là dạng bài đọc hiểu (ví dụ Câu 26-30 cùng đọc đoạn văn này), hãy dán nội dung đoạn văn vào đây..."
+                                style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #d5dfc3", fontSize: 13, lineHeight: 1.6 }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Danh sách câu hỏi trong nhóm */}
+                        <div style={{ display: "grid", gap: 16 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <strong style={{ fontSize: 14, color: "#2b4828" }}>
+                              Danh sách câu hỏi trong nhóm ({group.questions.length} câu):
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => handleAddQuestionToGroup(group.id)}
+                              style={{
+                                background: "#41683d",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: 6,
+                                padding: "5px 12px",
+                                fontSize: 12,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <Plus size={13} /> Thêm câu hỏi
+                            </button>
+                          </div>
+
+                          {group.questions.map((q, qIndex) => (
+                            <div
+                              key={q.id}
+                              style={{
+                                background: "#fbfcf8",
+                                border: "1px solid #dce4cb",
+                                borderRadius: 12,
+                                padding: 16,
+                                display: "grid",
+                                gap: 12,
+                              }}
+                            >
+                              {/* Question Top Row */}
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ background: "#3e6234", color: "#fff", padding: "3px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                                    Câu {qIndex + 1}
+                                  </span>
+                                  <select
+                                    value={q.type}
+                                    onChange={(e) => handleUpdateQuestion(group.id, q.id, { type: e.target.value })}
+                                    style={{ fontSize: 12, padding: "4px 8px" }}
+                                  >
+                                    <option value="multiple_choice">Trắc nghiệm (A, B, C, D...)</option>
+                                    <option value="listening_choice">Nghe chọn đáp án</option>
+                                    <option value="true_false">Phán đoán Đúng / Sai (对 / 错)</option>
+                                    <option value="fill_blank">Điền từ vào chỗ trống</option>
+                                    <option value="matching">Ghép nối tranh / từ (A-F)</option>
+                                    <option value="sentence_order">Sắp xếp các từ thành câu</option>
+                                    <option value="writing">Tự luận / Viết câu</option>
+                                  </select>
+                                </div>
+
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <label style={{ fontSize: 12, color: "#375531", display: "flex", alignItems: "center", gap: 4, margin: 0 }}>
+                                    Điểm:
+                                    <input
+                                      type="number"
+                                      step="0.5"
+                                      min={0}
+                                      value={q.points}
+                                      onChange={(e) => handleUpdateQuestion(group.id, q.id, { points: Number(e.target.value) })}
+                                      style={{ width: 64, padding: "3px 6px", fontSize: 12 }}
+                                    />
+                                  </label>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteQuestion(group.id, q.id)}
+                                    style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}
+                                    title="Xóa câu hỏi này"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Question Content & Pinyin */}
+                              <div className={s.formColumns}>
+                                <label style={{ margin: 0 }}>
+                                  Nội dung câu hỏi (chữ Hán) *
+                                  <input
+                                    value={q.content}
+                                    onChange={(e) => handleUpdateQuestion(group.id, q.id, { content: e.target.value })}
+                                    placeholder="Ví dụ: 第 1 题：请听录音并判断正误。"
+                                  />
+                                </label>
+                                <label style={{ margin: 0 }}>
+                                  Pinyin (phiên âm nếu có)
+                                  <input
+                                    value={q.pinyin || ""}
+                                    onChange={(e) => handleUpdateQuestion(group.id, q.id, { pinyin: e.target.value })}
+                                    placeholder="Ví dụ: Nǐ hǎo"
+                                  />
+                                </label>
+                              </div>
+
+                              {/* Question Image (Ảnh đề bài câu hỏi) */}
+                              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", background: "#f2f7ed", padding: 10, borderRadius: 8 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#254422" }}>
+                                  <ImageIcon size={15} />
+                                  Ảnh đề bài câu {qIndex + 1}:
+                                </div>
+                                <input
+                                  style={{ flex: 1, minWidth: 200, fontSize: 12, padding: "4px 8px" }}
+                                  value={q.imageUrl || ""}
+                                  onChange={(e) => handleUpdateQuestion(group.id, q.id, { imageUrl: e.target.value })}
+                                  placeholder="Dán link ảnh hoặc chọn file từ máy bên cạnh..."
+                                />
+                                <label style={{ cursor: "pointer", background: "#e0ebdb", padding: "5px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600, color: "#254422", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                  <Upload size={13} /> Tải ảnh từ máy
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: "none" }}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleUploadQuestionImage(group.id, q.id, file);
+                                    }}
+                                  />
+                                </label>
+                                {q.imageUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateQuestion(group.id, q.id, { imageUrl: "" })}
+                                    style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}
+                                  >
+                                    Xóa ảnh
+                                  </button>
+                                )}
+                              </div>
+                              {q.imageUrl && (
+                                <div style={{ textAlign: "center", margin: "4px 0" }}>
+                                  <img
+                                    src={q.imageUrl}
+                                    alt={`Ảnh câu ${qIndex + 1}`}
+                                    style={{ maxWidth: 240, maxHeight: 150, objectFit: "contain", borderRadius: 8, border: "1px solid #d4dfc7" }}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Options & Correct Answer Editor */}
+                              {q.type === "true_false" ? (
+                                <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", display: "block", marginBottom: 8 }}>
+                                    Chọn đáp án đúng cho câu này:
+                                  </span>
+                                  <div style={{ display: "flex", gap: 12 }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: "true" })}
+                                      style={{
+                                        padding: "8px 20px",
+                                        borderRadius: 8,
+                                        fontWeight: 700,
+                                        fontSize: 13,
+                                        cursor: "pointer",
+                                        border: q.correctAnswer === "true" ? "2px solid #16a34a" : "1px solid #cbd5e1",
+                                        background: q.correctAnswer === "true" ? "#dcfce7" : "#fff",
+                                        color: q.correctAnswer === "true" ? "#15803d" : "#475569",
+                                      }}
+                                    >
+                                      ✔ Đúng (对 - True)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: "false" })}
+                                      style={{
+                                        padding: "8px 20px",
+                                        borderRadius: 8,
+                                        fontWeight: 700,
+                                        fontSize: 13,
+                                        cursor: "pointer",
+                                        border: q.correctAnswer === "false" ? "2px solid #dc2626" : "1px solid #cbd5e1",
+                                        background: q.correctAnswer === "false" ? "#fee2e2" : "#fff",
+                                        color: q.correctAnswer === "false" ? "#b91c1c" : "#475569",
+                                      }}
+                                    >
+                                      ✖ Sai (错 - False)
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : q.type === "fill_blank" || q.type === "sentence_order" || q.type === "writing" ? (
+                                <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
+                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", margin: 0 }}>
+                                    Đáp án chuẩn / Từ cần điền:
+                                    <input
+                                      value={q.correctAnswer}
+                                      onChange={(e) => handleUpdateQuestion(group.id, q.id, { correctAnswer: e.target.value })}
+                                      placeholder="Ví dụ: 老师 hoặc 他 / 是 / 老师"
+                                      style={{ marginTop: 4 }}
+                                    />
+                                  </label>
+                                </div>
+                              ) : (
+                                /* Multiple choice / matching options */
+                                <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27" }}>
+                                      Các lựa chọn đáp án (Click nút tròn để chọn đáp án đúng):
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const nextLetter = String.fromCharCode(65 + q.options.length);
+                                        const nextOpts = [...q.options, { id: nextLetter, text: `Lựa chọn ${nextLetter}` }];
+                                        handleUpdateQuestion(group.id, q.id, { options: nextOpts });
+                                      }}
+                                      style={{ background: "#e0ebdb", border: "none", borderRadius: 4, padding: "3px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", color: "#254422" }}
+                                    >
+                                      + Thêm lựa chọn
+                                    </button>
+                                  </div>
+
+                                  <div style={{ display: "grid", gap: 8 }}>
+                                    {q.options.map((opt, oIdx) => {
+                                      const isCorrect = q.correctAnswer === opt.id;
+                                      return (
+                                        <div
+                                          key={opt.id}
+                                          style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 8,
+                                            padding: "6px 10px",
+                                            borderRadius: 8,
+                                            background: isCorrect ? "#ecfdf5" : "#fff",
+                                            border: isCorrect ? "2px solid #10b981" : "1px solid #e2e8f0",
+                                          }}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`correct_${group.id}_${q.id}`}
+                                            checked={isCorrect}
+                                            onChange={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: opt.id })}
+                                            title="Đặt làm đáp án đúng"
+                                            style={{ cursor: "pointer", width: 16, height: 16 }}
+                                          />
+                                          <span style={{ fontWeight: 700, fontSize: 13, width: 20, color: "#1e293b" }}>
+                                            {opt.id}.
+                                          </span>
+                                          <input
+                                            style={{ flex: 1, fontSize: 12, padding: "4px 8px" }}
+                                            value={opt.text || ""}
+                                            onChange={(e) => {
+                                              const newOpts = q.options.map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o));
+                                              handleUpdateQuestion(group.id, q.id, { options: newOpts });
+                                            }}
+                                            placeholder={`Nội dung chữ cho lựa chọn ${opt.id}...`}
+                                          />
+
+                                          {/* Mini Image Upload for option */}
+                                          <label
+                                            style={{
+                                              cursor: "pointer",
+                                              background: opt.imageUrl ? "#dcfce7" : "#f1f5f9",
+                                              border: "1px solid #cbd5e1",
+                                              borderRadius: 6,
+                                              padding: "3px 8px",
+                                              fontSize: 11,
+                                              color: "#334155",
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: 4,
+                                            }}
+                                            title="Tải ảnh cho lựa chọn này (ví dụ tranh A, tranh B...)"
+                                          >
+                                            <ImageIcon size={12} /> {opt.imageUrl ? "Có ảnh" : "+ Ảnh"}
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              style={{ display: "none" }}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleUploadOptionImage(group.id, q.id, opt.id, file);
+                                              }}
+                                            />
+                                          </label>
+
+                                          {opt.imageUrl && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const newOpts = q.options.map((o) => (o.id === opt.id ? { ...o, imageUrl: "" } : o));
+                                                handleUpdateQuestion(group.id, q.id, { options: newOpts });
+                                              }}
+                                              style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", padding: 2 }}
+                                              title="Xóa ảnh lựa chọn"
+                                            >
+                                              <X size={14} />
+                                            </button>
+                                          )}
+
+                                          {q.options.length > 2 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const newOpts = q.options.filter((o) => o.id !== opt.id);
+                                                handleUpdateQuestion(group.id, q.id, { options: newOpts });
+                                              }}
+                                              style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: 2 }}
+                                              title="Xóa lựa chọn này"
+                                            >
+                                              <Trash2 size={13} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Explanation */}
+                              <label style={{ margin: 0, fontSize: 12 }}>
+                                Giải thích đáp án (tùy chọn)
+                                <input
+                                  value={q.explanation || ""}
+                                  onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
+                                  placeholder="Ví dụ: Theo đoạn ghi âm, câu này miêu tả đúng bức tranh..."
+                                  style={{ fontSize: 12 }}
+                                />
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={handleAddGroup}
+                style={{
+                  background: "#f0f5e9",
+                  border: "2px dashed #92b888",
+                  borderRadius: 12,
+                  padding: "16px",
+                  color: "#2a4a27",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <Plus size={18} /> Thêm nhóm bài mới (Part / Section)
+              </button>
+            </div>
+          )}
+
+          {/* MODE 2: NHẬP MÃ JSON (RAW JSON EDITOR) */}
+          {authorMode === "raw" && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#254422" }}>
+                  Mã nguồn câu hỏi JSON chuẩn HSK 3.0:
+                </span>
                 <small style={{ color: "#4f6e3c" }}>
-                  💡 File âm thanh chính thức đã có sẵn tại: <code>/HSK3.0/HSK/音频/HSK（{authorLevel === 1 ? "一" : authorLevel === 2 ? "二" : authorLevel === 3 ? "三" : authorLevel === 4 ? "四" : authorLevel === 5 ? "五" : authorLevel === 6 ? "六" : "七—九"}级）样卷.mp3</code>
+                  💡 File âm thanh có sẵn tại: <code>/HSK3.0/HSK/音频/HSK（{authorLevel === 1 ? "一" : authorLevel === 2 ? "二" : authorLevel === 3 ? "三" : authorLevel === 4 ? "四" : authorLevel === 5 ? "五" : authorLevel === 6 ? "六" : "七—九"}级）样卷.mp3</code>
                 </small>
               </div>
               <textarea
@@ -477,7 +1316,7 @@ export default function ExamStaff({
                   fontFamily: "monospace",
                   fontSize: 13,
                   lineHeight: 1.5,
-                  minHeight: 280,
+                  minHeight: 350,
                   width: "100%",
                   padding: 14,
                   borderRadius: 12,
@@ -486,44 +1325,32 @@ export default function ExamStaff({
                 }}
                 value={jsonInput}
                 onChange={(e) => setJsonInput(e.target.value)}
-                placeholder={`[
-  {
-    "id": "q1",
-    "type": "listening_choice",
-    "skill": "LISTENING",
-    "content": "第 1 题：请听录音并选择正确的图片 (A-F)。",
-    "points": 2,
-    "correctAnswer": "B",
-    "audioUrl": "/HSK3.0/HSK/音频/HSK（三级）样卷.mp3",
-    "options": [
-      { "id": "A", "text": "Hình A", "imageUrl": "/theme/hsk/hsk3_q1_a.png" },
-      { "id": "B", "text": "Hình B", "imageUrl": "/theme/hsk/hsk3_q1_b.png" }
-    ]
-  }
-]`}
+                placeholder="Dán mảng JSON danh sách câu hỏi tại đây..."
               />
-            </label>
-
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-              <button
-                type="button"
-                className={s.secondary}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
-                onClick={handlePreview}
-              >
-                <Eye size={16} /> Xem trước giao diện học sinh
-              </button>
-
-              <button
-                type="submit"
-                className={s.primary}
-                disabled={busy}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
-              >
-                <Upload size={16} /> {busy ? "Đang xuất bản..." : "Lưu & Xuất bản đề thi"}
-              </button>
             </div>
-          </form>
+          )}
+
+          {/* Bottom Action Buttons */}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+            <button
+              type="button"
+              className={s.secondary}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 20px" }}
+              onClick={handlePreview}
+            >
+              <Eye size={17} /> Xem trước đúng giao diện học sinh
+            </button>
+
+            <button
+              type="button"
+              className={s.primary}
+              disabled={busy}
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 22px" }}
+              onClick={() => void handleSaveImport()}
+            >
+              <Upload size={17} /> {busy ? "Đang xuất bản..." : "Lưu & Xuất bản đề thi vào hệ thống"}
+            </button>
+          </div>
 
           {/* LIVE PREVIEW MODAL */}
           {previewPaper && (
@@ -680,14 +1507,41 @@ export default function ExamStaff({
         </>
       )}
 
-      {/* VIEW: PUBLICATIONS APPROVAL */}
+      {/* VIEW: PUBLICATIONS APPROVAL & MANAGEMENT */}
       {view === "publications" && (
         <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+            <h2 style={{ fontSize: 16, color: "#223824", margin: 0 }}>
+              Danh sách đề thi đang có trong hệ thống ({papers.length} bộ đề)
+            </h2>
+            <button
+              type="button"
+              onClick={handlePurgeOld}
+              style={{
+                fontSize: 12,
+                padding: "6px 14px",
+                minHeight: 32,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#fee2e2",
+                color: "#991b1b",
+                border: "1px solid #f87171",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              <Trash2 size={14} /> Xóa tất cả đề cũ
+            </button>
+          </div>
+
           {papers.map((paper) => (
             <PublicationCard
               key={paper.id}
               paper={paper}
               busy={busy}
+              onDelete={() => handleDeletePaper(paper.id)}
               onSave={async (durationMin, passScore, approved) => {
                 setBusy(true);
                 try {
@@ -708,7 +1562,7 @@ export default function ExamStaff({
               }}
             />
           ))}
-          {!papers.length && <p className={s.empty}>Chưa có bộ đề trạng thái READY để duyệt.</p>}
+          {!papers.length && <p className={s.empty}>Chưa có bộ đề nào trong hệ thống.</p>}
         </>
       )}
     </section>
@@ -719,10 +1573,12 @@ function PublicationCard({
   paper,
   busy,
   onSave,
+  onDelete,
 }: {
   paper: Candidate;
   busy: boolean;
   onSave: (duration: number, pass: number | null, approved: boolean) => void;
+  onDelete: () => void;
 }) {
   const [duration, setDuration] = useState(
     paper.durationMin === null ? "" : String(paper.durationMin)
@@ -731,13 +1587,39 @@ function PublicationCard({
 
   return (
     <article className={s.staffCard}>
-      <h2>{paper.title}</h2>
-      <p>
-        HSK {paper.level} · {paper.author} · {paper.questions.length} câu · {paper.maxScore} điểm ·{" "}
-        {paper.published ? "Đang xuất bản" : "Chưa được duyệt"}
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h2>{paper.title}</h2>
+          <p>
+            HSK {paper.level} · {paper.author} · {paper.questions.length} câu · {paper.maxScore} điểm ·{" "}
+            {paper.published ? "Đang xuất bản" : "Chưa được duyệt"}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onDelete}
+          style={{
+            background: "#fee2e2",
+            color: "#991b1b",
+            border: "1px solid #f87171",
+            borderRadius: 8,
+            padding: "6px 12px",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+          }}
+          title="Xóa vĩnh viễn đề thi này"
+        >
+          <Trash2 size={13} /> Xóa đề
+        </button>
+      </div>
+
       <details>
-        <summary>Kiểm tra nội dung trước khi duyệt</summary>
+        <summary>Kiểm tra nội dung trước khi duyệt ({paper.questions.length} câu)</summary>
         {paper.questions.map((q, index) => (
           <div className={s.reviewQuestion} key={q.id}>
             <strong>
@@ -823,58 +1705,63 @@ function ManualCard({
   onSave: (marks: Record<string, number>) => void;
 }) {
   const [marks, setMarks] = useState<Record<string, number>>({});
+
   return (
-    <form
-      className={s.staffCard}
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave(marks);
-      }}
-    >
+    <article className={s.staffCard}>
       <h2>
-        {attempt.title} · {attempt.studentName}
+        {(attempt as any).paperTitle || attempt.title} · {attempt.studentName}
       </h2>
+      <p>
+        HSK {attempt.level} · Mã bài thi: <code>{attempt.id}</code>
+      </p>
       {attempt.manualQuestions.map((q) => (
         <div className={s.reviewQuestion} key={q.id}>
           <strong>{q.content}</strong>
-          {q.answer.startsWith("data:audio/") ? (
-            <audio controls src={q.answer} />
-          ) : q.answer.startsWith("data:image/") ? (
-            <Image
-              unoptimized
-              width={720}
-              height={480}
-              className={s.questionImage}
-              src={q.answer}
-              alt="Bài viết tay"
-            />
-          ) : (
-            <p className={s.pre}>{q.answer || "Không trả lời"}</p>
-          )}
-          <p>Bài tham khảo: {q.correctAnswer || "Chưa có"}</p>
           <p>
-            Tiêu chí:{" "}
-            {String(q.editorData.rubric || q.explanation || "Chấm theo nội dung đề đã xuất bản.")}
+            {skillNames[q.skill]} · {typeNames[q.type] || q.type} · Tối đa {q.points} điểm
           </p>
+          <div className={s.studentAnswer}>
+            {q.answer.startsWith("data:audio/") ? (
+              <audio controls src={q.answer} />
+            ) : q.answer.startsWith("data:image/") ? (
+              <Image
+                unoptimized
+                width={400}
+                height={260}
+                src={q.answer}
+                alt="Bài làm ảnh"
+                style={{ borderRadius: 8, objectFit: "contain" }}
+              />
+            ) : (
+              <p>{q.answer || "Chưa có câu trả lời."}</p>
+            )}
+          </div>
           <label>
-            Điểm câu (0–{q.points})
+            Cho điểm (0 – {q.points})
             <input
-              required
               type="number"
               min={0}
               max={q.points}
               step="0.01"
               value={marks[q.id] ?? ""}
               onChange={(e) =>
-                setMarks((values) => ({ ...values, [q.id]: Number(e.target.value) }))
+                setMarks({
+                  ...marks,
+                  [q.id]: Math.min(q.points, Math.max(0, Number(e.target.value) || 0)),
+                })
               }
             />
           </label>
         </div>
       ))}
-      <button className={s.primary} disabled={busy} type="submit">
-        Lưu điểm chấm tay
+      <button
+        className={s.primary}
+        disabled={busy}
+        type="button"
+        onClick={() => onSave(marks)}
+      >
+        Lưu điểm chấm
       </button>
-    </form>
+    </article>
   );
 }

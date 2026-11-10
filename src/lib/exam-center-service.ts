@@ -163,6 +163,8 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
         rubric:q.rubric||"",
         audioUrl:q.audioUrl||"",
         imageUrl:q.imageUrl||"",
+        passage:q.passage||(typeof q.editorData==="object"&&(q.editorData as any)?.passage)||"",
+        groupTitle:q.groupTitle||(typeof q.editorData==="object"&&(q.editorData as any)?.groupTitle)||"",
         ...(typeof q.editorData==="object"&&q.editorData?q.editorData:{})
        }
       }
@@ -181,13 +183,24 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  });
  return {success:true,paperId:createdSet.id};
 }
+export async function deletePaper(user:AuthUser,body:Record<string,unknown>){
+ if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin có quyền xóa đề thi.");
+ const paperId=String(body.paperId||body.id||"");
+ if(!paperId)throw new ExamError(400,"Thiếu mã đề thi cần xóa.");
+ await prisma.quizSetQuestion.deleteMany({where:{quizSetId:paperId}});
+ await prisma.assignment.deleteMany({where:{quizSetId:paperId}});
+ await prisma.auditLog.deleteMany({where:{entity:paperId}});
+ await prisma.quizSet.deleteMany({where:{id:paperId}});
+ return {success:true};
+}
 export async function purgeOldMockExams(user:AuthUser){
  if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin có quyền xóa kho đề thi.");
- const mockSets=await prisma.quizSet.findMany({where:{mode:"MOCK_EXAM"},select:{id:true}});
+ const mockSets=await prisma.quizSet.findMany({where:{mode:{in:["MOCK_EXAM","EXAM"]}},select:{id:true}});
  const mockIds=mockSets.map(s=>s.id);
  if(mockIds.length>0){
   await prisma.quizSetQuestion.deleteMany({where:{quizSetId:{in:mockIds}}});
   await prisma.assignment.deleteMany({where:{quizSetId:{in:mockIds}}});
+  await prisma.auditLog.deleteMany({where:{entity:{in:mockIds}}});
   await prisma.quizSet.deleteMany({where:{id:{in:mockIds}}});
  }
  const deletedLogs=await prisma.auditLog.deleteMany({

@@ -434,3 +434,311 @@ export function getSampleQuestionsForLevel(level: number): ImportedQuestion[] {
 
   return questions;
 }
+
+export interface QuestionOption {
+  id: string;
+  text?: string;
+  imageUrl?: string;
+}
+
+export interface QuestionItem {
+  id: string;
+  type: string;
+  content: string;
+  pinyin?: string;
+  points: number;
+  imageUrl?: string;
+  audioUrl?: string;
+  correctAnswer: string;
+  explanation?: string;
+  options: QuestionOption[];
+}
+
+export interface ExamSectionGroup {
+  id: string;
+  title: string;
+  skill: "LISTENING" | "READING" | "WRITING" | "SPEAKING";
+  instruction?: string;
+  audioUrl?: string;
+  passage?: string;
+  questions: QuestionItem[];
+}
+
+export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
+  let qIdx = 1;
+  const result: ImportedQuestion[] = [];
+  for (const group of groups) {
+    for (const q of group.questions) {
+      const questionId = q.id || `q_${qIdx}`;
+      const item: ImportedQuestion = {
+        id: questionId,
+        type: q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
+        skill: group.skill,
+        content: q.content || `第 ${qIdx} 题`,
+        pinyin: q.pinyin || "",
+        points: Number(q.points) || 2.5,
+        correctAnswer: q.correctAnswer || "A",
+        explanation: q.explanation || "",
+        imageUrl: q.imageUrl || "",
+        audioUrl: q.audioUrl || group.audioUrl || "",
+        options: Array.isArray(q.options) && q.options.length ? q.options : [
+          { id: "A", text: "Đáp án A" },
+          { id: "B", text: "Đáp án B" },
+          { id: "C", text: "Đáp án C" },
+        ],
+        rubric: (q as any).rubric || "",
+      };
+      (item as any).passage = group.passage || "";
+      (item as any).groupTitle = group.title || "";
+      result.push(item);
+      qIdx++;
+    }
+  }
+  return result;
+}
+
+export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: number): ExamSectionGroup[] {
+  if (!questions.length) return buildDefaultGroups(defaultLevel);
+
+  const groupsMap = new Map<string, ExamSectionGroup>();
+
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const explicitGroupTitle = (q as any).groupTitle || (q as any).editorData?.groupTitle;
+    const explicitPassage = (q as any).passage || (q as any).editorData?.passage;
+
+    let key = explicitGroupTitle;
+    if (!key) {
+      const chunkNum = Math.floor(i / 5) + 1;
+      const startQ = (chunkNum - 1) * 5 + 1;
+      const endQ = Math.min(chunkNum * 5, questions.length);
+      const skillName = q.skill === "LISTENING" ? "Phần Nghe" : q.skill === "READING" ? "Phần Đọc" : "Phần Viết";
+      key = `${skillName} · Nhóm ${chunkNum} (Câu ${startQ} - ${endQ})`;
+    }
+
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, {
+        id: `group_${groupsMap.size + 1}`,
+        title: key,
+        skill: (q.skill as any) || "READING",
+        audioUrl: q.audioUrl || "",
+        passage: explicitPassage || "",
+        questions: [],
+      });
+    }
+
+    const grp = groupsMap.get(key)!;
+    if (explicitPassage && !grp.passage) grp.passage = explicitPassage;
+    if (q.audioUrl && !grp.audioUrl) grp.audioUrl = q.audioUrl;
+
+    grp.questions.push({
+      id: q.id || `q_${i + 1}`,
+      type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
+      content: q.content || `Câu ${i + 1}`,
+      pinyin: q.pinyin || "",
+      points: Number(q.points) || 2.5,
+      imageUrl: q.imageUrl || "",
+      audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
+      correctAnswer: q.correctAnswer || "A",
+      explanation: q.explanation || "",
+      options: Array.isArray(q.options) && q.options.length
+        ? q.options.map((opt: any, optIdx: number) => ({
+            id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),
+            text: typeof opt === "string" ? opt : opt?.text || opt?.content || "",
+            imageUrl: opt?.imageUrl || "",
+          }))
+        : [
+            { id: "A", text: "Đáp án A" },
+            { id: "B", text: "Đáp án B" },
+          ],
+    });
+  }
+
+  return Array.from(groupsMap.values());
+}
+
+export function buildDefaultGroups(level: number): ExamSectionGroup[] {
+  if (level === 1) {
+    const audioUrl = "/HSK3.0/HSK/音频/HSK（一级）样卷.mp3";
+    return [
+      {
+        id: "group_1",
+        title: "Phần 1 Nghe: Phán đoán tranh Đúng / Sai (Câu 1 - 5)",
+        skill: "LISTENING",
+        instruction: "Nghe ghi âm và phán đoán xem câu nói có khớp với bức tranh hay không (Đúng hoặc Sai).",
+        audioUrl,
+        questions: [1, 2, 3, 4, 5].map((i) => ({
+          id: `hsk1_q${i}`,
+          type: "true_false",
+          content: `第 ${i} 题：请听录音并判断正误 (对 / 错)。`,
+          points: 2.5,
+          correctAnswer: i % 2 === 1 ? "true" : "false",
+          imageUrl: "",
+          explanation: `Câu ${i}: Nghe đoạn băng và đối chiếu với bức tranh minh họa.`,
+          options: [
+            { id: "true", text: "Đúng (对)" },
+            { id: "false", text: "Sai (错)" },
+          ],
+        })),
+      },
+      {
+        id: "group_2",
+        title: "Phần 2 Nghe: Nghe đoạn ngắn và chọn tranh tương ứng (Câu 6 - 10)",
+        skill: "LISTENING",
+        instruction: "Nghe từng câu ngắn và chọn bức tranh A, B hoặc C phù hợp nhất.",
+        audioUrl,
+        questions: [6, 7, 8, 9, 10].map((i) => ({
+          id: `hsk1_q${i}`,
+          type: "multiple_choice",
+          content: `第 ${i} 题：请听录音并选择正确的图片。`,
+          points: 2.5,
+          correctAnswer: i % 3 === 0 ? "A" : i % 3 === 1 ? "B" : "C",
+          imageUrl: "",
+          explanation: `Câu ${i}: Chọn bức tranh phù hợp với nội dung đoạn băng.`,
+          options: [
+            { id: "A", text: "Tranh A" },
+            { id: "B", text: "Tranh B" },
+            { id: "C", text: "Tranh C" },
+          ],
+        })),
+      },
+      {
+        id: "group_3",
+        title: "Phần 3 Nghe: Đối thoại ngắn chọn tranh A - F (Câu 11 - 15)",
+        skill: "LISTENING",
+        instruction: "Nghe đối thoại ngắn giữa 2 người và chọn bức tranh A - F tương ứng.",
+        audioUrl,
+        questions: [11, 12, 13, 14, 15].map((i, idx) => ({
+          id: `hsk1_q${i}`,
+          type: "multiple_choice",
+          content: `第 ${i} 题：请听对话并选择正确的图片 (A-F)。`,
+          points: 2.5,
+          correctAnswer: ["E", "F", "B", "D", "A"][idx],
+          imageUrl: "",
+          explanation: `Câu ${i}: Đối thoại ngắn tương ứng với tranh ${["E", "F", "B", "D", "A"][idx]}.`,
+          options: [
+            { id: "A", text: "Tranh A" },
+            { id: "B", text: "Tranh B" },
+            { id: "C", text: "Tranh C" },
+            { id: "D", text: "Tranh D" },
+            { id: "E", text: "Tranh E" },
+            { id: "F", text: "Tranh F" },
+          ],
+        })),
+      },
+      {
+        id: "group_4",
+        title: "Phần 4 Nghe: Nghe câu chọn đáp án A, B, C (Câu 16 - 20)",
+        skill: "LISTENING",
+        instruction: "Nghe câu hỏi và chọn đáp án A, B hoặc C.",
+        audioUrl,
+        questions: [16, 17, 18, 19, 20].map((i, idx) => ({
+          id: `hsk1_q${i}`,
+          type: "multiple_choice",
+          content: `第 ${i} 题：请听录音并选择正确答案。`,
+          points: 2.5,
+          correctAnswer: ["A", "B", "C", "A", "C"][idx],
+          imageUrl: "",
+          explanation: `Câu ${i}: Đáp án đúng là ${["A", "B", "C", "A", "C"][idx]}.`,
+          options: [
+            { id: "A", text: "Đáp án A" },
+            { id: "B", text: "Đáp án B" },
+            { id: "C", text: "Đáp án C" },
+          ],
+        })),
+      },
+      {
+        id: "group_5",
+        title: "Phần 1 Đọc: Nhìn tranh và từ ngữ phán đoán Đúng / Sai (Câu 21 - 25)",
+        skill: "READING",
+        instruction: "Xem bức tranh và từ ngữ chữ Hán đi kèm, phán đoán xem có khớp nhau không (Đúng / Sai).",
+        questions: [21, 22, 23, 24, 25].map((i) => ({
+          id: `hsk1_q${i}`,
+          type: "true_false",
+          content: `第 ${i} 题：看图判断词语是否正确 (对 / 错)。`,
+          points: 2.5,
+          correctAnswer: i % 2 === 1 ? "true" : "false",
+          imageUrl: "",
+          explanation: `Câu ${i}: So sánh tranh và từ vựng.`,
+          options: [
+            { id: "true", text: "Đúng (对)" },
+            { id: "false", text: "Sai (错)" },
+          ],
+        })),
+      },
+      {
+        id: "group_6",
+        title: "Phần 2 Đọc: Đọc câu và ghép nối với tranh A - F (Câu 26 - 30)",
+        skill: "READING",
+        instruction: "Đọc từng câu và chọn bức tranh A - F tương ứng.",
+        questions: [26, 27, 28, 29, 30].map((i, idx) => ({
+          id: `hsk1_q${i}`,
+          type: "multiple_choice",
+          content: `第 ${i} 题：阅读句子并选择对应的图片 (A-F)。`,
+          points: 2.5,
+          correctAnswer: ["D", "E", "C", "B", "A"][idx],
+          imageUrl: "",
+          explanation: `Câu ${i}: Nội dung câu khớp với tranh ${["D", "E", "C", "B", "A"][idx]}.`,
+          options: [
+            { id: "A", text: "Tranh A" },
+            { id: "B", text: "Tranh B" },
+            { id: "C", text: "Tranh C" },
+            { id: "D", text: "Tranh D" },
+            { id: "E", text: "Tranh E" },
+            { id: "F", text: "Tranh F" },
+          ],
+        })),
+      },
+      {
+        id: "group_7",
+        title: "Phần 3 Đọc: Nối câu hỏi với câu trả lời (Câu 31 - 35)",
+        skill: "READING",
+        instruction: "Đọc câu hỏi bên dưới và chọn câu trả lời A - F tương ứng.",
+        questions: [31, 32, 33, 34, 35].map((i, idx) => ({
+          id: `hsk1_q${i}`,
+          type: "multiple_choice",
+          content: `第 ${i} 题：选择最佳的应答句子 (A-F)。`,
+          points: 2.5,
+          correctAnswer: ["F", "A", "B", "C", "E"][idx],
+          imageUrl: "",
+          explanation: `Câu ${i}: Lời đáp phù hợp là ${["F", "A", "B", "C", "E"][idx]}.`,
+          options: [
+            { id: "A", text: "Câu A" },
+            { id: "B", text: "Câu B" },
+            { id: "C", text: "Câu C" },
+            { id: "D", text: "Câu D" },
+            { id: "E", text: "Câu E" },
+            { id: "F", text: "Câu F" },
+          ],
+        })),
+      },
+      {
+        id: "group_8",
+        title: "Phần 4 Đọc: Chọn từ điền vào chỗ trống (Câu 36 - 40)",
+        skill: "READING",
+        instruction: "Chọn từ thích hợp trong khung (A - F) để điền vào chỗ trống hoàn thành câu.",
+        questions: [36, 37, 38, 39, 40].map((i, idx) => ({
+          id: `hsk1_q${i}`,
+          type: "fill_blank",
+          content: `第 ${i} 题：选词填空 (请选择 A-F)。`,
+          points: 2.5,
+          correctAnswer: ["B", "B", "C", "C", "A"][idx],
+          imageUrl: "",
+          explanation: `Câu ${i}: Từ thích hợp điền vào câu là ${["B", "B", "C", "C", "A"][idx]}.`,
+          options: [
+            { id: "A", text: "Từ A" },
+            { id: "B", text: "Từ B" },
+            { id: "C", text: "Từ C" },
+            { id: "D", text: "Từ D" },
+            { id: "E", text: "Từ E" },
+            { id: "F", text: "Từ F" },
+          ],
+        })),
+      },
+    ];
+  }
+
+  const sample = getSampleQuestionsForLevel(level);
+  return unflattenToGroups(sample, level);
+}
+
