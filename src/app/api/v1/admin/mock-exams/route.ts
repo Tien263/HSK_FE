@@ -32,7 +32,81 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, message: "Yêu cầu quyền Quản trị viên." }, { status: 401, headers });
     }
 
-    // 1. Fetch all Mock Exams
+    const { searchParams } = new URL(request.url);
+    const detailId = searchParams.get("id");
+
+    // 1. Nếu có ID -> Trả về chi tiết toàn bộ đề thi kèm câu hỏi để Admin soạn / chỉnh sửa
+    if (detailId) {
+      const qs = await prisma.quizSet.findUnique({
+        where: { id: detailId },
+        include: {
+          questions: {
+            include: { question: true },
+            orderBy: { orderIndex: "asc" },
+          },
+        },
+      });
+
+      if (!qs) {
+        return NextResponse.json({ success: false, message: "Không tìm thấy đề thi." }, { status: 404, headers });
+      }
+
+      const pubLog = await prisma.auditLog.findFirst({
+        where: { entity: qs.id, action: "EXAM_CENTER_PUBLICATION" },
+        orderBy: { createdAt: "desc" },
+      });
+      let pubConfig: any = {};
+      if (pubLog?.details) {
+        try {
+          pubConfig = JSON.parse(pubLog.details);
+        } catch {}
+      }
+
+      const formattedQuestions = qs.questions.map((row) => {
+        const q = row.question;
+        let parsedOptions: any[] = [];
+        try {
+          if (q.options) parsedOptions = JSON.parse(q.options);
+        } catch {}
+        return {
+          id: q.id,
+          orderIndex: row.orderIndex,
+          points: row.points,
+          type: q.type,
+          skill: q.skill,
+          level: q.level,
+          content: q.content,
+          pinyinPrompt: q.pinyinPrompt || "",
+          audioUrl: q.audioUrl || "",
+          imageUrl: q.imageUrl || "",
+          options: parsedOptions,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation || "",
+        };
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          exam: {
+            id: qs.id,
+            title: qs.title,
+            description: qs.description,
+            hskLevel: qs.hskLevel,
+            mode: qs.mode,
+            status: qs.status,
+            totalScore: qs.totalScore,
+            durationMin: pubConfig?.durationMin || (qs.hskLevel === 1 ? 40 : qs.hskLevel === 2 ? 60 : 90),
+            passScore: pubConfig?.passScore || (qs.hskLevel <= 2 ? 120 : 180),
+            proctorEnabled: qs.proctorEnabled !== false,
+            questions: formattedQuestions,
+          },
+        },
+        { headers }
+      );
+    }
+
+    // 2. Fetch all Mock Exams
     const [quizSets, publicationLogs, attemptLogs] = await Promise.all([
       prisma.quizSet.findMany({
         where: { mode: { in: ["MOCK_EXAM", "EXAM"] } },
@@ -197,6 +271,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Đã xóa đề thi thành công." }, { headers });
     }
 
+    // 2B. Xóa hàng loạt đề thi đã chọn
+    if (action === "deleteMultipleExams") {
+      const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : [];
+      if (ids.length === 0) {
+        return NextResponse.json({ success: false, message: "Chưa chọn đề thi nào để xóa." }, { status: 400, headers });
+      }
+
+      await prisma.quizSetQuestion.deleteMany({ where: { quizSetId: { in: ids } } });
+      await prisma.auditLog.deleteMany({ where: { entity: { in: ids } } });
+      await prisma.quizSet.deleteMany({ where: { id: { in: ids } } });
+
+      return NextResponse.json({ success: true, message: `Đã xóa thành công ${ids.length} đề thi.` }, { headers });
+    }
+
+    // 2C. Xóa toàn bộ đề thi (có thể lọc theo cấp độ)
+    if (action === "deleteAllExams") {
+      const level = body.level ? Number(body.level) : null;
+      const whereClause: any = { mode: { in: ["MOCK_EXAM", "EXAM"] } };
+      if (level) whereClause.hskLevel = level;
+      const sets = await prisma.quizSet.findMany({ where: whereClause, select: { id: true } });
+      const ids = sets.map((s) => s.id);
+      if (ids.length > 0) {
+        await prisma.quizSetQuestion.deleteMany({ where: { quizSetId: { in: ids } } });
+        await prisma.auditLog.deleteMany({ where: { entity: { in: ids } } });
+        await prisma.quizSet.deleteMany({ where: { id: { in: ids } } });
+      }
+      return NextResponse.json({ success: true, message: `Đã xóa sạch ${ids.length} đề thi thử.` }, { headers });
+    }
+
     // 3. Toggle Status (READY / DRAFT)
     if (action === "toggleStatus") {
       const examId = String(body.id || "");
@@ -225,6 +328,126 @@ export async function POST(request: Request) {
           success: true,
           message: `Đã ${nextVal ? "BẬT" : "TẮT"} Giám thị AI cho đề thi.`,
           proctorEnabled: nextVal,
+        },
+        { headers }
+      );
+    }
+
+    // 5. Soạn / Lưu Đề thi hoàn chỉnh (Kèm Upload Ảnh, Audio, Options)
+    if (action === "saveExam" || action === "importExamJson") {
+      const examData = body.exam || body;
+      const title = String(examData.title || "Đề thi HSK mới").trim();
+      const description = String(examData.description || "").trim();
+      const hskLevel = Number(examData.hskLevel || 1);
+      const durationMin = Number(examData.durationMin || (hskLevel === 1 ? 40 : hskLevel === 2 ? 60 : 90));
+      const passScore = Number(examData.passScore || (hskLevel <= 2 ? 120 : 180));
+      const totalScore = Number(examData.totalScore || (hskLevel <= 2 ? 200 : 300));
+      const proctorEnabled = examData.proctorEnabled !== false;
+      const rawQuestions = Array.isArray(examData.questions) ? examData.questions : [];
+
+      let quizSetId = examData.id ? String(examData.id) : null;
+      let quizSet;
+
+      if (quizSetId) {
+        quizSet = await prisma.quizSet.update({
+          where: { id: quizSetId },
+          data: {
+            title,
+            description,
+            hskLevel,
+            totalScore,
+            proctorEnabled,
+            mode: "MOCK_EXAM",
+            status: "READY",
+          },
+        });
+        await prisma.quizSetQuestion.deleteMany({ where: { quizSetId } });
+      } else {
+        quizSet = await prisma.quizSet.create({
+          data: {
+            title,
+            description,
+            hskLevel,
+            totalScore,
+            proctorEnabled,
+            mode: "MOCK_EXAM",
+            status: "READY",
+            teacherId: admin.id,
+          },
+        });
+        quizSetId = quizSet.id;
+      }
+
+      for (let i = 0; i < rawQuestions.length; i++) {
+        const q = rawQuestions[i];
+        const orderIndex = Number(q.orderIndex || i + 1);
+        const points = Number(q.points || Math.round(totalScore / Math.max(1, rawQuestions.length)));
+        const type = String(q.type || "multiple_choice");
+        const skill = String(q.skill || (orderIndex <= 20 ? "LISTENING" : "READING"));
+        const content = String(q.content || `Câu ${orderIndex}`).trim();
+        const pinyinPrompt = String(q.pinyinPrompt || "").trim();
+        const audioUrl = String(q.audioUrl || examData.audioUrl || "").trim();
+        const imageUrl = String(q.imageUrl || "").trim();
+        const correctAnswer = String(q.correctAnswer || "A").trim();
+        const explanation = String(q.explanation || "").trim();
+        const optionsArr = Array.isArray(q.options) ? q.options : [];
+
+        const createdQ = await prisma.question.create({
+          data: {
+            type,
+            skill,
+            level: hskLevel,
+            difficulty: "MEDIUM",
+            content,
+            pinyinPrompt,
+            correctAnswer,
+            explanation,
+            audioUrl,
+            imageUrl,
+            options: JSON.stringify(optionsArr),
+            teacherId: admin.id,
+            editorData: {
+              options: optionsArr,
+              status: "READY",
+              audioUrl,
+              imageUrl,
+              pinyin: pinyinPrompt,
+            },
+          },
+        });
+
+        await prisma.quizSetQuestion.create({
+          data: {
+            quizSetId,
+            questionId: createdQ.id,
+            orderIndex,
+            points,
+          },
+        });
+      }
+
+      await prisma.auditLog.deleteMany({
+        where: { entity: quizSetId, action: "EXAM_CENTER_PUBLICATION" },
+      });
+      await prisma.auditLog.create({
+        data: {
+          userId: admin.id,
+          action: "EXAM_CENTER_PUBLICATION",
+          entity: quizSetId,
+          details: JSON.stringify({
+            approved: true,
+            durationMin,
+            passScore,
+            proctorEnabled,
+          }),
+        },
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Đã lưu thành công đề thi "${title}" gồm ${rawQuestions.length} câu hỏi.`,
+          quizSetId,
         },
         { headers }
       );

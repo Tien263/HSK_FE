@@ -1,0 +1,123 @@
+{
+  "title": "HSK 1 · Đề thi thử mẫu chuẩn CTI 01",
+  "description": "Đề thi mô phỏng chính thức HSK 1 theo chuẩn HSK 3.0 (40 câu: 20 Nghe + 20 Đọc, có audio và ảnh minh họa).",
+  "hskLevel": 1,
+  "durationMin": 40,
+  "passScore": 120,
+  "totalScore": 200,
+  "proctorEnabled": true,
+  "audioUrl": "/audio/hsk1_exam.mp3",
+  "questions": [
+    {
+      "orderIndex": 1,
+      "points": 5,
+      "skill": "LISTENING",
+      "type": "listening_choice",
+      "content": "第 1 题：请听录音并选择符合内容的图片。",
+      "pinyinPrompt": "",
+      "audioUrl": "/audio/hsk1_exam.mp3",
+      "imageUrl": "",
+      "options": [
+        {
+          "id": "A",
+          "text": "A",
+          "imageUrl": "/exam-assets/hsk1/q1_A.jpg"
+        },
+        {
+          "id": "B",
+          "text": "B",
+          "imageUrl": "/exam-assets/hsk1/q1_B.jpg"
+        },
+        {
+          "id": "C",
+          "text": "C",
+          "imageUrl": "/exam-assets/hsk1/q1_C.jpg"
+        }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Theo ghi âm HSK 1: Câu 1 tương ứng với hình ảnh C."
+    },
+    {
+      "orderIndex": 6,
+      "points": 5,
+      "skill": "LISTENING",
+      "type": "true_false",
+      "content": "第 6 题：看图听录音，判断对错（√ / ×）。",
+      "pinyinPrompt": "",
+      "audioUrl": "/audio/hsk1_exam.mp3",
+      "imageUrl": "",
+      "options": [
+        {
+          "id": "TRUE",
+          "text": "√ 对 (Đúng)"
+        },
+        {
+          "id": "FALSE",
+          "text": "× 错 (Sai)"
+        }
+      ],
+      "correctAnswer": "TRUE",
+      "explanation": "Nội dung ghi âm trùng khớp với hình ảnh miêu tả."
+    },
+    {
+      "orderIndex": 31,
+      "points": 5,
+      "skill": "READING",
+      "type": "multiple_choice",
+      "content": "第 31 题：\\nNǐ de bēizi zài nǎr?\\n你 的 杯子 在 哪儿 ？",
+      "pinyinPrompt": "Nǐ de bēizi zài nǎr?",
+      "audioUrl": "",
+      "imageUrl": "",
+      "options": [
+        {
+          "id": "A",
+          "text": "A: Wǒ bú rènshi tā. (我 不 认识 他 。)"
+        },
+        {
+          "id": "B",
+          "text": "B: Hǎo de, xièxie nǐ! (好 的 ， 谢谢 你 ！)"
+        },
+        {
+          "id": "C",
+          "text": "C: Zài zhuōzi shàng. (在 桌子 上 。)"
+        },
+        {
+          "id": "D",
+          "text": "D: Tā jīnnián shíwǔ suì. (她 今年 十五 岁 。)"
+        },
+        {
+          "id": "E",
+          "text": "E: Wǒ qù mǎi diǎnr shuǐguǒ. (我 去 买 点儿 水果 。)"
+        }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Hỏi: Cốc của bạn ở đâu? -> Đáp C: Ở trên bàn."
+    },
+    {
+      "orderIndex": 36,
+      "points": 5,
+      "skill": "READING",
+      "type": "multiple_choice",
+      "content": "第 36 题：\\nWǒ mǎi le yī běn shū, sānshí kuài qián.\\n我 买 了 一 本 书 ， 30 块 钱 。\\n\\n★ Nà běn shū duōshao qián?\\n★ 那 本 书 多少 钱 ？",
+      "pinyinPrompt": "",
+      "audioUrl": "",
+      "imageUrl": "",
+      "options": [
+        {
+          "id": "A",
+          "text": "13 块 (kuài)"
+        },
+        {
+          "id": "B",
+          "text": "30 块 (kuài)"
+        },
+        {
+          "id": "C",
+          "text": "300 块 (kuài)"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Giá quyển sách là 30 đồng -> Đáp án B: 30 块."
+    }
+  ]
+}

@@ -618,6 +618,24 @@ export default function ExamPlayer({
             <p className={s.pinyinHint}>[{currentQ.pinyin}]</p>
           )}
 
+          {/* Question Image (ảnh minh họa câu hỏi) */}
+          {currentQ.imageUrl && (
+            <div style={{ margin: "14px 0", textAlign: "center" }}>
+              <img
+                src={currentQ.imageUrl}
+                alt="Hình ảnh minh họa câu hỏi"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 320,
+                  objectFit: "contain",
+                  borderRadius: 12,
+                  border: "1px solid #d4decb",
+                  display: "inline-block",
+                }}
+              />
+            </div>
+          )}
+
           {/* Audio Player Bar (for Listening questions) */}
           {currentQ.skill === "LISTENING" && (
             <div className={s.audioBar}>
