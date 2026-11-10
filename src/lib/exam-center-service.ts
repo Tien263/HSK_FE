@@ -116,16 +116,16 @@ export async function createCustom(user:AuthUser,body:Record<string,unknown>){
  try{await prisma.auditLog.create({data:{id,userId:user.id,action:PAPER,entity:id,details:JSON.stringify(paper)}});}catch{const old=await prisma.auditLog.findFirst({where:{id,userId:user.id,action:PAPER}});if(!old)throw new ExamError(409,"Không tạo được đề cá nhân.");return paperSummary(parse<ExamPaper>(old.details));}
  return paperSummary(paper);
 }
-export async function publicationCandidates(user:AuthUser){if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin được duyệt đề chính thức.");const rows=await prisma.quizSet.findMany({where:{status:"READY",mode:{in:["EXAM","MOCK_EXAM"]}},include:{teacher:{select:{name:true}},questions:{include:{question:true},orderBy:{orderIndex:"asc"}}},orderBy:{createdAt:"desc"}});const published=await officialPapers();return rows.map(row=>({durationMin:published.find(p=>p.id===row.id)?.durationMin??null,passScore:published.find(p=>p.id===row.id)?.passScore??null,published:published.some(p=>p.id===row.id),id:row.id,title:row.title,level:row.hskLevel,maxScore:row.totalScore,author:row.teacher?.name||"",questions:row.questions.map(q=>snapshotQuestion(q.question as unknown as Record<string,unknown>,q.points))}));}
+export async function publicationCandidates(user:AuthUser){if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được xem danh sách đề.");const rows=await prisma.quizSet.findMany({where:{status:"READY",mode:{in:["EXAM","MOCK_EXAM"]}},include:{teacher:{select:{name:true}},questions:{include:{question:true},orderBy:{orderIndex:"asc"}}},orderBy:{createdAt:"desc"}});const published=await officialPapers();return rows.map(row=>({durationMin:published.find(p=>p.id===row.id)?.durationMin??null,passScore:published.find(p=>p.id===row.id)?.passScore??null,published:published.some(p=>p.id===row.id),id:row.id,title:row.title,level:row.hskLevel,maxScore:row.totalScore,author:row.teacher?.name||"",questions:row.questions.map(q=>snapshotQuestion(q.question as unknown as Record<string,unknown>,q.points))}));}
 export async function publishPaper(user:AuthUser,body:Record<string,unknown>){
- if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin được duyệt đề chính thức.");
+ if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được duyệt đề.");
  const paper=await prisma.quizSet.findFirst({where:{id:String(body.paperId),status:"READY",mode:{in:["EXAM","MOCK_EXAM"]}}});if(!paper)throw new ExamError(404,"Không có đề sẵn sàng để xuất bản.");
  const durationMin=integer(body.durationMin,1,600,"Thời gian"),passScore=body.passScore===null||body.passScore===""?null:Number(body.passScore);
  if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>paper.totalScore))throw new ExamError(400,"Ngưỡng đạt phải nằm trong thang điểm của đề.");
  await prisma.auditLog.create({data:{userId:user.id,action:PUBLICATION,entity:paper.id,details:JSON.stringify({approved:body.approved!==false,durationMin,passScore})}});return{success:true};
 }
 export async function importPaper(user:AuthUser,body:Record<string,unknown>){
- if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin được nhập và tạo đề chính thức.");
+ if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được nhập và tạo đề.");
  const level=integer(body.level,1,9,"Cấp độ HSK"),titleStr=title(body.title);
  const description=typeof body.description==="string"?body.description.trim():"Đề thi mô phỏng chuẩn HSK 3.0";
  const durationMin=integer(body.durationMin,1,600,"Thời gian làm bài");
@@ -184,7 +184,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  return {success:true,paperId:createdSet.id};
 }
 export async function deletePaper(user:AuthUser,body:Record<string,unknown>){
- if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin có quyền xóa đề thi.");
+ if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền xóa đề thi.");
  const paperId=String(body.paperId||body.id||"");
  if(!paperId)throw new ExamError(400,"Thiếu mã đề thi cần xóa.");
  await prisma.quizSetQuestion.deleteMany({where:{quizSetId:paperId}});
@@ -194,7 +194,7 @@ export async function deletePaper(user:AuthUser,body:Record<string,unknown>){
  return {success:true};
 }
 export async function purgeOldMockExams(user:AuthUser){
- if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin có quyền xóa kho đề thi.");
+ if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền xóa kho đề thi.");
  const mockSets=await prisma.quizSet.findMany({where:{mode:{in:["MOCK_EXAM","EXAM"]}},select:{id:true}});
  const mockIds=mockSets.map(s=>s.id);
  if(mockIds.length>0){
@@ -229,8 +229,8 @@ export async function saveWrong(user:AuthUser,body:Record<string,unknown>){
  }
  throw new ExamError(409,"Kho câu sai đang được cập nhật. Hãy thử lại.");
 }
-export async function gradingQueue(user:AuthUser){if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin có quyền chấm bài.");const rows=await prisma.auditLog.findMany({where:{action:ATTEMPT},include:{user:{select:{name:true}}},orderBy:{createdAt:"desc"}});return rows.flatMap(row=>{const state=parse<CenterAttempt>(row.details);return state.status==="NEEDS_GRADING"?[{...attemptForOwner(row.id,state),studentName:row.user.name,manualQuestions:state.paper.questions.filter(q=>state.results.find(r=>r.questionId===q.id)?.manual).map(q=>({...q,answer:state.answers[q.id]||""}))}]:[];});}
-export async function gradeManual(user:AuthUser,body:Record<string,unknown>){if(user.role!=="ADMIN")throw new ExamError(403,"Chỉ Admin có quyền chấm bài.");const row=await prisma.auditLog.findFirst({where:{id:String(body.id),action:ATTEMPT}});if(!row)throw new ExamError(404,"Không tìm thấy lượt thi.");const state=parse<CenterAttempt>(row.details);if(state.status!=="NEEDS_GRADING")throw new ExamError(409,"Bài không còn ở trạng thái chờ chấm.");if(!body.marks||typeof body.marks!=="object"||Array.isArray(body.marks))throw new ExamError(400,"Điểm chấm không hợp lệ.");let graded;try{graded=finishManual(state,body.marks as Record<string,number>);}catch(error){throw new ExamError(400,(error as Error).message);}await replaceAttempt(row,graded);return{success:true};}
+export async function gradingQueue(user:AuthUser){if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền chấm bài.");const rows=await prisma.auditLog.findMany({where:{action:ATTEMPT},include:{user:{select:{name:true}}},orderBy:{createdAt:"desc"}});return rows.flatMap(row=>{const state=parse<CenterAttempt>(row.details);return state.status==="NEEDS_GRADING"?[{...attemptForOwner(row.id,state),studentName:row.user.name,manualQuestions:state.paper.questions.filter(q=>state.results.find(r=>r.questionId===q.id)?.manual).map(q=>({...q,answer:state.answers[q.id]||""}))}]:[];});}
+export async function gradeManual(user:AuthUser,body:Record<string,unknown>){if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền chấm bài.");const row=await prisma.auditLog.findFirst({where:{id:String(body.id),action:ATTEMPT}});if(!row)throw new ExamError(404,"Không tìm thấy lượt thi.");const state=parse<CenterAttempt>(row.details);if(state.status!=="NEEDS_GRADING")throw new ExamError(409,"Bài không còn ở trạng thái chờ chấm.");if(!body.marks||typeof body.marks!=="object"||Array.isArray(body.marks))throw new ExamError(400,"Điểm chấm không hợp lệ.");let graded;try{graded=finishManual(state,body.marks as Record<string,number>);}catch(error){throw new ExamError(400,(error as Error).message);}await replaceAttempt(row,graded);return{success:true};}
 
 export async function legacyDetail(user:AuthUser,id:string){
  const row=await prisma.attempt.findFirst({where:{id:id.replace(/^legacy:/,""),studentId:user.id,status:{not:"IN_PROGRESS"}},include:{answers:{include:{question:true}},assignment:{select:{title:true}}}});

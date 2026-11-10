@@ -47,6 +47,168 @@ import {
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamCenter.module.css";
 
+export const groupAudioForLevel = (lvl: number) => {
+  const map: Record<number, string> = {
+    1: "/HSK3.0/HSK/音频/HSK（一级）样卷.mp3",
+    2: "/HSK3.0/HSK/音频/HSK（二级）样卷.mp3",
+    3: "/HSK3.0/HSK/音频/HSK（三级）样卷.mp3",
+    4: "/HSK3.0/HSK/音频/HSK（四级）样卷.mp3",
+    5: "/HSK3.0/HSK/音频/HSK（五级）样卷.mp3",
+    6: "/HSK3.0/HSK/音频/HSK（六级）样卷.mp3",
+    7: "/HSK3.0/HSK/音频/HSK（七—九级）样卷听力.mp3",
+  };
+  return map[lvl] || map[1];
+};
+
+export const HSK_GROUP_TEMPLATES = [
+  {
+    name: "🎧 Nghe tranh Đúng / Sai (True / False)",
+    skill: "LISTENING" as const,
+    type: "true_false",
+    samplePrompt: "请听录音并判断正误 (对 / 错)。",
+    instruction: "Nghe ghi âm và phán đoán xem câu nói có khớp với bức tranh hay không (Đúng hoặc Sai).",
+    options: [{ id: "true", text: "Đúng (对)" }, { id: "false", text: "Sai (错)" }],
+    correctAnswer: "true",
+    points: 2.5,
+  },
+  {
+    name: "🎧 Nghe chọn tranh A, B, C (Trắc nghiệm hình ảnh)",
+    skill: "LISTENING" as const,
+    type: "multiple_choice",
+    samplePrompt: "请听录音并选择正确的图片 (A, B, C)。",
+    instruction: "Nghe từng câu ngắn và chọn bức tranh A, B hoặc C phù hợp nhất.",
+    options: [{ id: "A", text: "Tranh A" }, { id: "B", text: "Tranh B" }, { id: "C", text: "Tranh C" }],
+    correctAnswer: "A",
+    points: 2.5,
+  },
+  {
+    name: "🎧 Nghe đối thoại ngắn chọn tranh A - F (Ghép tranh)",
+    skill: "LISTENING" as const,
+    type: "matching",
+    samplePrompt: "请听对话并选择对应的图片 (A-F)。",
+    instruction: "Nghe đối thoại ngắn giữa 2 người và chọn bức tranh A - F tương ứng.",
+    options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Tranh ${l}` })),
+    correctAnswer: "A",
+    points: 2,
+  },
+  {
+    name: "🎧 Nghe đối thoại / bài nói chọn A, B, C, D (Trắc nghiệm)",
+    skill: "LISTENING" as const,
+    type: "multiple_choice",
+    samplePrompt: "请听录音并选择正确答案 (A, B, C, D)。",
+    instruction: "Nghe đoạn ghi âm và chọn đáp án chính xác nhất (A, B, C, D).",
+    options: ["A", "B", "C", "D"].map((l) => ({ id: l, text: `Đáp án ${l}` })),
+    correctAnswer: "A",
+    points: 2,
+  },
+  {
+    name: "📖 Đọc nhìn tranh & từ ngữ phán đoán Đúng / Sai",
+    skill: "READING" as const,
+    type: "true_false",
+    samplePrompt: "看图判断词语是否正确 (对 / 错)。",
+    instruction: "Xem bức tranh và từ ngữ chữ Hán đi kèm, phán đoán xem có khớp nhau không (Đúng / Sai).",
+    options: [{ id: "true", text: "Đúng (对)" }, { id: "false", text: "Sai (错)" }],
+    correctAnswer: "true",
+    points: 2.5,
+  },
+  {
+    name: "📖 Đọc câu ghép tranh A - F",
+    skill: "READING" as const,
+    type: "matching",
+    samplePrompt: "阅读句子并选择对应的图片 (A-F)。",
+    instruction: "Đọc từng câu và chọn bức tranh A - F tương ứng.",
+    options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Tranh ${l}` })),
+    correctAnswer: "A",
+    points: 2,
+  },
+  {
+    name: "📖 Đọc nối câu hỏi với câu trả lời (A - F)",
+    skill: "READING" as const,
+    type: "matching",
+    samplePrompt: "选择最佳的应答句子 (A-F)。",
+    instruction: "Đọc câu hỏi bên dưới và chọn câu trả lời A - F tương ứng.",
+    options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Câu ${l}` })),
+    correctAnswer: "A",
+    points: 2,
+  },
+  {
+    name: "📖 Đọc chọn từ điền vào chỗ trống (Fill Blanks)",
+    skill: "READING" as const,
+    type: "fill_blank",
+    samplePrompt: "选词填空 (请选择 A-F)。",
+    instruction: "Chọn từ thích hợp trong khung (A - F) để điền vào chỗ trống hoàn thành câu.",
+    options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Từ ${l}` })),
+    correctAnswer: "A",
+    points: 2,
+  },
+  {
+    name: "📖 Đọc hiểu đoạn văn (Passage chung + Trắc nghiệm A, B, C, D)",
+    skill: "READING" as const,
+    type: "multiple_choice",
+    samplePrompt: "根据上文，下列哪项是正确的？",
+    instruction: "Đọc đoạn văn bản bên dưới và chọn câu trả lời chính xác nhất.",
+    passage: "【Đoạn văn đọc hiểu】：Nhập nội dung bài đọc chung cho nhóm câu hỏi tại đây...",
+    options: ["A", "B", "C", "D"].map((l) => ({ id: l, text: `Lựa chọn ${l}` })),
+    correctAnswer: "A",
+    points: 2.5,
+  },
+  {
+    name: "✍️ Sắp xếp các từ thành câu hoàn chỉnh (Sentence Order)",
+    skill: "WRITING" as const,
+    type: "sentence_order",
+    samplePrompt: "请将给出的词语组合成一句完整通顺的句子。",
+    instruction: "Sắp xếp các từ ngữ cho sẵn thành một câu hoàn chỉnh, đúng quy tắc ngữ pháp.",
+    options: [],
+    correctAnswer: "词语一 词语二 词语三。",
+    points: 5,
+  },
+  {
+    name: "✍️ Nhìn pinyin viết chữ Hán đúng (Điền từ Hán tự)",
+    skill: "WRITING" as const,
+    type: "fill_blank",
+    samplePrompt: "根据拼音写汉字：听说这些鸟是从北（ fāng ）飞过来的。",
+    instruction: "Căn cứ vào phiên âm pinyin trong ngoặc, viết chữ Hán chính xác vào chỗ trống.",
+    options: [],
+    correctAnswer: "方",
+    points: 4,
+  },
+  {
+    name: "✍️ Nhìn tranh và dùng từ cho trước viết câu",
+    skill: "WRITING" as const,
+    type: "writing",
+    samplePrompt: "看图并使用词语写出一个完整句子。",
+    instruction: "Quan sát bức tranh và sử dụng từ ngữ cho sẵn để viết một câu hoàn chỉnh miêu tả tranh.",
+    options: [],
+    correctAnswer: "参考答案：语法正确，用词恰当。",
+    points: 10,
+  },
+  {
+    name: "✍️ Viết đoạn văn tự luận (Essay Writing ~80-400 chữ)",
+    skill: "WRITING" as const,
+    type: "essay",
+    samplePrompt: "请结合下列词语或图片，写一篇短文。",
+    instruction: "Viết bài văn ngắn theo yêu cầu đề bài hoặc tóm tắt nội dung văn bản.",
+    options: [],
+    correctAnswer: "参考范文：主题明确，表达流畅。",
+    points: 30,
+  },
+  {
+    name: "🔍 Tìm câu có lỗi sai ngữ pháp (HSK 6 Find Error)",
+    skill: "READING" as const,
+    type: "find_error",
+    samplePrompt: "下列 4 个句子中，存在病句（语病）的是哪一项？",
+    instruction: "Trong 4 câu A, B, C, D, hãy chọn ra câu có lỗi sai về ngữ pháp hoặc cách dùng từ.",
+    options: [
+      { id: "A", text: "Câu A: Ngữ pháp chuẩn xác." },
+      { id: "B", text: "Câu B: Có lỗi sai trật tự từ hoặc dùng từ sai." },
+      { id: "C", text: "Câu C: Ngữ pháp chuẩn xác." },
+      { id: "D", text: "Câu D: Ngữ pháp chuẩn xác." },
+    ],
+    correctAnswer: "B",
+    points: 2.5,
+  },
+];
+
 type Candidate = Awaited<ReturnType<typeof publicationCandidates>>[number];
 type Queue = Awaited<ReturnType<typeof gradingQueue>>;
 
@@ -96,7 +258,7 @@ export default function ExamStaff({
   }, [authorLevel]);
 
   const load = useCallback(() => {
-    if (role !== "ADMIN") return;
+    if (role !== "ADMIN" && role !== "TEACHER") return;
     if (view === "grading") {
       void examApi<Queue>("grading").then(setQueue).catch((e) => setError(e.message));
     } else if (view === "publications") {
@@ -108,8 +270,8 @@ export default function ExamStaff({
     load();
   }, [load]);
 
-  if (role !== "ADMIN") {
-    return <p role="alert" className={s.error}>Chỉ Admin có quyền truy cập mục này.</p>;
+  if (role !== "ADMIN" && role !== "TEACHER") {
+    return <p role="alert" className={s.error}>Chỉ Giáo viên và Quản trị viên có quyền truy cập mục này.</p>;
   }
 
   // Load official HSK 3.0 sample template from HSK3.0 directory
@@ -211,32 +373,73 @@ export default function ExamStaff({
     }
   };
 
-  // Thêm nhóm bài mới
-  const handleAddGroup = () => {
+  // Thêm nhóm bài mới (có thể theo khuôn mẫu dạng bài HSK)
+  const handleAddGroup = (template?: typeof HSK_GROUP_TEMPLATES[number]) => {
     const newId = `group_${Date.now()}`;
-    const newGroup: ExamSectionGroup = {
-      id: newId,
-      title: `Nhóm ${groups.length + 1}: Phần câu hỏi mới`,
-      skill: "READING",
-      instruction: "Đọc câu hỏi và chọn đáp án chính xác.",
-      questions: [
-        {
-          id: `q_${Date.now()}_1`,
-          type: "multiple_choice",
-          content: "第 1 题：请选择正确答案。",
-          points: 2.5,
-          correctAnswer: "A",
-          options: [
-            { id: "A", text: "Lựa chọn A" },
-            { id: "B", text: "Lựa chọn B" },
-            { id: "C", text: "Lựa chọn C" },
-            { id: "D", text: "Lựa chọn D" },
+    const defaultAudio = groupAudioForLevel(authorLevel);
+    const newGroup: ExamSectionGroup = template
+      ? {
+          id: newId,
+          title: `Nhóm ${groups.length + 1}: ${template.name}`,
+          skill: template.skill,
+          instruction: template.instruction,
+          audioUrl: template.skill === "LISTENING" ? defaultAudio : "",
+          passage: template.passage || "",
+          questions: [
+            {
+              id: `q_${Date.now()}_1`,
+              type: template.type,
+              content: `第 1 题：${template.samplePrompt || "请选择正确答案。"}`,
+              points: template.points,
+              correctAnswer: template.correctAnswer,
+              options: template.options.map((opt) => ({ ...opt })),
+            },
           ],
-        },
-      ],
-    };
+        }
+      : {
+          id: newId,
+          title: `Nhóm ${groups.length + 1}: Phần câu hỏi mới`,
+          skill: "READING",
+          instruction: "Đọc câu hỏi và chọn đáp án chính xác.",
+          questions: [
+            {
+              id: `q_${Date.now()}_1`,
+              type: "multiple_choice",
+              content: "第 1 题：请选择正确答案。",
+              points: 2.5,
+              correctAnswer: "A",
+              options: [
+                { id: "A", text: "Lựa chọn A" },
+                { id: "B", text: "Lựa chọn B" },
+                { id: "C", text: "Lựa chọn C" },
+                { id: "D", text: "Lựa chọn D" },
+              ],
+            },
+          ],
+        };
     setGroups([...groups, newGroup]);
     setActiveGroupId(newId);
+  };
+
+  // Sao chép câu hỏi
+  const handleDuplicateQuestion = (groupId: string, qId: string) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const qIndex = g.questions.findIndex((q) => q.id === qId);
+        if (qIndex === -1) return g;
+        const source = g.questions[qIndex];
+        const cloned: QuestionItem = {
+          ...source,
+          id: `q_${Date.now()}_copy`,
+          content: `${source.content} (Bản sao)`,
+          options: source.options.map((opt) => ({ ...opt })),
+        };
+        const nextQuestions = [...g.questions];
+        nextQuestions.splice(qIndex + 1, 0, cloned);
+        return { ...g, questions: nextQuestions };
+      })
+    );
   };
 
   // Xóa nhóm bài
@@ -260,24 +463,41 @@ export default function ExamStaff({
     );
   };
 
-  // Thêm câu hỏi vào nhóm
+  // Thêm câu hỏi vào nhóm (tự động kế thừa dạng câu hỏi của nhóm)
   const handleAddQuestionToGroup = (groupId: string) => {
     setGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
         const totalInGroup = g.questions.length + 1;
+        const lastQ = g.questions[g.questions.length - 1];
+        const targetType = lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
+        let initialOptions: QuestionOption[] = [
+          { id: "A", text: "Lựa chọn A" },
+          { id: "B", text: "Lựa chọn B" },
+          { id: "C", text: "Lựa chọn C" },
+          { id: "D", text: "Lựa chọn D" },
+        ];
+        let initialAnswer = "A";
+
+        if (targetType === "true_false") {
+          initialOptions = [
+            { id: "true", text: "Đúng (对)" },
+            { id: "false", text: "Sai (错)" },
+          ];
+          initialAnswer = "true";
+        } else if (targetType === "matching") {
+          initialOptions = ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Tranh / Câu ${l}` }));
+        } else if (lastQ && Array.isArray(lastQ.options) && lastQ.options.length) {
+          initialOptions = lastQ.options.map((opt) => ({ id: opt.id, text: opt.text || `Lựa chọn ${opt.id}` }));
+        }
+
         const newQ: QuestionItem = {
           id: `q_${Date.now()}_${totalInGroup}`,
-          type: g.skill === "LISTENING" ? "listening_choice" : "multiple_choice",
+          type: targetType,
           content: `第 ${totalInGroup} 题：请根据题目选择正确答案。`,
-          points: 2.5,
-          correctAnswer: "A",
-          options: [
-            { id: "A", text: "Lựa chọn A" },
-            { id: "B", text: "Lựa chọn B" },
-            { id: "C", text: "Lựa chọn C" },
-            { id: "D", text: "Lựa chọn D" },
-          ],
+          points: lastQ?.points ?? 2.5,
+          correctAnswer: initialAnswer,
+          options: initialOptions,
         };
         return { ...g, questions: [...g.questions, newQ] };
       })
@@ -716,7 +936,7 @@ export default function ExamStaff({
                 <span>•</span>
                 <button
                   type="button"
-                  onClick={handleAddGroup}
+                  onClick={() => handleAddGroup()}
                   style={{
                     background: "#2f5231",
                     color: "#fff",
@@ -886,18 +1106,46 @@ export default function ExamStaff({
                           {/* File bài nghe chung của nhóm (cho phần Nghe) */}
                           {group.skill === "LISTENING" && (
                             <div style={{ marginTop: 14, padding: 12, background: "#f2f8eb", borderRadius: 10, border: "1px solid #d4e3cb" }}>
-                              <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                              <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                                 <Music size={16} /> File bài nghe âm thanh (.mp3) chung cho nhóm này:
                               </label>
-                              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                                <select
+                                  style={{ minWidth: 260, fontSize: 12, padding: "7px 10px", borderRadius: 8, border: "1px solid #c8d7bf", background: "#fff" }}
+                                  onChange={(e) => {
+                                    if (e.target.value) handleUpdateGroup(group.id, { audioUrl: e.target.value });
+                                  }}
+                                  value={
+                                    [
+                                      "/HSK3.0/HSK/音频/HSK（一级）样卷.mp3",
+                                      "/HSK3.0/HSK/音频/HSK（二级）样卷.mp3",
+                                      "/HSK3.0/HSK/音频/HSK（三级）样卷.mp3",
+                                      "/HSK3.0/HSK/音频/HSK（四级）样卷.mp3",
+                                      "/HSK3.0/HSK/音频/HSK（五级）样卷.mp3",
+                                      "/HSK3.0/HSK/音频/HSK（六级）样卷.mp3",
+                                      "/HSK3.0/HSK/音频/HSK（七—九级）样卷听力.mp3",
+                                    ].includes(group.audioUrl || "")
+                                      ? group.audioUrl
+                                      : ""
+                                  }
+                                >
+                                  <option value="">-- Chọn file audio mẫu có sẵn --</option>
+                                  <option value="/HSK3.0/HSK/音频/HSK（一级）样卷.mp3">🎵 HSK 1: HSK（一级）样卷.mp3</option>
+                                  <option value="/HSK3.0/HSK/音频/HSK（二级）样卷.mp3">🎵 HSK 2: HSK（二级）样卷.mp3</option>
+                                  <option value="/HSK3.0/HSK/音频/HSK（三级）样卷.mp3">🎵 HSK 3: HSK（三级）样卷.mp3</option>
+                                  <option value="/HSK3.0/HSK/音频/HSK（四级）样卷.mp3">🎵 HSK 4: HSK（四级）样卷.mp3</option>
+                                  <option value="/HSK3.0/HSK/音频/HSK（五级）样卷.mp3">🎵 HSK 5: HSK（五级）样卷.mp3</option>
+                                  <option value="/HSK3.0/HSK/音频/HSK（六级）样卷.mp3">🎵 HSK 6: HSK（六级）样卷.mp3</option>
+                                  <option value="/HSK3.0/HSK/音频/HSK（七—九级）样卷听力.mp3">🎵 HSK 7-9: HSK（七—九级）听力.mp3</option>
+                                </select>
                                 <input
-                                  style={{ flex: 1 }}
+                                  style={{ flex: 1, minWidth: 220 }}
                                   value={group.audioUrl || ""}
                                   onChange={(e) => handleUpdateGroup(group.id, { audioUrl: e.target.value })}
-                                  placeholder={`Ví dụ: /HSK3.0/HSK/音频/HSK（${authorLevel === 1 ? "一" : authorLevel === 2 ? "二" : authorLevel === 3 ? "三" : "四"}级）样卷.mp3 hoặc dán link`}
+                                  placeholder="Hoặc dán link audio MP3..."
                                 />
                                 <label style={{ cursor: "pointer", background: "#e0ebdb", padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "#254422", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                  <Upload size={14} /> Tải MP3
+                                  <Upload size={14} /> Tải MP3 từ máy
                                   <input
                                     type="file"
                                     accept="audio/*"
@@ -991,10 +1239,12 @@ export default function ExamStaff({
                                     <option value="multiple_choice">Trắc nghiệm (A, B, C, D...)</option>
                                     <option value="listening_choice">Nghe chọn đáp án</option>
                                     <option value="true_false">Phán đoán Đúng / Sai (对 / 错)</option>
-                                    <option value="fill_blank">Điền từ vào chỗ trống</option>
                                     <option value="matching">Ghép nối tranh / từ (A-F)</option>
-                                    <option value="sentence_order">Sắp xếp các từ thành câu</option>
-                                    <option value="writing">Tự luận / Viết câu</option>
+                                    <option value="fill_blank">Điền từ vào chỗ trống</option>
+                                    <option value="sentence_order">Sắp xếp các từ thành câu (HSK 3-5)</option>
+                                    <option value="find_error">Tìm câu có lỗi sai ngữ pháp (HSK 6)</option>
+                                    <option value="essay">Tự luận / Viết bài văn (HSK 5-6)</option>
+                                    <option value="writing">Viết câu theo tranh / Pinyin</option>
                                   </select>
                                 </div>
 
@@ -1010,6 +1260,15 @@ export default function ExamStaff({
                                       style={{ width: 64, padding: "3px 6px", fontSize: 12 }}
                                     />
                                   </label>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateQuestion(group.id, q.id)}
+                                    style={{ background: "#e2ede0", color: "#254422", border: "1px solid #c5d9bf", borderRadius: 6, padding: "4px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600 }}
+                                    title="Nhân bản (sao chép) câu hỏi này"
+                                  >
+                                    <Copy size={13} /> Nhân bản
+                                  </button>
 
                                   <button
                                     type="button"
@@ -1126,6 +1385,19 @@ export default function ExamStaff({
                                       ✖ Sai (错 - False)
                                     </button>
                                   </div>
+                                </div>
+                              ) : q.type === "essay" ? (
+                                <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
+                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", margin: 0, display: "block" }}>
+                                    Yêu cầu đề bài / Đáp án mẫu & Thang điểm chấm tự luận:
+                                    <textarea
+                                      rows={4}
+                                      value={q.correctAnswer}
+                                      onChange={(e) => handleUpdateQuestion(group.id, q.id, { correctAnswer: e.target.value })}
+                                      placeholder="Ví dụ: Bài văn thu gọn ~400 chữ, cần nêu được 3 ý chính: 1)... 2)... 3)... Giữ nguyên ngôi kể và văn phong."
+                                      style={{ marginTop: 4, width: "100%", fontSize: 12, lineHeight: 1.5 }}
+                                    />
+                                  </label>
                                 </div>
                               ) : q.type === "fill_blank" || q.type === "sentence_order" || q.type === "writing" ? (
                                 <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
@@ -1277,26 +1549,80 @@ export default function ExamStaff({
                 );
               })}
 
-              <button
-                type="button"
-                onClick={handleAddGroup}
+              <div
                 style={{
-                  background: "#f0f5e9",
+                  background: "#f7faf3",
                   border: "2px dashed #92b888",
-                  borderRadius: 12,
-                  padding: "16px",
-                  color: "#2a4a27",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
+                  borderRadius: 14,
+                  padding: "18px 20px",
+                  display: "grid",
+                  gap: 12,
                 }}
               >
-                <Plus size={18} /> Thêm nhóm bài mới (Part / Section)
-              </button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#254422", fontWeight: 700, fontSize: 14 }}>
+                    <Plus size={18} /> Thêm nhóm bài mới (Part / Section):
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddGroup()}
+                    style={{
+                      background: "#e4ecdb",
+                      color: "#254422",
+                      border: "1px solid #c8d9be",
+                      borderRadius: 8,
+                      padding: "6px 14px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    + Nhóm tùy chỉnh trống
+                  </button>
+                </div>
+
+                <div style={{ fontSize: 12, color: "#506d48" }}>
+                  💡 Hoặc bấm chọn nhanh 1 trong 14 dạng bài thi chuẩn CTI / Hanban (khớp đề thi thực tế HSK 1 - 6):
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
+                  {HSK_GROUP_TEMPLATES.map((tmpl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleAddGroup(tmpl)}
+                      style={{
+                        background: "#fff",
+                        border: "1px solid #d3e1cb",
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "#41683d";
+                        e.currentTarget.style.background = "#f0f7ec";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "#d3e1cb";
+                        e.currentTarget.style.background = "#fff";
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#254422" }}>
+                        {tmpl.name}
+                      </span>
+                      <Plus size={14} color="#41683d" />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

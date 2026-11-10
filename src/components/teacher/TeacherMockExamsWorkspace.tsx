@@ -321,6 +321,15 @@ export default function TeacherMockExamsWorkspace({
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
+            href="/s/mock-exam?view=authoring"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#204434] hover:bg-[#163325] text-white shadow-xs text-xs font-bold transition cursor-pointer"
+            title="Soạn đề thi trực quan theo nhóm bài chuẩn HSK (up ảnh, file nghe mp3, đoạn văn đọc hiểu)"
+          >
+            <Layers className="w-3.5 h-3.5 text-[#E5DEC9]" />
+            <span>✏️ Soạn đề theo nhóm bài HSK 3.0</span>
+          </Link>
+
+          <Link
             href="/s/mock-exam"
             target="_blank"
             className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-white border border-[#204434]/40 hover:bg-[#FAF7F0] text-[#204434] shadow-2xs text-xs font-bold transition cursor-pointer"
