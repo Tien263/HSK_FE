@@ -38,7 +38,7 @@ import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleE
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
 import ReadingClozePlayer from "./ReadingClozePlayer";
-import { isReadingCloze, WORD_BANK } from "@/lib/reading-cloze";
+import { isReadingCloze, WORD_BANK, PASSAGE_CHOICE } from "@/lib/reading-cloze";
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamPlayer.module.css";
 
@@ -352,10 +352,13 @@ export default function ExamPlayer({
   const sharedReplies = replyMatching ? replySlots(matchingGroupQuestions?.find(q => q.groupReplies?.length)?.groupReplies) : [];
   const usedReplies = new Set(matchingGroupQuestions?.map(q => answers[q.id]).filter(Boolean));
 
-  const clozeQuestions = currentQ && isReadingCloze(currentQ.groupType) ? questions.filter(q =>
+  const passageQuestions = currentQ && (isReadingCloze(currentQ.groupType) || currentQ.groupType === PASSAGE_CHOICE) ? questions.filter(q =>
     q.groupType === currentQ.groupType && (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle)
   ) : null;
-  const currentMultiGroup = clozeQuestions || matchingGroupQuestions || evalGroupQuestions;
+  const readingSections = attempt?.readingSections || [];
+  const currentSectionScore = currentQ && readingSections.find(section => section.id === currentQ.sectionId);
+  const currentPassageScore = currentSectionScore?.passages.find(passage => passage.id === currentQ?.groupId);
+  const currentMultiGroup = passageQuestions || matchingGroupQuestions || evalGroupQuestions;
 
   const canGoPrev = currentMultiGroup
     ? questions.indexOf(currentMultiGroup[0]) > 0
@@ -647,6 +650,20 @@ export default function ExamPlayer({
         </div>
       )}
 
+      {finished && readingSections.length > 0 && (
+        <section className={s.readingScores} aria-label="Điểm theo phần thi và bài lớn">
+          <h2>Điểm phần Đọc</h2>
+          {readingSections.map(section => (
+            <details key={section.id}>
+              <summary>{section.title} · {section.earned.toLocaleString("vi-VN")}/{section.max.toLocaleString("vi-VN")} điểm</summary>
+              <ul>{section.passages.map(passage => (
+                <li key={passage.id}>{passage.title} · {passage.earned.toLocaleString("vi-VN")}/{passage.max.toLocaleString("vi-VN")} điểm</li>
+              ))}</ul>
+            </details>
+          ))}
+        </section>
+      )}
+
       {/* =========================================================================
           MAIN CONTAINER: 03. WORKSPACE (70%) & 05. QUESTION PALETTE (30%)
          ========================================================================= */}
@@ -668,12 +685,15 @@ export default function ExamPlayer({
           {/* Group Section Title / Instruction if present */}
           {(currentQ as any).groupTitle && (
             <div style={{ marginBottom: 12, padding: "6px 14px", background: "#f0f5e9", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#2d4b29", borderLeft: "4px solid #4a7c43" }}>
-              📌 {(currentQ as any).groupTitle}
+              {currentQ.sectionTitle && <div>{currentQ.sectionTitle}</div>}
+              <strong>{currentQ.groupTitle}</strong>
+              {currentQ.sectionInstruction && <p>{currentQ.sectionInstruction}</p>}
+              {currentPassageScore && <div>{currentPassageScore.earned.toLocaleString("vi-VN")}/{currentPassageScore.max.toLocaleString("vi-VN")} điểm</div>}
             </div>
           )}
 
           {/* Reading Passage (Đoạn văn đọc hiểu chung nếu có) */}
-          {!matchingGroupQuestions && !clozeQuestions && (currentQ as any).passage && (
+          {!matchingGroupQuestions && !passageQuestions && (currentQ as any).passage && (
             <div style={{ marginBottom: 18, padding: "16px 20px", background: "#fdfdf9", borderRadius: 12, border: "1px solid #dce4cb", fontSize: 15, lineHeight: 1.8, color: "#223824" }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: "#5d7a55", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                 📖 <span>Đoạn văn đọc hiểu:</span>
@@ -759,9 +779,9 @@ export default function ExamPlayer({
           )}
 
           {/* Bài ghép A–F hiển thị lựa chọn dùng chung phía trên các câu. */}
-          {clozeQuestions ? (
-            <ReadingClozePlayer key={currentQ.groupId || currentQ.groupTitle} questions={clozeQuestions}
-              wordBank={currentQ.groupType === WORD_BANK} answers={answers} finished={finished}
+          {passageQuestions ? (
+            <ReadingClozePlayer key={currentQ.groupId || currentQ.groupTitle} questions={passageQuestions}
+              wordBank={currentQ.groupType === WORD_BANK} passageChoice={currentQ.groupType === PASSAGE_CHOICE} answers={answers} finished={finished}
               disabled={busy || conflict} onAnswer={handleAnswer} />
           ) : matchingGroupQuestions ? (
             <div style={{ display: "grid", gap: 18 }}>

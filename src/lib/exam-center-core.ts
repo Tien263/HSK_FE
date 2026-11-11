@@ -1,5 +1,5 @@
 import { gradeQuestion, publicQuestion, canonicalQuestionType } from "./question-content";
-import { CLOZE_PASSAGE, WORD_BANK, isReadingCloze, clozeChoice } from "./reading-cloze";
+import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, isReadingCloze, clozeChoice } from "./reading-cloze";
 import { isMockAnswerCorrect } from "./mock-exam-matcher";
 export const EXAM_LEVELS = [1,2,3,4,5,6,7] as const;
 export const EXAM_SKILLS = ["LISTENING","READING","WRITING","TRANSLATION","SPEAKING"] as const;
@@ -8,7 +8,7 @@ export type ExamQuestion = { id:string; type:string; content:string; skill:ExamS
 export const PICTURE_CODES = ["A", "B", "C", "D", "E", "F"] as const;
 export type ExamGroupImage = { id: string; label: string; imageUrl: string };
 export type ExamReply = { id:string; text:string; pinyin?:string };
-export type ExamGroupMedia = { images?: ExamGroupImage[]; audioUrl?: string; replies?:ExamReply[]; instruction?:string; custom?:boolean; words?:ExamReply[]; passage?:string; passagePinyin?:string };
+export type ExamGroupMedia = { images?: ExamGroupImage[]; audioUrl?: string; replies?:ExamReply[]; instruction?:string; custom?:boolean; words?:ExamReply[]; passage?:string; passagePinyin?:string; section?:{id:string;title:string;type:string;instruction?:string} };
 export const READING_REPLIES = "reading_reply_matching";
 export function replySlots(replies:readonly ExamReply[] = []):ExamReply[]{
  return PICTURE_CODES.map(id=>replies.find(reply=>reply.id===id)??{id,text:"",pinyin:""});
@@ -125,6 +125,10 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
      groupCustom: raw.groupCustom ?? editor.groupCustom,
      instruction: raw.instruction || editor.instruction || "",
      groupType,
+     sectionId: raw.sectionId || editor.sectionId,
+     sectionTitle: raw.sectionTitle || editor.sectionTitle,
+     sectionType: raw.sectionType || editor.sectionType,
+     sectionInstruction: raw.sectionInstruction || editor.sectionInstruction,
      groupId: raw.groupId || editor.groupId || "",
      questionNo: raw.questionNo || editor.questionNo || "",
      passage: raw.passage || editor.passage || "",
@@ -175,6 +179,9 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia){
    groupReplies:group?.replies||(Array.isArray(q.editorData.groupReplies)?q.editorData.groupReplies as ExamReply[]:[]),
    groupInstruction:group?.instruction||String(q.editorData.instruction||""),
    groupId:String(q.editorData.groupId||""),
+   sectionId:group?.section?.id||String(q.editorData.sectionId||""),
+   sectionTitle:group?.section?.title||String(q.editorData.sectionTitle||""),
+   sectionInstruction:group?.section?.instruction||String(q.editorData.sectionInstruction||""),
    groupType:(q as any).groupType||(q.editorData as any)?.groupType||"",
    questionNo:(q as any).questionNo||(q.editorData as any)?.questionNo||"",
    requiresManualReview:!!((q as any).requiresManualReview||(q.editorData as any)?.requiresManualReview),
@@ -205,7 +212,7 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
    const correct=PICTURE_CODES.some(code=>code===answer&&code===q.correctAnswer);
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
   }
-  if(isReadingCloze(q.editorData.groupType)){
+  if(isReadingCloze(q.editorData.groupType)||q.editorData.groupType===PASSAGE_CHOICE){
    const correct=!!answer&&answer===q.correctAnswer;
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
   }
@@ -231,12 +238,41 @@ export function attemptSummary(id:string,attempt:CenterAttempt,now=new Date()){
  const classificationLabel=attempt.status==="GRADED"?attempt.paper.classification?.bands.find(band=>Number(attempt.score)>=band.minScore&&Number(attempt.score)<=band.maxScore)?.label||null:null;
  return {classificationLabel,...paperSummary(attempt.paper),paperId:attempt.paper.id,id,status:attempt.status,answered,progress:attempt.paper.questions.length?Math.round(answered/attempt.paper.questions.length*100):0,startedAt:attempt.startedAt,submittedAt:attempt.submittedAt,score:attempt.score,remainingSec:attempt.expiresAt?Math.max(0,Math.ceil((Date.parse(attempt.expiresAt)-now.getTime())/1000)):null,result:attempt.status!=="GRADED"?"PENDING":attempt.paper.classification?(classificationLabel?"CLASSIFIED":"CLASSIFICATION_PENDING"):attempt.paper.passScore===null?"UNSET":Number(attempt.score)>=attempt.paper.passScore?"PASS":"FAIL",timedOut:attempt.timedOut};
 }
+function readingSectionResults(attempt:CenterAttempt, results:Map<string,ExamResult>){
+ const sections=new Map<string,{id:string;title:string;earned:number;max:number;passages:{id:string;title:string;earned:number;max:number}[]}>();
+ const passages=new Map<string,{id:string;title:string;earned:number;max:number}>();
+ for(const question of attempt.paper.questions){
+  const id=String(question.editorData.groupId||"");
+  const section=attempt.paper.groups?.[id]?.section;
+  const result=results.get(question.id);
+  if(!section||!result)continue;
+  let row=sections.get(section.id);
+  if(!row){
+   row={id:section.id,title:section.title,earned:0,max:0,passages:[]};
+   sections.set(section.id,row);
+  }
+  let passage=passages.get(id);
+  if(!passage){
+   passage={id,title:String(question.editorData.groupTitle||"Bài đọc"),earned:0,max:0};
+   passages.set(id,passage);
+   row.passages.push(passage);
+  }
+  row.earned+=result.earned??0;
+  row.max+=result.max;
+  passage.earned+=result.earned??0;
+  passage.max+=result.max;
+ }
+ return [...sections.values()];
+}
+
 export function attemptForOwner(id:string,attempt:CenterAttempt){
  const finished=attempt.status!=="IN_PROGRESS";
  const shownGroups=new Set<string>();
+ const results=new Map(attempt.results.map(row=>[row.questionId,row]));
  return {
    ...attemptSummary(id,attempt),
    revision:attempt.revision,
+   readingSections:finished?readingSectionResults(attempt,results):[],
    expiresAt:attempt.expiresAt,
    answers:attempt.answers,
    serverNow:new Date().toISOString(),
@@ -244,7 +280,7 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
      const groupId=String(q.editorData.groupId||"");
      const media=attempt.paper.groups?.[groupId];
      const pub=publicExamQuestion(q,media&&(!shownGroups.has(groupId)?media:{
-       audioUrl:media.audioUrl,instruction:media.instruction,images:[],replies:[],words:[],passage:"",passagePinyin:""
+       audioUrl:media.audioUrl,instruction:media.instruction,section:media.section,images:[],replies:[],words:[],passage:"",passagePinyin:""
      }));
      if(media)shownGroups.add(groupId);
      const isListening=q.skill==="LISTENING";
@@ -259,7 +295,7 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
          correctAnswer:q.correctAnswer,
          explanation:q.explanation,
          audioScript:q.content,
-         result:attempt.results.find(row=>row.questionId===q.id)
+         result:results.get(q.id)
        }:{})
      };
    })

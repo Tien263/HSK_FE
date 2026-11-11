@@ -292,3 +292,71 @@ test('reading cloze groups round trip, preserve order, hide keys and grade each 
  assert.equal(result.questions[6].correctAnswer,'B');
  assert.equal(result.questions[6].explanation,'Giải thích ngữ cảnh.');
 });
+
+test('reading sections preserve nested passage order, support mixed cloze modes and aggregate scores',async()=>{
+ const f=fixture();
+ const {WORD_BANK,CLOZE_PASSAGE,PASSAGE_CHOICE,PASSAGE_SECTION,CLOZE_SECTION}=require(path.resolve('src/lib/reading-cloze.ts'));
+ const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const options=['学习','休息','吃饭','看书'].map((text,i)=>({id:'ABCD'[i],text}));
+ const question=(id,content,correctAnswer,extra={})=>({id,content,correctAnswer,type:'multiple_choice',points:2,
+  explanation:'Theo ngữ cảnh đoạn văn.',options,...extra});
+ const passage=(id,title,content,questions,extra={})=>({id,title,passage:content,skill:'READING',groupType:PASSAGE_CHOICE,questions,...extra});
+ const first=passage('passage-1','Thư viện','他每天下午在图书馆看书。',[
+  question('q-1','他在哪里看书？','D'),question('q-2','他每天做什么？','A'),
+ ]);
+ const second=passage('passage-2','Trường học','学校有一间图书馆。',[question('q-3','学校有什么？','B')]);
+ const cloze=passage('cloze','Điền đoạn','我们每天都[blank1]。',[question('q-4','','A',{blankId:'blank1'})],{groupType:CLOZE_PASSAGE});
+ const bank=passage('bank','Điền câu','',[question('q-5','晚上我喜欢[blank]。','D')],{groupType:WORD_BANK,groupCustom:true,groupWords:options});
+ const section=(id,title,groupType,passages)=>({id,title,skill:'READING',groupType,instruction:'Đọc và trả lời.',questions:[],passages});
+ const mc=section('mc','Phần đọc hiểu',PASSAGE_SECTION,[second,first]);
+ const gap=section('gap','Phần điền từ',CLOZE_SECTION,[bank,cloze]);
+ const flat=templates.flattenGroups([mc,gap]);
+ assert.deepEqual(flat.map(q=>q.id),['q-3','q-1','q-2','q-5','q-4']);
+ assert.deepEqual(flat.map(q=>q.sectionId),['mc','mc','mc','gap','gap']);
+ assert.equal(flat[2].passage,'');
+ const roundTrip=templates.unflattenToGroups(flat,9);
+ assert.deepEqual(roundTrip.map(s=>s.passages.map(p=>p.id)),[['passage-2','passage-1'],['bank','cloze']]);
+ assert.deepEqual(roundTrip[0].passages[1].questions.map(q=>q.id),['q-1','q-2']);
+ assert.equal(roundTrip[1].passages[0].groupType,WORD_BANK);
+ assert.equal(roundTrip[1].passages[1].groupType,CLOZE_PASSAGE);
+
+ const body={level:9,title:'HSK 9',durationMin:30,passScore:null};
+ for(const questions of [
+  flat.map((q,i)=>i===0?{...q,correctAnswer:''}:q),
+  flat.map((q,i)=>i===0?{...q,sectionType:CLOZE_SECTION}:q),
+  flat.map((q,i)=>i===1?{...q,id:flat[0].id}:q),
+  flat.map((q,i)=>i===0?{...q,options:q.options.slice(0,3)}:q),
+ ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions}),400);
+
+ const {paperId}=await f.service.importPaper(actors.admin,{...body,questions:flat});
+ const paper=f.sets.find(set=>set.id===paperId);
+ assert.ok(paper.questions.every(({question})=>!question.editorData.passage&&!question.editorData.sectionId));
+ const opened=await start(f,paperId);
+ assert.deepEqual(opened.questions.map(q=>q.groupTitle),['Trường học','Thư viện','Thư viện','Điền câu','Điền đoạn']);
+ assert.equal(opened.questions[1].groupId,opened.questions[2].groupId);
+ assert.notEqual(opened.questions[0].groupId,opened.questions[1].groupId);
+ assert.equal(opened.questions[0].sectionId,opened.questions[2].sectionId);
+ assert.notEqual(opened.questions[0].sectionId,opened.questions[3].sectionId);
+ assert.deepEqual(opened.readingSections,[]);
+ assert.ok(opened.questions.every(q=>q.correctAnswer===undefined&&q.explanation===undefined));
+ const answers=Object.fromEntries(opened.questions.map((q,index)=>[q.id,['B','A','A','D','B'][index]]));
+ const saved=await f.service.writeAttempt(actors.a,{id:opened.id,answers,revision:opened.revision});
+ assert.deepEqual((await f.service.getAttempt(actors.a,opened.id)).answers,answers);
+ const result=await f.service.writeAttempt(actors.a,{id:opened.id,answers,revision:saved.revision},true);
+ assert.equal(result.score,6);
+ assert.deepEqual(result.readingSections.map(s=>[s.title,s.earned,s.max]),[['Phần đọc hiểu',4,6],['Phần điền từ',2,4]]);
+ assert.deepEqual(result.readingSections[0].passages.map(p=>[p.title,p.earned,p.max]),[['Trường học',2,2],['Thư viện',2,4]]);
+ const wrong=await f.service.reviewData(actors.a);
+ const reviewChoice=wrong.wrong.find(row=>row.question.id===opened.questions[1].id).question;
+ const reviewGap=wrong.wrong.find(row=>row.question.id===opened.questions[4].id).question;
+ assert.equal(reviewChoice.passage,first.passage);
+ assert.equal(reviewChoice.explanation,'Theo ngữ cảnh đoạn văn.');
+ assert.equal(reviewGap.passage,cloze.passage);
+ assert.equal(reviewGap.blankId,'blank1');
+
+ const many=section('long','Phần dài',PASSAGE_SECTION,[{...first,
+  questions:Array.from({length:501},(_,index)=>question(`long-${index}`,'他在哪里看书？','D')),
+ }]);
+ const large=await f.service.importPaper(actors.admin,{...body,questions:templates.flattenGroups([many])});
+ assert.equal((await start(f,large.paperId)).questions.length,501);
+});

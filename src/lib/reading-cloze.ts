@@ -78,3 +78,30 @@ export function readingClozeIssues(
   }
   return issues;
 }
+
+export const PASSAGE_CHOICE = "reading_passage_choice";
+export const PASSAGE_SECTION = "reading_passage_section";
+export const CLOZE_SECTION = "reading_cloze_section";
+
+export function isReadingSection(type: unknown): type is typeof PASSAGE_SECTION | typeof CLOZE_SECTION {
+  return type === PASSAGE_SECTION || type === CLOZE_SECTION;
+}
+
+export function passageChoiceIssues(passage: string, questions: readonly {
+  content: string;
+  options: unknown[];
+  correctAnswer: string;
+}[]) {
+  const issues: string[] = [];
+  if (!/\p{Script=Han}/u.test(passage)) issues.push("Nhập đoạn văn chữ Hán.");
+  if (!questions.length || questions.some(q => !/\p{Script=Han}/u.test(q.content))) {
+    issues.push("Nhập nội dung chữ Hán cho từng câu hỏi nhỏ.");
+  }
+  if (questions.some(q => q.options.length !== 4 || !["A", "B", "C", "D"].every(id =>
+    q.options.some(option => clozeChoice(option) && option.id === id && option.text.trim())
+  ))) issues.push("Mỗi câu cần đủ bốn lựa chọn A, B, C, D.");
+  if (questions.some(q => !["A", "B", "C", "D"].includes(q.correctAnswer))) {
+    issues.push("Chọn đáp án đúng cho từng câu hỏi nhỏ.");
+  }
+  return issues;
+}

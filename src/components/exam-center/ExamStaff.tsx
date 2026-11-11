@@ -37,7 +37,8 @@ import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
 import ExamPlayer from "./ExamPlayer";
 import ReadingClozeEditor, { initializeReadingCloze } from "./ReadingClozeEditor";
-import { WORD_BANK, CLOZE_PASSAGE, isReadingCloze } from "@/lib/reading-cloze";
+import ReadingPassagesEditor, { initializeReadingSection } from "./ReadingPassagesEditor";
+import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_SECTION, CLOZE_SECTION, isReadingCloze, isReadingSection } from "@/lib/reading-cloze";
 import {
   getSampleQuestionsForLevel,
   type ImportedQuestion,
@@ -46,6 +47,7 @@ import {
   type QuestionOption,
   buildDefaultGroups,
   flattenGroups,
+  sectionQuestions,
   unflattenToGroups,
 } from "./hsk-sample-templates";
 import examBlueprint from "@/config/exam_blueprint.json";
@@ -173,7 +175,7 @@ export const HSK_GROUP_TEMPLATES = [
   },
   {
     name: "📖 Đọc chọn từ điền vào chỗ trống",
-    groupType: WORD_BANK as typeof WORD_BANK,
+    groupType: CLOZE_SECTION as typeof CLOZE_SECTION,
     skill: "READING" as const,
     type: "fill_blank",
     samplePrompt: "选词填空 (请选择 A-F)。",
@@ -183,7 +185,8 @@ export const HSK_GROUP_TEMPLATES = [
     points: 2,
   },
   {
-    name: "📖 Đọc hiểu đoạn văn (Passage chung + Trắc nghiệm A, B, C, D)",
+    name: "📖 Đọc hiểu đoạn văn – Passage + Multiple Choice",
+    groupType: PASSAGE_SECTION as typeof PASSAGE_SECTION,
     skill: "READING" as const,
     type: "multiple_choice",
     samplePrompt: "根据上文，下列哪项是正确的？",
@@ -359,7 +362,7 @@ export default function ExamStaff({
 
   // Sync blueprint when level changes
   useEffect(() => {
-    const bp = examBlueprint.levels.find((l) => l.level === authorLevel);
+    const bp = examBlueprint.levels.find((l) => l.level === levelGroup(authorLevel));
     if (bp) {
       setAuthorDuration(bp.durationMin);
       setAuthorPass("");
@@ -552,13 +555,10 @@ export default function ExamStaff({
         ],
       };
     }
-    if (newGroup.groupType === WORD_BANK) {
+    if (isReadingSection(newGroup.groupType)) {
       newGroup = {
         ...newGroup,
-        ...initializeReadingCloze({
-          ...newGroup, groupType: "standard",
-          questions: newGroup.questions.map(q => ({ ...q, content: "", options: [] })),
-        }, WORD_BANK),
+        ...initializeReadingSection({ ...newGroup, groupType: "standard" }, newGroup.groupType, true),
       };
     }
     setGroups([...groups, newGroup]);
@@ -805,7 +805,7 @@ export default function ExamStaff({
       return;
     }
 
-    const bp = examBlueprint.levels.find((l) => l.level === authorLevel);
+    const bp = examBlueprint.levels.find((l) => l.level === levelGroup(authorLevel));
     const maxScore = parsed.reduce((sum, q) => sum + Number(q.points ?? 1), 0) || bp?.maxScore || 300;
     const mockPaper = {
       id: "preview_paper_id",
@@ -872,6 +872,9 @@ export default function ExamStaff({
     try {
       let parsed: ImportedQuestion[] = [];
       if (authorMode === "grouped") {
+        const empty = groups.find(group => isReadingSection(group.groupType) &&
+          (!group.passages?.length || group.passages.some(passage => !passage.questions.length)));
+        if (empty) throw new Error(`${empty.title || "Phần Đọc"} cần ít nhất một bài lớn và mỗi bài cần câu hỏi nhỏ.`);
         parsed = flattenGroups(groups);
       } else {
         if (jsonInput.trim()) {
@@ -902,11 +905,11 @@ export default function ExamStaff({
   };
 
   const totalQuestionsCount = authorMode === "grouped"
-    ? groups.reduce((sum, g) => sum + g.questions.length, 0)
+    ? groups.reduce((sum, g) => sum + sectionQuestions(g).length, 0)
     : 0;
 
   const totalPointsSum = authorMode === "grouped"
-    ? groups.reduce((sum, g) => sum + g.questions.reduce((qSum, q) => qSum + (Number(q.points) || 0), 0), 0)
+    ? groups.reduce((sum, g) => sum + sectionQuestions(g).reduce((qSum, q) => qSum + (Number(q.points) || 0), 0), 0)
     : 0;
 
   return (
@@ -1042,9 +1045,9 @@ export default function ExamStaff({
                   value={authorLevel}
                   onChange={(e) => setAuthorLevel(Number(e.target.value))}
                 >
-                  {EXAM_LEVELS.map((lvl) => (
+                  {[...EXAM_LEVELS, 8, 9].map((lvl) => (
                     <option key={lvl} value={lvl}>
-                      {levelLabel(lvl)}
+                      {lvl >= 7 ? `HSK ${lvl} (nhóm 7–9)` : levelLabel(lvl)}
                     </option>
                   ))}
                 </select>
@@ -1197,13 +1200,13 @@ export default function ExamStaff({
                             {group.title || `Nhóm bài ${gIdx + 1}`}
                           </strong>
                           <div style={{ fontSize: 12, color: "#617d5c", marginTop: 2 }}>
-                            {skillNames[group.skill] || group.skill} • {group.questions.length} câu hỏi • Tổng {group.questions.reduce((s, q) => s + (Number(q.points) || 0), 0)} điểm
+                            {skillNames[group.skill] || group.skill} • {sectionQuestions(group).length} câu hỏi • Tổng {sectionQuestions(group).reduce((s, q) => s + (Number(q.points) || 0), 0)} điểm
                           </div>
                         </div>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={(e) => e.stopPropagation()}>
-                        {group.groupType !== READING_REPLIES && !isReadingCloze(group.groupType) && (
+                        {group.groupType !== READING_REPLIES && !isReadingCloze(group.groupType) && !isReadingSection(group.groupType) && (
                           <button
                             type="button"
                             onClick={() => handleAddQuestionToGroup(group.id)}
@@ -1264,7 +1267,7 @@ export default function ExamStaff({
                         <div style={{ background: "#fdfdf9", padding: 16, borderRadius: 12, border: "1px solid #e5ecd9", marginBottom: 20 }}>
                           <div className={s.formColumns}>
                             <label>
-                              Tiêu đề nhóm bài *
+                              {isReadingSection(group.groupType) ? "Tiêu đề phần thi *" : "Tiêu đề nhóm bài *"}
                               <input
                                 value={group.title}
                                 onChange={(e) => handleUpdateGroup(group.id, { title: e.target.value })}
@@ -1276,7 +1279,7 @@ export default function ExamStaff({
                               Kỹ năng *
                               <select
                                 value={group.skill}
-                                disabled={group.groupType === READING_REPLIES || isReadingCloze(group.groupType)}
+                                disabled={group.groupType === READING_REPLIES || isReadingCloze(group.groupType) || isReadingSection(group.groupType)}
                                 onChange={(e) => handleUpdateGroup(group.id, { skill: e.target.value as any })}
                               >
                                 <option value="LISTENING">🎧 Nghe (LISTENING)</option>
@@ -1296,6 +1299,10 @@ export default function ExamStaff({
                                     setReplyMode(group, group.questions.length > 5 || !!group.groupCustom);
                                     return;
                                   }
+                                  if (isReadingSection(gType)) {
+                                    handleUpdateGroup(group.id, initializeReadingSection(group, gType));
+                                    return;
+                                  }
                                   if (gType === WORD_BANK || gType === CLOZE_PASSAGE) {
                                     handleUpdateGroup(group.id, initializeReadingCloze(group, gType));
                                     return;
@@ -1310,8 +1317,10 @@ export default function ExamStaff({
                                 <option value="standard">Tiêu chuẩn (Trắc nghiệm / Tự luận từng câu)</option>
                                 <option value="matching_images">🖼️ {group.skill === "READING" ? "Đọc câu ghép tranh A–F" : "Ghép tranh A–F"}</option>
                                 <option value={READING_REPLIES}>阅读问答匹配 – Đọc nối câu hỏi với câu trả lời A–F</option>
-                                <option value={WORD_BANK}>Đọc điền từ A – Ngân hàng từ dùng chung</option>
-                                <option value={CLOZE_PASSAGE}>Đọc điền từ B – Đoạn văn nhiều chỗ trống (完形填空)</option>
+                                <option value={PASSAGE_SECTION}>Đọc hiểu đoạn văn – Passage + Multiple Choice</option>
+                                <option value={CLOZE_SECTION}>Đọc điền từ – 选词填空 / 完形填空</option>
+                                {group.groupType === WORD_BANK && <option value={WORD_BANK}>Đọc điền từ A – Một bài</option>}
+                                {group.groupType === CLOZE_PASSAGE && <option value={CLOZE_PASSAGE}>Đọc điền từ B – Một bài</option>}
                                 <option value="listening_choice_abc">🎧 Nghe câu hỏi – Chọn đáp án A/B/C (Ẩn kịch bản với HS)</option>
                                 <option value="eval_true_false_na">✅ Nghe đánh giá Đúng / Sai / Không đề cập (√ / × / 〇)</option>
                                 <option value="listening_fill_blank">⌨️ Nghe và điền đáp án (Chỗ trống / Dùng chung Audio)</option>
@@ -1395,7 +1404,7 @@ export default function ExamStaff({
                           )}
 
                           {/* Đoạn văn đọc hiểu chung (cho phần Đọc) */}
-                          {group.skill === "READING" && group.groupType !== "matching_images" && group.groupType !== READING_REPLIES && !isReadingCloze(group.groupType) && (
+                          {group.skill === "READING" && group.groupType !== "matching_images" && group.groupType !== READING_REPLIES && !isReadingCloze(group.groupType) && !isReadingSection(group.groupType) && (
                             <div style={{ marginTop: 14 }}>
                               <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                                 <BookOpen size={16} /> Đoạn văn đọc hiểu chung (nếu các câu hỏi bên dưới cùng đọc 1 bài):
@@ -1412,7 +1421,9 @@ export default function ExamStaff({
                         </div>
 
                         {/* Danh sách câu hỏi trong nhóm - Xử lý theo từng loại groupType */}
-                        {isReadingCloze(group.groupType) ? (
+                        {isReadingSection(group.groupType) ? (
+                          <ReadingPassagesEditor section={group} onChange={patch => handleUpdateGroup(group.id, patch)} />
+                        ) : isReadingCloze(group.groupType) ? (
                           <ReadingClozeEditor group={group} onChange={patch => handleUpdateGroup(group.id, patch)} />
                         ) : group.groupType === READING_REPLIES ? (
                           <div className={s.examReadingFields}>
@@ -2980,7 +2991,7 @@ export default function ExamStaff({
                 {previewStep === "lobby" ? (
                   <ExamRulesLobby
                     paper={previewPaper}
-                    blueprint={examBlueprint.levels.find((b) => b.level === authorLevel)}
+                    blueprint={examBlueprint.levels.find((b) => b.level === levelGroup(authorLevel))}
                     onStart={() => setPreviewStep("player")}
                     onBack={() => setPreviewPaper(null)}
                     busy={false}

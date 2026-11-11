@@ -3,7 +3,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
-import { CLOZE_PASSAGE, WORD_BANK, isReadingCloze, clozeChoice, readingClozeIssues } from "./reading-cloze";
+import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, PASSAGE_SECTION, CLOZE_SECTION, isReadingCloze, isReadingSection, clozeChoice, readingClozeIssues, passageChoiceIssues } from "./reading-cloze";
 import { NextResponse } from "next/server";
 import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, replyGroupIssues, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
 
@@ -76,7 +76,7 @@ async function ownAttempts(user:AuthUser){
  const result=[];for(const row of rows)result.push({id:row.id,state:await settledState(user,row.id,row)});return result;
 }
 // The custom-paper builder samples individual questions. Keep passage blanks together in their published paper.
-function approvedPool(papers:ExamPaper[],level:number){return [...new Map(papers.filter(p=>levelGroup(p.level)===level).flatMap(p=>p.questions).filter(q=>usableQuestion(q)&&q.points>0&&q.editorData.groupType!==CLOZE_PASSAGE).map(q=>[q.id,q])).values()];}
+function approvedPool(papers:ExamPaper[],level:number){return [...new Map(papers.filter(p=>levelGroup(p.level)===level).flatMap(p=>p.questions).filter(q=>usableQuestion(q)&&q.points>0&&q.editorData.groupType!==CLOZE_PASSAGE&&q.editorData.groupType!==PASSAGE_CHOICE).map(q=>[q.id,q])).values()];}
 async function legacyHistory(user:AuthUser){
  const rows=await prisma.attempt.findMany({where:{studentId:user.id,status:{not:"IN_PROGRESS"},assignment:{quizSet:{mode:{in:["MOCK_EXAM","EXAM"]}}}},select:{id:true,score:true,maxScore:true,status:true,startedAt:true,submittedAt:true,teacherNote:true,assignment:{select:{title:true,quizSet:{select:{id:true,hskLevel:true}}}}},orderBy:{startedAt:"desc"}});
  return rows.map(row=>({id:`legacy:${row.id}`,paperId:row.assignment.quizSet.id,title:row.assignment.title,level:row.assignment.quizSet.hskLevel,source:"LEGACY" as const,maxScore:row.maxScore,score:row.score,status:row.status,startedAt:row.startedAt.toISOString(),submittedAt:row.submittedAt?.toISOString()||null,result:row.status!=="GRADED"?"PENDING":/chưa đạt/i.test(row.teacherNote||"")?"FAIL":/đạt chuẩn/i.test(row.teacherNote||"")?"PASS":"UNSET",feedback:row.teacherNote||""}));
@@ -95,7 +95,7 @@ export async function startAttempt(user:AuthUser,body:Record<string,unknown>){
  const prior=await prisma.auditLog.findFirst({where:{id,userId:user.id,action:ATTEMPT}});if(prior)return getAttempt(user,id);
  const paperId=String(body.paperId||"");const papers=await Promise.all([officialPapers(),privatePapers(user)]);const paper=papers.flat().find(p=>p.id===paperId);
  if(!paper)throw new ExamError(404,"Đề chưa được Admin xuất bản hoặc không thuộc tài khoản của bạn.");
- if(!paper.questions.length||paper.questions.length>500||paper.questions.some(q=>!usableQuestion(q))||!paper.questions.some(q=>q.points>0)||paper.maxScore<=0)throw new ExamError(409,"Đề chưa có đủ dữ liệu chấm điểm hoặc có dạng câu hỏi chưa hỗ trợ.");
+ if(!paper.questions.length||paper.questions.some(q=>!usableQuestion(q))||!paper.questions.some(q=>q.points>0)||paper.maxScore<=0)throw new ExamError(409,"Đề chưa có đủ dữ liệu chấm điểm hoặc có dạng câu hỏi chưa hỗ trợ.");
  if(!paper.durationMin)throw new ExamError(409,"Admin chưa cấu hình thời gian cho đề này.");
  const active=!body.forceNew?(await ownAttempts(user)).find(row=>row.state.status==="IN_PROGRESS"&&row.state.paper.id===paper.id):null;if(active)return attemptForOwner(active.id,active.state);
  const now=new Date();const state:CenterAttempt={schemaVersion:1,paper:jsonClone(paper),answers:{},results:[],status:"IN_PROGRESS",startedAt:now.toISOString(),expiresAt:paper.mode==="EXAM"?new Date(now.getTime()+paper.durationMin*60000).toISOString():null,submittedAt:null,score:null,revision:0,timedOut:false};
@@ -146,9 +146,15 @@ export async function publicationCandidates(user:AuthUser){
   for(const q of questions){
    const id=String(q.editorData.groupId||"");
    const group=groups[id];
+   if(group?.section){
+    q.editorData={...q.editorData,sectionId:group.section.id,sectionTitle:group.section.title,
+     sectionType:group.section.type,sectionInstruction:group.section.instruction};
+   }
    if(group&&!shownGroups.has(id)){
     q.audioUrl=group.audioUrl||q.audioUrl;
-    q.editorData={...q.editorData,groupImages:group.images,groupReplies:group.replies,groupWords:group.words,passage:group.passage??q.editorData.passage,passagePinyin:group.passagePinyin,groupCustom:group.custom,instruction:group.instruction||q.editorData.instruction};
+    q.editorData={...q.editorData,groupImages:group.images,groupReplies:group.replies,groupWords:group.words,
+     passage:group.passage??q.editorData.passage,passagePinyin:group.passagePinyin,groupCustom:group.custom,
+     instruction:group.instruction||q.editorData.instruction};
     shownGroups.add(id);
    }
   }
@@ -170,8 +176,8 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  const description=typeof body.description==="string"?body.description.trim():"Đề thi mô phỏng chuẩn HSK 3.0";
  const durationMin=integer(body.durationMin,1,600,"Thời gian làm bài");
  const passScore=body.passScore==null||body.passScore===""?null:Number(body.passScore);
- if(!Array.isArray(body.questions)||!body.questions.length||body.questions.length>500||
-    body.questions.some(q=>!q||typeof q!=="object"||Array.isArray(q)))throw new ExamError(400,"Đề thi cần từ 1 đến 500 câu hỏi hợp lệ.");
+ if(!Array.isArray(body.questions)||!body.questions.length||
+    body.questions.some(q=>!q||typeof q!=="object"||Array.isArray(q)))throw new ExamError(400,"Đề thi cần ít nhất một câu hỏi hợp lệ.");
 
  const prefix=randomUUID();
  const grouped=new Map<string,{title:string;questions:ExamQuestion[];media:ExamGroupMedia}>();
@@ -183,14 +189,48 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   return q;
  });
  const legacy=restoreLegacyReplyGroups(questions,prefix);
+ const sections=new Map<string,NonNullable<ExamGroupMedia["section"]>>();
+ const passageOwners=new Map<string,string>();
+ let previousSectionId="",previousPassageId="";
+ const sectionQuestionIds=new Set<string>();
  for(const q of questions){
   const groupType=q.editorData.groupType;
   const originalGroupId=String(q.editorData.groupId||"");
-  const key=`${q.skill}:${groupType}:${originalGroupId||q.editorData.groupTitle||""}`;
-  if(groupType==="matching_images"||groupType==="listening_choice_abc"||groupType===READING_REPLIES||isReadingCloze(groupType)){
+  const rawSectionId=String(q.editorData.sectionId||"").trim();
+  const sectionType=q.editorData.sectionType;
+  let section:ExamGroupMedia["section"];
+  if(groupType===PASSAGE_CHOICE&&!rawSectionId)throw new ExamError(400,"Bài đọc hiểu cần thuộc một phần thi.");
+  if(rawSectionId||sectionType){
+   if(!rawSectionId||!originalGroupId||!isReadingSection(sectionType)||
+      (sectionType===PASSAGE_SECTION?groupType!==PASSAGE_CHOICE:!isReadingCloze(groupType)))
+    throw new ExamError(400,"Bài lớn chưa được liên kết với đúng phần thi.");
+   const sectionTitle=String(q.editorData.sectionTitle||"").trim();
+   if(!sectionTitle||!String(q.editorData.groupTitle||"").trim())throw new ExamError(400,"Nhập tên phần thi và tên từng bài lớn.");
+   section=sections.get(rawSectionId);
+   if(section&&previousSectionId!==rawSectionId)
+    throw new ExamError(400,"Các bài lớn thuộc cùng phần thi cần nằm liền nhau.");
+   if(section&&(section.type!==sectionType||section.title!==sectionTitle||
+      section.instruction!==String(q.editorData.sectionInstruction||"")))
+    throw new ExamError(400,"Thông tin phần thi không nhất quán.");
+   if(!section){
+    section={id:`${prefix}:${rawSectionId}`,title:sectionTitle,type:sectionType,instruction:String(q.editorData.sectionInstruction||"")};
+    sections.set(rawSectionId,section);
+   }
+   const identity=JSON.stringify([rawSectionId,groupType,q.editorData.groupTitle]);
+   const previousIdentity=passageOwners.get(originalGroupId);
+   if(previousIdentity&&(previousIdentity!==identity||previousPassageId!==originalGroupId))
+    throw new ExamError(400,"Mỗi bài lớn cần một ID riêng và các câu hỏi nhỏ cần nằm liền nhau.");
+   passageOwners.set(originalGroupId,identity);
+   if(!q.id||q.id==="undefined"||sectionQuestionIds.has(q.id))throw new ExamError(400,"Mỗi câu hỏi nhỏ cần có ID riêng.");
+   sectionQuestionIds.add(q.id);
+  }
+  previousSectionId=rawSectionId;
+  previousPassageId=section?originalGroupId:"";
+  const key=JSON.stringify([rawSectionId,q.skill,groupType,originalGroupId||q.editorData.groupTitle||""]);
+  if(groupType==="matching_images"||groupType==="listening_choice_abc"||groupType===READING_REPLIES||isReadingCloze(groupType)||groupType===PASSAGE_CHOICE){
    let group=grouped.get(key);
    if(!group){
-    group={title:String(q.editorData.groupTitle||"Nhóm câu hỏi"),questions:[],media:{}};
+    group={title:String(q.editorData.groupTitle||"Nhóm câu hỏi"),questions:[],media:section?{section}:{}};
     grouped.set(key,group);
    }
    const images=q.editorData.groupImages;
@@ -204,7 +244,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
    delete q.editorData.groupImages;
    delete q.editorData.audioUrl;
    q.audioUrl="";
-   if(groupType===WORD_BANK||groupType===CLOZE_PASSAGE){
+   if(groupType===WORD_BANK||groupType===CLOZE_PASSAGE||groupType===PASSAGE_CHOICE){
     if(q.skill!=="READING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Đọc.`);
     const cleanChoice=(option:unknown)=>{
      if(!clozeChoice(option))throw new ExamError(400,`${group.title} — Dữ liệu lựa chọn không hợp lệ.`);
@@ -230,10 +270,10 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
      group.media.passage||=passage;
      group.media.passagePinyin||=String(q.editorData.passagePinyin||"");
      q.options=q.options.map(cleanChoice);
-     q.editorData.blankId=String(q.editorData.blankId||"");
+     if(groupType===CLOZE_PASSAGE)q.editorData.blankId=String(q.editorData.blankId||"");
     }
     group.media.instruction||=String(q.editorData.instruction||"");
-    q.type="fill_blank";
+    q.type=groupType===PASSAGE_CHOICE?"multiple_choice":"fill_blank";
     q.imageUrl="";
     delete q.editorData.passage;
     delete q.editorData.passagePinyin;
@@ -242,6 +282,10 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
     delete q.editorData.instruction;
     delete q.editorData.imageUrl;
     delete q.editorData.requiresManualReview;
+    delete q.editorData.sectionId;
+    delete q.editorData.sectionTitle;
+    delete q.editorData.sectionType;
+    delete q.editorData.sectionInstruction;
    } else if(groupType===READING_REPLIES){
     if(q.skill!=="READING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Đọc.`);
     const replies=legacy[originalGroupId]?.replies||q.editorData.groupReplies;
@@ -288,6 +332,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   const type=first.editorData.groupType;
   if(type===WORD_BANK||type===CLOZE_PASSAGE)
    issues.push(...readingClozeIssues(type,media,questions.map(q=>({...q,blankId:String(q.editorData.blankId||"")}))));
+  if(type===PASSAGE_CHOICE)issues.push(...passageChoiceIssues(media.passage||"",questions));
   if(first.skill==="LISTENING"&&!media.audioUrl)issues.push("Tải tệp audio chung cho nhóm.");
   if(issues.length)throw new ExamError(400,`${title} — ${issues.join(" ")}`);
   if(media.replies)media.replies=replySlots(media.replies);

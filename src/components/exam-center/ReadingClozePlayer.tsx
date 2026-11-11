@@ -7,9 +7,10 @@ import s from "./ExamPlayer.module.css";
 
 type Question = ReturnType<typeof attemptForOwner>["questions"][number];
 
-export default function ReadingClozePlayer({ questions, wordBank, answers, finished, disabled, onAnswer }: {
+export default function ReadingClozePlayer({ questions, wordBank, passageChoice = false, answers, finished, disabled, onAnswer }: {
   questions: Question[];
   wordBank: boolean;
+  passageChoice?: boolean;
   answers: Record<string, string>;
   finished: boolean;
   disabled: boolean;
@@ -32,7 +33,7 @@ export default function ReadingClozePlayer({ questions, wordBank, answers, finis
   }
 
   return (
-    <section className={s.clozeGroup} aria-label={wordBank ? "Đọc điền từ dùng chung" : "Đoạn văn điền từ"}>
+    <section className={s.clozeGroup} aria-label={passageChoice ? "Đọc hiểu đoạn văn" : wordBank ? "Đọc điền từ dùng chung" : "Đoạn văn điền từ"}>
       {instruction && <p>{instruction}</p>}
       {wordBank ? (
         <section className={s.replyBank} aria-label="Ngân hàng từ">
@@ -52,7 +53,7 @@ export default function ReadingClozePlayer({ questions, wordBank, answers, finis
       ) : (
         <div className={s.clozePassage}>
           <div className={s.clozeText} lang="zh">
-            {passageParts(passage?.passage || "").map((part, index) => {
+            {passageChoice ? passage?.passage : passageParts(passage?.passage || "").map((part, index) => {
               if (!part.blankId) return <span key={index}>{part.text}</span>;
               const question = byBlank.get(part.blankId);
               const option = question?.options.find(choice => choice.id === answers[question.id]);
@@ -81,10 +82,11 @@ export default function ReadingClozePlayer({ questions, wordBank, answers, finis
           return (
             <fieldset key={question.id} id={fieldId(question.id)} tabIndex={-1} className={s.clozeQuestion}
               data-highlighted={highlighted === question.id} disabled={finished || disabled}>
-              <legend>{wordBank ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống (${question.blankId.slice(5)})`}</legend>
+              <legend>{wordBank || passageChoice ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống (${question.blankId.slice(5)})`}</legend>
               {wordBank && (
                 <div className={s.matchingSentence} lang="zh">{before}<span className={s.clozeBlank}>{selectedWord?.text || "______"}</span>{after}</div>
               )}
+              {passageChoice && <div lang="zh" className={s.matchingSentence}>{question.content}</div>}
               {question.pinyin && <p className={s.matchingPinyin}>{question.pinyin}</p>}
               <div className={wordBank ? s.clozeCodes : s.clozeOptions}>
                 {options.map(option => (

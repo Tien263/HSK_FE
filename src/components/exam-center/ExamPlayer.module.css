@@ -1033,3 +1033,18 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+.readingScores {
+  width: calc(100% - 32px);
+  max-width: 1360px;
+  margin: 0 auto 16px;
+  padding: 12px 18px;
+  border: 1px solid #dce4cb;
+  border-radius: 12px;
+  background: #f5f8ef;
+  color: #29452d;
+}
+.readingScores h2 { margin-bottom: 6px; font-weight: 700; }
+.readingScores details { padding-block: 4px; }
+.readingScores summary { cursor: pointer; }
+.readingScores li { margin: 4px 0 0 22px; list-style: disc; }
