@@ -4,7 +4,31 @@ export const EXAM_LEVELS = [1,2,3,4,5,6,7] as const;
 export const EXAM_SKILLS = ["LISTENING","READING","WRITING","TRANSLATION","SPEAKING"] as const;
 export type ExamSkill = typeof EXAM_SKILLS[number];
 export type ExamQuestion = { id:string; type:string; content:string; skill:ExamSkill; level:number; points:number; correctAnswer:string; explanation:string; options:unknown[]; pinyinPrompt?:string; audioUrl?:string; imageUrl?:string; editorData:Record<string,unknown>; tags:string };
-export type ExamPaper = { classification?:{bands:{minScore:number;maxScore:number;label:string}[]}; createdAt?:string; customConfig?:{skills:string[];types:string[];count:number}; id:string; title:string; description:string; level:number; source:"OFFICIAL"|"CUSTOM"; durationMin:number|null; maxScore:number; passScore:number|null; proctorEnabled?:boolean; questions:ExamQuestion[]; mode:"EXAM"|"PRACTICE" };
+export const PICTURE_CODES = ["A", "B", "C", "D", "E", "F"] as const;
+export type ExamGroupImage = { id: string; label: string; imageUrl: string };
+export type ExamGroupMedia = { images?: ExamGroupImage[]; audioUrl?: string };
+export function pictureSlots(images: readonly ExamGroupImage[] = []): ExamGroupImage[] {
+ return PICTURE_CODES.map(id=>images.find(image=>image.id===id)??{id,label:`Tranh ${id}`,imageUrl:""});
+}
+export function pictureGroupIssues(images: readonly ExamGroupImage[], questions: readonly {content:string;correctAnswer:string}[], reading:boolean) {
+ const issues:string[]=[];
+ if(new Set(images.map(image=>image.id)).size!==images.length||images.some(image=>!PICTURE_CODES.some(code=>code===image.id)))issues.push("Mỗi ô tranh A–F chỉ nhận một ảnh.");
+ const missing=pictureSlots(images).filter(image=>!image.imageUrl.trim()).map(image=>image.id);
+ if(missing.length)issues.push(`Thiếu tranh ${missing.join(", ")}.`);
+ if(questions.some(q=>!PICTURE_CODES.some(code=>code===q.correctAnswer)))issues.push("Mỗi câu cần một đáp án đúng từ A đến F.");
+ if(reading){
+  if(questions.length!==5)issues.push("Nhóm đọc ghép tranh cần đúng 5 câu.");
+  if(questions.some(q=>!/\p{Script=Han}/u.test(q.content)))issues.push("Nhập câu chữ Hán cho từng câu.");
+  const answers=questions.map(q=>q.correctAnswer).filter(Boolean);
+  if(new Set(answers).size!==answers.length)issues.push("Mỗi tranh chỉ được dùng làm đáp án đúng một lần.");
+ }
+ return issues;
+}
+export const sampleExamAudio=(level:number)=>`/audio/hsk${level>=7?7:level}_exam.mp3`;
+export function examAudioUrl(url:string,level:number) {
+ return url.startsWith("/HSK3.0/HSK/音频/")?sampleExamAudio(level):url;
+}
+export type ExamPaper = { groups?:Record<string,ExamGroupMedia>; classification?:{bands:{minScore:number;maxScore:number;label:string}[]}; createdAt?:string; customConfig?:{skills:string[];types:string[];count:number}; id:string; title:string; description:string; level:number; source:"OFFICIAL"|"CUSTOM"; durationMin:number|null; maxScore:number; passScore:number|null; proctorEnabled?:boolean; questions:ExamQuestion[]; mode:"EXAM"|"PRACTICE" };
 export type ExamResult = { questionId:string; manual:boolean; correct:boolean|null; earned:number|null; max:number };
 export type CenterAttempt = { schemaVersion:1; paper:ExamPaper; answers:Record<string,string>; results:ExamResult[]; status:"IN_PROGRESS"|"NEEDS_GRADING"|"GRADED"; startedAt:string; expiresAt:string|null; submittedAt:string|null; score:number|null; revision:number; timedOut:boolean };
 export const levelGroup=(level:number)=>level>=7?7:level;
@@ -15,7 +39,12 @@ export const supportedTypes = new Set(["multiple_choice","listening_choice","tru
 export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQuestion {
  const editor=raw.editorData&&typeof raw.editorData==="object"&&!Array.isArray(raw.editorData)?raw.editorData as Record<string,unknown>:{};
  let options:unknown=[];try{options=typeof raw.options==="string"?JSON.parse(raw.options):raw.options||editor.options||[];}catch{}
- const type=questionType(String(raw.type||""));
+ const groupType=String(raw.groupType||editor.groupType||"");
+ const correctAnswer=String(raw.correctAnswer||"");
+ let type=questionType(String(raw.type||""));
+ // Older HSK templates used "matching" for a single letter choice as well as for pairs.
+ if(type==="matching"&&groupType!=="matching_images"&&!Array.isArray(editor.matchingPairs)&&
+    /^[A-Z]$/.test(correctAnswer)&&Array.isArray(options)&&options.length>1)type="multiple_choice";
  return {
    id:String(raw.id),
    type,
@@ -23,16 +52,17 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
    skill:skillOf(String(raw.skill||"READING")),
    level:Number(raw.level||1),
    points,
-   correctAnswer:String(raw.correctAnswer||""),
+   correctAnswer,
    explanation:String(raw.explanation||editor.explanation||""),
    options:Array.isArray(options)?options:[],
    pinyinPrompt:String(raw.pinyinPrompt||editor.pinyin||raw.pinyin||""),
-   audioUrl:String(raw.audioUrl||editor.audioUrl||""),
+   audioUrl:examAudioUrl(String(raw.audioUrl||editor.audioUrl||""),Number(raw.level||1)),
    imageUrl:String(raw.imageUrl||editor.imageUrl||""),
    editorData:{
      ...editor,
      groupImages: raw.groupImages || editor.groupImages || [],
-     groupType: raw.groupType || editor.groupType || "",
+     groupType,
+     groupId: raw.groupId || editor.groupId || "",
      questionNo: raw.questionNo || editor.questionNo || "",
      passage: raw.passage || editor.passage || "",
      groupTitle: raw.groupTitle || editor.groupTitle || "",
@@ -44,20 +74,22 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
  };
 }
 export function usableQuestion(q:ExamQuestion){
- if(!supportedTypes.has(q.type)||!q.content.trim()||!Number.isFinite(q.points)||q.points<0)return false;
+ if(!supportedTypes.has(q.type)||!Number.isFinite(q.points)||q.points<0)return false;
+ if(q.editorData.groupType==="matching_images")return (q.skill==="LISTENING"||!!q.content.trim())&&PICTURE_CODES.some(code=>code===q.correctAnswer);
+ if(!q.content.trim())return false;
  const manual=q.skill==="SPEAKING"||gradeQuestion(q,"").manual;
  if(!manual&&!q.correctAnswer.trim())return false;
  if(["multiple_choice","listening_choice"].includes(q.type)&&q.options.length<2)return false;
  if(q.type==="matching"&&(!Array.isArray(q.editorData.matchingPairs)||!q.editorData.matchingPairs.length))return false;
  return true;
 }
-export function publicExamQuestion(q:ExamQuestion){
+export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia){
  const safe=publicQuestion({...q,...(q.editorData.schemaVersion===2?{schemaVersion:2}:{}),type:q.type});
  // Option metadata and editorData are never sent to a candidate.
  const options=q.options.map((option,index)=>({
    id:typeof option==="object"&&option&&typeof (option as Record<string,unknown>).id==="string"?String((option as Record<string,unknown>).id):String.fromCharCode(65+index),
    text:typeof option==="string"?option:String((option as Record<string,unknown>)?.text||(option as Record<string,unknown>)?.content||""),
-   pinyin:typeof option==="object"&&option&&"pinyin" in (option as Record<string,unknown>)?String((option as Record<string,unknown>).pinyin||""):"",
+   ...(typeof option==="object"&&option&&"pinyin" in option&&option.pinyin?{pinyin:String(option.pinyin)}:{}),
    ...(typeof option==="object"&&option&&"imageUrl" in (option as Record<string,unknown>)?{imageUrl:String((option as Record<string,unknown>).imageUrl||"")}:{})
  }));
  return {
@@ -67,14 +99,14 @@ export function publicExamQuestion(q:ExamQuestion){
    content:q.content,
    points:q.points,
    pinyin:q.pinyinPrompt,
-   audioUrl:q.audioUrl,
+   audioUrl:group?.audioUrl||q.audioUrl,
    imageUrl:q.imageUrl,
    passage:(q as any).passage||(q.editorData as any)?.passage||"",
    groupTitle:(q as any).groupTitle||(q.editorData as any)?.groupTitle||"",
-   groupImages:(q as any).groupImages||(q.editorData as any)?.groupImages||[],
+   groupImages:group?.images||(Array.isArray(q.editorData.groupImages)?q.editorData.groupImages as ExamGroupImage[]:[]),
+   groupId:String(q.editorData.groupId||""),
    groupType:(q as any).groupType||(q.editorData as any)?.groupType||"",
    questionNo:(q as any).questionNo||(q.editorData as any)?.questionNo||"",
-   acceptedAnswers:String((q as any).acceptedAnswers||(q.editorData as any)?.acceptedAnswers||""),
    requiresManualReview:!!((q as any).requiresManualReview||(q.editorData as any)?.requiresManualReview),
    options,
    selectionMode:safe.selectionMode,
@@ -99,6 +131,10 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
  if(attempt.status!=="IN_PROGRESS")return attempt;
  const results=attempt.paper.questions.map(q=>{
   const answer=attempt.answers[q.id]||"";
+  if(q.editorData.groupType==="matching_images"){
+   const correct=PICTURE_CODES.some(code=>code===answer&&code===q.correctAnswer);
+   return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
+  }
   const graded=q.skill==="SPEAKING"?{manual:true,correct:false}:gradeQuestion(q,answer);
   let correct=graded.correct;
   if(!graded.manual&&q.editorData?.schemaVersion!==2&&["multiple_choice","listening_choice","fill_blank","listening_fill","true_false","true_false_na"].includes(q.type)){
@@ -123,6 +159,7 @@ export function attemptSummary(id:string,attempt:CenterAttempt,now=new Date()){
 }
 export function attemptForOwner(id:string,attempt:CenterAttempt){
  const finished=attempt.status!=="IN_PROGRESS";
+ const shownGroups=new Set<string>();
  return {
    ...attemptSummary(id,attempt),
    revision:attempt.revision,
@@ -130,7 +167,10 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
    answers:attempt.answers,
    serverNow:new Date().toISOString(),
    questions:attempt.paper.questions.map(q=>{
-     const pub=publicExamQuestion(q);
+     const groupId=String(q.editorData.groupId||"");
+     const media=attempt.paper.groups?.[groupId];
+     const pub=publicExamQuestion(q,media&&{...media,images:shownGroups.has(groupId)?[]:media.images});
+     if(media)shownGroups.add(groupId);
      const isListening=q.skill==="LISTENING";
      // Khi đang thi (chưa nộp bài): ẩn đề bài / kịch bản nghe để học sinh nghe hiểu thật
      const content=(!finished&&isListening)?"":pub.content;

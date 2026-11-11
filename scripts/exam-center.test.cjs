@@ -16,6 +16,21 @@ function fixture(){
  const wrong=[{id:'w-a',studentId:'a',wrongCount:3,consecutiveRight:0,question:rawQuestion('old-wrong',{skill:'GRAMMAR',tags:'grammar:比字句',editorData:{grammarRule:'比字句'}})},{id:'w-b',studentId:'b',wrongCount:8,consecutiveRight:0,question:rawQuestion('private-b')}];
  const matches=(row,where={})=>Object.entries(where).every(([key,value])=>key==='status'&&value&&typeof value==='object'?row.status!==value.not:row[key]===value);
  const db={quizSet:{findMany:async({where})=>sets.filter(set=>(!where.status||set.status===where.status)&&(!where.mode||where.mode.in.includes(set.mode))),findFirst:async({where})=>sets.find(set=>set.id===where.id&&set.status===where.status)||null},auditLog:{findMany:async({where,include})=>audit.filter(row=>matches(row,where)).slice().reverse().map(row=>({...row,...(include?.user?{user:{name:row.userId}}:{})})),findFirst:async({where})=>{const row=audit.find(row=>matches(row,where));return row?{...row}:null;},create:async({data})=>{if(data.id&&audit.some(row=>row.id===data.id))throw new Error('duplicate');const row={id:data.id||'log-'+(audit.length+1),createdAt:new Date(),...data};audit.push(row);return row;},updateMany:async({where,data})=>{if(conflict){conflict=false;return{count:0};}const row=audit.find(row=>matches(row,where));if(!row)return{count:0};Object.assign(row,data);return{count:1};},upsert:async({where,create,update})=>{const row=audit.find(row=>row.id===where.id);if(row){Object.assign(row,update);return row;}audit.push({...create,createdAt:new Date()});return create;}},attempt:{findMany:async({where})=>legacy.filter(row=>row.studentId===where.studentId),findFirst:async({where})=>legacy.find(row=>row.id===where.id&&row.studentId===where.studentId&&row.status!=='IN_PROGRESS')||null},wrongQuestion:{findMany:async({where})=>wrong.filter(row=>row.studentId===where.studentId&&row.consecutiveRight<where.consecutiveRight.lt)}};
+ db.quizSet.create=async({data})=>{
+  const {questions,...fields}=data;
+  assert.ok(Number.isInteger(fields.totalScore));
+  const set={...fields,id:`imported-${sets.length}`,createdAt:new Date(),teacher:{role:'ADMIN',name:'Admin'},assignments:[],
+   questions:questions.create.map(({orderIndex,points,question},index)=>({
+    orderIndex,points,question:{...question.create,id:`imported-q-${sets.length}-${index}`}
+   }))};
+  sets.push(set);
+  return set;
+ };
+ db.$transaction=async callback=>callback(db);
+ db.auditLog.findFirst=async({where,orderBy})=>{
+  const row=(orderBy?audit.slice().reverse():audit).find(row=>matches(row,where));
+  return row?{...row}:null;
+ };
  const filename=path.resolve('src/lib/exam-center-service.ts'),loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));loaded.require=name=>name==='./prisma'?{prisma:db}:name==='./auth-server'?{getAuthUser:async()=>actor}:name==='./exam-center-core'?core:Module.prototype.require.call(loaded,name);loaded._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,filename);
  return{service:loaded.exports,audit,sets,legacy,wrong,actor(value){actor=value;},conflict(){conflict=true;}};
 }
@@ -91,4 +106,63 @@ test('recommendation considers latest graded skill deficits, level and actual av
 test('advanced level classification uses explicit configured bands and never an invented pass score',async()=>{
  const f=fixture(),attempt=await start(f,'manual');const submitted=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:0,answers:{essay:'Bài viết'}},true);assert.equal(submitted.result,'PENDING');await f.service.gradeManual(actors.admin,{id:attempt.id,marks:{essay:2.5}});const graded=await f.service.getAttempt(actors.a,attempt.id);assert.equal(graded.result,'CLASSIFICATION_PENDING');
  const state=JSON.parse(f.audit.find(row=>row.id===attempt.id).details);state.paper.classification={bands:[{minScore:140,maxScore:160,label:'Nhóm thử nghiệm từ cấu hình'}]};assert.equal(core.attemptSummary(attempt.id,state).classificationLabel,'Nhóm thử nghiệm từ cấu hình');assert.equal(core.attemptSummary(attempt.id,state).result,'CLASSIFIED');
+});
+
+test('staff publication delivers shared picture and audio groups to students and grades each letter separately',async()=>{
+ const f=fixture();
+ const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const images=core.PICTURE_CODES.map(id=>({id,label:`Tranh ${id}`,imageUrl:`/pictures/${id}.png`}));
+ const reading={id:'read',title:'Đọc câu ghép tranh',skill:'READING',groupType:'matching_images',groupImages:images,passage:'Đoạn văn cũ',
+  questions:core.PICTURE_CODES.slice(0,5).map((id,index)=>({
+   id:`read-${id}`,questionNo:index+1,type:'matching',content:'他喜欢喝茶。',pinyin:'Tā xǐhuan hē chá.',
+   points:2,correctAnswer:id,explanation:'Chọn tranh phù hợp.',options:[]
+  }))};
+ const audioUrl='/audio/listening-test.mp3';
+ const listening={id:'listen',title:'Nghe A/B/C',skill:'LISTENING',groupType:'listening_choice_abc',audioUrl,
+  questions:['B','C'].map((correctAnswer,index)=>({
+   id:`listen-${index}`,type:'listening_choice',content:'SECRET TRANSCRIPT',pinyin:'SECRET PINYIN',points:2.25,
+   correctAnswer,options:['A','B','C'].map(id=>({id,text:id}))
+  }))};
+ const listenPictures={...reading,id:'listen-pictures',title:'Nghe tranh',skill:'LISTENING',audioUrl,
+  questions:[{...reading.questions[0],id:'listen-picture-1',content:'SECRET PICTURE SCRIPT',points:2}]};
+ const body={level:1,title:'Đề kiểm thử',durationMin:20,passScore:null};
+ const flatten=(groups)=>templates.flattenGroups(groups);
+ const questions=flatten([reading,listening,listenPictures]);
+ assert.equal(questions.filter(q=>q.groupImages?.length).length,2);
+ assert.equal(questions.filter(q=>q.audioUrl).length,2);
+ const [roundTrip]=templates.unflattenToGroups(questions,1);
+ assert.deepEqual(roundTrip.groupImages,images);
+ assert.equal(roundTrip.questions[0].pinyin,reading.questions[0].pinyin);
+ for(const variant of [
+  {...reading,groupImages:images.slice(0,5)},
+  {...reading,questions:reading.questions.slice(0,4)},
+  {...reading,questions:reading.questions.map(q=>({...q,correctAnswer:'A'}))},
+  {...reading,questions:reading.questions.map((q,index)=>({...q,correctAnswer:index?q.correctAnswer:''}))},
+  {...listening,audioUrl:''}
+ ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:flatten([variant])}),400);
+ const {paperId}=await f.service.importPaper(actors.admin,{...body,questions});
+ const set=f.sets.find(set=>set.id===paperId);
+ assert.ok(set.questions.every(({question})=>!question.editorData.groupImages&&!question.audioUrl));
+ await f.service.publishPaper(actors.admin,{paperId,durationMin:25,passScore:12.5});
+ const data=await f.service.dashboard(actors.a);
+ assert.equal(data.papers.find(p=>p.id===paperId).available,true);
+ assert.equal(data.papers.find(p=>p.id===paperId).maxScore,16.5);
+ const attempt=await start(f,paperId);
+ assert.equal(attempt.questions[0].content,'他喜欢喝茶。');
+ assert.equal(attempt.questions[0].passage,'');
+ assert.deepEqual(attempt.questions[0].groupImages,images);
+ assert.equal(attempt.questions.filter(q=>q.groupImages.length).length,2);
+ assert.equal(attempt.questions[5].audioUrl,audioUrl);
+ assert.equal(attempt.questions[6].audioUrl,audioUrl);
+ assert.equal(attempt.questions[7].audioUrl,audioUrl);
+ assert.ok(!JSON.stringify(attempt.questions).includes('SECRET'));
+ const answers=Object.fromEntries(attempt.questions.map((q,index)=>[q.id,['A','C','C','D','E','B','C','A'][index]]));
+ const saved=await f.service.writeAttempt(actors.a,{id:attempt.id,answers,revision:attempt.revision});
+ assert.deepEqual((await f.service.getAttempt(actors.a,attempt.id)).answers,answers);
+ const result=await f.service.writeAttempt(actors.a,{id:attempt.id,answers,revision:saved.revision},true);
+ assert.equal(result.score,14.5);
+ assert.deepEqual(result.questions.map(q=>q.result.earned),[2,0,2,2,2,2.25,2.25,2]);
+ assert.equal(result.questions[1].correctAnswer,'B');
+ assert.equal(result.questions[1].explanation,'Chọn tranh phù hợp.');
+ assert.equal(result.questions[5].audioScript,'SECRET TRANSCRIPT');
 });

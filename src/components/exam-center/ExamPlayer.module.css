@@ -908,3 +908,24 @@
     justify-content: space-between;
   }
 }
+
+.matchingSentence {
+  font-size: 19px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.matchingPinyin {
+  color: #56644f;
+}
+.matchingChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.matchingCorrectImage {
+  display: block;
+  width: min(100%, 180px);
+  max-height: 130px;
+  object-fit: contain;
+  margin: 8px 0;
+}

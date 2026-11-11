@@ -1,9 +1,10 @@
 import examBlueprint from "../config/exam_blueprint.json";
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
+import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
 import { NextResponse } from "next/server";
-import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, type CenterAttempt, type ExamPaper } from "./exam-center-core";
+import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
 
 const ATTEMPT="EXAM_CENTER_ATTEMPT", PAPER="EXAM_CENTER_PAPER", PUBLICATION="EXAM_CENTER_PUBLICATION", REVIEW="EXAM_CENTER_REVIEW";
 export class ExamError extends Error { constructor(public status:number,message:string){super(message);} }
@@ -27,12 +28,18 @@ const clientId=(value:unknown)=>{if(typeof value!=="string"||! /^[0-9a-f-]{36}$/
 const parse=<T,>(text:string|null):T=>{try{return JSON.parse(text||'{}') as T;}catch{throw new ExamError(503,"Bản ghi bài thi không hợp lệ.");}};
 const jsonClone=<T,>(value:T):T=>JSON.parse(JSON.stringify(value));
 
+type Publication = {approved:boolean;durationMin:number;passScore:number|null;proctorEnabled?:boolean;maxScore?:number;groups?:Record<string,ExamGroupMedia>};
+async function latestPublication(paperId:string){
+ const log=await prisma.auditLog.findFirst({where:{action:PUBLICATION,entity:paperId},orderBy:[{createdAt:"desc"},{id:"desc"}]});
+ return log?parse<Publication>(log.details):null;
+}
+
 export async function officialPapers(){
  const [sets,logs]=await Promise.all([
   prisma.quizSet.findMany({where:{status:"READY",hskLevel:{gte:1,lte:9},mode:{in:["MOCK_EXAM","EXAM"]}},include:{teacher:{select:{role:true,name:true}},questions:{include:{question:true},orderBy:{orderIndex:"asc"}},assignments:{select:{durationMin:true}}},orderBy:{createdAt:"desc"}}),
-  prisma.auditLog.findMany({where:{action:PUBLICATION},orderBy:{createdAt:"desc"}}),
+  prisma.auditLog.findMany({where:{action:PUBLICATION},orderBy:[{createdAt:"desc"},{id:"desc"}]}),
  ]);
- const publications=new Map<string,{approved:boolean;durationMin:number;passScore:number|null;proctorEnabled?:boolean}>();
+ const publications=new Map<string,Publication>();
  for(const log of logs)if(!publications.has(log.entity))publications.set(log.entity,parse(log.details));
  const papers:ExamPaper[]=[];
  for(const set of sets){
@@ -41,7 +48,7 @@ export async function officialPapers(){
   const blueprint=examBlueprint.levels.find(row=>row.level===levelGroup(set.hskLevel));
   const durationMin=config?.durationMin||(durations.length===1?durations[0]:blueprint?.durationMin??null);
   const questions=set.questions.filter(row=>{const editor=row.question.editorData as Record<string,unknown>|null;return !editor?.status||editor.status==="READY";}).map(row=>snapshotQuestion(row.question as unknown as Record<string,unknown>,row.points));
-  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,maxScore:set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===set.totalScore?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),questions,mode:"EXAM"});
+  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,groups:config?.groups,maxScore:config?.maxScore??set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===(config?.maxScore??set.totalScore)?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),questions,mode:"EXAM"});
  }
  return papers;
 }
@@ -108,84 +115,139 @@ export async function createCustom(user:AuthUser,body:Record<string,unknown>){
  const id=`paper_${clientId(body.requestId)}`,level=integer(body.level,1,7,"Nhóm cấp HSK"),count=integer(body.count,1,200,"Số câu"),durationMin=integer(body.durationMin,1,600,"Thời gian");
  if(!["EXAM","PRACTICE"].includes(String(body.mode)))throw new ExamError(400,"Chọn chế độ mô phỏng hoặc luyện tập.");
  if(!Array.isArray(body.skills)||!body.skills.length||body.skills.some(skill=>!EXAM_SKILLS.includes(skill))||!Array.isArray(body.types)||!body.types.length||body.types.some(type=>typeof type!=="string"||!supportedTypes.has(type)))throw new ExamError(400,"Chọn kỹ năng và dạng câu hỏi hợp lệ.");
- const pool=approvedPool(await officialPapers(),level).filter(q=>(body.skills as string[]).includes(q.skill)&&(body.types as string[]).includes(q.type));
+ const official=await officialPapers();
+ const pool=approvedPool(official,level).filter(q=>(body.skills as string[]).includes(q.skill)&&(body.types as string[]).includes(q.type));
  if(pool.length<count)throw new ExamError(409,`Ngân hàng đã duyệt chỉ có ${pool.length} câu phù hợp. Giảm số lượng hoặc đổi bộ lọc.`);
  for(let i=pool.length-1;i>0;i--){const j=randomInt(i+1);[pool[i],pool[j]]=[pool[j],pool[i]];}
  const questions=pool.slice(0,count),maxScore=questions.reduce((sum,q)=>sum+q.points,0);
- const paper:ExamPaper={createdAt:new Date().toISOString(),customConfig:{skills:[...body.skills] as string[],types:[...body.types] as string[],count},id,title:title(body.title),description:"Đề cá nhân từ ngân hàng Admin đã xuất bản.",level,source:"CUSTOM",durationMin,maxScore,passScore:null,questions,mode:body.mode as "EXAM"|"PRACTICE"};
+ const groupIds=new Set(questions.map(q=>String(q.editorData.groupId||"")));
+ const groups=Object.fromEntries(official.flatMap(paper=>Object.entries(paper.groups||{})).filter(([id])=>groupIds.has(id)));
+ const paper:ExamPaper={groups,createdAt:new Date().toISOString(),customConfig:{skills:[...body.skills] as string[],types:[...body.types] as string[],count},id,title:title(body.title),description:"Đề cá nhân từ ngân hàng Admin đã xuất bản.",level,source:"CUSTOM",durationMin,maxScore,passScore:null,questions,mode:body.mode as "EXAM"|"PRACTICE"};
  try{await prisma.auditLog.create({data:{id,userId:user.id,action:PAPER,entity:id,details:JSON.stringify(paper)}});}catch{const old=await prisma.auditLog.findFirst({where:{id,userId:user.id,action:PAPER}});if(!old)throw new ExamError(409,"Không tạo được đề cá nhân.");return paperSummary(parse<ExamPaper>(old.details));}
  return paperSummary(paper);
 }
-export async function publicationCandidates(user:AuthUser){if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được xem danh sách đề.");const rows=await prisma.quizSet.findMany({where:{status:"READY",mode:{in:["EXAM","MOCK_EXAM"]}},include:{teacher:{select:{name:true}},questions:{include:{question:true},orderBy:{orderIndex:"asc"}}},orderBy:{createdAt:"desc"}});const published=await officialPapers();return rows.map(row=>({durationMin:published.find(p=>p.id===row.id)?.durationMin??null,passScore:published.find(p=>p.id===row.id)?.passScore??null,published:published.some(p=>p.id===row.id),id:row.id,title:row.title,level:row.hskLevel,maxScore:row.totalScore,author:row.teacher?.name||"",questions:row.questions.map(q=>snapshotQuestion(q.question as unknown as Record<string,unknown>,q.points))}));}
+export async function publicationCandidates(user:AuthUser){
+ if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được xem danh sách đề.");
+ const [rows,logs,official]=await Promise.all([
+  prisma.quizSet.findMany({where:{status:"READY",mode:{in:["EXAM","MOCK_EXAM"]}},include:{teacher:{select:{name:true}},questions:{include:{question:true},orderBy:{orderIndex:"asc"}}},orderBy:{createdAt:"desc"}}),
+  prisma.auditLog.findMany({where:{action:PUBLICATION},orderBy:[{createdAt:"desc"},{id:"desc"}]}),
+  officialPapers(),
+ ]);
+ const configs=new Map<string,Publication>();
+ for(const log of logs)if(!configs.has(log.entity))configs.set(log.entity,parse(log.details));
+ const published=new Map(official.map(paper=>[paper.id,paper]));
+ return rows.map(row=>{
+  const config=configs.get(row.id),paper=published.get(row.id);
+  const shownGroups=new Set<string>();
+  const questions=row.questions.map(({question,points})=>{
+   const q=snapshotQuestion(question as unknown as Record<string,unknown>,points);
+   const id=String(q.editorData.groupId||"");
+   const group=config?.groups?.[id];
+   if(group&&!shownGroups.has(id)){
+    q.audioUrl=group.audioUrl||q.audioUrl;
+    q.editorData.groupImages=group.images;
+    shownGroups.add(id);
+   }
+   return q;
+  });
+  return {id:row.id,title:row.title,level:row.hskLevel,maxScore:config?.maxScore??row.totalScore,author:row.teacher?.name||"",
+   durationMin:config?.durationMin??paper?.durationMin??null,passScore:config?.passScore??paper?.passScore??null,published:!!paper,questions};
+ });
+}
 export async function publishPaper(user:AuthUser,body:Record<string,unknown>){
  if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được duyệt đề.");
  const paper=await prisma.quizSet.findFirst({where:{id:String(body.paperId),status:"READY",mode:{in:["EXAM","MOCK_EXAM"]}}});if(!paper)throw new ExamError(404,"Không có đề sẵn sàng để xuất bản.");
+ const config=await latestPublication(paper.id);
  const durationMin=integer(body.durationMin,1,600,"Thời gian"),passScore=body.passScore===null||body.passScore===""?null:Number(body.passScore);
- if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>paper.totalScore))throw new ExamError(400,"Ngưỡng đạt phải nằm trong thang điểm của đề.");
- await prisma.auditLog.create({data:{userId:user.id,action:PUBLICATION,entity:paper.id,details:JSON.stringify({approved:body.approved!==false,durationMin,passScore})}});return{success:true};
+ if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>(config?.maxScore??paper.totalScore)))throw new ExamError(400,"Ngưỡng đạt phải nằm trong thang điểm của đề.");
+ await prisma.auditLog.create({data:{userId:user.id,action:PUBLICATION,entity:paper.id,details:JSON.stringify({...config,approved:body.approved!==false,durationMin,passScore})}});return{success:true};
 }
 export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được nhập và tạo đề.");
  const level=integer(body.level,1,9,"Cấp độ HSK"),titleStr=title(body.title);
  const description=typeof body.description==="string"?body.description.trim():"Đề thi mô phỏng chuẩn HSK 3.0";
  const durationMin=integer(body.durationMin,1,600,"Thời gian làm bài");
- const passScore=body.passScore===null||body.passScore===""?null:Number(body.passScore);
- const rawQuestions=Array.isArray(body.questions)?body.questions:[];
- if(!rawQuestions.length)throw new ExamError(400,"Đề thi phải có ít nhất 1 câu hỏi.");
- const totalScore=rawQuestions.reduce((sum,q:Record<string,unknown>)=>sum+(Number(q.points)||1),0);
- const createdSet=await prisma.quizSet.create({
-  data:{
-   title:titleStr,
-   description,
-   hskLevel:level,
-   mode:"MOCK_EXAM",
-   status:"READY",
-   totalScore,
-   teacherId:user.id,
-   questions:{
-    create:rawQuestions.map((q:Record<string,unknown>,idx:number)=>({
-     orderIndex:idx+1,
-     points:Number(q.points)||1,
-     question:{
-      create:{
-       type:String(q.type||"multiple_choice"),
-       content:String(q.content||`Câu ${idx+1}`),
-       skill:String(q.skill||"READING"),
-       level,
-       correctAnswer:String(q.correctAnswer||""),
-       explanation:String(q.explanation||""),
-       options:Array.isArray(q.options)?JSON.stringify(q.options):typeof q.options==="string"?q.options:"[]",
-       audioUrl:typeof q.audioUrl==="string"?q.audioUrl:null,
-       imageUrl:typeof q.imageUrl==="string"?q.imageUrl:null,
-       editorData:{
-        status:"READY",
-        pinyin:q.pinyin||q.pinyinPrompt||"",
-        rubric:q.rubric||"",
-        audioUrl:q.audioUrl||"",
-        imageUrl:q.imageUrl||"",
-        passage:q.passage||(typeof q.editorData==="object"&&(q.editorData as any)?.passage)||"",
-        groupTitle:q.groupTitle||(typeof q.editorData==="object"&&(q.editorData as any)?.groupTitle)||"",
-        groupImages:q.groupImages||(typeof q.editorData==="object"&&(q.editorData as any)?.groupImages)||[],
-        groupType:q.groupType||(typeof q.editorData==="object"&&(q.editorData as any)?.groupType)||"",
-        questionNo:q.questionNo||(typeof q.editorData==="object"&&(q.editorData as any)?.questionNo)||"",
-        ...(typeof q.editorData==="object"&&q.editorData?q.editorData:{})
-       }
-      }
-     }
-    }))
+ const passScore=body.passScore==null||body.passScore===""?null:Number(body.passScore);
+ if(!Array.isArray(body.questions)||!body.questions.length||body.questions.length>500||
+    body.questions.some(q=>!q||typeof q!=="object"||Array.isArray(q)))throw new ExamError(400,"Đề thi cần từ 1 đến 500 câu hỏi hợp lệ.");
+
+ const prefix=randomUUID();
+ const grouped=new Map<string,{title:string;questions:ExamQuestion[];media:ExamGroupMedia}>();
+ const questions=body.questions.map((raw:Record<string,unknown>,idx:number)=>{
+  const points=Number(raw.points??1);
+  if(!Number.isFinite(points)||points<0)throw new ExamError(400,`Điểm câu ${idx+1} không hợp lệ.`);
+  const q=snapshotQuestion({...raw,level},points);
+  q.editorData.rubric=raw.rubric||q.editorData.rubric||"";
+  const groupType=q.editorData.groupType;
+  const key=`${q.skill}:${groupType}:${q.editorData.groupId||q.editorData.groupTitle||""}`;
+  if(groupType==="matching_images"||groupType==="listening_choice_abc"){
+   let group=grouped.get(key);
+   if(!group){
+    group={title:String(q.editorData.groupTitle||"Nhóm câu hỏi"),questions:[],media:{}};
+    grouped.set(key,group);
    }
+   const images=q.editorData.groupImages;
+   if(groupType==="matching_images"&&Array.isArray(images)&&images.length){
+    if(images.some(image=>!image||typeof image.id!=="string"||typeof image.imageUrl!=="string"))
+     throw new ExamError(400,`${group.title} — Dữ liệu tranh không hợp lệ.`);
+    group.media.images=images.map(image=>({id:image.id,label:`Tranh ${image.id}`,imageUrl:image.imageUrl}));
+   }
+   if(q.audioUrl&&q.skill==="LISTENING")group.media.audioUrl??=examAudioUrl(q.audioUrl,level);
+   q.editorData.groupId=`${prefix}_${key}`;
+   delete q.editorData.groupImages;
+   delete q.editorData.audioUrl;
+   q.audioUrl="";
+   if(groupType==="matching_images"){
+    q.type="matching";
+    q.options=PICTURE_CODES.map(id=>({id,text:`Tranh ${id}`}));
+    q.editorData.passage="";
+    if(q.skill==="READING"){
+     q.imageUrl="";
+     delete q.editorData.imageUrl;
+    }
+   }
+   group.questions.push(q);
   }
+  return q;
  });
- await prisma.auditLog.create({
-  data:{
-   userId:user.id,
-   action:PUBLICATION,
-   entity:createdSet.id,
-   details:JSON.stringify({approved:body.approved!==false,durationMin,passScore})
-  }
+
+ const groups:Record<string,ExamGroupMedia>={};
+ for(const {title,questions,media} of grouped.values()){
+  const first=questions[0];
+  const issues=first.editorData.groupType==="matching_images"?pictureGroupIssues(media.images||[],questions,first.skill==="READING"):[];
+  if(first.skill==="LISTENING"&&!media.audioUrl)issues.push("Tải tệp audio chung cho nhóm.");
+  if(issues.length)throw new ExamError(400,`${title} — ${issues.join(" ")}`);
+  groups[String(first.editorData.groupId)]=media;
+ }
+ const invalid=questions.findIndex(q=>!usableQuestion(q));
+ if(invalid>=0)throw new ExamError(400,`Câu ${invalid+1} chưa có đủ nội dung hoặc đáp án để chấm điểm.`);
+ const totalScore=questions.reduce((sum,q)=>sum+q.points,0);
+ if(totalScore<=0||Math.round(totalScore)>2147483647)throw new ExamError(400,"Tổng điểm của đề không hợp lệ.");
+ if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>totalScore))
+  throw new ExamError(400,`Mốc điểm đạt phải từ 0 đến ${totalScore}. Có thể để trống.`);
+
+ return prisma.$transaction(async tx=>{
+  const createdSet=await tx.quizSet.create({data:{
+   title:titleStr,description,hskLevel:level,mode:"MOCK_EXAM",status:"READY",
+   totalScore:Math.max(1,Math.round(totalScore)),teacherId:user.id,
+   questions:{create:questions.map((q,idx)=>({
+    orderIndex:idx+1,points:q.points,
+    question:{create:{
+     type:q.type,content:q.content,skill:q.skill,level,correctAnswer:q.correctAnswer,
+     explanation:q.explanation,options:JSON.stringify(q.options),audioUrl:q.audioUrl||null,
+     imageUrl:q.imageUrl||null,
+     editorData:jsonClone({...q.editorData,status:"READY",pinyin:q.pinyinPrompt}) as Prisma.InputJsonObject,
+    }},
+   }))},
+  }});
+  await tx.auditLog.create({data:{
+   userId:user.id,action:PUBLICATION,entity:createdSet.id,
+   details:JSON.stringify({approved:body.approved!==false,durationMin,passScore,maxScore:totalScore,groups}),
+  }});
+  return {success:true,paperId:createdSet.id};
  });
- return {success:true,paperId:createdSet.id};
 }
+
 export async function deletePaper(user:AuthUser,body:Record<string,unknown>){
  if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền xóa đề thi.");
  const paperId=String(body.paperId||body.id||"");
@@ -215,7 +277,7 @@ export async function reviewData(user:AuthUser){
  const [attempts,bookmark,legacy]=await Promise.all([ownAttempts(user),prisma.auditLog.findFirst({where:{id:`exam-review:${user.id}`,userId:user.id,action:REVIEW}}),prisma.wrongQuestion.findMany({where:{studentId:user.id,consecutiveRight:{lt:3}},include:{question:true}})]);
  const saved=new Set(parse<{keys?:string[]}>(bookmark?.details||null).keys||[]);
  const hidden=new Set(parse<{hidden?:string[]}>(bookmark?.details||null).hidden||[]);
- const wrong=attempts.flatMap(({id,state})=>state.status==="IN_PROGRESS"?[]:state.results.flatMap(result=>{const question=state.paper.questions.find(q=>q.id===result.questionId);return question&&result.correct===false?[{key:`${id}:${question.id}`,attemptId:id,paperTitle:state.paper.title,level:state.paper.level,question:{...question,...publicExamQuestion(question)},userAnswer:state.answers[question.id]||"",saved:saved.has(`${id}:${question.id}`),frequency:1}]:[];}));
+ const wrong=attempts.flatMap(({id,state})=>state.status==="IN_PROGRESS"?[]:state.results.flatMap(result=>{const question=state.paper.questions.find(q=>q.id===result.questionId);return question&&result.correct===false?[{key:`${id}:${question.id}`,attemptId:id,paperTitle:state.paper.title,level:state.paper.level,question:{...question,...publicExamQuestion(question,state.paper.groups?.[String(question.editorData.groupId||"")])},userAnswer:state.answers[question.id]||"",saved:saved.has(`${id}:${question.id}`),frequency:1}]:[];}));
  for(const row of legacy){const question=snapshotQuestion(row.question as unknown as Record<string,unknown>,Number((row.question.editorData as Record<string,unknown>|null)?.points)||1);wrong.push({key:`legacy-question:${question.id}`,attemptId:"",paperTitle:"Kho câu sai đã lưu trước đây",level:question.level,question:{...question,...publicExamQuestion(question)},userAnswer:"",saved:!hidden.has(`legacy-question:${question.id}`),frequency:row.wrongCount});}
  const weak=(kind:string)=>{const groups=new Map<string,{id:string;title:string;count:number;attemptId:string;level:number}>();for(const row of wrong){if(!`${row.question.tags} ${row.question.editorData.sourceContent||""}`.toLowerCase().includes(kind)&&!(kind==="grammar"&&row.question.tags.toLowerCase().includes("ngữ pháp"))&&!(kind==="vocab"&&row.question.tags.toLowerCase().includes("từ vựng")))continue;const metadata=row.question.editorData;const fields=kind==="grammar"?[metadata.grammarRule,metadata.grammarPoint,metadata.structure]:[metadata.hanzi,metadata.word,metadata.vocabulary,metadata.sourceWord];const tagMatch=row.question.tags.match(kind==="grammar"?/(?:grammar|ngữ pháp)\s*[:=]\s*([^,;|]+)/i:/(?:vocab(?:ulary)?|từ vựng)\s*[:=]\s*([^,;|]+)/i);const label=fields.find(value=>typeof value==="string"&&value.trim())||tagMatch?.[1]?.trim()||row.question.content;const groupId=`${kind}:${row.level}:${String(label)}`;const value=groups.get(groupId)||{id:groupId,title:String(label),count:0,attemptId:row.attemptId,level:row.level};value.count+=row.frequency;groups.set(value.id,value);}return[...groups.values()].sort((a,b)=>b.count-a.count);};
  return{wrong,grammar:weak("grammar"),vocabulary:weak("vocab")};

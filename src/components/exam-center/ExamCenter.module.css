@@ -17,3 +17,89 @@
 .inlineProgress progress{appearance:none;border:0;border-radius:10px;overflow:hidden;background:#e3e8dc}.inlineProgress progress::-webkit-progress-bar{background:#e3e8dc;border-radius:10px}.inlineProgress progress::-webkit-progress-value{background:#86a361;border-radius:10px}.inlineProgress progress::-moz-progress-bar{background:#86a361;border-radius:10px}
 @media(min-width:1151px){.catalogHero{align-items:start;min-height:160px}.blueprintCard{padding:16px 22px}.blueprintCard .sectionHeading{margin-bottom:10px}.blueprintCard h2{font-size:36px}.blueprintFacts{padding-bottom:9px}.blueprintCard>p{margin-top:7px;line-height:1.5;font-size:11px}}
 @media(max-width:560px){.center{background-image:linear-gradient(180deg,#fafbf7b0 0,#fafbf7bf 380px,#f7f9f2ed 650px,#f5f7f3f5 100%),url('/theme/exam-bamboo-depth.png')}}
+
+.examGroupCard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #dce4cb;
+  border-radius: 12px;
+}
+.examPictureGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
+  gap: 12px;
+}
+.examPictureSlot {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  text-align: center;
+  background: #f8faf5;
+  border: 1px solid #dce4cb;
+  border-radius: 8px;
+}
+.examPicturePreview {
+  display: grid;
+  place-items: center;
+  height: 130px;
+  background: #fff;
+  border-radius: 6px;
+  color: #738469;
+}
+.examPicturePreview img {
+  width: 100%;
+  height: 130px;
+  object-fit: contain;
+}
+.examMediaActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.examMediaActions label {
+  display: inline-flex;
+  position: relative;
+  cursor: pointer;
+}
+.examMediaActions label:focus-within {
+  outline: 2px solid #a78745;
+}
+.examMediaActions label:has(input:disabled) {
+  opacity: .6;
+  cursor: wait;
+}
+.examMediaInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+.examReadingFields {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.examReadingFields input {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid #d5dfc3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.examPictureAnswers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.publishedExamLink {
+  text-decoration: underline;
+  font-weight: 700;
+}

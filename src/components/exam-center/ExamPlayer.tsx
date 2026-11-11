@@ -34,7 +34,7 @@ import {
 import ExamAntiCheatProctor from "@/components/common/ExamAntiCheatProctor";
 import ComponentErrorBoundary from "@/components/common/ComponentErrorBoundary";
 import type { attemptForOwner } from "@/lib/exam-center-core";
-import { hasAnswer, levelGroup, levelLabel, type ExamSkill } from "@/lib/exam-center-core";
+import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleExamAudio, type ExamSkill } from "@/lib/exam-center-core";
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
 import examBlueprint from "@/config/exam_blueprint.json";
@@ -324,17 +324,10 @@ export default function ExamPlayer({
     setCollapsedSections((prev) => ({ ...prev, [skill]: !prev[skill] }));
   };
 
-  // Group matching_images check
   const matchingGroupQuestions = useMemo(() => {
-    if (!currentQ || (currentQ as any).groupType !== "matching_images") return null;
-    const gTitle = (currentQ as any).groupTitle;
-    const list = questions.filter(
-      (q) =>
-        (q as any).groupType === "matching_images" &&
-        q.skill === currentQ.skill &&
-        (!gTitle || (q as any).groupTitle === gTitle)
-    );
-    return list.length > 0 ? list : null;
+    if (currentQ?.groupType !== "matching_images") return null;
+    return questions.filter(q => q.groupType === "matching_images" && q.skill === currentQ.skill &&
+      (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle));
   }, [currentQ, questions]);
 
   // Group eval_true_false_na check (Đánh giá Đúng / Sai / Không đề cập)
@@ -350,18 +343,9 @@ export default function ExamPlayer({
     return list.length > 0 ? list : null;
   }, [currentQ, questions]);
 
-  const matchingImages = useMemo(() => {
-    if (!matchingGroupQuestions) return [];
-    const foundImages = (matchingGroupQuestions[0] as any)?.groupImages;
-    if (Array.isArray(foundImages) && foundImages.length === 6) {
-      return foundImages;
-    }
-    return ["A", "B", "C", "D", "E", "F"].map((id) => ({
-      id,
-      label: `Tranh ${id}`,
-      imageUrl: "",
-    }));
-  }, [matchingGroupQuestions]);
+  const matchingImages = useMemo(() =>
+    matchingGroupQuestions ? pictureSlots(matchingGroupQuestions.find(q => q.groupImages.length)?.groupImages) : [],
+  [matchingGroupQuestions]);
 
   const currentMultiGroup = matchingGroupQuestions || evalGroupQuestions;
 
@@ -681,7 +665,7 @@ export default function ExamPlayer({
           )}
 
           {/* Reading Passage (Đoạn văn đọc hiểu chung nếu có) */}
-          {(currentQ as any).passage && (
+          {!matchingGroupQuestions && (currentQ as any).passage && (
             <div style={{ marginBottom: 18, padding: "16px 20px", background: "#fdfdf9", borderRadius: 12, border: "1px solid #dce4cb", fontSize: 15, lineHeight: 1.8, color: "#223824" }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: "#5d7a55", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                 📖 <span>Đoạn văn đọc hiểu:</span>
@@ -697,7 +681,7 @@ export default function ExamPlayer({
                 ref={audioRef}
                 src={
                   currentQ.audioUrl ||
-                  `/audio/hsk${attempt.level <= 6 ? attempt.level : 7}_exam.mp3`
+                  sampleExamAudio(attempt.level)
                 }
                 onPlay={() => setIsPlayingAudio(true)}
                 onPause={() => setIsPlayingAudio(false)}
@@ -805,6 +789,7 @@ export default function ExamPlayer({
                   {matchingGroupQuestions.map((q) => {
                     const selectedAns = answers[q.id] || "";
                     const isFocused = q.id === currentQ.id;
+                    const correctImage = finished ? matchingImages.find(image => image.id === q.correctAnswer) : undefined;
                     return (
                       <div
                         key={q.id}
@@ -824,15 +809,21 @@ export default function ExamPlayer({
                           <span style={{ fontWeight: 700, fontSize: 14, color: "#254422", minWidth: 65 }}>
                             {(q as any).questionNo || `Câu ${questions.indexOf(q) + 1}`}
                           </span>
-                          {finished && (q as any).audioScript && (
+                          {q.skill === "READING" && (
+                            <div>
+                              <div lang="zh" className={s.matchingSentence}>{q.content}</div>
+                              {q.pinyin && <small className={s.matchingPinyin}>{q.pinyin}</small>}
+                            </div>
+                          )}
+                          {finished && q.skill === "LISTENING" && q.audioScript && (
                             <span style={{ fontSize: 13, color: "#475569", fontStyle: "italic" }}>
-                              [{(q as any).audioScript}]
+                              [{q.audioScript}]
                             </span>
                           )}
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {["A", "B", "C", "D", "E", "F"].map((optId) => {
+                        <div className={s.matchingChoices} role="group" aria-label={`Chọn tranh cho câu ${q.questionNo || questions.indexOf(q) + 1}`}>
+                          {PICTURE_CODES.map((optId) => {
                             const isChecked = selectedAns === optId;
                             const isCorrect = finished && q.correctAnswer === optId;
                             const isWrong = finished && isChecked && q.correctAnswer !== optId;
@@ -840,6 +831,7 @@ export default function ExamPlayer({
                               <button
                                 key={optId}
                                 type="button"
+                                aria-pressed={isChecked}
                                 disabled={finished || busy || conflict}
                                 onClick={() => handleAnswer(q.id, optId)}
                                 style={{
@@ -885,7 +877,9 @@ export default function ExamPlayer({
                         {finished && (
                           <div style={{ width: "100%", marginTop: 4, fontSize: 12, color: "#4b5563" }}>
                             <strong>Đáp án đúng:</strong> {q.correctAnswer}
-                            {q.explanation && <span> · <strong>Giải thích:</strong> {q.explanation}</span>}
+                            {q.result && <span> · {q.result.earned}/{q.result.max} điểm</span>}
+                            {correctImage?.imageUrl && <img className={s.matchingCorrectImage} src={correctImage.imageUrl} alt={`Đáp án đúng — ${correctImage.label}`} />}
+                            {q.explanation && <p><strong>Lời giải</strong> {q.explanation}</p>}
                           </div>
                         )}
                       </div>

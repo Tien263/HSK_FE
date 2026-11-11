@@ -1,3 +1,5 @@
+import { PICTURE_CODES, pictureSlots, sampleExamAudio } from "../../lib/exam-center-core";
+
 // hsk-sample-templates.ts
 // Pre-configured standardized templates matching the official HSK 3.0 Hanban/CTI 样卷 (from HSK3.0 folder)
 
@@ -14,11 +16,19 @@ export interface ImportedQuestion {
   imageUrl?: string;
   pinyin?: string;
   rubric?: string;
+  groupId?: string;
+  groupTitle?: string;
+  groupType?: ExamSectionGroup["groupType"];
+  groupImages?: ExamSectionGroup["groupImages"];
+  questionNo?: string | number;
+  passage?: string;
+  acceptedAnswers?: string;
+  requiresManualReview?: boolean;
 }
 
 export function getSampleQuestionsForLevel(level: number): ImportedQuestion[] {
   if (level === 1) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（一级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     const questions: ImportedQuestion[] = [];
     const ansL = ["C", "A", "B", "A", "C", "C", "A", "A", "B", "C", "E", "F", "B", "D", "A", "A", "B", "C", "A", "C"];
     for (let i = 1; i <= 20; i++) {
@@ -63,7 +73,7 @@ export function getSampleQuestionsForLevel(level: number): ImportedQuestion[] {
   }
 
   if (level === 2) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（二级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     const questions: ImportedQuestion[] = [];
     const ansL = ["B","B","C","A","C","E","A","C","B","F","C","D","B","E","A","A","C","C","A","B","C","A","C","A","C"];
     for (let i = 1; i <= 25; i++) {
@@ -138,7 +148,7 @@ export function getSampleQuestionsForLevel(level: number): ImportedQuestion[] {
   }
 
   // LEVEL 3 (Default standard 70 questions matching CTI HSK 3 样卷)
-  const audioUrl = `/HSK3.0/HSK/音频/HSK（${level === 3 ? "三" : level === 4 ? "四" : level === 5 ? "五" : level === 6 ? "六" : "七—九"}级）样卷.mp3`;
+  const audioUrl = sampleExamAudio(level);
   const questions: ImportedQuestion[] = [];
 
   // 1-10: 听力第一部分 (Match pictures A-F)
@@ -474,20 +484,22 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
   let qIdx = 1;
   const result: ImportedQuestion[] = [];
   for (const group of groups) {
-    for (const q of group.questions) {
+    const pictureGroup = group.groupType === "matching_images";
+    const groupAudio = pictureGroup || group.groupType === "listening_choice_abc";
+    for (const [index, q] of group.questions.entries()) {
       const questionId = q.id || `q_${qIdx}`;
       const item: ImportedQuestion = {
         id: questionId,
-        type: q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
+        type: pictureGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
         skill: group.skill,
-        content: q.content || `第 ${qIdx} 题`,
+        content: pictureGroup && group.skill === "READING" ? q.content : q.content || `第 ${qIdx} 题`,
         pinyin: q.pinyin || "",
-        points: Number(q.points) || 2.5,
-        correctAnswer: q.correctAnswer || "A",
+        points: Number(q.points),
+        correctAnswer: pictureGroup ? q.correctAnswer : q.correctAnswer || "A",
         explanation: q.explanation || "",
-        imageUrl: q.imageUrl || "",
-        audioUrl: q.audioUrl || group.audioUrl || "",
-        options: Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
+        imageUrl: pictureGroup && group.skill === "READING" ? "" : q.imageUrl || "",
+        audioUrl: groupAudio ? (index === 0 && group.skill === "LISTENING" ? group.audioUrl || "" : "") : q.audioUrl || group.audioUrl || "",
+        options: pictureGroup ? PICTURE_CODES.map(id => ({ id, text: `Tranh ${id}` })) : Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
           id: opt.id,
           text: opt.text || "",
           pinyin: opt.pinyin || "",
@@ -499,13 +511,14 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         ],
         rubric: (q as any).rubric || "",
       };
-      (item as any).passage = group.passage || "";
-      (item as any).groupTitle = group.title || "";
-      (item as any).groupType = group.groupType || "";
-      (item as any).groupImages = group.groupImages || [];
-      (item as any).questionNo = q.questionNo || "";
-      (item as any).acceptedAnswers = q.acceptedAnswers || "";
-      (item as any).requiresManualReview = !!q.requiresManualReview;
+      item.passage = pictureGroup ? "" : group.passage || "";
+      item.groupTitle = group.title || "";
+      item.groupId = group.id;
+      item.groupType = group.groupType;
+      if (pictureGroup && index === 0) item.groupImages = pictureSlots(group.groupImages);
+      item.questionNo = q.questionNo || "";
+      item.acceptedAnswers = q.acceptedAnswers || "";
+      item.requiresManualReview = !!q.requiresManualReview;
       result.push(item);
       qIdx++;
     }
@@ -526,7 +539,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     const explicitGroupImages = (q as any).groupImages || (q as any).editorData?.groupImages;
     const explicitQuestionNo = (q as any).questionNo || (q as any).editorData?.questionNo;
 
-    let key = explicitGroupTitle;
+    let key = q.groupId || explicitGroupTitle;
     if (!key) {
       const chunkNum = Math.floor(i / 5) + 1;
       const startQ = (chunkNum - 1) * 5 + 1;
@@ -538,7 +551,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     if (!groupsMap.has(key)) {
       groupsMap.set(key, {
         id: `group_${groupsMap.size + 1}`,
-        title: key,
+        title: explicitGroupTitle || key,
         skill: (q.skill as any) || "READING",
         audioUrl: q.audioUrl || "",
         passage: explicitPassage || "",
@@ -558,7 +571,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     if (explicitGroupType && explicitGroupType !== "standard" && grp.groupType === "standard") {
       grp.groupType = explicitGroupType;
     }
-    if (Array.isArray(explicitGroupImages) && explicitGroupImages.length && !grp.groupImages) {
+    if (Array.isArray(explicitGroupImages) && explicitGroupImages.length) {
       grp.groupImages = explicitGroupImages;
     }
 
@@ -568,10 +581,10 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
       content: q.content || `Câu ${i + 1}`,
       pinyin: q.pinyin || "",
-      points: Number(q.points) || 2.5,
+      points: Number(q.points ?? 2.5),
       imageUrl: q.imageUrl || "",
       audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
-      correctAnswer: q.correctAnswer || "A",
+      correctAnswer: explicitGroupType === "matching_images" ? q.correctAnswer || "" : q.correctAnswer || "A",
       explanation: q.explanation || "",
       acceptedAnswers: (q as any).acceptedAnswers || (q as any).editorData?.acceptedAnswers || "",
       requiresManualReview: !!((q as any).requiresManualReview || (q as any).editorData?.requiresManualReview),
@@ -594,7 +607,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
 
 export function buildDefaultGroups(level: number): ExamSectionGroup[] {
   if (level === 1) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（一级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     return [
       {
         id: "group_1",
@@ -777,10 +790,13 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
         id: "group_6",
         title: "Phần 2 Đọc: Đọc câu và ghép nối với tranh A - F (Câu 26 - 30)",
         skill: "READING",
+        groupType: "matching_images",
+        groupImages: pictureSlots(),
         instruction: "Đọc từng câu và chọn bức tranh A - F tương ứng.",
         questions: [26, 27, 28, 29, 30].map((i, idx) => ({
           id: `hsk1_q${i}`,
-          type: "multiple_choice",
+          questionNo: i,
+          type: "matching",
           content: `第 ${i} 题：阅读句子并选择对应的图片 (A-F)。`,
           points: 2.5,
           correctAnswer: ["D", "E", "C", "B", "A"][idx],
@@ -846,7 +862,7 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
   }
 
   if (level === 2) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（二级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     return [
       {
         id: "group_1",
@@ -990,7 +1006,7 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
   }
 
   if (level === 3) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（三级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     return [
       {
         id: "group_1",
@@ -1161,7 +1177,7 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
   }
 
   if (level === 4) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（四级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     return [
       {
         id: "group_1",
@@ -1307,7 +1323,7 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
   }
 
   if (level === 5) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（五级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     return [
       {
         id: "group_1",
@@ -1450,7 +1466,7 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
   }
 
   if (level === 6) {
-    const audioUrl = "/HSK3.0/HSK/音频/HSK（六级）样卷.mp3";
+    const audioUrl = sampleExamAudio(level);
     return [
       {
         id: "group_1",

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -30,7 +31,8 @@ import {
   X,
 } from "lucide-react";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
-import { EXAM_LEVELS, levelGroup, levelLabel } from "@/lib/exam-center-core";
+import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion } from "@/lib/exam-center-core";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
 import ExamPlayer from "./ExamPlayer";
@@ -47,18 +49,7 @@ import {
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamCenter.module.css";
 
-export const groupAudioForLevel = (lvl: number) => {
-  const map: Record<number, string> = {
-    1: "/HSK3.0/HSK/音频/HSK（一级）样卷.mp3",
-    2: "/HSK3.0/HSK/音频/HSK（二级）样卷.mp3",
-    3: "/HSK3.0/HSK/音频/HSK（三级）样卷.mp3",
-    4: "/HSK3.0/HSK/音频/HSK（四级）样卷.mp3",
-    5: "/HSK3.0/HSK/音频/HSK（五级）样卷.mp3",
-    6: "/HSK3.0/HSK/音频/HSK（六级）样卷.mp3",
-    7: "/HSK3.0/HSK/音频/HSK（七—九级）样卷听力.mp3",
-  };
-  return map[lvl] || map[1];
-};
+export const groupAudioForLevel = sampleExamAudio;
 
 export const HSK_GROUP_TEMPLATES = [
   {
@@ -157,8 +148,9 @@ export const HSK_GROUP_TEMPLATES = [
     points: 2.5,
   },
   {
-    name: "📖 Đọc câu ghép tranh A - F",
+    name: "📖 Đọc câu ghép tranh A–F",
     skill: "READING" as const,
+    groupType: "matching_images" as const,
     type: "matching",
     samplePrompt: "阅读句子并选择对应的图片 (A-F)。",
     instruction: "Đọc từng câu và chọn bức tranh A - F tương ứng.",
@@ -272,6 +264,7 @@ export default function ExamStaff({
   const [queue, setQueue] = useState<Queue>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [publishedLink, setPublishedLink] = useState("");
   const [busy, setBusy] = useState(false);
 
   // Authoring state
@@ -279,7 +272,7 @@ export default function ExamStaff({
   const [authorTitle, setAuthorTitle] = useState("Đề thi thử chuẩn HSK 1 (CTI Hanban 样卷)");
   const [authorDesc, setAuthorDesc] = useState("Đề thi mô phỏng chuẩn cấu trúc đề thật HSK 3.0 Cấp 1 (CTI / Hanban).");
   const [authorDuration, setAuthorDuration] = useState<number>(40);
-  const [authorPass, setAuthorPass] = useState<number | string>(120);
+  const [authorPass, setAuthorPass] = useState<number | string>("");
 
   // Mode: "grouped" (visual group editor - recommended) or "raw" (JSON editor)
   const [authorMode, setAuthorMode] = useState<"grouped" | "raw">("grouped");
@@ -298,36 +291,74 @@ export default function ExamStaff({
     setOpenQuestionScripts((prev) => ({ ...prev, [qId]: !prev[qId] }));
   };
 
-  // Upload ảnh cấp nhóm cho dạng Ghép tranh A - F
-  const handleUploadGroupImage = (groupId: string, imgId: string, file: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      handleUpdateGroupImage(groupId, imgId, dataUrl);
-    };
-    reader.readAsDataURL(file);
-  };
+  const [pendingMedia, setPendingMedia] = useState<Record<string, boolean>>({});
+  const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
+  const mediaUploading = Object.values(pendingMedia).some(Boolean);
 
   const handleUpdateGroupImage = (groupId: string, imgId: string, url: string) => {
-    setGroups((prev) =>
-      prev.map((g) => {
-        if (g.id !== groupId) return g;
-        const currentImages = g.groupImages && g.groupImages.length
-          ? g.groupImages
-          : ["A", "B", "C", "D", "E", "F"].map((id) => ({ id, label: `Tranh ${id}`, imageUrl: "" }));
-        const updatedImages = currentImages.map((img) => (img.id === imgId ? { ...img, imageUrl: url } : img));
-        return { ...g, groupImages: updatedImages };
-      })
-    );
+    setGroups(prev => prev.map(group => group.id === groupId ? {
+      ...group,
+      groupImages: pictureSlots(group.groupImages).map(image => image.id === imgId ? { ...image, imageUrl: url } : image),
+    } : group));
   };
+
+  const uploadGroupMedia = async (key: string, file: File, kind: "image" | "video", update: (url: string) => void) => {
+    setPendingMedia(prev => ({ ...prev, [key]: true }));
+    setMediaErrors(prev => ({ ...prev, [key]: "" }));
+    try {
+      const result = await uploadToCloudinary(file, { folder: "hsk_exam_media", resourceType: kind });
+      if (!result.secureUrl) throw new Error("Dịch vụ tải tệp chưa trả về đường dẫn.");
+      update(result.secureUrl);
+    } catch (error) {
+      setMediaErrors(prev => ({ ...prev, [key]: `Tải tệp thất bại. ${(error as Error).message}` }));
+    } finally {
+      setPendingMedia(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const mediaActions = (key: string, value: string, label: string, kind: "image" | "video", update: (url: string) => void) => (
+    <>
+      <div className={s.examMediaActions}>
+        <label className={s.secondary}>
+          {pendingMedia[key] ? "Đang tải…" : value ? `Thay ${label}` : `Tải ${label}`}
+          <input
+            className={s.examMediaInput}
+            aria-label={value ? `Thay ${label}` : `Tải ${label}`}
+            type="file"
+            accept={kind === "image" ? "image/jpeg,image/png,image/webp,image/gif" : "audio/*,.mp3,.wav,.m4a,.ogg"}
+            disabled={pendingMedia[key] || busy}
+            onChange={event => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              if (file) void uploadGroupMedia(key, file, kind, update);
+            }}
+          />
+        </label>
+        {value && <button type="button" className={s.secondary} disabled={pendingMedia[key] || busy} onClick={() => {
+          setMediaErrors(prev => ({ ...prev, [key]: "" }));
+          update("");
+        }}>Xóa {label}</button>}
+      </div>
+      {mediaErrors[key] && <p className={s.error} role="alert">{mediaErrors[key]}</p>}
+    </>
+  );
+
+  const groupAudioEditor = (group: ExamSectionGroup, heading: string) => (
+    <div className={s.examGroupCard}>
+      <strong>{heading}</strong>
+      {mediaActions(`${group.id}_audio`, group.audioUrl || "", "audio", "video", audioUrl => handleUpdateGroup(group.id, { audioUrl }))}
+      {group.audioUrl ? <audio key={group.audioUrl} controls preload="metadata" src={group.audioUrl} style={{ width: "100%" }} /> :
+        <p className={s.error}>Tải tệp audio chung cho nhóm.</p>}
+      <p>Thứ tự câu trong audio · {group.questions.map((q, index) => q.questionNo || index + 1).join(" → ")}</p>
+    </div>
+  );
 
   // Sync blueprint when level changes
   useEffect(() => {
     const bp = examBlueprint.levels.find((l) => l.level === authorLevel);
     if (bp) {
       setAuthorDuration(bp.durationMin);
-      setAuthorPass(bp.targetScore ?? "");
+      setAuthorPass("");
       setAuthorTitle(`Đề thi thử chuẩn ${levelLabel(authorLevel)} (CTI Hanban 样卷)`);
     }
   }, [authorLevel]);
@@ -351,6 +382,7 @@ export default function ExamStaff({
 
   // Load official HSK 3.0 sample template from HSK3.0 directory
   const loadSampleTemplate = (lvl: number) => {
+    if (mediaUploading) return;
     const bp = examBlueprint.levels.find((l) => l.level === lvl);
     const defGroups = buildDefaultGroups(lvl);
     const flat = flattenGroups(defGroups);
@@ -359,7 +391,7 @@ export default function ExamStaff({
     setAuthorTitle(`Đề thi mẫu chuẩn ${levelLabel(lvl)} (CTI Hanban 样卷)`);
     setAuthorDesc(`Đề thi mô phỏng chuẩn cấu trúc đề thật HSK 3.0 Cấp ${lvl} (CTI / Hanban).`);
     setAuthorDuration(bp?.durationMin || (lvl === 1 ? 40 : lvl === 2 ? 60 : 83));
-    setAuthorPass(bp?.targetScore || (lvl <= 2 ? 120 : 180));
+    setAuthorPass("");
     setGroups(defGroups);
     setActiveGroupId(defGroups[0]?.id || "group_1");
     setJsonInput(JSON.stringify(flat, null, 2));
@@ -367,6 +399,7 @@ export default function ExamStaff({
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (mediaUploading) return;
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -455,7 +488,7 @@ export default function ExamStaff({
     let newGroup: ExamSectionGroup;
 
     if (template) {
-      const gType = (template as any).groupType || "standard";
+      const gType = ("groupType" in template ? template.groupType : undefined) || "standard";
       const initialImages = (template as any).groupImages
         ? (template as any).groupImages.map((img: any) => ({ ...img }))
         : gType === "matching_images"
@@ -469,9 +502,9 @@ export default function ExamStaff({
           id: `q_${Date.now()}_${i}`,
           questionNo: i,
           type: template.type,
-          content: `第 ${i} 题：${template.samplePrompt || "请选择正确答案。"}`,
+          content: gType === "matching_images" && template.skill === "READING" ? "" : `第 ${i} 题：${template.samplePrompt || "请选择正确答案。"}`,
           points: template.points,
-          correctAnswer: template.correctAnswer,
+          correctAnswer: gType === "matching_images" ? "" : template.correctAnswer,
           acceptedAnswers: (template as any).acceptedAnswers || "",
           requiresManualReview: !!(template as any).requiresManualReview,
           options: Array.isArray(template.options) ? template.options.map((opt) => ({ ...opt })) : [],
@@ -483,7 +516,7 @@ export default function ExamStaff({
         title: `Nhóm ${groups.length + 1}: ${template.name}`,
         skill: template.skill,
         instruction: template.instruction,
-        audioUrl: template.skill === "LISTENING" ? defaultAudio : "",
+        audioUrl: template.skill === "LISTENING" && gType !== "matching_images" && gType !== "listening_choice_abc" ? defaultAudio : "",
         passage: template.passage || "",
         groupType: gType,
         groupImages: initialImages,
@@ -575,7 +608,7 @@ export default function ExamStaff({
           ? Number(lastQ.questionNo) + 1
           : totalInGroup;
 
-        const targetType = lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
+        const targetType = g.groupType === "matching_images" ? "matching" : lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
         let initialOptions: QuestionOption[] = [
           { id: "A", text: "Lựa chọn A" },
           { id: "B", text: "Lựa chọn B" },
@@ -585,6 +618,7 @@ export default function ExamStaff({
         let initialAnswer = "A";
 
         if (g.groupType === "matching_images" || targetType === "matching") {
+          if (g.groupType === "matching_images") initialAnswer = "";
           initialOptions = ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Tranh ${l}` }));
         } else if (g.groupType === "listening_choice_abc") {
           initialOptions = [
@@ -616,7 +650,7 @@ export default function ExamStaff({
           id: `q_${Date.now()}_${totalInGroup}`,
           questionNo: nextQNo,
           type: targetType,
-          content: `第 ${nextQNo} 题：请根据题目选择正确答案。`,
+          content: g.groupType === "matching_images" && g.skill === "READING" ? "" : `第 ${nextQNo} 题：请根据题目选择正确答案。`,
           points: lastQ?.points ?? 2.5,
           correctAnswer: initialAnswer,
           acceptedAnswers: lastQ?.acceptedAnswers || "",
@@ -693,6 +727,7 @@ export default function ExamStaff({
 
   // Đổi chế độ Soạn bài
   const handleSwitchMode = (targetMode: "grouped" | "raw") => {
+    if (mediaUploading) return;
     if (targetMode === "raw") {
       const flat = flattenGroups(groups);
       setJsonInput(JSON.stringify(flat, null, 2));
@@ -733,7 +768,7 @@ export default function ExamStaff({
     }
 
     const bp = examBlueprint.levels.find((l) => l.level === authorLevel);
-    const maxScore = parsed.reduce((sum, q) => sum + (Number(q.points) || 1), 0) || bp?.maxScore || 300;
+    const maxScore = parsed.reduce((sum, q) => sum + Number(q.points ?? 1), 0) || bp?.maxScore || 300;
     const mockPaper = {
       id: "preview_paper_id",
       title: authorTitle,
@@ -775,26 +810,12 @@ export default function ExamStaff({
       expiresAt: new Date(Date.now() + authorDuration * 60000).toISOString(),
       answers: {},
       serverNow: new Date().toISOString(),
-      questions: parsed.map((q, idx) => ({
-        id: q.id || `q_${idx + 1}`,
-        type: q.type || "multiple_choice",
-        skill: q.skill || "READING",
-        content: q.content,
-        points: Number(q.points) || 1,
-        pinyin: q.pinyin || "",
-        audioUrl: q.audioUrl || "",
-        imageUrl: q.imageUrl || "",
-        passage: (q as any).passage || "",
-        groupTitle: (q as any).groupTitle || "",
-        options: Array.isArray(q.options)
-          ? q.options.map((opt: any, optIdx: number) => ({
-              id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),
-              text: typeof opt === "string" ? opt : opt?.text || opt?.content || "",
-              imageUrl: opt?.imageUrl || "",
-            }))
-          : [],
-        selectionMode: "SINGLE",
-      })),
+      questions: parsed.map((q, idx) => {
+        const question = snapshotQuestion({ ...q, id: `preview_${idx}`, level: authorLevel }, Number(q.points ?? 1));
+        const audioUrl = q.groupId ? parsed.find(item => item.groupId === q.groupId && item.audioUrl)?.audioUrl : undefined;
+        const publicQuestion = publicExamQuestion(question, audioUrl ? { audioUrl } : undefined);
+        return question.skill === "LISTENING" ? { ...publicQuestion, content: "", pinyin: "" } : publicQuestion;
+      }),
     };
 
     setPreviewPaper(mockPaper);
@@ -805,6 +826,8 @@ export default function ExamStaff({
 
   // Lưu & Xuất bản đề thi
   const handleSaveImport = async () => {
+    if (mediaUploading) return;
+    setPublishedLink("");
     setBusy(true);
     setError("");
     setMessage("");
@@ -821,7 +844,7 @@ export default function ExamStaff({
         throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
       }
 
-      await examApi("importPaper", {
+      const { paperId } = await examApi<{ paperId: string }>("importPaper", {
         level: authorLevel,
         title: authorTitle,
         description: authorDesc,
@@ -830,7 +853,8 @@ export default function ExamStaff({
         questions: parsed,
       });
 
-      setMessage(`Đã xuất bản thành công đề thi "${authorTitle}" (${parsed.length} câu)! Học sinh đã có thể vào phòng thi làm bài.`);
+      setPublishedLink(`/s/mock-exam?${new URLSearchParams({ view: "intro", id: paperId, level: String(levelGroup(authorLevel)) })}`);
+      setMessage(`Đã xuất bản đề “${authorTitle}” (${parsed.length} câu). Học sinh có thể mở đề trong phòng thi.`);
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -888,7 +912,9 @@ export default function ExamStaff({
       </p>
 
       {error && <p className={s.error} role="alert">{error}</p>}
-      {message && <p className={s.notice} role="status">{message}</p>}
+      {message && <p className={s.notice} role="status">{message}{view === "authoring" && publishedLink && (
+        <> <Link className={s.publishedExamLink} href={publishedLink} target="_blank" rel="noreferrer">Mở liên kết đề thi cho học sinh</Link></>
+      )}</p>}
 
       {/* VIEW: AUTHORING WORKSPACE */}
       {view === "authoring" && (
@@ -1014,7 +1040,9 @@ export default function ExamStaff({
                 Mốc điểm đạt (Mục tiêu)
                 <input
                   type="number"
-                  placeholder="HSK 1-2: 120 điểm | HSK 3-6: 180 điểm"
+                  placeholder="Để trống để dùng mốc theo thang điểm HSK"
+                  min={0}
+                  step="any"
                   value={authorPass}
                   onChange={(e) => setAuthorPass(e.target.value)}
                 />
@@ -1231,7 +1259,7 @@ export default function ExamStaff({
                                 }}
                               >
                                 <option value="standard">Tiêu chuẩn (Trắc nghiệm / Tự luận từng câu)</option>
-                                <option value="matching_images">🖼️ Nghe ghép tranh A–F (Tải 6 tranh dùng chung cho nhóm)</option>
+                                <option value="matching_images">🖼️ {group.skill === "READING" ? "Đọc câu ghép tranh A–F" : "Ghép tranh A–F"}</option>
                                 <option value="listening_choice_abc">🎧 Nghe câu hỏi – Chọn đáp án A/B/C (Ẩn kịch bản với HS)</option>
                                 <option value="eval_true_false_na">✅ Nghe đánh giá Đúng / Sai / Không đề cập (√ / × / 〇)</option>
                                 <option value="listening_fill_blank">⌨️ Nghe và điền đáp án (Chỗ trống / Dùng chung Audio)</option>
@@ -1262,26 +1290,26 @@ export default function ExamStaff({
                                   }}
                                   value={
                                     [
-                                      "/HSK3.0/HSK/音频/HSK（一级）样卷.mp3",
-                                      "/HSK3.0/HSK/音频/HSK（二级）样卷.mp3",
-                                      "/HSK3.0/HSK/音频/HSK（三级）样卷.mp3",
-                                      "/HSK3.0/HSK/音频/HSK（四级）样卷.mp3",
-                                      "/HSK3.0/HSK/音频/HSK（五级）样卷.mp3",
-                                      "/HSK3.0/HSK/音频/HSK（六级）样卷.mp3",
-                                      "/HSK3.0/HSK/音频/HSK（七—九级）样卷听力.mp3",
+                                      "/audio/hsk1_exam.mp3",
+                                      "/audio/hsk2_exam.mp3",
+                                      "/audio/hsk3_exam.mp3",
+                                      "/audio/hsk4_exam.mp3",
+                                      "/audio/hsk5_exam.mp3",
+                                      "/audio/hsk6_exam.mp3",
+                                      "/audio/hsk7_exam.mp3",
                                     ].includes(group.audioUrl || "")
                                       ? group.audioUrl
                                       : ""
                                   }
                                 >
                                   <option value="">-- Chọn file audio mẫu có sẵn --</option>
-                                  <option value="/HSK3.0/HSK/音频/HSK（一级）样卷.mp3">🎵 HSK 1: HSK（一级）样卷.mp3</option>
-                                  <option value="/HSK3.0/HSK/音频/HSK（二级）样卷.mp3">🎵 HSK 2: HSK（二级）样卷.mp3</option>
-                                  <option value="/HSK3.0/HSK/音频/HSK（三级）样卷.mp3">🎵 HSK 3: HSK（三级）样卷.mp3</option>
-                                  <option value="/HSK3.0/HSK/音频/HSK（四级）样卷.mp3">🎵 HSK 4: HSK（四级）样卷.mp3</option>
-                                  <option value="/HSK3.0/HSK/音频/HSK（五级）样卷.mp3">🎵 HSK 5: HSK（五级）样卷.mp3</option>
-                                  <option value="/HSK3.0/HSK/音频/HSK（六级）样卷.mp3">🎵 HSK 6: HSK（六级）样卷.mp3</option>
-                                  <option value="/HSK3.0/HSK/音频/HSK（七—九级）样卷听力.mp3">🎵 HSK 7-9: HSK（七—九级）听力.mp3</option>
+                                  <option value="/audio/hsk1_exam.mp3">🎵 HSK 1: HSK（一级）样卷.mp3</option>
+                                  <option value="/audio/hsk2_exam.mp3">🎵 HSK 2: HSK（二级）样卷.mp3</option>
+                                  <option value="/audio/hsk3_exam.mp3">🎵 HSK 3: HSK（三级）样卷.mp3</option>
+                                  <option value="/audio/hsk4_exam.mp3">🎵 HSK 4: HSK（四级）样卷.mp3</option>
+                                  <option value="/audio/hsk5_exam.mp3">🎵 HSK 5: HSK（五级）样卷.mp3</option>
+                                  <option value="/audio/hsk6_exam.mp3">🎵 HSK 6: HSK（六级）样卷.mp3</option>
+                                  <option value="/audio/hsk7_exam.mp3">🎵 HSK 7-9: HSK（七—九级）听力.mp3</option>
                                 </select>
                                 <input
                                   style={{ flex: 1, minWidth: 220 }}
@@ -1315,7 +1343,7 @@ export default function ExamStaff({
                           )}
 
                           {/* Đoạn văn đọc hiểu chung (cho phần Đọc) */}
-                          {group.skill === "READING" && (
+                          {group.skill === "READING" && group.groupType !== "matching_images" && (
                             <div style={{ marginTop: 14 }}>
                               <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                                 <BookOpen size={16} /> Đoạn văn đọc hiểu chung (nếu các câu hỏi bên dưới cùng đọc 1 bài):
@@ -1334,92 +1362,31 @@ export default function ExamStaff({
                         {/* Danh sách câu hỏi trong nhóm - Xử lý theo từng loại groupType */}
                         {group.groupType === "matching_images" ? (
                           <div style={{ display: "grid", gap: 16 }}>
-                            {/* Bước 1: Tải 6 tranh dùng chung */}
-                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
-                              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 12 }}>
-                                Bước 1. Tải 6 hình ảnh dùng chung (Tranh A – F)
-                              </div>
-                              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-                                {(() => {
-                                  const groupImages = group.groupImages && group.groupImages.length === 6
-                                    ? group.groupImages
-                                    : ["A", "B", "C", "D", "E", "F"].map((id) => ({ id, label: `Tranh ${id}`, imageUrl: "" }));
-                                  return groupImages.map((img) => (
-                                    <div key={img.id} style={{ border: "1px dashed #b5c7a3", borderRadius: 8, background: "#f8faf5", padding: 10, textAlign: "center", position: "relative" }}>
-                                      {img.imageUrl ? (
-                                        <div style={{ position: "relative" }}>
-                                          <img src={img.imageUrl} alt={img.label} style={{ width: "100%", height: 110, objectFit: "contain", borderRadius: 6, background: "#fff", border: "1px solid #e2e8f0" }} />
-                                          <button
-                                            type="button"
-                                            onClick={() => handleUpdateGroupImage(group.id, img.id, "")}
-                                            style={{ position: "absolute", top: 4, right: 4, background: "#ef4444", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                                            title="Xóa tranh này"
-                                          >
-                                            <X size={13} />
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 110, cursor: "pointer", color: "#64748b" }}>
-                                          <ImageIcon size={28} style={{ opacity: 0.5, marginBottom: 4 }} />
-                                          <span style={{ fontSize: 11, fontWeight: 600 }}>Tải ảnh tranh {img.id}</span>
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            style={{ display: "none" }}
-                                            onChange={(e) => {
-                                              const file = e.target.files?.[0];
-                                              if (file) handleUploadGroupImage(group.id, img.id, file);
-                                            }}
-                                          />
-                                        </label>
-                                      )}
-                                      <div style={{ marginTop: 6, fontWeight: 700, fontSize: 13, color: "#254422" }}>
-                                        {img.label || `Tranh ${img.id}`}
-                                      </div>
+                            <div className={s.examGroupCard}>
+                              <strong>Bước 1. Tải sáu hình ảnh dùng chung</strong>
+                              <div className={s.examPictureGrid}>
+                                {pictureSlots(group.groupImages).map(img => (
+                                  <div key={img.id} className={s.examPictureSlot}>
+                                    <div className={s.examPicturePreview}>
+                                      {img.imageUrl ? <img src={img.imageUrl} alt={img.label} /> : <ImageIcon size={28} aria-hidden="true" />}
                                     </div>
-                                  ));
-                                })()}
+                                    <strong>{img.label}</strong>
+                                    {mediaActions(`${group.id}_${img.id}`, img.imageUrl, `ảnh ${img.id}`, "image", url => handleUpdateGroupImage(group.id, img.id, url))}
+                                  </div>
+                                ))}
                               </div>
+                              {pictureGroupIssues(group.groupImages || [], group.questions, group.skill === "READING").map(issue => (
+                                <p key={issue} className={s.error}>{issue}</p>
+                              ))}
                             </div>
 
-                            {/* Bước 2: File audio cho toàn bộ nhóm và sơ đồ thứ tự */}
-                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
-                              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 10 }}>
-                                Bước 2. File audio cho toàn bộ nhóm
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#f8faf5", padding: 10, borderRadius: 8, border: "1px solid #e0ebd3" }}>
-                                <Music size={18} color="#254422" />
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "#254422" }}>
-                                  {group.audioUrl ? (group.audioUrl.split("/").pop() || "Audio nhóm") : "Chưa chọn file audio"}
-                                </span>
-                                <span style={{ fontSize: 12, color: "#64748b" }}>
-                                  (Chứa hội thoại từ câu {group.questions[0]?.questionNo || 1} đến câu {group.questions[group.questions.length - 1]?.questionNo || group.questions.length})
-                                </span>
-                                <span style={{ marginLeft: "auto", background: "#e2e8f0", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>MP3</span>
-                              </div>
-                              <div style={{ marginTop: 12 }}>
-                                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Thứ tự phát audio:</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                  {group.questions.map((q, qIdx) => (
-                                    <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", border: "2px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#334155" }}>
-                                          {qIdx + 1}
-                                        </div>
-                                        <span style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{q.questionNo || `Câu ${qIdx + 1}`}</span>
-                                      </div>
-                                      {qIdx < group.questions.length - 1 && <ArrowRight size={14} color="#94a3b8" />}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
+                            {group.skill === "LISTENING" && groupAudioEditor(group, "Bước 2. Tải một tệp audio cho cả nhóm")}
 
                             {/* Bước 3: Cài đáp án cho các câu */}
                             <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                                 <div style={{ fontWeight: 700, fontSize: 14, color: "#254422" }}>
-                                  Bước 3. Cài đáp án cho {group.questions.length} câu
+                                  {group.skill === "READING" ? "Bước 2. Nhập 5 câu đọc" : `Bước 3. Cài đáp án cho ${group.questions.length} câu`}
                                 </div>
                                 <button
                                   type="button"
@@ -1452,26 +1419,10 @@ export default function ExamStaff({
                                             value={q.questionNo || `Câu ${qIdx + 1}`}
                                             onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
                                             style={{ width: 85, fontWeight: 700, fontSize: 12, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1" }}
-                                            placeholder="Số câu"
-                                            title="Sửa số thứ tự câu trong đề thi"
+                                            placeholder="Mã câu"
+                                            aria-label="Mã câu hỏi"
+                                            title="Sửa mã câu hỏi"
                                           />
-                                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
-                                            {["A", "B", "C", "D", "E", "F"].map((optId) => {
-                                              const isChecked = q.correctAnswer === optId;
-                                              return (
-                                                <label key={optId} style={{ display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: 13, fontWeight: isChecked ? 700 : 500, color: isChecked ? "#15803d" : "#334155" }}>
-                                                  <input
-                                                    type="radio"
-                                                    name={`correct_matching_${group.id}_${q.id}`}
-                                                    checked={isChecked}
-                                                    onChange={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: optId })}
-                                                    style={{ cursor: "pointer", width: 15, height: 15 }}
-                                                  />
-                                                  {optId}
-                                                </label>
-                                              );
-                                            })}
-                                          </div>
                                         </div>
 
                                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1505,7 +1456,7 @@ export default function ExamStaff({
                                             }}
                                           >
                                             {isScriptOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                            Kịch bản & Lời giải
+                                            {group.skill === "READING" ? "Lời giải" : "Kịch bản và lời giải"}
                                           </button>
 
                                           {group.questions.length > 1 && (
@@ -1521,24 +1472,57 @@ export default function ExamStaff({
                                         </div>
                                       </div>
 
+                                      {group.skill === "READING" && (
+                                        <div className={s.examReadingFields}>
+                                          <label>Câu chữ Hán
+                                            <input lang="zh" value={q.content} onChange={event => handleUpdateQuestion(group.id, q.id, { content: event.target.value })} />
+                                          </label>
+                                          <label>Pinyin (tùy chọn)
+                                            <input value={q.pinyin || ""} onChange={event => handleUpdateQuestion(group.id, q.id, { pinyin: event.target.value })} />
+                                          </label>
+                                        </div>
+                                      )}
+
+                                      <div className={s.examPictureAnswers} role="group" aria-label="Chọn tranh đúng">
+                                        <span>Tranh đúng</span>
+                                        {PICTURE_CODES.map((optId) => {
+                                          const isChecked = q.correctAnswer === optId;
+                                          return (
+                                            <label key={optId} style={{ display: "inline-flex", alignItems: "center", gap: 3, cursor: "pointer", fontSize: 13, fontWeight: isChecked ? 700 : 500, color: isChecked ? "#15803d" : "#334155" }}>
+                                              <input
+                                                type="radio"
+                                                name={`correct_matching_${group.id}_${q.id}`}
+                                                checked={isChecked}
+                                                disabled={group.skill === "READING" && !isChecked && group.questions.some(other => other.id !== q.id && other.correctAnswer === optId)}
+                                                onChange={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: optId })}
+                                                style={{ cursor: "pointer", width: 15, height: 15 }}
+                                              />
+                                              {optId}
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+
                                       {isScriptOpen && (
                                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #d5dfc3", display: "grid", gap: 8 }}>
-                                          <label style={{ fontSize: 12, margin: 0 }}>
-                                            Kịch bản hội thoại câu này (Audio Script - chỉ hiện sau khi nộp bài)
-                                            <textarea
-                                              rows={2}
-                                              value={q.content}
-                                              onChange={(e) => handleUpdateQuestion(group.id, q.id, { content: e.target.value })}
-                                              placeholder="Ví dụ: 男：你想喝点儿什么？ 女：茶，谢谢。"
-                                              style={{ width: "100%", fontSize: 12, marginTop: 4 }}
-                                            />
-                                          </label>
+                                          {group.skill !== "READING" && (
+                                            <label style={{ fontSize: 12, margin: 0 }}>
+                                              Kịch bản hội thoại câu này (Audio Script - chỉ hiện sau khi nộp bài)
+                                              <textarea
+                                                rows={2}
+                                                value={q.content}
+                                                onChange={(e) => handleUpdateQuestion(group.id, q.id, { content: e.target.value })}
+                                                placeholder="Ví dụ: 男：你想喝点儿什么？ 女：茶，谢谢。"
+                                                style={{ width: "100%", fontSize: 12, marginTop: 4 }}
+                                              />
+                                            </label>
+                                          )}
                                           <label style={{ fontSize: 12, margin: 0 }}>
                                             Giải thích đáp án
                                             <input
                                               value={q.explanation || ""}
                                               onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                              placeholder="Ví dụ: Đoạn hội thoại nhắc đến uống trà, tương ứng với tranh E..."
+                                              placeholder="Vì sao câu này khớp với tranh đã chọn?"
                                               style={{ width: "100%", fontSize: 12, marginTop: 4 }}
                                             />
                                           </label>
@@ -1555,38 +1539,7 @@ export default function ExamStaff({
                           </div>
                         ) : group.groupType === "listening_choice_abc" ? (
                           <div style={{ display: "grid", gap: 16 }}>
-                            {/* File audio cho toàn bộ nhóm và sơ đồ thứ tự */}
-                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
-                              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 10 }}>
-                                File audio chung cho cả nhóm ({group.questions.length} câu liên tục)
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#f8faf5", padding: 10, borderRadius: 8, border: "1px solid #e0ebd3" }}>
-                                <Music size={18} color="#254422" />
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "#254422" }}>
-                                  {group.audioUrl ? (group.audioUrl.split("/").pop() || "Audio nhóm") : "Chưa chọn file audio"}
-                                </span>
-                                <span style={{ fontSize: 12, color: "#64748b" }}>
-                                  (Phát liên tục từ câu {group.questions[0]?.questionNo || 1} đến câu {group.questions[group.questions.length - 1]?.questionNo || group.questions.length})
-                                </span>
-                                <span style={{ marginLeft: "auto", background: "#e2e8f0", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>MP3</span>
-                              </div>
-                              <div style={{ marginTop: 12 }}>
-                                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Thứ tự phát audio:</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                  {group.questions.map((q, qIdx) => (
-                                    <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", border: "2px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#334155" }}>
-                                          {qIdx + 1}
-                                        </div>
-                                        <span style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{q.questionNo || `Câu ${qIdx + 1}`}</span>
-                                      </div>
-                                      {qIdx < group.questions.length - 1 && <ArrowRight size={14} color="#94a3b8" />}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
+                            {groupAudioEditor(group, "Tải một tệp audio cho cả nhóm")}
 
                             {/* Danh sách các câu hỏi nghe chọn A / B / C */}
                             <div style={{ display: "grid", gap: 14 }}>
@@ -2780,6 +2733,7 @@ export default function ExamStaff({
               type="button"
               className={s.secondary}
               style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 20px" }}
+              disabled={mediaUploading}
               onClick={handlePreview}
             >
               <Eye size={17} /> Xem trước đúng giao diện học sinh
@@ -2788,7 +2742,7 @@ export default function ExamStaff({
             <button
               type="button"
               className={s.primary}
-              disabled={busy}
+              disabled={busy || mediaUploading}
               style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 22px" }}
               onClick={() => void handleSaveImport()}
             >

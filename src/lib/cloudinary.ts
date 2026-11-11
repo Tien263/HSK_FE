@@ -20,6 +20,7 @@ export async function uploadToCloudinary(
   file: File | Blob,
   options?: {
     folder?: string;
+    resourceType?: "image" | "video";
     fileName?: string;
     cloudName?: string;
     uploadPreset?: string;
@@ -46,8 +47,8 @@ export async function uploadToCloudinary(
     formData.append("folder", options.folder);
   }
 
-  // Use /auto/upload endpoint so Cloudinary automatically handles image, video/audio, and raw
-  const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+  // Cloudinary handles audio under the video resource type.
+  const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/${options?.resourceType || "auto"}/upload`;
 
   const response = await fetch(endpoint, {
     method: "POST",
