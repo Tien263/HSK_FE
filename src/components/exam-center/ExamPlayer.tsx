@@ -37,6 +37,8 @@ import type { attemptForOwner } from "@/lib/exam-center-core";
 import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, type ExamSkill } from "@/lib/exam-center-core";
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
+import ReadingClozePlayer from "./ReadingClozePlayer";
+import { isReadingCloze, WORD_BANK } from "@/lib/reading-cloze";
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamPlayer.module.css";
 
@@ -350,7 +352,10 @@ export default function ExamPlayer({
   const sharedReplies = replyMatching ? replySlots(matchingGroupQuestions?.find(q => q.groupReplies?.length)?.groupReplies) : [];
   const usedReplies = new Set(matchingGroupQuestions?.map(q => answers[q.id]).filter(Boolean));
 
-  const currentMultiGroup = matchingGroupQuestions || evalGroupQuestions;
+  const clozeQuestions = currentQ && isReadingCloze(currentQ.groupType) ? questions.filter(q =>
+    q.groupType === currentQ.groupType && (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle)
+  ) : null;
+  const currentMultiGroup = clozeQuestions || matchingGroupQuestions || evalGroupQuestions;
 
   const canGoPrev = currentMultiGroup
     ? questions.indexOf(currentMultiGroup[0]) > 0
@@ -668,7 +673,7 @@ export default function ExamPlayer({
           )}
 
           {/* Reading Passage (Đoạn văn đọc hiểu chung nếu có) */}
-          {!matchingGroupQuestions && (currentQ as any).passage && (
+          {!matchingGroupQuestions && !clozeQuestions && (currentQ as any).passage && (
             <div style={{ marginBottom: 18, padding: "16px 20px", background: "#fdfdf9", borderRadius: 12, border: "1px solid #dce4cb", fontSize: 15, lineHeight: 1.8, color: "#223824" }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: "#5d7a55", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                 📖 <span>Đoạn văn đọc hiểu:</span>
@@ -754,7 +759,11 @@ export default function ExamPlayer({
           )}
 
           {/* Bài ghép A–F hiển thị lựa chọn dùng chung phía trên các câu. */}
-          {matchingGroupQuestions ? (
+          {clozeQuestions ? (
+            <ReadingClozePlayer key={currentQ.groupId || currentQ.groupTitle} questions={clozeQuestions}
+              wordBank={currentQ.groupType === WORD_BANK} answers={answers} finished={finished}
+              disabled={busy || conflict} onAnswer={handleAnswer} />
+          ) : matchingGroupQuestions ? (
             <div style={{ display: "grid", gap: 18 }}>
               {replyMatching ? (
                 <section className={s.replyBank} aria-label="Sáu câu trả lời dùng chung">

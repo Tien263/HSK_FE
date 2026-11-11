@@ -234,3 +234,61 @@ test('shared reading replies survive import and attempt saves, and grade by lett
  assert.equal(unchanged.groupType,'standard');
  assert.ok((await f.service.officialPapers()).find(p=>p.id==='off1').questions.every(q=>q.type==='multiple_choice'));
 });
+
+test('reading cloze groups round trip, preserve order, hide keys and grade each selected word',async()=>{
+ const f=fixture();
+ const {WORD_BANK,CLOZE_PASSAGE,passageParts}=require(path.resolve('src/lib/reading-cloze.ts'));
+ const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const option=(id,text,pinyin='')=>({id,text,pinyin});
+ const question=(id,content,correctAnswer,extra={})=>({id,content,correctAnswer,type:'fill_blank',points:2,
+  explanation:'Giải thích ngữ cảnh.',options:[],...extra});
+ const words=[option('C','休息'),option('A','开始','kāishǐ'),option('F','一起'),option('B','更好'),option('E','事情'),option('D','一定')];
+ const bank={id:'bank',title:'Chọn từ',skill:'READING',groupType:WORD_BANK,groupWords:words,questions:[
+  question('bank5','我[blank]会去。','D',{questionNo:40}),question('bank2','他们[blank]学中文。','A',{questionNo:37}),
+  question('bank3','第二个杯子[blank]。','B',{questionNo:38}),question('bank1','我们[blank]去吧。','F',{questionNo:36}),
+  question('bank4','大家[blank]一下。','C',{questionNo:39}),
+ ]};
+ const paragraph={id:'paragraph',title:'完形填空',skill:'READING',groupType:CLOZE_PASSAGE,
+  instruction:'Đọc đoạn văn rồi chọn đáp án.',passage:'遇到困难不要[blank1]。\n每天练习可以[blank3]中文水平。',
+  passagePinyin:'Yùdào kùnnán bùyào…',questions:[
+   question('paragraph3','','C',{blankId:'blank3',options:[option('A','放弃'),option('B','承认'),option('C','提高'),option('D','帮助')]}),
+   question('paragraph1','','B',{blankId:'blank1',options:[option('A','学习'),option('B','放弃','fàngqì'),option('C','发展'),option('D','保持')]}),
+ ]};
+ const flatten=(...groups)=>templates.flattenGroups(groups);
+ const payload=flatten(bank,paragraph);
+ assert.equal(payload.filter(q=>q.groupWords?.length).length,1);
+ assert.equal(payload.filter(q=>q.passage).length,1);
+ assert.deepEqual(templates.unflattenToGroups(payload,1)[0].groupWords,words);
+ assert.deepEqual(templates.unflattenToGroups(payload,1)[1].questions.map(q=>q.blankId),['blank3','blank1']);
+ assert.deepEqual(passageParts(paragraph.passage).flatMap(part=>part.blankId?[part.blankId]:[]),['blank1','blank3']);
+ const body={level:1,title:'Đề điền từ',durationMin:10,passScore:null};
+ for(const invalid of [
+  {...bank,questions:bank.questions.map(q=>({...q,correctAnswer:'A'}))},
+  {...bank,questions:bank.questions.map((q,i)=>i===0?{...q,content:'他[blank1][blank]学习。'}:q)},
+  {...paragraph,passage:paragraph.passage+'[blank1]'},
+  {...paragraph,passage:paragraph.passage+'[blank2]'},
+  {...paragraph,questions:paragraph.questions.map(q=>({...q,correctAnswer:''}))},
+ ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:flatten(invalid)}),400);
+ const custom={...bank,groupCustom:true,groupWords:words.slice(0,2),questions:[question('custom','大家[blank]一下。','C')]};
+ await f.service.importPaper(actors.admin,{...body,questions:flatten(custom)});
+
+ const {paperId}=await f.service.importPaper(actors.admin,{...body,questions:payload});
+ assert.ok(f.sets.find(p=>p.id===paperId).questions.every(({question})=>!question.editorData.groupWords&&!question.editorData.passage));
+ const attempt=await start(f,paperId);
+ assert.deepEqual(attempt.questions.slice(0,5).map(q=>q.questionNo),[40,37,38,36,39]);
+ assert.deepEqual(attempt.questions[0].groupWords,words);
+ assert.equal(attempt.questions.filter(q=>q.groupWords.length).length,1);
+ assert.equal(attempt.questions.filter(q=>q.passage).length,1);
+ assert.equal(attempt.questions[5].passage,paragraph.passage);
+ assert.equal(attempt.questions[5].passagePinyin,paragraph.passagePinyin);
+ assert.equal(attempt.questions[5].blankId,'blank3');
+ assert.deepEqual(attempt.questions[6].options.map(o=>o.id),['A','B','C','D']);
+ assert.ok(attempt.questions.every(q=>q.correctAnswer===undefined&&q.explanation===undefined));
+ const answers=Object.fromEntries(attempt.questions.map((q,index)=>[q.id,['D','C','B','F','C','C','B'][index]]));
+ const saved=await f.service.writeAttempt(actors.a,{id:attempt.id,answers,revision:attempt.revision});
+ assert.deepEqual((await f.service.getAttempt(actors.a,attempt.id)).answers,answers);
+ const result=await f.service.writeAttempt(actors.a,{id:attempt.id,answers,revision:saved.revision},true);
+ assert.deepEqual(result.questions.map(q=>q.result.earned),[2,0,2,2,2,2,2]);
+ assert.equal(result.questions[6].correctAnswer,'B');
+ assert.equal(result.questions[6].explanation,'Giải thích ngữ cảnh.');
+});

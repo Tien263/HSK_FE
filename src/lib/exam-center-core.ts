@@ -1,4 +1,5 @@
 import { gradeQuestion, publicQuestion, canonicalQuestionType } from "./question-content";
+import { CLOZE_PASSAGE, WORD_BANK, isReadingCloze, clozeChoice } from "./reading-cloze";
 import { isMockAnswerCorrect } from "./mock-exam-matcher";
 export const EXAM_LEVELS = [1,2,3,4,5,6,7] as const;
 export const EXAM_SKILLS = ["LISTENING","READING","WRITING","TRANSLATION","SPEAKING"] as const;
@@ -7,7 +8,7 @@ export type ExamQuestion = { id:string; type:string; content:string; skill:ExamS
 export const PICTURE_CODES = ["A", "B", "C", "D", "E", "F"] as const;
 export type ExamGroupImage = { id: string; label: string; imageUrl: string };
 export type ExamReply = { id:string; text:string; pinyin?:string };
-export type ExamGroupMedia = { images?: ExamGroupImage[]; audioUrl?: string; replies?:ExamReply[]; instruction?:string; custom?:boolean };
+export type ExamGroupMedia = { images?: ExamGroupImage[]; audioUrl?: string; replies?:ExamReply[]; instruction?:string; custom?:boolean; words?:ExamReply[]; passage?:string; passagePinyin?:string };
 export const READING_REPLIES = "reading_reply_matching";
 export function replySlots(replies:readonly ExamReply[] = []):ExamReply[]{
  return PICTURE_CODES.map(id=>replies.find(reply=>reply.id===id)??{id,text:"",pinyin:""});
@@ -118,6 +119,9 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
      ...editor,
      groupImages: raw.groupImages || editor.groupImages || [],
      groupReplies: raw.groupReplies || editor.groupReplies,
+     groupWords: raw.groupWords || editor.groupWords,
+     blankId: raw.blankId || editor.blankId,
+     passagePinyin: raw.passagePinyin || editor.passagePinyin,
      groupCustom: raw.groupCustom ?? editor.groupCustom,
      instruction: raw.instruction || editor.instruction || "",
      groupType,
@@ -135,6 +139,8 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
 export function usableQuestion(q:ExamQuestion){
  if(!supportedTypes.has(q.type)||!Number.isFinite(q.points)||q.points<0)return false;
  if(q.editorData.groupType==="matching_images"||q.editorData.groupType===READING_REPLIES)return (q.skill==="LISTENING"||!!q.content.trim())&&PICTURE_CODES.some(code=>code===q.correctAnswer);
+ if(q.editorData.groupType===WORD_BANK)return !!q.content.trim()&&!!q.correctAnswer;
+ if(q.editorData.groupType===CLOZE_PASSAGE)return !!q.editorData.blankId&&q.options.some(option=>clozeChoice(option)&&option.id===q.correctAnswer);
  if(!q.content.trim())return false;
  const manual=q.skill==="SPEAKING"||gradeQuestion(q,"").manual;
  if(!manual&&!q.correctAnswer.trim())return false;
@@ -160,7 +166,10 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia){
    pinyin:q.pinyinPrompt,
    audioUrl:group?.audioUrl||q.audioUrl,
    imageUrl:q.imageUrl,
-   passage:(q as any).passage||(q.editorData as any)?.passage||"",
+   passage:group?.passage??String(q.editorData.passage||""),
+   passagePinyin:group?.passagePinyin??String(q.editorData.passagePinyin||""),
+   blankId:String(q.editorData.blankId||""),
+   groupWords:group?.words||(Array.isArray(q.editorData.groupWords)?q.editorData.groupWords as ExamReply[]:[]),
    groupTitle:(q as any).groupTitle||(q.editorData as any)?.groupTitle||"",
    groupImages:group?.images||(Array.isArray(q.editorData.groupImages)?q.editorData.groupImages as ExamGroupImage[]:[]),
    groupReplies:group?.replies||(Array.isArray(q.editorData.groupReplies)?q.editorData.groupReplies as ExamReply[]:[]),
@@ -194,6 +203,10 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
   const answer=attempt.answers[q.id]||"";
   if(q.editorData.groupType==="matching_images"||q.editorData.groupType===READING_REPLIES){
    const correct=PICTURE_CODES.some(code=>code===answer&&code===q.correctAnswer);
+   return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
+  }
+  if(isReadingCloze(q.editorData.groupType)){
+   const correct=!!answer&&answer===q.correctAnswer;
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
   }
   const graded=q.skill==="SPEAKING"?{manual:true,correct:false}:gradeQuestion(q,answer);
@@ -230,7 +243,9 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
    questions:attempt.paper.questions.map(q=>{
      const groupId=String(q.editorData.groupId||"");
      const media=attempt.paper.groups?.[groupId];
-     const pub=publicExamQuestion(q,media&&{...media,images:shownGroups.has(groupId)?[]:media.images,replies:shownGroups.has(groupId)?[]:media.replies});
+     const pub=publicExamQuestion(q,media&&(!shownGroups.has(groupId)?media:{
+       audioUrl:media.audioUrl,instruction:media.instruction,images:[],replies:[],words:[],passage:"",passagePinyin:""
+     }));
      if(media)shownGroups.add(groupId);
      const isListening=q.skill==="LISTENING";
      // Khi đang thi (chưa nộp bài): ẩn đề bài / kịch bản nghe để học sinh nghe hiểu thật

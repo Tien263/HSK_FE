@@ -1,3 +1,4 @@
+import { WORD_BANK, CLOZE_PASSAGE, isReadingCloze } from "../../lib/reading-cloze";
 import { PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, legacyReplyChoices, type ExamReply } from "../../lib/exam-center-core";
 
 // hsk-sample-templates.ts
@@ -21,6 +22,9 @@ export interface ImportedQuestion {
   groupType?: ExamSectionGroup["groupType"];
   groupImages?: ExamSectionGroup["groupImages"];
   groupReplies?: ExamReply[];
+  groupWords?: ExamReply[];
+  passagePinyin?: string;
+  blankId?: string;
   groupCustom?: boolean;
   instruction?: string;
   questionNo?: string | number;
@@ -458,6 +462,7 @@ export interface QuestionOption {
 export interface QuestionItem {
   id: string;
   questionNo?: string | number;
+  blankId?: string;
   type: string;
   content: string;
   pinyin?: string;
@@ -478,9 +483,11 @@ export interface ExamSectionGroup {
   instruction?: string;
   audioUrl?: string;
   passage?: string;
-  groupType?: typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
+  groupType?: typeof WORD_BANK | typeof CLOZE_PASSAGE | typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
   groupImages?: { id: string; label: string; imageUrl: string }[];
   groupReplies?: ExamReply[];
+  groupWords?: ExamReply[];
+  passagePinyin?: string;
   groupCustom?: boolean;
   questions: QuestionItem[];
 }
@@ -491,21 +498,24 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
   for (const group of groups) {
     const pictureGroup = group.groupType === "matching_images";
     const replyGroup = group.groupType === READING_REPLIES;
-    const groupAudio = pictureGroup || replyGroup || group.groupType === "listening_choice_abc";
+    const wordBank = group.groupType === WORD_BANK;
+    const clozePassage = group.groupType === CLOZE_PASSAGE;
+    const cloze = wordBank || clozePassage;
+    const groupAudio = pictureGroup || replyGroup || cloze || group.groupType === "listening_choice_abc";
     for (const [index, q] of group.questions.entries()) {
       const questionId = q.id || `q_${qIdx}`;
       const item: ImportedQuestion = {
         id: questionId,
-        type: pictureGroup || replyGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
+        type: cloze ? "fill_blank" : pictureGroup || replyGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
         skill: group.skill,
-        content: replyGroup || (pictureGroup && group.skill === "READING") ? q.content : q.content || `第 ${qIdx} 题`,
+        content: cloze || replyGroup || (pictureGroup && group.skill === "READING") ? q.content : q.content || `第 ${qIdx} 题`,
         pinyin: q.pinyin || "",
         points: Number(q.points),
-        correctAnswer: pictureGroup || replyGroup ? q.correctAnswer : q.correctAnswer || "A",
+        correctAnswer: cloze || pictureGroup || replyGroup ? q.correctAnswer : q.correctAnswer || "A",
         explanation: q.explanation || "",
-        imageUrl: replyGroup || (pictureGroup && group.skill === "READING") ? "" : q.imageUrl || "",
+        imageUrl: cloze || replyGroup || (pictureGroup && group.skill === "READING") ? "" : q.imageUrl || "",
         audioUrl: groupAudio ? (index === 0 && group.skill === "LISTENING" ? group.audioUrl || "" : "") : q.audioUrl || group.audioUrl || "",
-        options: replyGroup ? [] : pictureGroup ? PICTURE_CODES.map(id => ({ id, text: `Tranh ${id}` })) : Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
+        options: replyGroup || wordBank ? [] : clozePassage ? q.options.map(({ id, text, pinyin }) => ({ id, text, pinyin })) : pictureGroup ? PICTURE_CODES.map(id => ({ id, text: `Tranh ${id}` })) : Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
           id: opt.id,
           text: opt.text || "",
           pinyin: opt.pinyin || "",
@@ -517,7 +527,17 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         ],
         rubric: (q as any).rubric || "",
       };
-      item.passage = pictureGroup || replyGroup ? "" : group.passage || "";
+      item.passage = clozePassage && index === 0 ? group.passage || "" :
+        pictureGroup || replyGroup || cloze ? "" : group.passage || "";
+      if (clozePassage) item.blankId = q.blankId;
+      if (cloze && index === 0) {
+        item.instruction = group.instruction || "";
+        if (wordBank) {
+          item.groupWords = group.groupWords || [];
+          item.groupCustom = !!group.groupCustom;
+        }
+        if (clozePassage) item.passagePinyin = group.passagePinyin || "";
+      }
       item.groupTitle = group.title || "";
       item.groupId = group.id;
       item.groupType = group.groupType;
@@ -548,6 +568,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     const explicitPassage = (q as any).passage || (q as any).editorData?.passage;
     const explicitGroupType = (q as any).groupType || (q as any).editorData?.groupType || "standard";
     const explicitGroupImages = (q as any).groupImages || (q as any).editorData?.groupImages;
+    const cloze = isReadingCloze(explicitGroupType);
     const explicitQuestionNo = (q as any).questionNo || (q as any).editorData?.questionNo;
 
     let key = q.groupId || (q as any).editorData?.groupId || explicitGroupTitle;
@@ -577,6 +598,9 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     }
 
     const grp = groupsMap.get(key)!;
+    const words = q.groupWords || (q as any).editorData?.groupWords;
+    if (Array.isArray(words)) grp.groupWords = words;
+    grp.passagePinyin ||= q.passagePinyin || (q as any).editorData?.passagePinyin;
     const replies = q.groupReplies || (q as any).editorData?.groupReplies;
     const custom = q.groupCustom ?? (q as any).editorData?.groupCustom;
     if (Array.isArray(replies)) grp.groupReplies = replySlots(replies);
@@ -594,24 +618,25 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     grp.questions.push({
       id: q.id || `q_${i + 1}`,
       questionNo: explicitQuestionNo || (i + 1),
+      blankId: q.blankId || (q as any).editorData?.blankId,
       type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
-      content: explicitGroupType === READING_REPLIES ? q.content || "" : q.content || `Câu ${i + 1}`,
+      content: cloze || explicitGroupType === READING_REPLIES ? q.content || "" : q.content || `Câu ${i + 1}`,
       pinyin: q.pinyin || (q as any).pinyinPrompt || "",
       points: Number(q.points ?? 2.5),
       imageUrl: q.imageUrl || "",
       audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
-      correctAnswer: explicitGroupType === "matching_images" || explicitGroupType === READING_REPLIES ? q.correctAnswer || "" : q.correctAnswer || "A",
+      correctAnswer: cloze || explicitGroupType === "matching_images" || explicitGroupType === READING_REPLIES ? q.correctAnswer || "" : q.correctAnswer || "A",
       explanation: q.explanation || "",
       acceptedAnswers: (q as any).acceptedAnswers || (q as any).editorData?.acceptedAnswers || "",
       requiresManualReview: !!((q as any).requiresManualReview || (q as any).editorData?.requiresManualReview),
-      options: explicitGroupType === READING_REPLIES ? [] : Array.isArray(q.options) && q.options.length
+      options: explicitGroupType === READING_REPLIES || explicitGroupType === WORD_BANK ? [] : Array.isArray(q.options) && q.options.length
         ? q.options.map((opt: any, optIdx: number) => ({
             id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),
             text: typeof opt === "string" ? opt : opt?.text || opt?.content || "",
             pinyin: typeof opt === "object" && opt ? opt.pinyin || "" : "",
             imageUrl: opt?.imageUrl || "",
           }))
-        : [
+        : cloze ? [] : [
             { id: "A", text: "Đáp án A" },
             { id: "B", text: "Đáp án B" },
           ],

@@ -3,6 +3,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
+import { CLOZE_PASSAGE, WORD_BANK, isReadingCloze, clozeChoice, readingClozeIssues } from "./reading-cloze";
 import { NextResponse } from "next/server";
 import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, replyGroupIssues, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
 
@@ -74,7 +75,8 @@ async function ownAttempts(user:AuthUser){
  const rows=await prisma.auditLog.findMany({where:{userId:user.id,action:ATTEMPT},orderBy:{createdAt:"desc"}});
  const result=[];for(const row of rows)result.push({id:row.id,state:await settledState(user,row.id,row)});return result;
 }
-function approvedPool(papers:ExamPaper[],level:number){return [...new Map(papers.filter(p=>levelGroup(p.level)===level).flatMap(p=>p.questions).filter(q=>usableQuestion(q)&&q.points>0).map(q=>[q.id,q])).values()];}
+// The custom-paper builder samples individual questions. Keep passage blanks together in their published paper.
+function approvedPool(papers:ExamPaper[],level:number){return [...new Map(papers.filter(p=>levelGroup(p.level)===level).flatMap(p=>p.questions).filter(q=>usableQuestion(q)&&q.points>0&&q.editorData.groupType!==CLOZE_PASSAGE).map(q=>[q.id,q])).values()];}
 async function legacyHistory(user:AuthUser){
  const rows=await prisma.attempt.findMany({where:{studentId:user.id,status:{not:"IN_PROGRESS"},assignment:{quizSet:{mode:{in:["MOCK_EXAM","EXAM"]}}}},select:{id:true,score:true,maxScore:true,status:true,startedAt:true,submittedAt:true,teacherNote:true,assignment:{select:{title:true,quizSet:{select:{id:true,hskLevel:true}}}}},orderBy:{startedAt:"desc"}});
  return rows.map(row=>({id:`legacy:${row.id}`,paperId:row.assignment.quizSet.id,title:row.assignment.title,level:row.assignment.quizSet.hskLevel,source:"LEGACY" as const,maxScore:row.maxScore,score:row.score,status:row.status,startedAt:row.startedAt.toISOString(),submittedAt:row.submittedAt?.toISOString()||null,result:row.status!=="GRADED"?"PENDING":/chưa đạt/i.test(row.teacherNote||"")?"FAIL":/đạt chuẩn/i.test(row.teacherNote||"")?"PASS":"UNSET",feedback:row.teacherNote||""}));
@@ -146,7 +148,7 @@ export async function publicationCandidates(user:AuthUser){
    const group=groups[id];
    if(group&&!shownGroups.has(id)){
     q.audioUrl=group.audioUrl||q.audioUrl;
-    q.editorData={...q.editorData,groupImages:group.images,groupReplies:group.replies,groupCustom:group.custom,instruction:group.instruction||q.editorData.instruction};
+    q.editorData={...q.editorData,groupImages:group.images,groupReplies:group.replies,groupWords:group.words,passage:group.passage??q.editorData.passage,passagePinyin:group.passagePinyin,groupCustom:group.custom,instruction:group.instruction||q.editorData.instruction};
     shownGroups.add(id);
    }
   }
@@ -185,7 +187,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   const groupType=q.editorData.groupType;
   const originalGroupId=String(q.editorData.groupId||"");
   const key=`${q.skill}:${groupType}:${originalGroupId||q.editorData.groupTitle||""}`;
-  if(groupType==="matching_images"||groupType==="listening_choice_abc"||groupType===READING_REPLIES){
+  if(groupType==="matching_images"||groupType==="listening_choice_abc"||groupType===READING_REPLIES||isReadingCloze(groupType)){
    let group=grouped.get(key);
    if(!group){
     group={title:String(q.editorData.groupTitle||"Nhóm câu hỏi"),questions:[],media:{}};
@@ -202,7 +204,45 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
    delete q.editorData.groupImages;
    delete q.editorData.audioUrl;
    q.audioUrl="";
-   if(groupType===READING_REPLIES){
+   if(groupType===WORD_BANK||groupType===CLOZE_PASSAGE){
+    if(q.skill!=="READING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Đọc.`);
+    const cleanChoice=(option:unknown)=>{
+     if(!clozeChoice(option))throw new ExamError(400,`${group.title} — Dữ liệu lựa chọn không hợp lệ.`);
+     return {id:option.id,text:option.text.trim(),pinyin:option.pinyin?.trim()||""};
+    };
+    if(groupType===WORD_BANK){
+     if(Array.isArray(q.editorData.groupWords)){
+      const words=q.editorData.groupWords.map(cleanChoice);
+      if(group.media.words&&JSON.stringify(group.media.words)!==JSON.stringify(words))
+       throw new ExamError(400,`${group.title} — Nhóm có nhiều ngân hàng từ khác nhau.`);
+      group.media.words=words;
+     }
+     if(typeof q.editorData.groupCustom==="boolean"){
+      if(group.media.custom!==undefined&&group.media.custom!==q.editorData.groupCustom)
+       throw new ExamError(400,`${group.title} — Chế độ soạn nhóm không nhất quán.`);
+      group.media.custom=q.editorData.groupCustom;
+     }
+     q.options=[];
+    }else{
+     const passage=String(q.editorData.passage||"");
+     if(passage&&group.media.passage&&group.media.passage!==passage)
+      throw new ExamError(400,`${group.title} — Nhóm có nhiều đoạn văn khác nhau.`);
+     group.media.passage||=passage;
+     group.media.passagePinyin||=String(q.editorData.passagePinyin||"");
+     q.options=q.options.map(cleanChoice);
+     q.editorData.blankId=String(q.editorData.blankId||"");
+    }
+    group.media.instruction||=String(q.editorData.instruction||"");
+    q.type="fill_blank";
+    q.imageUrl="";
+    delete q.editorData.passage;
+    delete q.editorData.passagePinyin;
+    delete q.editorData.groupWords;
+    delete q.editorData.groupCustom;
+    delete q.editorData.instruction;
+    delete q.editorData.imageUrl;
+    delete q.editorData.requiresManualReview;
+   } else if(groupType===READING_REPLIES){
     if(q.skill!=="READING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Đọc.`);
     const replies=legacy[originalGroupId]?.replies||q.editorData.groupReplies;
     if(Array.isArray(replies)){
@@ -245,6 +285,9 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   const first=questions[0];
   const issues=first.editorData.groupType==="matching_images"?pictureGroupIssues(media.images||[],questions,first.skill==="READING"):[];
   if(first.editorData.groupType===READING_REPLIES)issues.push(...replyGroupIssues(media.replies||[],questions,media.custom));
+  const type=first.editorData.groupType;
+  if(type===WORD_BANK||type===CLOZE_PASSAGE)
+   issues.push(...readingClozeIssues(type,media,questions.map(q=>({...q,blankId:String(q.editorData.blankId||"")}))));
   if(first.skill==="LISTENING"&&!media.audioUrl)issues.push("Tải tệp audio chung cho nhóm.");
   if(issues.length)throw new ExamError(400,`${title} — ${issues.join(" ")}`);
   if(media.replies)media.replies=replySlots(media.replies);

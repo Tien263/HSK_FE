@@ -141,3 +141,26 @@
 @media (max-width: 540px) {
   .replyFields { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }
+
+.clozeChoiceFields {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.clozePassagePreview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 2;
+  padding: 10px 0;
+}
+.clozePassagePreview mark {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #eaf2e2;
+  color: #29452d;
+}
+@media (max-width: 540px) {
+  .clozeChoiceFields { grid-template-columns: minmax(0, 1fr); }
+}
