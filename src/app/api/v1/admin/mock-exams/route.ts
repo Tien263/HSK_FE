@@ -407,11 +407,13 @@ export async function POST(request: Request) {
             options: JSON.stringify(optionsArr),
             teacherId: admin.id,
             editorData: {
+              ...(q.editorData && typeof q.editorData === "object" ? q.editorData : {}),
               options: optionsArr,
               status: "READY",
               audioUrl,
               imageUrl,
               pinyin: pinyinPrompt,
+              questionNumber: q.questionNumber || (q.editorData as any)?.questionNumber || orderIndex,
             },
           },
         });

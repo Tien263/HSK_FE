@@ -147,6 +147,9 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
      tokenIds: Array.isArray(raw.tokenIds) ? raw.tokenIds : Array.isArray(editor.tokenIds) ? editor.tokenIds : [],
      sampleAnswer: String(raw.sampleAnswer || editor.sampleAnswer || raw.correctAnswer || ""),
      sentenceOrderMode: String(raw.sentenceOrderMode || editor.sentenceOrderMode || "both"),
+      givenWords: Array.isArray(raw.givenWords) ? raw.givenWords : Array.isArray(editor.givenWords) ? editor.givenWords : [],
+      essayMin: raw.essayMin !== undefined ? Number(raw.essayMin) : editor.essayMin !== undefined ? Number(editor.essayMin) : undefined,
+      essayMax: raw.essayMax !== undefined ? Number(raw.essayMax) : editor.essayMax !== undefined ? Number(editor.essayMax) : undefined,
      requiresManualReview: !!(raw.requiresManualReview || editor.requiresManualReview),
      ...(raw.type==="multi_choice"?{schemaVersion:2,selectionMode:"MULTIPLE"}:{})
    },
@@ -214,9 +217,10 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia, positi
        })),
    tokens: (Array.isArray(q.editorData.tokens) ? q.editorData.tokens : []) as string[],
    sentenceOrderMode: ((q.editorData as any).sentenceOrderMode || "both") as "interactive" | "text" | "both",
-   essayMin:safe.essayMin,
-   essayMax:safe.essayMax,
-   translationDirection:safe.translationDirection
+   givenWords: (Array.isArray(q.editorData.givenWords) ? q.editorData.givenWords : []) as any[],
+    essayMin: safe.essayMin ?? (q.editorData.essayMin !== undefined ? Number(q.editorData.essayMin) : undefined),
+    essayMax: safe.essayMax ?? (q.editorData.essayMax !== undefined ? Number(q.editorData.essayMax) : undefined),
+    translationDirection: safe.translationDirection
  };
 }
 export function paperSummary(paper:ExamPaper){return{createdAt:paper.createdAt||null,customConfig:paper.customConfig||null,id:paper.id,title:paper.title,description:paper.description,level:paper.level,source:paper.source,durationMin:paper.durationMin,maxScore:paper.maxScore,passScore:paper.passScore,proctorEnabled:paper.proctorEnabled!==false,questionsCount:paper.questions.length,skills:[...new Set(paper.questions.map(q=>q.skill))],mode:paper.mode};}

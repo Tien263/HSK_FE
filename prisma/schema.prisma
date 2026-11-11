@@ -108,6 +108,8 @@ model ClassStudent {
 }
 
 // 3. GIÁO TRÌNH, CẤP ĐỘ & BÀI HỌC (Curriculum, Level, Lesson)
+// CurriculumContent: Kho lưu trữ JSON nhanh theo cấp độ HSK (dùng cho Lộ trình tự học & Placement test).
+// Curriculum / Level / Lesson: Cấu trúc quan hệ phân cấp (dùng cho quản lý lớp học, bài học & sổ từ vựng).
 model CurriculumContent {
   hskLevel  Int      @id
   lessons   Json
@@ -210,6 +212,9 @@ model ReadingItem {
 }
 
 // 5. NGÂN HÀNG CÂU HỎI & BỘ ĐỀ (Questions & QuizSets)
+// Lưu ý: Các trường content, correctAnswer, options, audioUrl, imageUrl ở cấp cột phục vụ truy vấn cơ bản.
+// Toàn bộ cấu trúc nâng cao của HSK 3.0 (questionNumber, groupType, passage, givenWords, tokens, rubric...)
+// được lưu linh hoạt trong editorData (Json) và đồng bộ qua snapshotQuestion / formatQuestionForClient.
 model Question {
   id            String   @id @default(cuid())
   type          String   // single_choice, multi_choice, true_false, fill_blank, matching, ordering, listening, pinyin_input, short_answer
@@ -474,6 +479,8 @@ model GameSession {
   student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
+// [LEGACY / RESERVED] Bảng cấu hình mini-game cho lớp học. Hiện tại cấu hình game dùng mặc định,
+// giữ nguyên bảng và schema để tuyệt đối không ảnh hưởng đến dữ liệu hiện có trong CSDL.
 model GameConfig {
   id        String   @id @default(cuid())
   classId   String   @unique

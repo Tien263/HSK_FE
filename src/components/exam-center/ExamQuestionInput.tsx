@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Edit3, Puzzle, RotateCcw, Undo2, X } from "lucide-react";
 import type { publicExamQuestion } from "@/lib/exam-center-core";
 import { playChineseSpeech } from "@/lib/chinese-speech-player";
+import { countHanzi, checkGivenWordsUsage, type GivenWord } from "@/lib/writing-essay";
 import s from "./ExamPlayer.module.css";
 
 type Question = ReturnType<typeof publicExamQuestion>;
@@ -646,6 +647,406 @@ function SentenceOrderPlayer({ q, strVal, disabled, onChange }: SentenceOrderPla
   );
 }
 
+
+interface WritingSentencePlayerProps {
+  q: Question;
+  strVal: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}
+
+function WritingSentencePlayer({ q, strVal, disabled, onChange }: WritingSentencePlayerProps) {
+  const words: GivenWord[] = useMemo(() => {
+    if (Array.isArray((q as any).givenWords) && (q as any).givenWords.length > 0) {
+      return (q as any).givenWords;
+    }
+    const text = q.content || "";
+    if (text.includes("/") || text.includes("，") || text.includes(",")) {
+      const parts = text.split(/[/，,]+/).map((s: string) => s.trim()).filter(Boolean);
+      if (parts.length > 1 && parts.every((p: string) => p.length <= 10)) {
+        return parts.map((w: string, i: number) => ({ id: `w_${i}`, word: w }));
+      }
+    }
+    return [];
+  }, [(q as any).givenWords, q.content]);
+
+  const hanziCount = useMemo(() => countHanzi(strVal), [strVal]);
+
+  const usage = useMemo(() => {
+    if (words.length === 0) return { missing: [], allUsed: true };
+    return checkGivenWordsUsage(strVal, words);
+  }, [strVal, words]);
+
+  const handleInsertPunctuation = (punct: string) => {
+    if (disabled) return;
+    onChange((strVal + punct).trim());
+  };
+
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        borderRadius: 14,
+        border: "1.5px solid #dbe6d5",
+        padding: "20px 22px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
+        display: "grid",
+        gap: 16,
+      }}
+    >
+      <div>
+        <span style={{ fontSize: 16, fontWeight: 700, color: "#1e3321", letterSpacing: "0.2px" }}>
+          {q.content || "看图并使用给出的词语造句。"}
+        </span>
+        {q.pinyin && (
+          <div style={{ fontSize: 13, color: "#617d5c", marginTop: 2 }}>[{q.pinyin}]</div>
+        )}
+      </div>
+
+      {q.imageUrl && (
+        <div
+          style={{
+            background: "#f8faf5",
+            borderRadius: 12,
+            border: "1px solid #e1ebdb",
+            padding: "12px 16px",
+            textAlign: "center",
+          }}
+        >
+          <img
+            src={q.imageUrl}
+            alt="Đề bài nhìn tranh viết câu"
+            style={{
+              maxHeight: 260,
+              maxWidth: "100%",
+              objectFit: "contain",
+              borderRadius: 8,
+              display: "inline-block",
+            }}
+          />
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>
+          请使用以下词语:
+        </div>
+
+        {words.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {words.map((item, idx) => (
+              <div
+                key={item.id || idx}
+                style={{
+                  display: "inline-flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  background: "#e0f2fe",
+                  border: "1px solid #bae6fd",
+                  borderRadius: 20,
+                  padding: "6px 18px",
+                  boxShadow: "0 1px 3px rgba(3,105,161,0.08)",
+                }}
+              >
+                {item.pinyin && (
+                  <span style={{ fontSize: 10, color: "#0369a1", marginBottom: -2 }}>
+                    {item.pinyin}
+                  </span>
+                )}
+                <span style={{ fontSize: 16, fontWeight: 700, color: "#0369a1", letterSpacing: "0.5px" }}>
+                  {item.word}
+                </span>
+                {item.meaning && (
+                  <span style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>
+                    {item.meaning}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: "#64748b", fontStyle: "italic" }}>
+            (Quan sát hình ảnh và sử dụng từ ngữ phù hợp để viết câu)
+          </div>
+        )}
+
+        <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
+          请根据图片，使用所有给出的词语写一个完整的句子。
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "#546e50", fontWeight: 600 }}>
+            Chèn nhanh dấu câu:
+          </span>
+          <div style={{ display: "flex", gap: 4 }}>
+            {["。", "，", "！", "？"].map((punct) => (
+              <button
+                key={punct}
+                type="button"
+                disabled={disabled}
+                onClick={() => handleInsertPunctuation(punct)}
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 4,
+                  border: "1px solid #cbd7c1",
+                  background: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                }}
+              >
+                {punct}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <textarea
+          rows={3}
+          disabled={disabled}
+          value={strVal}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="请在这里输入你的句子……"
+          style={{
+            width: "100%",
+            padding: "12px 14px",
+            borderRadius: 10,
+            border: "2px solid #27492c",
+            background: "#ffffff",
+            fontSize: 16,
+            fontWeight: 500,
+            color: "#1e351d",
+            lineHeight: 1.6,
+            outline: "none",
+          }}
+        />
+
+        {words.length > 0 && strVal.trim() && (
+          <div>
+            {usage.allUsed ? (
+              <div style={{ fontSize: 12, color: "#15803d", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                <CheckCircle2 size={14} /> Đã sử dụng đủ tất cả các từ vựng bắt buộc!
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                <AlertCircle size={14} /> Chưa dùng từ: {usage.missing.join(", ")}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748b" }}>
+          <span>Học sinh nhập câu trả lời bằng tiếng Trung.</span>
+          <span>Số chữ Hán: <strong>{hanziCount}</strong></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface EssayPlayerProps {
+  q: Question;
+  strVal: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}
+
+function EssayPlayer({ q, strVal, disabled, onChange }: EssayPlayerProps) {
+  const passage = String((q as any).passage || "").trim();
+  const essayMin = (q as any).essayMin !== undefined ? Number((q as any).essayMin) : 80;
+  const essayMax = (q as any).essayMax !== undefined ? Number((q as any).essayMax) : 400;
+
+  const hanziCount = useMemo(() => countHanzi(strVal), [strVal]);
+  const passageHanziCount = useMemo(() => countHanzi(passage), [passage]);
+
+  const handleInsertPunctuation = (punct: string) => {
+    if (disabled) return;
+    onChange(strVal + punct);
+  };
+
+  const progressPercent = Math.min(100, Math.round((hanziCount / essayMin) * 100));
+  const isTooShort = hanziCount < essayMin;
+  const isOptimal = hanziCount >= essayMin && hanziCount <= essayMax;
+  const isTooLong = hanziCount > essayMax;
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <strong style={{ fontSize: 16, color: "#254422" }}>
+            {q.content || "写作：请阅读材料并完成短文写作。"}
+          </strong>
+          {q.pinyin && <div style={{ fontSize: 13, color: "#617d5c" }}>[{q.pinyin}]</div>}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, background: "#eaf3e5", color: "#284b25", padding: "4px 12px", borderRadius: 20 }}>
+          Yêu cầu đề: {essayMin} – {essayMax} chữ Hán
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: passage ? "repeat(auto-fit, minmax(340px, 1fr))" : "1fr",
+          gap: 18,
+          alignItems: "start",
+        }}
+      >
+        {passage && (
+          <div
+            style={{
+              background: "#fcfdfa",
+              border: "1.5px solid #d3e2cb",
+              borderRadius: 14,
+              padding: "16px 18px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e1ebd9", paddingBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#2b4b27", display: "flex", alignItems: "center", gap: 6 }}>
+                📖 Đoạn văn tư liệu đề bài (阅读材料)
+              </span>
+              <span style={{ fontSize: 11, color: "#546e50", fontWeight: 600 }}>
+                {passageHanziCount} chữ Hán
+              </span>
+            </div>
+
+            {q.imageUrl && (
+              <div style={{ textAlign: "center", margin: "4px 0" }}>
+                <img
+                  src={q.imageUrl}
+                  alt="Ảnh minh họa đề bài"
+                  style={{ maxHeight: 200, maxWidth: "100%", objectFit: "contain", borderRadius: 8 }}
+                />
+              </div>
+            )}
+
+            <div
+              style={{
+                maxHeight: 520,
+                overflowY: "auto",
+                whiteSpace: "pre-wrap",
+                fontSize: 15,
+                lineHeight: 1.85,
+                color: "#1c351b",
+                paddingRight: 6,
+              }}
+            >
+              {passage}
+            </div>
+
+            <div style={{ fontSize: 11, color: "#688464", fontStyle: "italic", borderTop: "1px dashed #dbe6d4", paddingTop: 8 }}>
+              💡 Học sinh có thể vừa đọc lại đoạn văn trên vừa viết bài bên cạnh mà không cần chuyển trang.
+            </div>
+          </div>
+        )}
+
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1.5px solid #27492c",
+            borderRadius: 14,
+            padding: "16px 18px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+            display: "grid",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#27492c", display: "flex", alignItems: "center", gap: 6 }}>
+              ✍️ Bài làm của bạn (作答区域)
+            </span>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "#546e50", marginRight: 4 }}>Chèn nhanh:</span>
+              {["。", "，", "、", "！", "？", "“", "”"].map((punct) => (
+                <button
+                  key={punct}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => handleInsertPunctuation(punct)}
+                  style={{
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    border: "1px solid #cad7bf",
+                    background: "#fbfdf8",
+                    fontSize: 13,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {punct}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <textarea
+            disabled={disabled}
+            rows={passage ? 15 : 12}
+            value={strVal}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="请在此输入你的短文（支持分段、换行，系统将实时自动保存）……"
+            style={{
+              width: "100%",
+              padding: 14,
+              borderRadius: 10,
+              border: "1.5px solid #cbd7c1",
+              background: "#ffffff",
+              fontSize: 16,
+              lineHeight: 1.8,
+              color: "#1d361c",
+              outline: "none",
+              resize: "vertical",
+            }}
+          />
+
+          <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: "#27492c" }}>
+                Số chữ Hán đã viết: <strong style={{ fontSize: 15 }}>{hanziCount}</strong> chữ
+              </span>
+              <span style={{ color: "#64748b" }}>
+                Mục tiêu: {essayMin} – {essayMax} chữ
+              </span>
+            </div>
+
+            <div style={{ width: "100%", height: 8, background: "#e8ede4", borderRadius: 4, overflow: "hidden" }}>
+              <div
+                style={{
+                  width: `${progressPercent}%`,
+                  height: "100%",
+                  background: isTooShort ? "#f59e0b" : isTooLong ? "#ef4444" : "#16a34a",
+                  transition: "width 0.2s ease",
+                }}
+              />
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 500 }}>
+              {isTooShort && (
+                <span style={{ color: "#b45309" }}>
+                  ⚠️ Cần viết thêm ít nhất {essayMin - hanziCount} chữ để đạt mức tối thiểu ({essayMin} chữ).
+                </span>
+              )}
+              {isOptimal && (
+                <span style={{ color: "#15803d" }}>
+                  ✅ Đã đạt yêu cầu độ dài ({hanziCount} chữ trong khoảng {essayMin}–{essayMax} chữ).
+                </span>
+              )}
+              {isTooLong && (
+                <span style={{ color: "#b91c1c" }}>
+                  ℹ️ Đã vượt quá số chữ tối đa ({hanziCount} / {essayMax} chữ). Bạn có thể cô đọng bài viết lại.
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ExamQuestionInput({
   question: q,
   value = "",
@@ -983,6 +1384,28 @@ export default function ExamQuestionInput({
   else if (q.type === "sentence_order") {
     inputContent = (
       <SentenceOrderPlayer
+        q={q}
+        strVal={strVal}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    );
+  }
+  // 6.2. Picture + Given Words Sentence Writing (Nhìn tranh và dùng từ cho trước viết câu)
+  else if (q.type === "writing") {
+    inputContent = (
+      <WritingSentencePlayer
+        q={q}
+        strVal={strVal}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    );
+  }
+  // 6.3. Essay Writing (~80-400 words with reference reading passage)
+  else if (q.type === "essay") {
+    inputContent = (
+      <EssayPlayer
         q={q}
         strVal={strVal}
         disabled={disabled}

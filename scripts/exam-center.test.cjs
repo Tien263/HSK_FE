@@ -611,3 +611,122 @@ test('sentence_order upgrade: multi-character token segmentation, ending period 
   assert.ok(reviewB);
   assert.equal(reviewB.question.correctAnswer, target);
 });
+
+
+test('writing & essay upgrade: picture given words sentence writing and essay reading passage with min-max char counts', async () => {
+  const f = fixture();
+  const { parseQuickGivenWords, countHanzi, checkGivenWordsUsage } = require(path.resolve('src/lib/writing-essay.ts'));
+  const templates = require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+
+  // 1. parseQuickGivenWords parses slashes, commas, and parentheses
+  const words1 = parseQuickGivenWords('虽然 / 下雨 / 但是');
+  assert.equal(words1.length, 3);
+  assert.deepEqual(words1.map(w => w.word), ['虽然', '下雨', '但是']);
+
+  const wordsWithPinyin = parseQuickGivenWords('虽然(suīrán), 下雨(xiàyǔ), 但是(dànshì)');
+  assert.equal(wordsWithPinyin[0].pinyin, 'suīrán');
+  assert.equal(wordsWithPinyin[1].pinyin, 'xiàyǔ');
+
+  // 2. countHanzi
+  const sampleEssay = '从前有一只住在深山里的小松鼠，它每天都要去树林里收集各种各样的松果。\n有一天，它在树洞旁发现了一颗特别奇怪的果实。';
+  const hanziCount = countHanzi(sampleEssay);
+  assert.ok(hanziCount > 30, 'counts Chinese characters excluding punctuation and newlines');
+
+  // 3. checkGivenWordsUsage
+  const goodSentence = '虽然今天下雨，但是他还是去跑步了。';
+  const badSentence = '虽然今天下雨了。';
+  const usageGood = checkGivenWordsUsage(goodSentence, words1);
+  assert.equal(usageGood.allUsed, true);
+  assert.equal(usageGood.missing.length, 0);
+
+  const usageBad = checkGivenWordsUsage(badSentence, words1);
+  assert.equal(usageBad.allUsed, false);
+  assert.deepEqual(usageBad.missing, ['但是']);
+
+  // 4. Paper with Writing (picture + given words) and Essay (passage + min/max)
+  const writingQ = {
+    id: 'write-q1',
+    questionNumber: 99,
+    type: 'writing',
+    content: '看图并使用给出的词语造句。',
+    imageUrl: 'https://res.cloudinary.com/demo/umbrella.jpg',
+    givenWords: words1,
+    correctAnswer: '虽然今天下着大雨，但是小明依然去上学。',
+    points: 10,
+    options: [],
+    explanation: 'Sử dụng cặp liên từ 虽然...但是...'
+  };
+
+  const essayPassage = '中国有句古话叫“熟能生巧”。意思是说，任何事情只要经常去做，掌握了其中的规律，就能做得非常巧妙和熟练。\n古代有一个神箭手名叫陈尧咨，他射箭百发百中……';
+  const essayQ = {
+    id: 'essay-q1',
+    questionNumber: 100,
+    type: 'essay',
+    content: '缩写短文：请阅读上方的故事，将其缩写成一篇约400字的短文。',
+    passage: essayPassage,
+    essayMin: 80,
+    essayMax: 400,
+    correctAnswer: '参考范文：陈尧咨擅长射箭，自以为了不起。卖油翁看后……',
+    points: 30,
+    options: [],
+    explanation: 'Tiêu chuẩn chấm: nắm vững ý chính, không thêm ý kiến cá nhân, ngôn ngữ trôi chảy.'
+  };
+
+  const group = {
+    id: 'sec-writing-adv',
+    title: 'Phần Viết nâng cao',
+    skill: 'WRITING',
+    questions: [writingQ, essayQ]
+  };
+
+  const flat = templates.flattenGroups([group]);
+  assert.equal(flat[0].questionNumber, 99);
+  assert.deepEqual(flat[0].givenWords.map(w => w.word), ['虽然', '下雨', '但是']);
+  assert.equal(flat[1].questionNumber, 100);
+  assert.equal(flat[1].passage, essayPassage);
+  assert.equal(flat[1].essayMin, 80);
+  assert.equal(flat[1].essayMax, 400);
+
+  const { paperId } = await f.service.importPaper(actors.admin, {
+    level: 5,
+    title: 'Đề thi Viết HSK 5 nâng cao',
+    durationMin: 40,
+    passScore: null,
+    questions: flat
+  });
+
+  const attempt = await start(f, paperId);
+
+  // Student receives givenWords on writing question
+  const pubWriting = attempt.questions.find(q => q.id === attempt.questions[0].id);
+  assert.ok(pubWriting.givenWords);
+  assert.equal(pubWriting.givenWords.length, 3);
+  assert.equal(pubWriting.givenWords[0].word, '虽然');
+
+  // Student receives passage, essayMin, essayMax on essay question
+  const pubEssay = attempt.questions.find(q => q.id === attempt.questions[1].id);
+  assert.equal(pubEssay.passage, essayPassage);
+  assert.equal(pubEssay.essayMin, 80);
+  assert.equal(pubEssay.essayMax, 400);
+
+  // Student writes answers (both are open-ended / manual review)
+  const answers = {
+    [pubWriting.id]: '虽然外面下雨，但他还是准时到达了学校。',
+    [pubEssay.id]: '熟能生巧的故事告诉我们：无论做什么事情，只要坚持不懈地练习，就能达到炉火纯青的境界。'
+  };
+
+  const saved = await f.service.writeAttempt(actors.a, {
+    id: attempt.id,
+    revision: attempt.revision,
+    answers
+  });
+  const result = await f.service.writeAttempt(actors.a, {
+    id: attempt.id,
+    revision: saved.revision,
+    answers: saved.answers
+  }, true);
+
+  // Manual subjective questions wait for teacher grading
+  assert.equal(result.questions[0].result.manual, true);
+  assert.equal(result.questions[1].result.manual, true);
+});

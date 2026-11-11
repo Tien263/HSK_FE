@@ -1,3 +1,4 @@
+import type { GivenWord } from "@/lib/writing-essay";
 import { nextQuestionNumber, suggestQuestionNumbers } from "../../lib/question-number";
 import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_CHOICE, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, PASSAGE_SECTION, CLOZE_SECTION, isReadingPassage, isReadingCloze, isReadingSection } from "../../lib/reading-cloze";
 import { PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, legacyReplyChoices, isSharedListeningGroup, type ExamReply } from "../../lib/exam-center-core";
@@ -42,6 +43,9 @@ export interface ImportedQuestion {
   sentenceOrderMode?: "interactive" | "text" | "both";
   acceptedAnswers?: string;
   requiresManualReview?: boolean;
+  givenWords?: GivenWord[];
+  essayMin?: number;
+  essayMax?: number;
 }
 
 export function getSampleQuestionsForLevel(level: number): ImportedQuestion[] {
@@ -490,6 +494,10 @@ export interface QuestionItem {
   explanation?: string;
   acceptedAnswers?: string;
   requiresManualReview?: boolean;
+  passage?: string;
+  givenWords?: GivenWord[];
+  essayMin?: number;
+  essayMax?: number;
   options: QuestionOption[];
 }
 
@@ -607,6 +615,10 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
       item.sentenceOrderMode = q.sentenceOrderMode;
       item.acceptedAnswers = q.acceptedAnswers || "";
       item.requiresManualReview = !!q.requiresManualReview;
+      item.givenWords = q.givenWords;
+      if (q.passage) item.passage = q.passage;
+      if (q.essayMin !== undefined) item.essayMin = q.essayMin;
+      if (q.essayMax !== undefined) item.essayMax = q.essayMax;
       result.push(item);
       qIdx++;
     }
@@ -715,6 +727,10 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       explanation: q.explanation || "",
       acceptedAnswers: (q as any).acceptedAnswers || (q as any).editorData?.acceptedAnswers || "",
       requiresManualReview: !!((q as any).requiresManualReview || (q as any).editorData?.requiresManualReview),
+      givenWords: (q as any).givenWords || (q as any).editorData?.givenWords,
+      passage: (q as any).passage || (q as any).editorData?.passage || "",
+      essayMin: (q as any).essayMin ?? (q as any).editorData?.essayMin,
+      essayMax: (q as any).essayMax ?? (q as any).editorData?.essayMax,
       options: explicitGroupType === READING_REPLIES || explicitGroupType === WORD_BANK ? [] : Array.isArray(q.options) && q.options.length
         ? q.options.map((opt: any, optIdx: number) => ({
             id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),

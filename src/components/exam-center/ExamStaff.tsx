@@ -40,6 +40,8 @@ import { duplicateQuestionNumbers, getQuestionNumber, nextQuestionNumber } from 
 import ReadingClozeEditor, { initializeReadingCloze } from "./ReadingClozeEditor";
 import ReadingPassagesEditor, { initializeReadingSection } from "./ReadingPassagesEditor";
 import SentenceOrderEditor from "./SentenceOrderEditor";
+import WritingWordsEditor from "./WritingWordsEditor";
+import EssayEditor from "./EssayEditor";
 import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_SECTION, CLOZE_SECTION, JUDGEMENT_SECTION, isReadingCloze, isReadingSection } from "@/lib/reading-cloze";
 import {
   getSampleQuestionsForLevel,
@@ -231,14 +233,20 @@ export const HSK_GROUP_TEMPLATES = [
     points: 4,
   },
   {
-    name: "✍️ Nhìn tranh và dùng từ cho trước viết câu",
+    name: "✍️ Nhìn tranh và dùng từ cho trước viết câu (看图造句)",
     skill: "WRITING" as const,
     type: "writing",
-    samplePrompt: "看图并使用词语写出一个完整句子。",
-    instruction: "Quan sát bức tranh và sử dụng từ ngữ cho sẵn để viết một câu hoàn chỉnh miêu tả tranh.",
+    samplePrompt: "看图并使用给出的词语造句。",
+    instruction: "Quan sát bức tranh và sử dụng tất cả từ ngữ cho trước để viết một câu hoàn chỉnh miêu tả tranh.",
     options: [],
-    correctAnswer: "参考答案：语法正确，用词恰当。",
+    correctAnswer: "参考答案：虽然下雨，但是我们还是去上课了。",
     points: 10,
+    imageUrl: "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=600&auto=format&fit=crop&q=80",
+    givenWords: [
+      { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
+      { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
+      { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
+    ],
   },
   {
     name: "✍️ Viết đoạn văn tự luận (Essay Writing ~80-400 chữ)",
@@ -288,17 +296,17 @@ export default function ExamStaff({
   const [publishedLink, setPublishedLink] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Authoring state
+  // Authoring state: Mặc định TRẮNG TINH để giáo viên tự tạo đề từ đầu
   const [authorLevel, setAuthorLevel] = useState<number>(1);
-  const [authorTitle, setAuthorTitle] = useState("Đề thi thử chuẩn HSK 1 (CTI Hanban 样卷)");
-  const [authorDesc, setAuthorDesc] = useState("Đề thi mô phỏng chuẩn cấu trúc đề thật HSK 3.0 Cấp 1 (CTI / Hanban).");
+  const [authorTitle, setAuthorTitle] = useState("");
+  const [authorDesc, setAuthorDesc] = useState("");
   const [authorDuration, setAuthorDuration] = useState<number>(40);
   const [authorPass, setAuthorPass] = useState<number | string>("");
 
   // Mode: "grouped" (visual group editor - recommended) or "raw" (JSON editor)
   const [authorMode, setAuthorMode] = useState<"grouped" | "raw">("grouped");
-  const [groups, setGroups] = useState<ExamSectionGroup[]>(() => withQuestionNumbers(buildDefaultGroups(1)));
-  const [activeGroupId, setActiveGroupId] = useState<string>("group_1");
+  const [groups, setGroups] = useState<ExamSectionGroup[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string>("");
   const [jsonInput, setJsonInput] = useState("");
 
   const [previewPaper, setPreviewPaper] = useState<any | null>(null);
@@ -310,6 +318,23 @@ export default function ExamStaff({
   const [openQuestionScripts, setOpenQuestionScripts] = useState<Record<string, boolean>>({});
   const toggleQuestionScript = (qId: string) => {
     setOpenQuestionScripts((prev) => ({ ...prev, [qId]: !prev[qId] }));
+  };
+
+  // Tạo đề mới hoàn toàn trắng tinh
+  const handleResetToBlank = () => {
+    if (groups.length > 0 || authorTitle.trim()) {
+      if (!window.confirm("Bạn có chắc chắn muốn xóa trắng để tạo đề thi mới từ đầu không? Toàn bộ các phần đang soạn sẽ được làm trống.")) {
+        return;
+      }
+    }
+    setGroups([]);
+    setActiveGroupId("");
+    setAuthorTitle("");
+    setAuthorDesc("");
+    setAuthorPass("");
+    setJsonInput("");
+    setMessage("Đã chuyển về trạng thái đề thi mới trắng tinh. Bạn có thể tự do thêm các nhóm bài thi.");
+    setTimeout(() => setMessage(""), 4000);
   };
 
   const [pendingMedia, setPendingMedia] = useState<Record<string, boolean>>({});
@@ -521,6 +546,16 @@ export default function ExamStaff({
       const questionsCount = (gType === "matching_images" || gType === READING_REPLIES || gType === "eval_true_false_na") ? 5 : 1;
       const initialQuestions: QuestionItem[] = [];
       for (let i = 1; i <= questionsCount; i++) {
+        const itemGivenWords = (template as any).givenWords
+          ? JSON.parse(JSON.stringify((template as any).givenWords))
+          : template.type === "writing"
+          ? [
+              { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
+              { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
+              { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
+            ]
+          : undefined;
+
         initialQuestions.push({
           id: `q_${Date.now()}_${i}`,
           questionNumber: startNum + i - 1,
@@ -531,6 +566,9 @@ export default function ExamStaff({
           acceptedAnswers: (template as any).acceptedAnswers || "",
           requiresManualReview: !!(template as any).requiresManualReview,
           options: Array.isArray(template.options) ? template.options.map((opt) => ({ ...opt })) : [],
+          givenWords: itemGivenWords,
+          imageUrl: (template as any).imageUrl || "",
+          sampleAnswer: (template as any).sampleAnswer || template.correctAnswer || "",
         });
       }
 
@@ -693,6 +731,9 @@ export default function ExamStaff({
             { id: "false", text: "Sai (错)" },
           ];
           initialAnswer = "true";
+        } else if (targetType === "writing") {
+          initialOptions = [];
+          initialAnswer = lastQ?.correctAnswer || "参考答案：虽然下雨，但是我们还是去上课了。";
         } else if (lastQ && Array.isArray(lastQ.options) && lastQ.options.length) {
           initialOptions = lastQ.options.map((opt) => ({ id: opt.id, text: opt.text || `Lựa chọn ${opt.id}`, pinyin: opt.pinyin || "" }));
         }
@@ -701,12 +742,24 @@ export default function ExamStaff({
           id: `q_${Date.now()}_${totalInGroup}`,
           questionNumber: nextQNo,
           type: targetType,
-          content: g.groupType === "matching_images" && g.skill === "READING" ? "" : "请根据题目选择正确答案。",
-          points: lastQ?.points ?? 2.5,
+          content: targetType === "writing" ? "看图并使用给出的词语造句。" : g.groupType === "matching_images" && g.skill === "READING" ? "" : "请根据题目选择正确答案。",
+          points: lastQ?.points ?? (targetType === "writing" ? 10 : 2.5),
           correctAnswer: initialAnswer,
           acceptedAnswers: lastQ?.acceptedAnswers || "",
-          requiresManualReview: !!lastQ?.requiresManualReview,
+          requiresManualReview: targetType === "writing" ? true : !!lastQ?.requiresManualReview,
           options: initialOptions,
+          givenWords: targetType === "writing"
+            ? (lastQ && Array.isArray((lastQ as any).givenWords) && (lastQ as any).givenWords.length > 0
+                ? (lastQ as any).givenWords.map((w: any) => ({ ...w, id: `gw_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` }))
+                : [
+                    { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
+                    { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
+                    { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
+                  ])
+            : undefined,
+          sampleAnswer: targetType === "writing" ? (lastQ?.sampleAnswer || initialAnswer) : undefined,
+          explanation: lastQ?.explanation || "",
+          imageUrl: targetType === "writing" && lastQ?.imageUrl ? lastQ.imageUrl : "",
         };
         return { ...g, questions: [...g.questions, newQ] };
       })
@@ -980,9 +1033,31 @@ export default function ExamStaff({
           {/* Action Toolbar */}
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, background: "#f8f9f4", padding: "12px 16px", borderRadius: 12, border: "1px solid #dce4cb" }}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#375531" }}>
+              <button
+                type="button"
+                onClick={handleResetToBlank}
+                style={{
+                  background: "#27492c",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  boxShadow: "0 1px 4px rgba(39,73,44,0.15)",
+                }}
+                title="Tạo đề thi mới hoàn toàn trắng tinh, tự do thêm các nhóm câu hỏi"
+              >
+                <Plus size={14} /> ✨ Tạo đề mới (Trắng tinh)
+              </button>
+
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#375531", marginLeft: 4 }}>
                 <Sparkles size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                Nạp mẫu khung chuẩn:
+                Hoặc nạp mẫu:
               </span>
               {EXAM_LEVELS.map((lvl) => (
                 <button
@@ -1173,7 +1248,66 @@ export default function ExamStaff({
           {/* MODE 1: SOẠN THEO NHÓM BÀI (GROUPED FORM EDITOR) */}
           {authorMode === "grouped" && (
             <div style={{ display: "grid", gap: 20 }}>
-              {groups.map((group, gIdx) => {
+              {groups.length === 0 ? (
+                <div
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: 14,
+                    border: "2px dashed #93b37e",
+                    padding: "44px 24px",
+                    textAlign: "center",
+                    display: "grid",
+                    gap: 14,
+                    justifyItems: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: "50%",
+                      background: "#f0f7ec",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#27492c",
+                    }}
+                  >
+                    <FileText size={28} />
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: 17, color: "#1e351d", margin: "0 0 6px", fontWeight: 700 }}>
+                      Đề thi mới hiện đang trắng tinh (0 nhóm bài)
+                    </h4>
+                    <p style={{ fontSize: 13, color: "#5a7554", margin: 0, maxWidth: 540, lineHeight: 1.6 }}>
+                      Bạn có thể bắt đầu tạo đề từ đầu bằng cách thêm các nhóm bài (Nghe, Đọc, Viết), hoặc nạp nhanh một bộ đề mẫu chuẩn HSK 3.0 ở thanh công cụ phía trên.
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+                    <button
+                      type="button"
+                      onClick={() => handleAddGroup()}
+                      style={{
+                        background: "#27492c",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "9px 18px",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        boxShadow: "0 2px 6px rgba(39,73,44,0.15)",
+                      }}
+                    >
+                      <Plus size={15} /> + Thêm nhóm bài đầu tiên
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                groups.map((group, gIdx) => {
                 const isExpanded = activeGroupId === group.id;
                 return (
                   <div
@@ -2304,7 +2438,32 @@ export default function ExamStaff({
                                     />
                                     <select
                                       value={q.type}
-                                      onChange={(e) => handleUpdateQuestion(group.id, q.id, { type: e.target.value })}
+                                      onChange={(e) => {
+                                        const nextType = e.target.value;
+                                        const patch: Partial<QuestionItem> = { type: nextType };
+                                        if (nextType === "writing") {
+                                          if (group.skill !== "WRITING") {
+                                            handleUpdateGroup(group.id, { skill: "WRITING" });
+                                          }
+                                          if (!q.content || q.content.includes("选择正确答案")) {
+                                            patch.content = "看图并使用给出的词语造句。";
+                                          }
+                                          if (!Array.isArray((q as any).givenWords) || (q as any).givenWords.length === 0) {
+                                            patch.givenWords = [
+                                              { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
+                                              { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
+                                              { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
+                                            ];
+                                          }
+                                          if (!q.imageUrl) {
+                                            patch.imageUrl = "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=600&auto=format&fit=crop&q=80";
+                                          }
+                                          if (!q.correctAnswer || q.correctAnswer === "A") {
+                                            patch.correctAnswer = "参考答案：虽然下雨，但是我们还是去上课了。";
+                                          }
+                                        }
+                                        handleUpdateQuestion(group.id, q.id, patch);
+                                      }}
                                       style={{ fontSize: 12, padding: "4px 8px" }}
                                     >
                                       <option value="multiple_choice">Trắc nghiệm (A, B, C, D...)</option>
@@ -2314,10 +2473,10 @@ export default function ExamStaff({
                                       <option value="listening_fill">Nghe và điền từ vào chỗ trống</option>
                                       <option value="matching">Ghép nối tranh / từ (A-F)</option>
                                       <option value="fill_blank">Điền từ vào chỗ trống</option>
-                                      <option value="sentence_order">Sắp xếp các từ thành câu (HSK 3-5)</option>
-                                      <option value="find_error">Tìm câu có lỗi sai ngữ pháp (HSK 6)</option>
-                                      <option value="essay">Tự luận / Viết bài văn (HSK 5-6)</option>
-                                      <option value="writing">Viết câu theo tranh / Pinyin</option>
+                                      <option value="sentence_order">✍️ Sắp xếp các từ thành câu (HSK 3-5)</option>
+                                      <option value="writing">✍️ Nhìn tranh và dùng từ cho trước viết câu (HSK 4-6)</option>
+                                      <option value="essay">✍️ Viết đoạn văn tự luận (Essay Writing ~80-400 chữ)</option>
+                                      <option value="find_error">🔍 Tìm câu có lỗi sai ngữ pháp (HSK 6)</option>
                                     </select>
                                   </div>
 
@@ -2546,24 +2705,21 @@ export default function ExamStaff({
                                     </div>
                                   </div>
                                 ) : q.type === "essay" ? (
-                                  <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
-                                    <label style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", margin: 0, display: "block" }}>
-                                      Yêu cầu đề bài / Đáp án mẫu & Thang điểm chấm tự luận:
-                                      <textarea
-                                        rows={4}
-                                        value={q.correctAnswer}
-                                        onChange={(e) => handleUpdateQuestion(group.id, q.id, { correctAnswer: e.target.value })}
-                                        placeholder="Ví dụ: Bài văn thu gọn ~400 chữ, cần nêu được 3 ý chính: 1)... 2)... 3)... Giữ nguyên ngôi kể và văn phong."
-                                        style={{ marginTop: 4, width: "100%", fontSize: 12, lineHeight: 1.5 }}
-                                      />
-                                    </label>
-                                  </div>
+                                  <EssayEditor
+                                    question={q}
+                                    onChange={patch => handleUpdateQuestion(group.id, q.id, patch)}
+                                  />
                                 ) : q.type === "sentence_order" ? (
                                   <SentenceOrderEditor
                                     question={q}
                                     onChange={patch => handleUpdateQuestion(group.id, q.id, patch)}
                                   />
-                                ) : q.type === "fill_blank" || q.type === "writing" ? (
+                                ) : q.type === "writing" ? (
+                                  <WritingWordsEditor
+                                    question={q}
+                                    onChange={patch => handleUpdateQuestion(group.id, q.id, patch)}
+                                  />
+                                ) : q.type === "fill_blank" ? (
                                   <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", margin: 0 }}>
                                       Đáp án chuẩn / Từ cần điền:
@@ -2721,7 +2877,7 @@ export default function ExamStaff({
                     )}
                   </div>
                 );
-              })}
+              }))}
 
               <div
                 style={{

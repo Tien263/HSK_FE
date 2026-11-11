@@ -691,7 +691,7 @@ export default function ExamPlayer({
           )}
 
           {/* Reading Passage (Đoạn văn đọc hiểu chung nếu có) */}
-          {!matchingGroupQuestions && !passageQuestions && (currentQ as any).passage && (
+          {!matchingGroupQuestions && !passageQuestions && currentQ.type !== "essay" && (currentQ as any).passage && (
             <div style={{ marginBottom: 18, padding: "16px 20px", background: "#fdfdf9", borderRadius: 12, border: "1px solid #dce4cb", fontSize: 15, lineHeight: 1.8, color: "#223824" }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: "#5d7a55", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                 📖 <span>Đoạn văn đọc hiểu:</span>
@@ -1072,7 +1072,7 @@ export default function ExamPlayer({
               )}
 
               {/* Question Image (ảnh minh họa câu hỏi) */}
-              {currentQ.imageUrl && (
+              {currentQ.imageUrl && currentQ.type !== "writing" && currentQ.type !== "essay" && (
                 <div style={{ margin: "14px 0", textAlign: "center" }}>
                   <img
                     src={currentQ.imageUrl}
