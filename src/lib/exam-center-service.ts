@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
 import { NextResponse } from "next/server";
-import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
+import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, replyGroupIssues, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
 
 const ATTEMPT="EXAM_CENTER_ATTEMPT", PAPER="EXAM_CENTER_PAPER", PUBLICATION="EXAM_CENTER_PUBLICATION", REVIEW="EXAM_CENTER_REVIEW";
 export class ExamError extends Error { constructor(public status:number,message:string){super(message);} }
@@ -48,7 +48,7 @@ export async function officialPapers(){
   const blueprint=examBlueprint.levels.find(row=>row.level===levelGroup(set.hskLevel));
   const durationMin=config?.durationMin||(durations.length===1?durations[0]:blueprint?.durationMin??null);
   const questions=set.questions.filter(row=>{const editor=row.question.editorData as Record<string,unknown>|null;return !editor?.status||editor.status==="READY";}).map(row=>snapshotQuestion(row.question as unknown as Record<string,unknown>,row.points));
-  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,groups:config?.groups,maxScore:config?.maxScore??set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===(config?.maxScore??set.totalScore)?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),questions,mode:"EXAM"});
+  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,groups:{...config?.groups,...restoreLegacyReplyGroups(questions,set.id)},maxScore:config?.maxScore??set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===(config?.maxScore??set.totalScore)?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),questions,mode:"EXAM"});
  }
  return papers;
 }
@@ -138,18 +138,18 @@ export async function publicationCandidates(user:AuthUser){
  const published=new Map(official.map(paper=>[paper.id,paper]));
  return rows.map(row=>{
   const config=configs.get(row.id),paper=published.get(row.id);
+  const questions=row.questions.map(({question,points})=>snapshotQuestion(question as unknown as Record<string,unknown>,points));
+  const groups={...config?.groups,...restoreLegacyReplyGroups(questions,row.id)};
   const shownGroups=new Set<string>();
-  const questions=row.questions.map(({question,points})=>{
-   const q=snapshotQuestion(question as unknown as Record<string,unknown>,points);
+  for(const q of questions){
    const id=String(q.editorData.groupId||"");
-   const group=config?.groups?.[id];
+   const group=groups[id];
    if(group&&!shownGroups.has(id)){
     q.audioUrl=group.audioUrl||q.audioUrl;
-    q.editorData.groupImages=group.images;
+    q.editorData={...q.editorData,groupImages:group.images,groupReplies:group.replies,groupCustom:group.custom,instruction:group.instruction||q.editorData.instruction};
     shownGroups.add(id);
    }
-   return q;
-  });
+  }
   return {id:row.id,title:row.title,level:row.hskLevel,maxScore:config?.maxScore??row.totalScore,author:row.teacher?.name||"",
    durationMin:config?.durationMin??paper?.durationMin??null,passScore:config?.passScore??paper?.passScore??null,published:!!paper,questions};
  });
@@ -178,9 +178,14 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   if(!Number.isFinite(points)||points<0)throw new ExamError(400,`Điểm câu ${idx+1} không hợp lệ.`);
   const q=snapshotQuestion({...raw,level},points);
   q.editorData.rubric=raw.rubric||q.editorData.rubric||"";
+  return q;
+ });
+ const legacy=restoreLegacyReplyGroups(questions,prefix);
+ for(const q of questions){
   const groupType=q.editorData.groupType;
-  const key=`${q.skill}:${groupType}:${q.editorData.groupId||q.editorData.groupTitle||""}`;
-  if(groupType==="matching_images"||groupType==="listening_choice_abc"){
+  const originalGroupId=String(q.editorData.groupId||"");
+  const key=`${q.skill}:${groupType}:${originalGroupId||q.editorData.groupTitle||""}`;
+  if(groupType==="matching_images"||groupType==="listening_choice_abc"||groupType===READING_REPLIES){
    let group=grouped.get(key);
    if(!group){
     group={title:String(q.editorData.groupTitle||"Nhóm câu hỏi"),questions:[],media:{}};
@@ -197,7 +202,32 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
    delete q.editorData.groupImages;
    delete q.editorData.audioUrl;
    q.audioUrl="";
-   if(groupType==="matching_images"){
+   if(groupType===READING_REPLIES){
+    if(q.skill!=="READING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Đọc.`);
+    const replies=legacy[originalGroupId]?.replies||q.editorData.groupReplies;
+    if(Array.isArray(replies)){
+     if(replies.some(reply=>!reply||typeof reply.id!=="string"||typeof reply.text!=="string"||
+        (reply.pinyin!==undefined&&typeof reply.pinyin!=="string")))throw new ExamError(400,`${group.title} — Dữ liệu câu trả lời không hợp lệ.`);
+     const normalized=replies.map(reply=>({id:reply.id,text:reply.text.trim(),pinyin:reply.pinyin?.trim()||""}));
+     if(group.media.replies&&JSON.stringify(group.media.replies)!==JSON.stringify(normalized))
+      throw new ExamError(400,`${group.title} — Nhóm có nhiều bộ câu trả lời khác nhau.`);
+     group.media.replies=normalized;
+    }
+    if(typeof q.editorData.groupCustom==="boolean"){
+     if(group.media.custom!==undefined&&group.media.custom!==q.editorData.groupCustom)
+      throw new ExamError(400,`${group.title} — Chế độ soạn nhóm không nhất quán.`);
+     group.media.custom=q.editorData.groupCustom;
+    }
+    group.media.instruction||=String(q.editorData.instruction||"");
+    q.type="matching";
+    q.options=[];
+    q.imageUrl="";
+    q.editorData.passage="";
+    delete q.editorData.groupReplies;
+    delete q.editorData.groupCustom;
+    delete q.editorData.instruction;
+    delete q.editorData.imageUrl;
+   } else if(groupType==="matching_images"){
     q.type="matching";
     q.options=PICTURE_CODES.map(id=>({id,text:`Tranh ${id}`}));
     q.editorData.passage="";
@@ -208,15 +238,16 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
    }
    group.questions.push(q);
   }
-  return q;
- });
+ }
 
  const groups:Record<string,ExamGroupMedia>={};
  for(const {title,questions,media} of grouped.values()){
   const first=questions[0];
   const issues=first.editorData.groupType==="matching_images"?pictureGroupIssues(media.images||[],questions,first.skill==="READING"):[];
+  if(first.editorData.groupType===READING_REPLIES)issues.push(...replyGroupIssues(media.replies||[],questions,media.custom));
   if(first.skill==="LISTENING"&&!media.audioUrl)issues.push("Tải tệp audio chung cho nhóm.");
   if(issues.length)throw new ExamError(400,`${title} — ${issues.join(" ")}`);
+  if(media.replies)media.replies=replySlots(media.replies);
   groups[String(first.editorData.groupId)]=media;
  }
  const invalid=questions.findIndex(q=>!usableQuestion(q));

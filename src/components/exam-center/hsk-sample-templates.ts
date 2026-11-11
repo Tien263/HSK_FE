@@ -1,4 +1,4 @@
-import { PICTURE_CODES, pictureSlots, sampleExamAudio } from "../../lib/exam-center-core";
+import { PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, legacyReplyChoices, type ExamReply } from "../../lib/exam-center-core";
 
 // hsk-sample-templates.ts
 // Pre-configured standardized templates matching the official HSK 3.0 Hanban/CTI 样卷 (from HSK3.0 folder)
@@ -20,6 +20,9 @@ export interface ImportedQuestion {
   groupTitle?: string;
   groupType?: ExamSectionGroup["groupType"];
   groupImages?: ExamSectionGroup["groupImages"];
+  groupReplies?: ExamReply[];
+  groupCustom?: boolean;
+  instruction?: string;
   questionNo?: string | number;
   passage?: string;
   acceptedAnswers?: string;
@@ -475,8 +478,10 @@ export interface ExamSectionGroup {
   instruction?: string;
   audioUrl?: string;
   passage?: string;
-  groupType?: "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
+  groupType?: typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
   groupImages?: { id: string; label: string; imageUrl: string }[];
+  groupReplies?: ExamReply[];
+  groupCustom?: boolean;
   questions: QuestionItem[];
 }
 
@@ -485,21 +490,22 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
   const result: ImportedQuestion[] = [];
   for (const group of groups) {
     const pictureGroup = group.groupType === "matching_images";
-    const groupAudio = pictureGroup || group.groupType === "listening_choice_abc";
+    const replyGroup = group.groupType === READING_REPLIES;
+    const groupAudio = pictureGroup || replyGroup || group.groupType === "listening_choice_abc";
     for (const [index, q] of group.questions.entries()) {
       const questionId = q.id || `q_${qIdx}`;
       const item: ImportedQuestion = {
         id: questionId,
-        type: pictureGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
+        type: pictureGroup || replyGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
         skill: group.skill,
-        content: pictureGroup && group.skill === "READING" ? q.content : q.content || `第 ${qIdx} 题`,
+        content: replyGroup || (pictureGroup && group.skill === "READING") ? q.content : q.content || `第 ${qIdx} 题`,
         pinyin: q.pinyin || "",
         points: Number(q.points),
-        correctAnswer: pictureGroup ? q.correctAnswer : q.correctAnswer || "A",
+        correctAnswer: pictureGroup || replyGroup ? q.correctAnswer : q.correctAnswer || "A",
         explanation: q.explanation || "",
-        imageUrl: pictureGroup && group.skill === "READING" ? "" : q.imageUrl || "",
+        imageUrl: replyGroup || (pictureGroup && group.skill === "READING") ? "" : q.imageUrl || "",
         audioUrl: groupAudio ? (index === 0 && group.skill === "LISTENING" ? group.audioUrl || "" : "") : q.audioUrl || group.audioUrl || "",
-        options: pictureGroup ? PICTURE_CODES.map(id => ({ id, text: `Tranh ${id}` })) : Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
+        options: replyGroup ? [] : pictureGroup ? PICTURE_CODES.map(id => ({ id, text: `Tranh ${id}` })) : Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
           id: opt.id,
           text: opt.text || "",
           pinyin: opt.pinyin || "",
@@ -511,12 +517,17 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         ],
         rubric: (q as any).rubric || "",
       };
-      item.passage = pictureGroup ? "" : group.passage || "";
+      item.passage = pictureGroup || replyGroup ? "" : group.passage || "";
       item.groupTitle = group.title || "";
       item.groupId = group.id;
       item.groupType = group.groupType;
       if (pictureGroup && index === 0) item.groupImages = pictureSlots(group.groupImages);
-      item.questionNo = q.questionNo || "";
+      if (replyGroup && index === 0) {
+        item.groupReplies = replySlots(group.groupReplies);
+        item.groupCustom = !!group.groupCustom;
+        item.instruction = group.instruction || "";
+      }
+      item.questionNo = replyGroup && group.groupCustom ? index + 1 : q.questionNo || "";
       item.acceptedAnswers = q.acceptedAnswers || "";
       item.requiresManualReview = !!q.requiresManualReview;
       result.push(item);
@@ -539,7 +550,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     const explicitGroupImages = (q as any).groupImages || (q as any).editorData?.groupImages;
     const explicitQuestionNo = (q as any).questionNo || (q as any).editorData?.questionNo;
 
-    let key = q.groupId || explicitGroupTitle;
+    let key = q.groupId || (q as any).editorData?.groupId || explicitGroupTitle;
     if (!key) {
       const chunkNum = Math.floor(i / 5) + 1;
       const startQ = (chunkNum - 1) * 5 + 1;
@@ -566,6 +577,11 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     }
 
     const grp = groupsMap.get(key)!;
+    const replies = q.groupReplies || (q as any).editorData?.groupReplies;
+    const custom = q.groupCustom ?? (q as any).editorData?.groupCustom;
+    if (Array.isArray(replies)) grp.groupReplies = replySlots(replies);
+    if (typeof custom === "boolean") grp.groupCustom = custom;
+    if (!grp.instruction) grp.instruction = q.instruction || (q as any).editorData?.instruction;
     if (explicitPassage && !grp.passage) grp.passage = explicitPassage;
     if (q.audioUrl && !grp.audioUrl) grp.audioUrl = q.audioUrl;
     if (explicitGroupType && explicitGroupType !== "standard" && grp.groupType === "standard") {
@@ -579,16 +595,16 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       id: q.id || `q_${i + 1}`,
       questionNo: explicitQuestionNo || (i + 1),
       type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
-      content: q.content || `Câu ${i + 1}`,
-      pinyin: q.pinyin || "",
+      content: explicitGroupType === READING_REPLIES ? q.content || "" : q.content || `Câu ${i + 1}`,
+      pinyin: q.pinyin || (q as any).pinyinPrompt || "",
       points: Number(q.points ?? 2.5),
       imageUrl: q.imageUrl || "",
       audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
-      correctAnswer: explicitGroupType === "matching_images" ? q.correctAnswer || "" : q.correctAnswer || "A",
+      correctAnswer: explicitGroupType === "matching_images" || explicitGroupType === READING_REPLIES ? q.correctAnswer || "" : q.correctAnswer || "A",
       explanation: q.explanation || "",
       acceptedAnswers: (q as any).acceptedAnswers || (q as any).editorData?.acceptedAnswers || "",
       requiresManualReview: !!((q as any).requiresManualReview || (q as any).editorData?.requiresManualReview),
-      options: Array.isArray(q.options) && q.options.length
+      options: explicitGroupType === READING_REPLIES ? [] : Array.isArray(q.options) && q.options.length
         ? q.options.map((opt: any, optIdx: number) => ({
             id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),
             text: typeof opt === "string" ? opt : opt?.text || opt?.content || "",
@@ -602,7 +618,16 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     });
   }
 
-  return Array.from(groupsMap.values());
+  return Array.from(groupsMap.values(), group => {
+    if (group.skill !== "READING" || group.passage || group.groupType !== "standard") return group;
+    const replies = legacyReplyChoices(group.title, group.questions);
+    return replies ? {
+      ...group,
+      groupType: READING_REPLIES,
+      groupReplies: replies,
+      questions: group.questions.map(question => ({ ...question, type: "matching", options: [] })),
+    } : group;
+  });
 }
 
 export function buildDefaultGroups(level: number): ExamSectionGroup[] {
@@ -816,23 +841,19 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
         id: "group_7",
         title: "Phần 3 Đọc: Nối câu hỏi với câu trả lời (Câu 31 - 35)",
         skill: "READING",
+        groupType: READING_REPLIES,
+        groupReplies: replySlots(),
         instruction: "Đọc câu hỏi bên dưới và chọn câu trả lời A - F tương ứng.",
         questions: [31, 32, 33, 34, 35].map((i, idx) => ({
           id: `hsk1_q${i}`,
-          type: "multiple_choice",
-          content: `第 ${i} 题：选择最佳的应答句子 (A-F)。`,
+          questionNo: i,
+          type: "matching",
+          content: "",
           points: 2.5,
           correctAnswer: ["F", "A", "B", "C", "E"][idx],
           imageUrl: "",
           explanation: `Câu ${i}: Lời đáp phù hợp là ${["F", "A", "B", "C", "E"][idx]}.`,
-          options: [
-            { id: "A", text: "Câu A" },
-            { id: "B", text: "Câu B" },
-            { id: "C", text: "Câu C" },
-            { id: "D", text: "Câu D" },
-            { id: "E", text: "Câu E" },
-            { id: "F", text: "Câu F" },
-          ],
+          options: [],
         })),
       },
       {

@@ -31,7 +31,7 @@ import {
   X,
 } from "lucide-react";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
-import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion } from "@/lib/exam-center-core";
+import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
@@ -159,12 +159,13 @@ export const HSK_GROUP_TEMPLATES = [
     points: 2,
   },
   {
-    name: "📖 Đọc nối câu hỏi với câu trả lời (A - F)",
+    name: "📖 阅读问答匹配 – Đọc nối câu hỏi với câu trả lời A–F",
+    groupType: READING_REPLIES as typeof READING_REPLIES,
     skill: "READING" as const,
     type: "matching",
     samplePrompt: "选择最佳的应答句子 (A-F)。",
     instruction: "Đọc câu hỏi bên dưới và chọn câu trả lời A - F tương ứng.",
-    options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Câu ${l}` })),
+    options: [],
     correctAnswer: "A",
     points: 2,
   },
@@ -495,16 +496,16 @@ export default function ExamStaff({
         ? ["A", "B", "C", "D", "E", "F"].map((id) => ({ id, label: `Tranh ${id}`, imageUrl: "" }))
         : undefined;
 
-      const questionsCount = (gType === "matching_images" || gType === "eval_true_false_na") ? 5 : 1;
+      const questionsCount = (gType === "matching_images" || gType === READING_REPLIES || gType === "eval_true_false_na") ? 5 : 1;
       const initialQuestions: QuestionItem[] = [];
       for (let i = 1; i <= questionsCount; i++) {
         initialQuestions.push({
           id: `q_${Date.now()}_${i}`,
           questionNo: i,
           type: template.type,
-          content: gType === "matching_images" && template.skill === "READING" ? "" : `第 ${i} 题：${template.samplePrompt || "请选择正确答案。"}`,
+          content: (gType === "matching_images" && template.skill === "READING") || gType === READING_REPLIES ? "" : `第 ${i} 题：${template.samplePrompt || "请选择正确答案。"}`,
           points: template.points,
-          correctAnswer: gType === "matching_images" ? "" : template.correctAnswer,
+          correctAnswer: gType === "matching_images" || gType === READING_REPLIES ? "" : template.correctAnswer,
           acceptedAnswers: (template as any).acceptedAnswers || "",
           requiresManualReview: !!(template as any).requiresManualReview,
           options: Array.isArray(template.options) ? template.options.map((opt) => ({ ...opt })) : [],
@@ -520,6 +521,7 @@ export default function ExamStaff({
         passage: template.passage || "",
         groupType: gType,
         groupImages: initialImages,
+        groupReplies: gType === READING_REPLIES ? replySlots() : undefined,
         questions: initialQuestions,
       };
     } else {
@@ -555,7 +557,7 @@ export default function ExamStaff({
   const handleDuplicateQuestion = (groupId: string, qId: string) => {
     setGroups((prev) =>
       prev.map((g) => {
-        if (g.id !== groupId) return g;
+        if (g.id !== groupId || (g.groupType === READING_REPLIES && !g.groupCustom)) return g;
         const qIndex = g.questions.findIndex((q) => q.id === qId);
         if (qIndex === -1) return g;
         const source = g.questions[qIndex];
@@ -566,7 +568,7 @@ export default function ExamStaff({
           ...source,
           id: `q_${Date.now()}_copy`,
           questionNo: nextQNo,
-          content: `${source.content} (Bản sao)`,
+          content: g.groupType === READING_REPLIES ? source.content : `${source.content} (Bản sao)`,
           options: source.options.map((opt) => ({ ...opt })),
         };
         const nextQuestions = [...g.questions];
@@ -597,11 +599,35 @@ export default function ExamStaff({
     );
   };
 
+  const replyQuestions = (group: ExamSectionGroup, count: number): QuestionItem[] => Array.from({ length: count }, (_, index) => ({
+    id: `${group.id}_reply_${Date.now()}_${index}`,
+    questionNo: group.questions.length + index + 1,
+    type: "matching",
+    content: "",
+    points: group.questions.at(-1)?.points ?? 2,
+    correctAnswer: "",
+    options: [],
+  }));
+
+  const setReplyMode = (group: ExamSectionGroup, custom: boolean) => {
+    if (!custom && group.questions.length > 5) return;
+    handleUpdateGroup(group.id, {
+      groupType: READING_REPLIES,
+      skill: "READING",
+      groupCustom: custom,
+      groupReplies: replySlots(group.groupReplies),
+      questions: custom ? group.questions : [...group.questions, ...replyQuestions(group, 5 - group.questions.length)],
+    });
+  };
+
   // Thêm câu hỏi vào nhóm (tự động kế thừa dạng câu hỏi của nhóm)
   const handleAddQuestionToGroup = (groupId: string) => {
     setGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
+        if (g.groupType === READING_REPLIES) {
+          return g.groupCustom ? { ...g, questions: [...g.questions, ...replyQuestions(g, 1)] } : g;
+        }
         const totalInGroup = g.questions.length + 1;
         const lastQ = g.questions[g.questions.length - 1];
         const nextQNo = lastQ?.questionNo && !isNaN(Number(lastQ.questionNo))
@@ -1165,26 +1191,28 @@ export default function ExamStaff({
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => handleAddQuestionToGroup(group.id)}
-                          style={{
-                            padding: "5px 10px",
-                            borderRadius: 6,
-                            background: "#e4ecdb",
-                            color: "#2a4727",
-                            border: "none",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                          title="Thêm câu hỏi vào nhóm này"
-                        >
-                          <Plus size={13} /> Thêm câu
-                        </button>
+                        {group.groupType !== READING_REPLIES && (
+                          <button
+                            type="button"
+                            onClick={() => handleAddQuestionToGroup(group.id)}
+                            style={{
+                              padding: "5px 10px",
+                              borderRadius: 6,
+                              background: "#e4ecdb",
+                              color: "#2a4727",
+                              border: "none",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                            title="Thêm câu hỏi vào nhóm này"
+                          >
+                            <Plus size={13} /> Thêm câu
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleDeleteGroup(group.id)}
@@ -1236,6 +1264,7 @@ export default function ExamStaff({
                               Kỹ năng *
                               <select
                                 value={group.skill}
+                                disabled={group.groupType === READING_REPLIES}
                                 onChange={(e) => handleUpdateGroup(group.id, { skill: e.target.value as any })}
                               >
                                 <option value="LISTENING">🎧 Nghe (LISTENING)</option>
@@ -1250,7 +1279,11 @@ export default function ExamStaff({
                               <select
                                 value={group.groupType || "standard"}
                                 onChange={(e) => {
-                                  const gType = e.target.value as any;
+                                  const gType = e.target.value as ExamSectionGroup["groupType"];
+                                  if (gType === READING_REPLIES) {
+                                    setReplyMode(group, group.questions.length > 5 || !!group.groupCustom);
+                                    return;
+                                  }
                                   const patch: Partial<ExamSectionGroup> = { groupType: gType };
                                   if (gType === "matching_images" && (!group.groupImages || !group.groupImages.length)) {
                                     patch.groupImages = ["A", "B", "C", "D", "E", "F"].map((id) => ({ id, label: `Tranh ${id}`, imageUrl: "" }));
@@ -1260,6 +1293,7 @@ export default function ExamStaff({
                               >
                                 <option value="standard">Tiêu chuẩn (Trắc nghiệm / Tự luận từng câu)</option>
                                 <option value="matching_images">🖼️ {group.skill === "READING" ? "Đọc câu ghép tranh A–F" : "Ghép tranh A–F"}</option>
+                                <option value={READING_REPLIES}>阅读问答匹配 – Đọc nối câu hỏi với câu trả lời A–F</option>
                                 <option value="listening_choice_abc">🎧 Nghe câu hỏi – Chọn đáp án A/B/C (Ẩn kịch bản với HS)</option>
                                 <option value="eval_true_false_na">✅ Nghe đánh giá Đúng / Sai / Không đề cập (√ / × / 〇)</option>
                                 <option value="listening_fill_blank">⌨️ Nghe và điền đáp án (Chỗ trống / Dùng chung Audio)</option>
@@ -1343,7 +1377,7 @@ export default function ExamStaff({
                           )}
 
                           {/* Đoạn văn đọc hiểu chung (cho phần Đọc) */}
-                          {group.skill === "READING" && group.groupType !== "matching_images" && (
+                          {group.skill === "READING" && group.groupType !== "matching_images" && group.groupType !== READING_REPLIES && (
                             <div style={{ marginTop: 14 }}>
                               <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                                 <BookOpen size={16} /> Đoạn văn đọc hiểu chung (nếu các câu hỏi bên dưới cùng đọc 1 bài):
@@ -1360,7 +1394,75 @@ export default function ExamStaff({
                         </div>
 
                         {/* Danh sách câu hỏi trong nhóm - Xử lý theo từng loại groupType */}
-                        {group.groupType === "matching_images" ? (
+                        {group.groupType === READING_REPLIES ? (
+                          <div className={s.examReadingFields}>
+                            <div className={s.examGroupCard}>
+                              <label>Chế độ soạn nhóm
+                                <select value={group.groupCustom ? "custom" : "standard"} onChange={event => setReplyMode(group, event.target.value === "custom")}>
+                                  <option value="standard" disabled={group.questions.length > 5}>Đề HSK chuẩn · 5 câu hỏi</option>
+                                  <option value="custom">Bài tùy chỉnh</option>
+                                </select>
+                              </label>
+                              {group.groupCustom && group.questions.length > 5 && <p>Giảm còn 5 câu để chuyển về đề HSK chuẩn.</p>}
+                              <strong>Bước 1. Nhập sáu câu trả lời dùng chung</strong>
+                              {replySlots(group.groupReplies).map(reply => (
+                                <div key={reply.id} className={s.replyFields}>
+                                  <label>Câu trả lời {reply.id}
+                                    <input lang="zh" value={reply.text} onChange={event => handleUpdateGroup(group.id, {
+                                      groupReplies: replySlots(group.groupReplies).map(item => item.id === reply.id ? { ...item, text: event.target.value } : item),
+                                    })} />
+                                  </label>
+                                  <label>Pinyin {reply.id} (tùy chọn)
+                                    <input value={reply.pinyin || ""} onChange={event => handleUpdateGroup(group.id, {
+                                      groupReplies: replySlots(group.groupReplies).map(item => item.id === reply.id ? { ...item, pinyin: event.target.value } : item),
+                                    })} />
+                                  </label>
+                                </div>
+                              ))}
+                              {replyGroupIssues(group.groupReplies || [], group.questions, group.groupCustom).map(issue => (
+                                <p key={issue} className={s.error}>{issue}</p>
+                              ))}
+                            </div>
+                            <div className={s.examGroupCard}>
+                              <strong>Bước 2. Nhập câu hỏi và chọn đáp án</strong>
+                              {group.questions.map((question, index) => (
+                                <fieldset key={question.id} className={s.examReplyQuestion}>
+                                  <legend>Câu {group.groupCustom ? index + 1 : question.questionNo || index + 1}</legend>
+                                  <label>Câu hỏi chữ Hán
+                                    <input lang="zh" value={question.content} onChange={event => handleUpdateQuestion(group.id, question.id, { content: event.target.value })} />
+                                  </label>
+                                  <div className={s.replyFields}>
+                                    <label>Pinyin (tùy chọn)
+                                      <input value={question.pinyin || ""} onChange={event => handleUpdateQuestion(group.id, question.id, { pinyin: event.target.value })} />
+                                    </label>
+                                    <label>Điểm
+                                      <input type="number" min={0} step="any" value={question.points} onChange={event => handleUpdateQuestion(group.id, question.id, { points: Number(event.target.value) })} />
+                                    </label>
+                                  </div>
+                                  <div className={s.examPictureAnswers} role="group" aria-label="Chọn câu trả lời đúng">
+                                    {PICTURE_CODES.map(id => (
+                                      <label key={id}>
+                                        <input type="radio" name={`reply-${group.id}-${question.id}`} checked={question.correctAnswer === id}
+                                          onChange={() => handleUpdateQuestion(group.id, question.id, { correctAnswer: id })} />
+                                        {id}
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <label>Giải thích (tùy chọn)
+                                    <textarea rows={2} value={question.explanation || ""} onChange={event => handleUpdateQuestion(group.id, question.id, { explanation: event.target.value })} />
+                                  </label>
+                                  {group.groupCustom && (
+                                    <div className={s.rowActions}>
+                                      <button className={s.secondary} type="button" onClick={() => handleDuplicateQuestion(group.id, question.id)}><Copy size={14} /> Nhân bản</button>
+                                      <button className={s.secondary} type="button" disabled={group.questions.length === 1} onClick={() => handleDeleteQuestion(group.id, question.id)}><Trash2 size={14} /> Xóa câu</button>
+                                    </div>
+                                  )}
+                                </fieldset>
+                              ))}
+                              {group.groupCustom && <button className={s.secondary} type="button" onClick={() => handleAddQuestionToGroup(group.id)}><Plus size={16} /> Thêm câu hỏi</button>}
+                            </div>
+                          </div>
+                        ) : group.groupType === "matching_images" ? (
                           <div style={{ display: "grid", gap: 16 }}>
                             <div className={s.examGroupCard}>
                               <strong>Bước 1. Tải sáu hình ảnh dùng chung</strong>

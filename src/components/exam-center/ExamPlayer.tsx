@@ -34,7 +34,7 @@ import {
 import ExamAntiCheatProctor from "@/components/common/ExamAntiCheatProctor";
 import ComponentErrorBoundary from "@/components/common/ComponentErrorBoundary";
 import type { attemptForOwner } from "@/lib/exam-center-core";
-import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleExamAudio, type ExamSkill } from "@/lib/exam-center-core";
+import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, type ExamSkill } from "@/lib/exam-center-core";
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
 import examBlueprint from "@/config/exam_blueprint.json";
@@ -325,8 +325,8 @@ export default function ExamPlayer({
   };
 
   const matchingGroupQuestions = useMemo(() => {
-    if (currentQ?.groupType !== "matching_images") return null;
-    return questions.filter(q => q.groupType === "matching_images" && q.skill === currentQ.skill &&
+    if (currentQ?.groupType !== "matching_images" && currentQ?.groupType !== READING_REPLIES) return null;
+    return questions.filter(q => q.groupType === currentQ.groupType && q.skill === currentQ.skill &&
       (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle));
   }, [currentQ, questions]);
 
@@ -343,9 +343,12 @@ export default function ExamPlayer({
     return list.length > 0 ? list : null;
   }, [currentQ, questions]);
 
+  const replyMatching = currentQ?.groupType === READING_REPLIES;
   const matchingImages = useMemo(() =>
-    matchingGroupQuestions ? pictureSlots(matchingGroupQuestions.find(q => q.groupImages.length)?.groupImages) : [],
-  [matchingGroupQuestions]);
+    matchingGroupQuestions && !replyMatching ? pictureSlots(matchingGroupQuestions.find(q => q.groupImages.length)?.groupImages) : [],
+  [matchingGroupQuestions, replyMatching]);
+  const sharedReplies = replyMatching ? replySlots(matchingGroupQuestions?.find(q => q.groupReplies?.length)?.groupReplies) : [];
+  const usedReplies = new Set(matchingGroupQuestions?.map(q => answers[q.id]).filter(Boolean));
 
   const currentMultiGroup = matchingGroupQuestions || evalGroupQuestions;
 
@@ -750,46 +753,65 @@ export default function ExamPlayer({
             </div>
           )}
 
-          {/* Render theo loại câu hỏi: Dạng Ghép Tranh A-F hiển thị toàn bộ 6 tranh + 5 câu cùng lúc */}
+          {/* Bài ghép A–F hiển thị lựa chọn dùng chung phía trên các câu. */}
           {matchingGroupQuestions ? (
             <div style={{ display: "grid", gap: 18 }}>
-              {/* 6 Tranh A - F Dùng chung */}
-              <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 14, padding: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 12 }}>
-                  🖼️ 6 Bức tranh lựa chọn (A – F):
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                  {matchingImages.map((img) => (
-                    <div key={img.id} style={{ border: "1px solid #d8e2cf", borderRadius: 10, background: "#fbfcf9", padding: 8, textAlign: "center" }}>
-                      {img.imageUrl ? (
-                        <img
-                          src={img.imageUrl}
-                          alt={img.label}
-                          style={{ width: "100%", height: 130, objectFit: "contain", borderRadius: 6, background: "#fff" }}
-                        />
-                      ) : (
-                        <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: 6, color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>
-                          Tranh {img.id} (Chưa tải ảnh)
+              {replyMatching ? (
+                <section className={s.replyBank} aria-label="Sáu câu trả lời dùng chung">
+                  <h2>Câu trả lời A–F</h2>
+                  <p>{matchingGroupQuestions.find(q => q.groupInstruction)?.groupInstruction || "Chọn câu trả lời phù hợp cho từng câu hỏi."}</p>
+                  <ul>
+                    {sharedReplies.map(reply => (
+                      <li key={reply.id} data-used={usedReplies.has(reply.id)}>
+                        <strong>{reply.id}</strong>
+                        <div>
+                          <div lang="zh" className={s.matchingSentence}>{reply.text}</div>
+                          {reply.pinyin && <small className={s.matchingPinyin}>{reply.pinyin}</small>}
                         </div>
-                      )}
-                      <div style={{ marginTop: 6, fontWeight: 700, fontSize: 14, color: "#254422" }}>
-                        {img.label || `Tranh ${img.id}`}
+                        {!finished && usedReplies.has(reply.id) && <small>Đã chọn</small>}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : (
+                <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 14, padding: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 12 }}>
+                    🖼️ 6 Bức tranh lựa chọn (A – F):
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                    {matchingImages.map((img) => (
+                      <div key={img.id} style={{ border: "1px solid #d8e2cf", borderRadius: 10, background: "#fbfcf9", padding: 8, textAlign: "center" }}>
+                        {img.imageUrl ? (
+                          <img
+                            src={img.imageUrl}
+                            alt={img.label}
+                            style={{ width: "100%", height: 130, objectFit: "contain", borderRadius: 6, background: "#fff" }}
+                          />
+                        ) : (
+                          <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: 6, color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>
+                            Tranh {img.id} (Chưa tải ảnh)
+                          </div>
+                        )}
+                        <div style={{ marginTop: 6, fontWeight: 700, fontSize: 14, color: "#254422" }}>
+                          {img.label || `Tranh ${img.id}`}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Bảng các câu hỏi lựa chọn đáp án A - F */}
               <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 14, padding: 18 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 14 }}>
-                  📝 Chọn tranh tương ứng cho từng câu:
+                  {replyMatching ? "Ghép câu hỏi với câu trả lời" : "Chọn tranh tương ứng cho từng câu"}
                 </div>
                 <div style={{ display: "grid", gap: 12 }}>
                   {matchingGroupQuestions.map((q) => {
                     const selectedAns = answers[q.id] || "";
                     const isFocused = q.id === currentQ.id;
                     const correctImage = finished ? matchingImages.find(image => image.id === q.correctAnswer) : undefined;
+                    const correctReply = finished ? sharedReplies.find(reply => reply.id === q.correctAnswer) : undefined;
                     return (
                       <div
                         key={q.id}
@@ -822,7 +844,7 @@ export default function ExamPlayer({
                           )}
                         </div>
 
-                        <div className={s.matchingChoices} role="group" aria-label={`Chọn tranh cho câu ${q.questionNo || questions.indexOf(q) + 1}`}>
+                        <div className={s.matchingChoices} role="group" aria-label={`Chọn ${replyMatching ? "câu trả lời" : "tranh"} cho câu ${q.questionNo || questions.indexOf(q) + 1}`}>
                           {PICTURE_CODES.map((optId) => {
                             const isChecked = selectedAns === optId;
                             const isCorrect = finished && q.correctAnswer === optId;
@@ -878,6 +900,12 @@ export default function ExamPlayer({
                           <div style={{ width: "100%", marginTop: 4, fontSize: 12, color: "#4b5563" }}>
                             <strong>Đáp án đúng:</strong> {q.correctAnswer}
                             {q.result && <span> · {q.result.earned}/{q.result.max} điểm</span>}
+                            {correctReply && (
+                              <div>
+                                <div lang="zh" className={s.matchingSentence}>{correctReply.text}</div>
+                                {correctReply.pinyin && <small className={s.matchingPinyin}>{correctReply.pinyin}</small>}
+                              </div>
+                            )}
                             {correctImage?.imageUrl && <img className={s.matchingCorrectImage} src={correctImage.imageUrl} alt={`Đáp án đúng — ${correctImage.label}`} />}
                             {q.explanation && <p><strong>Lời giải</strong> {q.explanation}</p>}
                           </div>

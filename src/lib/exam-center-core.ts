@@ -6,7 +6,63 @@ export type ExamSkill = typeof EXAM_SKILLS[number];
 export type ExamQuestion = { id:string; type:string; content:string; skill:ExamSkill; level:number; points:number; correctAnswer:string; explanation:string; options:unknown[]; pinyinPrompt?:string; audioUrl?:string; imageUrl?:string; editorData:Record<string,unknown>; tags:string };
 export const PICTURE_CODES = ["A", "B", "C", "D", "E", "F"] as const;
 export type ExamGroupImage = { id: string; label: string; imageUrl: string };
-export type ExamGroupMedia = { images?: ExamGroupImage[]; audioUrl?: string };
+export type ExamReply = { id:string; text:string; pinyin?:string };
+export type ExamGroupMedia = { images?: ExamGroupImage[]; audioUrl?: string; replies?:ExamReply[]; instruction?:string; custom?:boolean };
+export const READING_REPLIES = "reading_reply_matching";
+export function replySlots(replies:readonly ExamReply[] = []):ExamReply[]{
+ return PICTURE_CODES.map(id=>replies.find(reply=>reply.id===id)??{id,text:"",pinyin:""});
+}
+export function replyGroupIssues(replies:readonly ExamReply[],questions:readonly {content:string;correctAnswer:string}[],custom=false){
+ const issues:string[]=[];
+ if(replies.length!==6||new Set(replies.map(reply=>reply.id)).size!==6||replySlots(replies).some(reply=>!containsHan(reply.text)))
+  issues.push("Nhập đủ sáu câu trả lời chữ Hán A–F.");
+ if(!custom&&questions.length!==5)issues.push("Đề HSK chuẩn cần đúng 5 câu hỏi.");
+ if(questions.some(q=>!containsHan(q.content)))issues.push("Nhập nội dung chữ Hán cho từng câu hỏi.");
+ if(questions.some(q=>!PICTURE_CODES.some(code=>code===q.correctAnswer)))issues.push("Mỗi câu hỏi cần chọn một đáp án đúng từ A đến F.");
+ const answers=questions.map(q=>q.correctAnswer).filter(Boolean);
+ if(!custom&&new Set(answers).size!==answers.length)issues.push("Có câu hỏi trùng đáp án đúng. Mỗi đáp án chỉ dùng một lần trong đề HSK chuẩn.");
+ return issues;
+}
+const containsHan=(text:string)=>/\p{Script=Han}/u.test(text);
+export function legacyReplyChoices(title:string,questions:readonly {type:string;correctAnswer:string;options:unknown[];content:string;imageUrl?:string}[]){
+ if(!/nối câu hỏi với câu trả lời|阅读问答匹配/i.test(title)||questions.length!==5)return undefined;
+ const sets=questions.map(q=>{
+  if(q.imageUrl||!["multiple_choice","matching"].includes(q.type)||q.options.length!==6)return [];
+  return q.options.map((option,index)=>{
+   if(typeof option==="string")return {id:PICTURE_CODES[index],text:option.trim(),pinyin:""};
+   const item=option as Partial<ExamReply>&{imageUrl?:string;content?:string}|null;
+   return {id:item?.id??"",text:item?.imageUrl?"":String(item?.text||item?.content||"").trim(),pinyin:String(item?.pinyin||"").trim()};
+  });
+ });
+ const first=replySlots(sets[0]);
+ if(replyGroupIssues(first,questions).length||sets.some(set=>set.length!==6||JSON.stringify(replySlots(set))!==JSON.stringify(first)))return undefined;
+ return first;
+}
+export function restoreLegacyReplyGroups(questions:ExamQuestion[],namespace:string){
+ const candidates=new Map<string,ExamQuestion[]>();
+ for(const q of questions){
+  const {groupType,groupId,groupTitle,passage}=q.editorData;
+  if(q.skill!=="READING"||passage||(groupType&&groupType!=="standard")||!groupTitle)continue;
+  const key=String(groupId||groupTitle);
+  const group=candidates.get(key)||[];
+  group.push(q);
+  candidates.set(key,group);
+ }
+ const groups:Record<string,ExamGroupMedia>={};
+ for(const [key,group] of candidates){
+  const replies=legacyReplyChoices(String(group[0].editorData.groupTitle),group);
+  if(!replies)continue;
+  const groupId=`${namespace}:reply:${key}`;
+  groups[groupId]={replies,instruction:String(group[0].editorData.instruction||"")};
+  for(const q of group){
+   q.type="matching";
+   q.editorData={...q.editorData,groupId,groupType:READING_REPLIES};
+   q.options=[];
+  }
+ }
+ return groups;
+}
+
 export function pictureSlots(images: readonly ExamGroupImage[] = []): ExamGroupImage[] {
  return PICTURE_CODES.map(id=>images.find(image=>image.id===id)??{id,label:`Tranh ${id}`,imageUrl:""});
 }
@@ -43,7 +99,7 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
  const correctAnswer=String(raw.correctAnswer||"");
  let type=questionType(String(raw.type||""));
  // Older HSK templates used "matching" for a single letter choice as well as for pairs.
- if(type==="matching"&&groupType!=="matching_images"&&!Array.isArray(editor.matchingPairs)&&
+ if(type==="matching"&&groupType!=="matching_images"&&groupType!==READING_REPLIES&&!Array.isArray(editor.matchingPairs)&&
     /^[A-Z]$/.test(correctAnswer)&&Array.isArray(options)&&options.length>1)type="multiple_choice";
  return {
    id:String(raw.id),
@@ -61,6 +117,9 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
    editorData:{
      ...editor,
      groupImages: raw.groupImages || editor.groupImages || [],
+     groupReplies: raw.groupReplies || editor.groupReplies,
+     groupCustom: raw.groupCustom ?? editor.groupCustom,
+     instruction: raw.instruction || editor.instruction || "",
      groupType,
      groupId: raw.groupId || editor.groupId || "",
      questionNo: raw.questionNo || editor.questionNo || "",
@@ -75,7 +134,7 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
 }
 export function usableQuestion(q:ExamQuestion){
  if(!supportedTypes.has(q.type)||!Number.isFinite(q.points)||q.points<0)return false;
- if(q.editorData.groupType==="matching_images")return (q.skill==="LISTENING"||!!q.content.trim())&&PICTURE_CODES.some(code=>code===q.correctAnswer);
+ if(q.editorData.groupType==="matching_images"||q.editorData.groupType===READING_REPLIES)return (q.skill==="LISTENING"||!!q.content.trim())&&PICTURE_CODES.some(code=>code===q.correctAnswer);
  if(!q.content.trim())return false;
  const manual=q.skill==="SPEAKING"||gradeQuestion(q,"").manual;
  if(!manual&&!q.correctAnswer.trim())return false;
@@ -104,6 +163,8 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia){
    passage:(q as any).passage||(q.editorData as any)?.passage||"",
    groupTitle:(q as any).groupTitle||(q.editorData as any)?.groupTitle||"",
    groupImages:group?.images||(Array.isArray(q.editorData.groupImages)?q.editorData.groupImages as ExamGroupImage[]:[]),
+   groupReplies:group?.replies||(Array.isArray(q.editorData.groupReplies)?q.editorData.groupReplies as ExamReply[]:[]),
+   groupInstruction:group?.instruction||String(q.editorData.instruction||""),
    groupId:String(q.editorData.groupId||""),
    groupType:(q as any).groupType||(q.editorData as any)?.groupType||"",
    questionNo:(q as any).questionNo||(q.editorData as any)?.questionNo||"",
@@ -131,7 +192,7 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
  if(attempt.status!=="IN_PROGRESS")return attempt;
  const results=attempt.paper.questions.map(q=>{
   const answer=attempt.answers[q.id]||"";
-  if(q.editorData.groupType==="matching_images"){
+  if(q.editorData.groupType==="matching_images"||q.editorData.groupType===READING_REPLIES){
    const correct=PICTURE_CODES.some(code=>code===answer&&code===q.correctAnswer);
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
   }
@@ -169,7 +230,7 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
    questions:attempt.paper.questions.map(q=>{
      const groupId=String(q.editorData.groupId||"");
      const media=attempt.paper.groups?.[groupId];
-     const pub=publicExamQuestion(q,media&&{...media,images:shownGroups.has(groupId)?[]:media.images});
+     const pub=publicExamQuestion(q,media&&{...media,images:shownGroups.has(groupId)?[]:media.images,replies:shownGroups.has(groupId)?[]:media.replies});
      if(media)shownGroups.add(groupId);
      const isListening=q.skill==="LISTENING";
      // Khi đang thi (chưa nộp bài): ẩn đề bài / kịch bản nghe để học sinh nghe hiểu thật

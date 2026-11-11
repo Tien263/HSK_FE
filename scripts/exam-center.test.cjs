@@ -166,3 +166,71 @@ test('staff publication delivers shared picture and audio groups to students and
  assert.equal(result.questions[1].explanation,'Chọn tranh phù hợp.');
  assert.equal(result.questions[5].audioScript,'SECRET TRANSCRIPT');
 });
+
+test('shared reading replies survive import and attempt saves, and grade by letter',async()=>{
+ const f=fixture();
+ const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const replies=['二千五百元。','坐出租车。','十岁了。','我女朋友。','没关系。','好的，谢谢！']
+  .map((text,index)=>({id:core.PICTURE_CODES[index],text,pinyin:index===1?'Zuò chūzūchē.':''}));
+ const reading={id:'reply',title:'阅读问答匹配 – Đọc nối câu hỏi với câu trả lời A–F',skill:'READING',groupType:core.READING_REPLIES,
+  instruction:'Ghép câu hỏi với câu trả lời.',groupReplies:replies,
+  questions:['多少钱？','你怎么回学校？','他几岁了？','她是谁？','对不起。'].map((content,index)=>({
+   id:`reply-q-${index}`,type:'matching',content,questionNo:31+index,pinyin:index===1?'Nǐ zěnme huí xuéxiào?':'',
+   points:2,correctAnswer:core.PICTURE_CODES[index],explanation:'Lời giải câu đọc.',options:[],
+  }))};
+ const body={level:1,title:'Đề đọc thử',durationMin:10,passScore:null};
+ const flatten=(group)=>templates.flattenGroups([group]);
+ const flat=flatten(reading);
+ assert.equal(flat.filter(q=>q.groupReplies).length,1);
+ assert.ok(flat.every(q=>!q.options.length&&!q.imageUrl));
+ const [roundTrip]=templates.unflattenToGroups(flat,1);
+ assert.deepEqual(roundTrip.groupReplies,replies);
+ assert.equal(roundTrip.instruction,reading.instruction);
+ assert.equal(roundTrip.questions[1].pinyin,reading.questions[1].pinyin);
+ for(const invalid of [
+  {...reading,groupReplies:replies.slice(0,5)},
+  {...reading,questions:reading.questions.slice(0,4)},
+  {...reading,questions:reading.questions.map(q=>({...q,correctAnswer:'A'}))},
+  {...reading,questions:reading.questions.map((q,index)=>({...q,correctAnswer:index?q.correctAnswer:''}))},
+ ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:flatten(invalid)}),400);
+
+ const {paperId}=await f.service.importPaper(actors.admin,{...body,questions:flat});
+ const stored=f.sets.find(set=>set.id===paperId);
+ assert.ok(stored.questions.every(({question})=>!question.editorData.groupReplies&&question.options==='[]'));
+ const published=await f.service.publicationCandidates(actors.admin);
+ assert.deepEqual(published.find(p=>p.id===paperId).questions[0].editorData.groupReplies,replies);
+ const student=await f.service.dashboard(actors.a);
+ assert.ok(student.papers.find(p=>p.id===paperId).available);
+ const attempt=await start(f,paperId);
+ assert.equal(attempt.questions.filter(q=>q.groupReplies.length).length,1);
+ assert.deepEqual(attempt.questions[0].groupReplies,replies);
+ assert.equal(attempt.questions[0].groupInstruction,reading.instruction);
+ assert.ok(attempt.questions.every(q=>q.correctAnswer===undefined&&q.explanation===undefined));
+ const answers=Object.fromEntries(attempt.questions.map((q,index)=>[q.id,index===1?'F':core.PICTURE_CODES[index]]));
+ const saved=await f.service.writeAttempt(actors.a,{id:attempt.id,answers,revision:attempt.revision});
+ assert.deepEqual((await f.service.getAttempt(actors.a,attempt.id)).answers,answers);
+ const result=await f.service.writeAttempt(actors.a,{id:attempt.id,answers,revision:saved.revision},true);
+ assert.deepEqual(result.questions.map(q=>q.result.earned),[2,0,2,2,2]);
+ assert.equal(result.questions[1].correctAnswer,'B');
+ assert.equal(result.questions[1].explanation,'Lời giải câu đọc.');
+
+ const custom=flatten({...reading,groupCustom:true,questions:reading.questions.slice(0,3)});
+ const customPaper=await f.service.importPaper(actors.admin,{...body,questions:custom});
+ assert.equal((await start(f,customPaper.paperId)).questions.length,3);
+
+ const legacy=reading.questions.map((q,index)=>({...q,type:'multiple_choice',skill:'READING',groupTitle:reading.title,
+  options:replies,correctAnswer:core.PICTURE_CODES[index]}));
+ const [legacyGroup]=templates.unflattenToGroups(legacy,1);
+ assert.equal(legacyGroup.groupType,core.READING_REPLIES);
+ const legacySet=f.sets.find(set=>set.id==='off1');
+ legacySet.questions=legacy.map((q,index)=>({points:2,question:rawQuestion(`old-reply-${index}`,{
+  ...q,options:JSON.stringify(q.options),editorData:{groupTitle:q.groupTitle},
+ })}));
+ const legacyAttempt=await start(f,'off1');
+ assert.deepEqual(legacyAttempt.questions[0].groupReplies,replies);
+ assert.equal(legacyAttempt.questions[1].type,'matching');
+ legacySet.questions[0].question.options=JSON.stringify(replies.map(q=>({...q,text:'不同。'})));
+ const [unchanged]=templates.unflattenToGroups(legacy.map((q,index)=>index===0?{...q,options:replies.map(r=>({...r,text:'不同。'}))}:q),1);
+ assert.equal(unchanged.groupType,'standard');
+ assert.ok((await f.service.officialPapers()).find(p=>p.id==='off1').questions.every(q=>q.type==='multiple_choice'));
+});

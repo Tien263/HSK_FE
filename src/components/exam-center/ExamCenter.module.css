@@ -103,3 +103,41 @@
   text-decoration: underline;
   font-weight: 700;
 }
+
+.replyFields {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 12px;
+}
+.examReplyQuestion {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dce4cb;
+  border-radius: 8px;
+  background: #fcfdf9;
+}
+.examReplyQuestion legend {
+  padding: 0 5px;
+  font-weight: 700;
+}
+.examReplyQuestion .examPictureAnswers label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.examReplyQuestion .examPictureAnswers input {
+  width: auto;
+  accent-color: #527544;
+}
+.examReplyQuestion textarea {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid #d5dfc3;
+  border-radius: 8px;
+  background: #fff;
+}
+@media (max-width: 540px) {
+  .replyFields { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}

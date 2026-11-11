@@ -929,3 +929,32 @@
   object-fit: contain;
   margin: 8px 0;
 }
+
+.replyBank {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #dce4cb;
+  border-radius: 14px;
+  background: #fff;
+}
+.replyBank h2 { font-weight: 700; }
+.replyBank p, .replyBank small { color: #56644f; }
+.replyBank ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 8px;
+}
+.replyBank li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #dce4cb;
+  border-radius: 8px;
+  background: #fbfcf9;
+}
+.replyBank li[data-used="true"] {
+  background: #eaf2e2;
+}
