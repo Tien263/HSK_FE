@@ -2,54 +2,60 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Copy, Plus, Trash2 } from "lucide-react";
-import { CLOZE_PASSAGE, CLOZE_SECTION, PASSAGE_CHOICE, PASSAGE_SECTION, WORD_BANK } from "@/lib/reading-cloze";
+import { CLOZE_PASSAGE, CLOZE_SECTION, PASSAGE_CHOICE, PASSAGE_SECTION, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, WORD_BANK } from "@/lib/reading-cloze";
 import type { ExamSectionGroup, QuestionItem } from "./hsk-sample-templates";
 import ReadingClozeEditor, { initializeReadingCloze, readingItemId } from "./ReadingClozeEditor";
 import s from "./ExamCenter.module.css";
 
-function choiceQuestion(source?: QuestionItem): QuestionItem {
+type SectionType = typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof JUDGEMENT_SECTION;
+type PassageType = typeof PASSAGE_CHOICE | typeof PASSAGE_JUDGEMENT;
+
+function passageQuestion(mode: PassageType, source?: QuestionItem): QuestionItem {
+  const judgement = mode === PASSAGE_JUDGEMENT;
+  const options = judgement ? JUDGEMENT_OPTIONS :
+    ["A", "B", "C", "D"].map(id => source?.options.find(option => option.id === id) || { id, text: "" });
   return {
     id: source?.id || readingItemId(),
-    type: "multiple_choice",
+    type: judgement ? "true_false" : "multiple_choice",
     questionNo: source?.questionNo,
     content: source?.content || "",
     pinyin: source?.pinyin,
     points: source?.points ?? 2,
-    correctAnswer: ["A", "B", "C", "D"].includes(source?.correctAnswer || "") ? source!.correctAnswer : "",
+    correctAnswer: options.some(option => option.id === source?.correctAnswer) ? source?.correctAnswer || "" : "",
     explanation: source?.explanation,
-    options: ["A", "B", "C", "D"].map(id => source?.options.find(option => option.id === id) || { id, text: "" }),
+    evidence: judgement ? source?.evidence : undefined,
+    options,
   };
 }
 
-function newPassage(isChoice: boolean, title: string): ExamSectionGroup {
+function passageMode(type: SectionType | undefined) {
+  if (type === PASSAGE_SECTION) return PASSAGE_CHOICE;
+  if (type === JUDGEMENT_SECTION) return PASSAGE_JUDGEMENT;
+  return undefined;
+}
+
+function newPassage(mode: PassageType | undefined, title: string): ExamSectionGroup {
   const passage: ExamSectionGroup = { id: readingItemId(), title, skill: "READING", questions: [] };
-  if (isChoice) return { ...passage, groupType: PASSAGE_CHOICE, questions: [choiceQuestion()] };
+  if (mode) return { ...passage, groupType: mode, questions: [passageQuestion(mode)] };
   return { ...passage, ...initializeReadingCloze(passage, WORD_BANK) };
 }
 
-export function initializeReadingSection(group: ExamSectionGroup, type: typeof PASSAGE_SECTION | typeof CLOZE_SECTION, fresh = false): Partial<ExamSectionGroup> {
+export function initializeReadingSection(group: ExamSectionGroup, type: SectionType, fresh = false): Partial<ExamSectionGroup> {
   if (group.groupType === type) return {};
-  const isChoice = type === PASSAGE_SECTION;
+  const mode = passageMode(type);
+  const convert = (passage: ExamSectionGroup): ExamSectionGroup => {
+    if (mode) return { ...passage, skill: "READING", groupType: mode, questions: passage.questions.map(q => passageQuestion(mode, q)) };
+    if (passage.groupType === WORD_BANK || passage.groupType === CLOZE_PASSAGE) return passage;
+    return { ...passage, ...initializeReadingCloze(passage, passage.passage ? CLOZE_PASSAGE : WORD_BANK) };
+  };
   if (group.passages?.length) {
-    const passages = group.passages.map((passage): ExamSectionGroup => {
-      if (isChoice) return { ...passage, groupType: PASSAGE_CHOICE, questions: passage.questions.map(choiceQuestion) };
-      if (passage.groupType !== PASSAGE_CHOICE) return passage;
-      return { ...passage, ...initializeReadingCloze(passage, passage.passage ? CLOZE_PASSAGE : WORD_BANK) };
-    });
-    return { groupType: type, skill: "READING", passages };
+    return { groupType: type, skill: "READING", passages: group.passages.map(convert) };
   }
-  let passage = newPassage(isChoice, "Bài 1");
-  if (!fresh && group.questions.length) {
-    const source = { ...group, id: passage.id, title: passage.title, instruction: undefined, passages: undefined };
-    if (isChoice) {
-      passage = { ...source, skill: "READING", groupType: PASSAGE_CHOICE, questions: source.questions.map(choiceQuestion) };
-    } else if (group.groupType === WORD_BANK || group.groupType === CLOZE_PASSAGE) {
-      passage = source;
-    } else {
-      passage = { ...source, ...initializeReadingCloze(source, group.passage ? CLOZE_PASSAGE : WORD_BANK) };
-    }
-  }
-  return { groupType: type, skill: "READING", passages: [passage], questions: [] };
+  const passage = newPassage(mode, "Bài 1");
+  const first = !fresh && group.questions.length
+    ? convert({ ...group, id: passage.id, title: passage.title, instruction: undefined, passages: undefined })
+    : passage;
+  return { groupType: type, skill: "READING", passages: [first], questions: [] };
 }
 
 export default function ReadingPassagesEditor({ section, onChange }: {
@@ -57,7 +63,7 @@ export default function ReadingPassagesEditor({ section, onChange }: {
   onChange: (patch: Partial<ExamSectionGroup>) => void;
 }) {
   const passages = section.passages || [];
-  const isChoice = section.groupType === PASSAGE_SECTION;
+  const mode = passageMode(section.groupType === PASSAGE_SECTION || section.groupType === JUDGEMENT_SECTION ? section.groupType : undefined);
   const [closed, setClosed] = useState<Set<string>>(() => new Set());
   const update = (id: string, patch: Partial<ExamSectionGroup>) =>
     onChange({ passages: passages.map(passage => passage.id === id ? { ...passage, ...patch } : passage) });
@@ -118,7 +124,7 @@ export default function ReadingPassagesEditor({ section, onChange }: {
                 <label>Hướng dẫn riêng (tùy chọn)
                   <input value={passage.instruction || ""} onChange={event => update(passage.id, { instruction: event.target.value })} />
                 </label>
-                {!isChoice && (
+                {!mode && (
                   <label>Chế độ của bài lớn
                     <select value={passage.groupType} onChange={event => update(passage.id,
                       initializeReadingCloze(passage, event.target.value === CLOZE_PASSAGE ? CLOZE_PASSAGE : WORD_BANK)
@@ -137,7 +143,7 @@ export default function ReadingPassagesEditor({ section, onChange }: {
       <button type="button" className={s.secondary} onClick={() => {
         let number = passages.length + 1;
         while (passages.some(passage => passage.title === `Bài ${number}`)) number++;
-        onChange({ passages: [...passages, newPassage(isChoice, `Bài ${number}`)] });
+        onChange({ passages: [...passages, newPassage(mode, `Bài ${number}`)] });
       }}><Plus size={16} /> Thêm bài lớn</button>
     </div>
   );

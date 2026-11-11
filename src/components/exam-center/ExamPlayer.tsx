@@ -38,7 +38,7 @@ import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleE
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
 import ReadingClozePlayer from "./ReadingClozePlayer";
-import { isReadingCloze, WORD_BANK, PASSAGE_CHOICE } from "@/lib/reading-cloze";
+import { isReadingCloze, WORD_BANK, isReadingPassage, PASSAGE_JUDGEMENT } from "@/lib/reading-cloze";
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamPlayer.module.css";
 
@@ -334,14 +334,9 @@ export default function ExamPlayer({
 
   // Group eval_true_false_na check (Đánh giá Đúng / Sai / Không đề cập)
   const evalGroupQuestions = useMemo(() => {
-    if (!currentQ || (currentQ as any).groupType !== "eval_true_false_na") return null;
-    const gTitle = (currentQ as any).groupTitle;
-    const list = questions.filter(
-      (q) =>
-        (q as any).groupType === "eval_true_false_na" &&
-        q.skill === currentQ.skill &&
-        (!gTitle || (q as any).groupTitle === gTitle)
-    );
+    if (currentQ?.groupType !== "eval_true_false_na") return null;
+    const list = questions.filter(q => q.groupType === "eval_true_false_na" && q.skill === currentQ.skill &&
+      (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle));
     return list.length > 0 ? list : null;
   }, [currentQ, questions]);
 
@@ -352,7 +347,7 @@ export default function ExamPlayer({
   const sharedReplies = replyMatching ? replySlots(matchingGroupQuestions?.find(q => q.groupReplies?.length)?.groupReplies) : [];
   const usedReplies = new Set(matchingGroupQuestions?.map(q => answers[q.id]).filter(Boolean));
 
-  const passageQuestions = currentQ && (isReadingCloze(currentQ.groupType) || currentQ.groupType === PASSAGE_CHOICE) ? questions.filter(q =>
+  const passageQuestions = currentQ && (isReadingCloze(currentQ.groupType) || isReadingPassage(currentQ.groupType)) ? questions.filter(q =>
     q.groupType === currentQ.groupType && (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle)
   ) : null;
   const readingSections = attempt?.readingSections || [];
@@ -781,7 +776,8 @@ export default function ExamPlayer({
           {/* Bài ghép A–F hiển thị lựa chọn dùng chung phía trên các câu. */}
           {passageQuestions ? (
             <ReadingClozePlayer key={currentQ.groupId || currentQ.groupTitle} questions={passageQuestions}
-              wordBank={currentQ.groupType === WORD_BANK} passageChoice={currentQ.groupType === PASSAGE_CHOICE} answers={answers} finished={finished}
+              wordBank={currentQ.groupType === WORD_BANK} passageChoice={isReadingPassage(currentQ.groupType)}
+              judgement={currentQ.groupType === PASSAGE_JUDGEMENT} answers={answers} finished={finished}
               disabled={busy || conflict} onAnswer={handleAnswer} />
           ) : matchingGroupQuestions ? (
             <div style={{ display: "grid", gap: 18 }}>

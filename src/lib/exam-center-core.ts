@@ -1,10 +1,13 @@
 import { gradeQuestion, publicQuestion, canonicalQuestionType } from "./question-content";
-import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, isReadingCloze, clozeChoice } from "./reading-cloze";
+import { CLOZE_PASSAGE, WORD_BANK, isReadingPassage, isReadingCloze, clozeChoice } from "./reading-cloze";
 import { isMockAnswerCorrect } from "./mock-exam-matcher";
 export const EXAM_LEVELS = [1,2,3,4,5,6,7] as const;
 export const EXAM_SKILLS = ["LISTENING","READING","WRITING","TRANSLATION","SPEAKING"] as const;
 export type ExamSkill = typeof EXAM_SKILLS[number];
 export type ExamQuestion = { id:string; type:string; content:string; skill:ExamSkill; level:number; points:number; correctAnswer:string; explanation:string; options:unknown[]; pinyinPrompt?:string; audioUrl?:string; imageUrl?:string; editorData:Record<string,unknown>; tags:string };
+export function isSharedListeningGroup(type:unknown) {
+ return type==="listening_choice_abc"||type==="eval_true_false_na"||type==="listening_fill_blank";
+}
 export const PICTURE_CODES = ["A", "B", "C", "D", "E", "F"] as const;
 export type ExamGroupImage = { id: string; label: string; imageUrl: string };
 export type ExamReply = { id:string; text:string; pinyin?:string };
@@ -121,6 +124,7 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
      groupReplies: raw.groupReplies || editor.groupReplies,
      groupWords: raw.groupWords || editor.groupWords,
      blankId: raw.blankId || editor.blankId,
+     evidence: raw.evidence || editor.evidence,
      passagePinyin: raw.passagePinyin || editor.passagePinyin,
      groupCustom: raw.groupCustom ?? editor.groupCustom,
      instruction: raw.instruction || editor.instruction || "",
@@ -212,13 +216,16 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
    const correct=PICTURE_CODES.some(code=>code===answer&&code===q.correctAnswer);
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
   }
-  if(isReadingCloze(q.editorData.groupType)||q.editorData.groupType===PASSAGE_CHOICE){
+  if(isReadingCloze(q.editorData.groupType)||isReadingPassage(q.editorData.groupType)){
    const correct=!!answer&&answer===q.correctAnswer;
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
   }
-  const graded=q.skill==="SPEAKING"?{manual:true,correct:false}:gradeQuestion(q,answer);
+  const listeningFill=q.editorData.groupType==="listening_fill_blank";
+  const graded=q.skill==="SPEAKING"?{manual:true,correct:false}:gradeQuestion(listeningFill?{
+   ...q,editorData:{...q.editorData,acceptedAnswers:String(q.editorData.acceptedAnswers||"").split(/[/,，|]/).map(item=>item.trim()).filter(Boolean)}
+  }:q,answer);
   let correct=graded.correct;
-  if(!graded.manual&&q.editorData?.schemaVersion!==2&&["multiple_choice","listening_choice","fill_blank","listening_fill","true_false","true_false_na"].includes(q.type)){
+  if(!graded.manual&&!listeningFill&&q.editorData.groupType!=="eval_true_false_na"&&q.editorData?.schemaVersion!==2&&["multiple_choice","listening_choice","fill_blank","listening_fill","true_false","true_false_na"].includes(q.type)){
    const option=q.options.find(item=>typeof item==="object"&&item&&(item as Record<string,unknown>).id===answer);
    const resolved=option?String((option as Record<string,unknown>).text||(option as Record<string,unknown>).content||answer):answer;
    correct=isMockAnswerCorrect(answer,q.correctAnswer,q.options.map(option=>typeof option==="string"?option:String((option as Record<string,unknown>)?.text||"")))||resolved!==answer&&isMockAnswerCorrect(resolved,q.correctAnswer);
@@ -294,6 +301,8 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
        ...(finished?{
          correctAnswer:q.correctAnswer,
          explanation:q.explanation,
+         evidence:String(q.editorData.evidence||""),
+         ...(q.type==="listening_fill"?{acceptedAnswers:String(q.editorData.acceptedAnswers||"")}:{}),
          audioScript:q.content,
          result:results.get(q.id)
        }:{})

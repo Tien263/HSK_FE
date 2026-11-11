@@ -1,15 +1,18 @@
 "use client";
 
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Plus, Trash2 } from "lucide-react";
 import {
   CLOZE_CODES,
   CLOZE_PASSAGE,
   PASSAGE_CHOICE,
+  PASSAGE_JUDGEMENT,
+  JUDGEMENT_OPTIONS,
   WORD_BANK,
   isReadingCloze,
   clozeChoice,
   passageParts,
   passageChoiceIssues,
+  passageJudgementIssues,
   readingClozeIssues,
   repeatedWordAnswer,
 } from "@/lib/reading-cloze";
@@ -76,13 +79,14 @@ export default function ReadingClozeEditor({ group, onChange }: {
   onChange: (patch: Partial<ExamSectionGroup>) => void;
 }) {
   const bank = group.groupType === WORD_BANK;
-  const choice = group.groupType === PASSAGE_CHOICE;
+  const judgement = group.groupType === PASSAGE_JUDGEMENT;
+  const choice = group.groupType === PASSAGE_CHOICE || judgement;
   const words = group.groupWords || [];
   const passage = group.passage || "";
   const canResize = !bank || !!group.groupCustom;
   const standardSize = group.questions.length === 5 && words.length === 6 &&
     CLOZE_CODES.slice(0, 6).every(id => words.some(word => word.id === id));
-  const issues = choice ? passageChoiceIssues(passage, group.questions) : readingClozeIssues(bank ? WORD_BANK : CLOZE_PASSAGE, {
+  const issues = judgement ? passageJudgementIssues(passage, group.questions) : choice ? passageChoiceIssues(passage, group.questions) : readingClozeIssues(bank ? WORD_BANK : CLOZE_PASSAGE, {
     words, passage, custom: group.groupCustom,
   }, group.questions);
   const updateQuestion = (id: string, patch: Partial<QuestionItem>) =>
@@ -94,7 +98,8 @@ export default function ReadingClozeEditor({ group, onChange }: {
       : newQuestion(group.questions.at(-1)?.points);
     if (bank || choice) {
       onChange({ questions: [...group.questions, choice ? {
-        ...question, type: "multiple_choice", options: source ? question.options : emptyOptions(4),
+        ...question, type: judgement ? "true_false" : "multiple_choice",
+        options: judgement ? JUDGEMENT_OPTIONS : source ? question.options : emptyOptions(4),
       } : question] });
       return;
     }
@@ -109,6 +114,12 @@ export default function ReadingClozeEditor({ group, onChange }: {
     const questions = group.questions.filter(item => item.id !== question.id);
     const removeMarker = !bank && !choice && question.blankId && !questions.some(q => q.blankId === question.blankId);
     onChange({ questions, passage: removeMarker ? passage.replaceAll(`[${question.blankId}]`, "") : passage });
+  }
+
+  function moveQuestion(index: number, offset: -1 | 1) {
+    const questions = [...group.questions];
+    [questions[index], questions[index + offset]] = [questions[index + offset], questions[index]];
+    onChange({ questions });
   }
 
   function updateChoices(question: QuestionItem, options: QuestionOption[]) {
@@ -179,10 +190,10 @@ export default function ReadingClozeEditor({ group, onChange }: {
         )}
       </section>
       <section className={s.examGroupCard}>
-        <strong>{bank ? "Câu cần điền" : choice ? "Câu hỏi đọc hiểu" : "Lựa chọn cho từng chỗ trống"}</strong>
+        <strong>{bank ? "Câu cần điền" : judgement ? "Phát biểu Đúng/Sai" : choice ? "Câu hỏi đọc hiểu" : "Lựa chọn cho từng chỗ trống"}</strong>
         {group.questions.map((question, index) => (
           <fieldset key={question.id} className={s.examReplyQuestion}>
-            <legend>{bank || choice ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống ${question.blankId?.slice(5) || index + 1}`}</legend>
+            <legend>{judgement ? `Phát biểu ${index + 1}` : bank || choice ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống ${question.blankId?.slice(5) || index + 1}`}</legend>
             {bank ? (
               <>
                 <label>Câu chữ Hán chứa [blank]
@@ -205,7 +216,7 @@ export default function ReadingClozeEditor({ group, onChange }: {
               <>
                 {choice ? (
                   <>
-                    <label>Câu hỏi chữ Hán
+                    <label>{judgement ? "Phát biểu chữ Hán" : "Câu hỏi chữ Hán"}
                       <input lang="zh" value={question.content} onChange={event => updateQuestion(question.id, { content: event.target.value })} />
                     </label>
                     <label>Pinyin câu (tùy chọn)
@@ -217,7 +228,7 @@ export default function ReadingClozeEditor({ group, onChange }: {
                     <input placeholder="blank1" value={question.blankId || ""} onChange={event => updateQuestion(question.id, { blankId: event.target.value })} />
                   </label>
                 )}
-                {question.options.map(option => (
+                {!judgement && question.options.map(option => (
                   <div className={s.clozeChoiceFields} key={option.id}>
                     <label>Lựa chọn {option.id}
                       <input lang="zh" value={option.text || ""} onChange={event => updateChoices(question, question.options.map(item =>
@@ -235,11 +246,11 @@ export default function ReadingClozeEditor({ group, onChange }: {
                   </div>
                 ))}
                 <div className={s.examPictureAnswers} role="group" aria-label="Chọn đáp án đúng">
-                  {question.options.map(option => (
+                  {(judgement ? JUDGEMENT_OPTIONS : question.options).map(option => (
                     <label key={option.id}>
                       <input type="radio" name={`answer-${group.id}-${question.id}`} checked={question.correctAnswer === option.id}
                         onChange={() => updateQuestion(question.id, { correctAnswer: option.id })} />
-                      {option.id}
+                      {judgement ? option.text : option.id}
                     </label>
                   ))}
                 </div>
@@ -252,13 +263,23 @@ export default function ReadingClozeEditor({ group, onChange }: {
             <label>Điểm
               <input type="number" min={0} step="any" value={question.points} onChange={event => updateQuestion(question.id, { points: Number(event.target.value) })} />
             </label>
-            <label>Giải thích ngữ pháp hoặc ngữ cảnh (tùy chọn)
+            {judgement && <label>Căn cứ trong đoạn văn (tùy chọn)
+              <textarea rows={2} lang="zh" placeholder="Trích nguyên văn câu hoặc cụm từ làm căn cứ"
+                value={question.evidence || ""} onChange={event => updateQuestion(question.id, { evidence: event.target.value })} />
+            </label>}
+            <label>{judgement ? "Giải thích đáp án (tùy chọn)" : "Giải thích ngữ pháp hoặc ngữ cảnh (tùy chọn)"}
               <textarea rows={2} value={question.explanation || ""} onChange={event => updateQuestion(question.id, { explanation: event.target.value })} />
             </label>
             {canResize && (
               <div className={s.rowActions}>
+                {judgement && <>
+                  <button type="button" className={s.secondary} disabled={index === 0} aria-label={`Đưa phát biểu ${index + 1} lên`}
+                    onClick={() => moveQuestion(index, -1)}><ChevronUp size={15} /></button>
+                  <button type="button" className={s.secondary} disabled={index === group.questions.length - 1} aria-label={`Đưa phát biểu ${index + 1} xuống`}
+                    onClick={() => moveQuestion(index, 1)}><ChevronDown size={15} /></button>
+                </>}
                 <button type="button" className={s.secondary} onClick={() => addQuestion(question)}><Copy size={14} /> Nhân bản</button>
-                <button type="button" className={s.secondary} disabled={group.questions.length === 1}
+                <button type="button" className={s.secondary} disabled={!judgement && group.questions.length === 1}
                   onClick={() => removeQuestion(question)}><Trash2 size={14} /> Xóa câu</button>
               </div>
             )}

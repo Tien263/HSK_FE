@@ -80,11 +80,17 @@ export function readingClozeIssues(
 }
 
 export const PASSAGE_CHOICE = "reading_passage_choice";
+export const PASSAGE_JUDGEMENT = "reading_passage_judgement";
+export const JUDGEMENT_SECTION = "reading_judgement_section";
+export const JUDGEMENT_OPTIONS = [{id:"true",text:"√ Đúng"},{id:"false",text:"× Sai"}];
+export function isReadingPassage(type: unknown): type is typeof PASSAGE_CHOICE | typeof PASSAGE_JUDGEMENT {
+  return type === PASSAGE_CHOICE || type === PASSAGE_JUDGEMENT;
+}
 export const PASSAGE_SECTION = "reading_passage_section";
 export const CLOZE_SECTION = "reading_cloze_section";
 
-export function isReadingSection(type: unknown): type is typeof PASSAGE_SECTION | typeof CLOZE_SECTION {
-  return type === PASSAGE_SECTION || type === CLOZE_SECTION;
+export function isReadingSection(type: unknown): type is typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof JUDGEMENT_SECTION {
+  return type === PASSAGE_SECTION || type === CLOZE_SECTION || type === JUDGEMENT_SECTION;
 }
 
 export function passageChoiceIssues(passage: string, questions: readonly {
@@ -102,6 +108,25 @@ export function passageChoiceIssues(passage: string, questions: readonly {
   ))) issues.push("Mỗi câu cần đủ bốn lựa chọn A, B, C, D.");
   if (questions.some(q => !["A", "B", "C", "D"].includes(q.correctAnswer))) {
     issues.push("Chọn đáp án đúng cho từng câu hỏi nhỏ.");
+  }
+  return issues;
+}
+
+export function passageJudgementIssues(passage: string, questions: readonly {
+  content: string;
+  correctAnswer: string;
+  evidence?: string;
+}[]) {
+  const issues: string[] = [];
+  if (!/\p{Script=Han}/u.test(passage)) issues.push("Nhập đoạn văn chữ Hán.");
+  if (!questions.length || questions.some(question => !/\p{Script=Han}/u.test(question.content))) {
+    issues.push("Nhập phát biểu chữ Hán cho từng câu hỏi nhỏ.");
+  }
+  if (questions.some(question => !JUDGEMENT_OPTIONS.some(option => option.id === question.correctAnswer))) {
+    issues.push("Chọn √ Đúng hoặc × Sai cho từng phát biểu.");
+  }
+  if (questions.some(question => question.evidence?.trim() && !passage.includes(question.evidence.trim()))) {
+    issues.push("Căn cứ cần là một đoạn trích nguyên văn có trong bài đọc.");
   }
   return issues;
 }

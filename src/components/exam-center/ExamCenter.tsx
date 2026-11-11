@@ -7,7 +7,7 @@ import { EXAM_LEVELS,levelGroup,levelLabel } from "@/lib/exam-center-core";
 import type { dashboard,reviewData } from "@/lib/exam-center-service";
 import { examApi,dateText,resultNames,skillNames,timeText,typeNames,dayKey } from "./exam-client";
 import ExamPlayer from "./ExamPlayer";
-import { CLOZE_PASSAGE, PASSAGE_CHOICE, WORD_BANK, passageParts } from "@/lib/reading-cloze";
+import { CLOZE_PASSAGE, PASSAGE_CHOICE, PASSAGE_JUDGEMENT, WORD_BANK, passageParts } from "@/lib/reading-cloze";
 import ExamStaff from "./ExamStaff";
 import ExamCatalog,{ExamIntroduction,ScoreTrend} from "./ExamCatalog";
 import ComponentErrorBoundary from "@/components/common/ComponentErrorBoundary";
@@ -27,12 +27,16 @@ const safeUUID = () => {
 };
 function ReadingReviewContext({ question }: { question: Review["wrong"][number]["question"] }) {
  const cloze=question.groupType===CLOZE_PASSAGE;
+ const evidence=question.groupType===PASSAGE_JUDGEMENT?String(question.editorData.evidence||""):"";
+ const start=evidence?question.passage.indexOf(evidence):-1;
  return <>
   {question.sectionTitle&&<p>{question.sectionTitle} · {question.groupTitle}</p>}
   {question.passage&&<div lang="zh" className={s.reviewPassage}>
    {cloze?passageParts(question.passage).map((part,index)=>part.blankId
     ? part.blankId===question.blankId?<mark key={index}>({part.blankId.slice(5)}) ______</mark>:<span key={index}> ({part.blankId.slice(5)}) ______ </span>
-    : <span key={index}>{part.text}</span>):question.passage}
+    : <span key={index}>{part.text}</span>):start>=0
+    ? <>{question.passage.slice(0,start)}<mark>{evidence}</mark>{question.passage.slice(start+evidence.length)}</>
+    : question.passage}
   </div>}
   {question.groupWords.length>0&&<ul className={s.reviewWords}>{question.groupWords.map(word=><li key={word.id}>
    <strong>{word.id}</strong> <span lang="zh">{word.text}</span>{word.pinyin&&<small> {word.pinyin}</small>}
@@ -41,9 +45,9 @@ function ReadingReviewContext({ question }: { question: Review["wrong"][number][
  </>;
 }
 function readingReviewAnswer(question:Review["wrong"][number]["question"],answer:string){
- if(![WORD_BANK,CLOZE_PASSAGE,PASSAGE_CHOICE].includes(question.groupType))return answer;
+ if(![WORD_BANK,CLOZE_PASSAGE,PASSAGE_CHOICE,PASSAGE_JUDGEMENT].includes(question.groupType))return answer;
  const choice=(question.groupType===WORD_BANK?question.groupWords:question.options).find(option=>option.id===answer);
- return choice?`${choice.id} · ${choice.text}`:answer;
+ return choice?(question.groupType===PASSAGE_JUDGEMENT?choice.text:`${choice.id} · ${choice.text}`):answer;
 }
 export default function ExamCenter({user}:{user:{id:string;name:string;role:string}}){
  const router=useRouter(),pathname=usePathname(),params=useSearchParams(),view=params.get('view')||'home';

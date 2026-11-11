@@ -3,9 +3,9 @@ import { randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
-import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, PASSAGE_SECTION, CLOZE_SECTION, isReadingCloze, isReadingSection, clozeChoice, readingClozeIssues, passageChoiceIssues } from "./reading-cloze";
+import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, PASSAGE_SECTION, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, isReadingPassage, isReadingCloze, isReadingSection, clozeChoice, readingClozeIssues, passageChoiceIssues, passageJudgementIssues } from "./reading-cloze";
 import { NextResponse } from "next/server";
-import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, replyGroupIssues, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
+import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, isSharedListeningGroup, replyGroupIssues, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
 
 const ATTEMPT="EXAM_CENTER_ATTEMPT", PAPER="EXAM_CENTER_PAPER", PUBLICATION="EXAM_CENTER_PUBLICATION", REVIEW="EXAM_CENTER_REVIEW";
 export class ExamError extends Error { constructor(public status:number,message:string){super(message);} }
@@ -76,7 +76,7 @@ async function ownAttempts(user:AuthUser){
  const result=[];for(const row of rows)result.push({id:row.id,state:await settledState(user,row.id,row)});return result;
 }
 // The custom-paper builder samples individual questions. Keep passage blanks together in their published paper.
-function approvedPool(papers:ExamPaper[],level:number){return [...new Map(papers.filter(p=>levelGroup(p.level)===level).flatMap(p=>p.questions).filter(q=>usableQuestion(q)&&q.points>0&&q.editorData.groupType!==CLOZE_PASSAGE&&q.editorData.groupType!==PASSAGE_CHOICE).map(q=>[q.id,q])).values()];}
+function approvedPool(papers:ExamPaper[],level:number){return [...new Map(papers.filter(p=>levelGroup(p.level)===level).flatMap(p=>p.questions).filter(q=>usableQuestion(q)&&q.points>0&&q.editorData.groupType!==CLOZE_PASSAGE&&!isReadingPassage(q.editorData.groupType)).map(q=>[q.id,q])).values()];}
 async function legacyHistory(user:AuthUser){
  const rows=await prisma.attempt.findMany({where:{studentId:user.id,status:{not:"IN_PROGRESS"},assignment:{quizSet:{mode:{in:["MOCK_EXAM","EXAM"]}}}},select:{id:true,score:true,maxScore:true,status:true,startedAt:true,submittedAt:true,teacherNote:true,assignment:{select:{title:true,quizSet:{select:{id:true,hskLevel:true}}}}},orderBy:{startedAt:"desc"}});
  return rows.map(row=>({id:`legacy:${row.id}`,paperId:row.assignment.quizSet.id,title:row.assignment.title,level:row.assignment.quizSet.hskLevel,source:"LEGACY" as const,maxScore:row.maxScore,score:row.score,status:row.status,startedAt:row.startedAt.toISOString(),submittedAt:row.submittedAt?.toISOString()||null,result:row.status!=="GRADED"?"PENDING":/chưa đạt/i.test(row.teacherNote||"")?"FAIL":/đạt chuẩn/i.test(row.teacherNote||"")?"PASS":"UNSET",feedback:row.teacherNote||""}));
@@ -199,10 +199,11 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   const rawSectionId=String(q.editorData.sectionId||"").trim();
   const sectionType=q.editorData.sectionType;
   let section:ExamGroupMedia["section"];
-  if(groupType===PASSAGE_CHOICE&&!rawSectionId)throw new ExamError(400,"Bài đọc hiểu cần thuộc một phần thi.");
+  if(isReadingPassage(groupType)&&!rawSectionId)throw new ExamError(400,"Bài đọc hiểu cần thuộc một phần thi.");
   if(rawSectionId||sectionType){
    if(!rawSectionId||!originalGroupId||!isReadingSection(sectionType)||
-      (sectionType===PASSAGE_SECTION?groupType!==PASSAGE_CHOICE:!isReadingCloze(groupType)))
+      (sectionType===PASSAGE_SECTION?groupType!==PASSAGE_CHOICE:
+       sectionType===JUDGEMENT_SECTION?groupType!==PASSAGE_JUDGEMENT:!isReadingCloze(groupType)))
     throw new ExamError(400,"Bài lớn chưa được liên kết với đúng phần thi.");
    const sectionTitle=String(q.editorData.sectionTitle||"").trim();
    if(!sectionTitle||!String(q.editorData.groupTitle||"").trim())throw new ExamError(400,"Nhập tên phần thi và tên từng bài lớn.");
@@ -227,7 +228,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   previousSectionId=rawSectionId;
   previousPassageId=section?originalGroupId:"";
   const key=JSON.stringify([rawSectionId,q.skill,groupType,originalGroupId||q.editorData.groupTitle||""]);
-  if(groupType==="matching_images"||groupType==="listening_choice_abc"||groupType===READING_REPLIES||isReadingCloze(groupType)||groupType===PASSAGE_CHOICE){
+  if(groupType==="matching_images"||isSharedListeningGroup(groupType)||groupType===READING_REPLIES||isReadingCloze(groupType)||isReadingPassage(groupType)){
    let group=grouped.get(key);
    if(!group){
     group={title:String(q.editorData.groupTitle||"Nhóm câu hỏi"),questions:[],media:section?{section}:{}};
@@ -239,12 +240,18 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
      throw new ExamError(400,`${group.title} — Dữ liệu tranh không hợp lệ.`);
     group.media.images=images.map(image=>({id:image.id,label:`Tranh ${image.id}`,imageUrl:image.imageUrl}));
    }
-   if(q.audioUrl&&q.skill==="LISTENING")group.media.audioUrl??=examAudioUrl(q.audioUrl,level);
+   if(q.audioUrl?.trim()&&q.skill==="LISTENING")group.media.audioUrl??=examAudioUrl(q.audioUrl.trim(),level);
    q.editorData.groupId=`${prefix}_${key}`;
    delete q.editorData.groupImages;
    delete q.editorData.audioUrl;
    q.audioUrl="";
-   if(groupType===WORD_BANK||groupType===CLOZE_PASSAGE||groupType===PASSAGE_CHOICE){
+   if(groupType==="eval_true_false_na"||groupType==="listening_fill_blank"){
+    if(q.skill!=="LISTENING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Nghe.`);
+    q.type=groupType==="eval_true_false_na"?"true_false_na":"listening_fill";
+    if(q.type==="true_false_na"&&!["true","false","not_mentioned"].includes(q.correctAnswer))
+     throw new ExamError(400,`${group.title} — Chọn Đúng, Sai hoặc Không đề cập cho từng câu.`);
+   }
+   if(groupType===WORD_BANK||groupType===CLOZE_PASSAGE||isReadingPassage(groupType)){
     if(q.skill!=="READING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Đọc.`);
     const cleanChoice=(option:unknown)=>{
      if(!clozeChoice(option))throw new ExamError(400,`${group.title} — Dữ liệu lựa chọn không hợp lệ.`);
@@ -269,11 +276,12 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
       throw new ExamError(400,`${group.title} — Nhóm có nhiều đoạn văn khác nhau.`);
      group.media.passage||=passage;
      group.media.passagePinyin||=String(q.editorData.passagePinyin||"");
-     q.options=q.options.map(cleanChoice);
+     q.options=groupType===PASSAGE_JUDGEMENT?JUDGEMENT_OPTIONS:q.options.map(cleanChoice);
      if(groupType===CLOZE_PASSAGE)q.editorData.blankId=String(q.editorData.blankId||"");
     }
     group.media.instruction||=String(q.editorData.instruction||"");
-    q.type=groupType===PASSAGE_CHOICE?"multiple_choice":"fill_blank";
+    q.type=groupType===PASSAGE_JUDGEMENT?"true_false":groupType===PASSAGE_CHOICE?"multiple_choice":"fill_blank";
+    if(groupType===PASSAGE_JUDGEMENT)q.editorData.evidence=String(q.editorData.evidence||"").trim();
     q.imageUrl="";
     delete q.editorData.passage;
     delete q.editorData.passagePinyin;
@@ -333,6 +341,9 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   if(type===WORD_BANK||type===CLOZE_PASSAGE)
    issues.push(...readingClozeIssues(type,media,questions.map(q=>({...q,blankId:String(q.editorData.blankId||"")}))));
   if(type===PASSAGE_CHOICE)issues.push(...passageChoiceIssues(media.passage||"",questions));
+  if(type===PASSAGE_JUDGEMENT)issues.push(...passageJudgementIssues(media.passage||"",questions.map(q=>({
+   ...q,evidence:String(q.editorData.evidence||"")
+  }))));
   if(first.skill==="LISTENING"&&!media.audioUrl)issues.push("Tải tệp audio chung cho nhóm.");
   if(issues.length)throw new ExamError(400,`${title} — ${issues.join(" ")}`);
   if(media.replies)media.replies=replySlots(media.replies);

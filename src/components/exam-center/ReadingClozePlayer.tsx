@@ -7,10 +7,11 @@ import s from "./ExamPlayer.module.css";
 
 type Question = ReturnType<typeof attemptForOwner>["questions"][number];
 
-export default function ReadingClozePlayer({ questions, wordBank, passageChoice = false, answers, finished, disabled, onAnswer }: {
+export default function ReadingClozePlayer({ questions, wordBank, passageChoice = false, judgement = false, answers, finished, disabled, onAnswer }: {
   questions: Question[];
   wordBank: boolean;
   passageChoice?: boolean;
+  judgement?: boolean;
   answers: Record<string, string>;
   finished: boolean;
   disabled: boolean;
@@ -33,7 +34,7 @@ export default function ReadingClozePlayer({ questions, wordBank, passageChoice 
   }
 
   return (
-    <section className={s.clozeGroup} aria-label={passageChoice ? "Đọc hiểu đoạn văn" : wordBank ? "Đọc điền từ dùng chung" : "Đoạn văn điền từ"}>
+    <section className={s.clozeGroup} aria-label={judgement ? "Đọc đoạn văn phán đoán Đúng/Sai" : passageChoice ? "Đọc hiểu đoạn văn" : wordBank ? "Đọc điền từ dùng chung" : "Đoạn văn điền từ"}>
       {instruction && <p>{instruction}</p>}
       {wordBank ? (
         <section className={s.replyBank} aria-label="Ngân hàng từ">
@@ -82,21 +83,21 @@ export default function ReadingClozePlayer({ questions, wordBank, passageChoice 
           return (
             <fieldset key={question.id} id={fieldId(question.id)} tabIndex={-1} className={s.clozeQuestion}
               data-highlighted={highlighted === question.id} disabled={finished || disabled}>
-              <legend>{wordBank || passageChoice ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống (${question.blankId.slice(5)})`}</legend>
+              <legend>{judgement ? `Phát biểu ${index + 1}` : wordBank || passageChoice ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống (${question.blankId.slice(5)})`}</legend>
               {wordBank && (
                 <div className={s.matchingSentence} lang="zh">{before}<span className={s.clozeBlank}>{selectedWord?.text || "______"}</span>{after}</div>
               )}
               {passageChoice && <div lang="zh" className={s.matchingSentence}>{question.content}</div>}
               {question.pinyin && <p className={s.matchingPinyin}>{question.pinyin}</p>}
-              <div className={wordBank ? s.clozeCodes : s.clozeOptions}>
+              <div className={wordBank || judgement ? s.clozeCodes : s.clozeOptions}>
                 {options.map(option => (
                   <label key={option.id} data-selected={selected === option.id} data-correct={finished && option.id === question.correctAnswer}>
                     <input type="radio" name={fieldId(question.id)} checked={selected === option.id} onChange={() => {
                       setHighlighted(question.id);
                       onAnswer(question.id, option.id);
                     }} />
-                    <strong>{option.id}</strong>
-                    {!wordBank && (
+                    {judgement ? <strong>{option.text}</strong> : <strong>{option.id}</strong>}
+                    {!wordBank && !judgement && (
                       <span><span lang="zh">{option.text}</span>{option.pinyin && <small className={s.matchingPinyin}> {option.pinyin}</small>}</span>
                     )}
                   </label>
@@ -104,9 +105,12 @@ export default function ReadingClozePlayer({ questions, wordBank, passageChoice 
               </div>
               {finished && (
                 <div className={s.clozeSolution}>
-                  {correct && <div><strong>Đáp án đúng</strong> {correct.id} · <span lang="zh">{correct.text}</span>
+                  {correct && <div><strong>Đáp án đúng</strong> {judgement ? correct.text : <>{correct.id} · <span lang="zh">{correct.text}</span></>}
                     {correct.pinyin && <small className={s.matchingPinyin}> {correct.pinyin}</small>}
                   </div>}
+                  {judgement && question.evidence && (
+                    <p><strong>Căn cứ trong đoạn văn</strong> <q lang="zh">{question.evidence}</q></p>
+                  )}
                   {question.result && <p>{question.result.earned}/{question.result.max} điểm</p>}
                   {question.explanation && <p>{question.explanation}</p>}
                 </div>

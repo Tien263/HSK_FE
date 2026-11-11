@@ -360,3 +360,71 @@ test('reading sections preserve nested passage order, support mixed cloze modes 
  const large=await f.service.importPaper(actors.admin,{...body,questions:templates.flattenGroups([many])});
  assert.equal((await start(f,large.paperId)).questions.length,501);
 });
+
+test('listening evaluation and fill publish shared uploaded audio and grade normalized responses',async()=>{
+ const f=fixture();
+ const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const audio='/uploaded/nhom-danh-gia.mp3';
+ const fillAudio='/uploaded/nhom-dien-dap-an.mp3';
+ const question=(id,correctAnswer,extra={})=>({id,content:'SECRET TRANSCRIPT',correctAnswer,points:2,options:[],...extra});
+ const evaluation={id:'eval',title:'Nhóm nghe',skill:'LISTENING',groupType:'eval_true_false_na',audioUrl:audio,
+  questions:[question('eval1','true'),question('eval2','not_mentioned')]};
+ const fill={id:'fill',title:'Nhóm nghe',skill:'LISTENING',groupType:'listening_fill_blank',audioUrl:fillAudio,
+  questions:[question('fill1','骑自行车',{acceptedAnswers:'骑车 / 骑单车，单车'}),question('fill2','老师',{requiresManualReview:true})]};
+ const body={level:4,title:'Đề nghe',durationMin:25,passScore:null};
+ const questions=templates.flattenGroups([evaluation,fill]);
+ assert.deepEqual(questions.map(q=>q.audioUrl),[audio,'',fillAudio,'']);
+ const groups=templates.unflattenToGroups(questions,4);
+ assert.deepEqual(groups.map(group=>group.audioUrl),[audio,fillAudio]);
+ for(const group of [evaluation,fill]){
+  await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:templates.flattenGroups([{...group,audioUrl:''}])}),400);
+ }
+ const {paperId}=await f.service.importPaper(actors.admin,{...body,questions});
+ assert.ok(f.sets.find(set=>set.id===paperId).questions.every(({question})=>!question.audioUrl));
+ const attempt=await start(f,paperId);
+ assert.deepEqual(attempt.questions.map(q=>q.audioUrl),[audio,audio,fillAudio,fillAudio]);
+ assert.ok(!JSON.stringify(attempt.questions).includes('SECRET TRANSCRIPT'));
+ assert.ok(!JSON.stringify(attempt.questions).includes('骑车'));
+ const answers=Object.fromEntries(attempt.questions.map((q,index)=>[q.id,['true','〇','骑 单车。','学生'][index]]));
+ const submitted=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,answers},true);
+ assert.equal(submitted.status,'NEEDS_GRADING');
+ assert.deepEqual(submitted.questions.map(q=>q.result.earned),[2,2,2,null]);
+ assert.equal(submitted.questions[2].acceptedAnswers,'骑车 / 骑单车，单车');
+});
+
+test('reading judgement presents both statements but withholds keys and passage evidence until submission',async()=>{
+ const f=fixture();
+ const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const {PASSAGE_JUDGEMENT,JUDGEMENT_SECTION,JUDGEMENT_OPTIONS}=require(path.resolve('src/lib/reading-cloze.ts'));
+ const evidence='小王每天坐公共汽车上学';
+ const statement=(id,content,correctAnswer,extra={})=>({id,content,correctAnswer,points:2,options:[],type:'true_false',...extra});
+ const first={id:'passage1',title:'Đi học',skill:'READING',groupType:PASSAGE_JUDGEMENT,passage:evidence+'。周末他在家休息。',
+  questions:[statement('q2','周末小王也去学校。','false',{evidence:'周末他在家休息',explanation:'Bài đọc nói cậu ấy nghỉ ở nhà.'}),
+   statement('q1','小王坐公共汽车上学。','true',{evidence})]};
+ const second={...first,id:'passage2',title:'Gia đình',passage:'她和姐姐一起做饭。',
+  questions:[statement('q3','她和姐姐一起做饭。','true')]};
+ const section={id:'reading',title:'阅读判断正误',skill:'READING',groupType:JUDGEMENT_SECTION,questions:[],passages:[first,second]};
+ const questions=templates.flattenGroups([section]);
+ assert.deepEqual(questions.map(q=>q.id),['q2','q1','q3']);
+ assert.equal(templates.unflattenToGroups(questions,1)[0].passages[0].questions[0].evidence,'周末他在家休息');
+ const body={level:1,title:'Đọc Đúng/Sai',durationMin:20,passScore:null};
+ for(const patch of [{correctAnswer:''},{correctAnswer:'not_mentioned'},{evidence:'不是原文。'}])
+  await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:questions.map((q,i)=>i===0?{...q,...patch}:q)}),400);
+ const {paperId}=await f.service.importPaper(actors.admin,{...body,questions});
+ const attempt=await start(f,paperId);
+ assert.equal(attempt.questions[0].passage,first.passage);
+ assert.equal(attempt.questions[1].content,'小王坐公共汽车上学。');
+ assert.deepEqual(attempt.questions[0].options,JUDGEMENT_OPTIONS);
+ assert.ok(attempt.questions.every(q=>q.evidence===undefined&&q.correctAnswer===undefined&&q.explanation===undefined));
+ const answers=Object.fromEntries(attempt.questions.map(q=>[q.id,'true']));
+ const saved=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,answers});
+ assert.deepEqual((await f.service.getAttempt(actors.a,attempt.id)).answers,answers);
+ const result=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:saved.revision,answers},true);
+ assert.deepEqual(result.questions.map(q=>q.result.earned),[0,2,2]);
+ assert.equal(result.questions[0].evidence,'周末他在家休息');
+ assert.equal(result.questions[0].explanation,'Bài đọc nói cậu ấy nghỉ ở nhà.');
+ assert.equal(result.readingSections[0].earned,4);
+ const review=(await f.service.reviewData(actors.a)).wrong.find(row=>row.question.id===attempt.questions[0].id);
+ assert.equal(review.question.passage,first.passage);
+ assert.equal(review.question.editorData.evidence,'周末他在家休息');
+});

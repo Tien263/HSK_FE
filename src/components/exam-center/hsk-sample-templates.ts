@@ -1,5 +1,5 @@
-import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_CHOICE, PASSAGE_SECTION, CLOZE_SECTION, isReadingCloze, isReadingSection } from "../../lib/reading-cloze";
-import { PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, legacyReplyChoices, type ExamReply } from "../../lib/exam-center-core";
+import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_CHOICE, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, PASSAGE_SECTION, CLOZE_SECTION, isReadingPassage, isReadingCloze, isReadingSection } from "../../lib/reading-cloze";
+import { PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, legacyReplyChoices, isSharedListeningGroup, type ExamReply } from "../../lib/exam-center-core";
 
 // hsk-sample-templates.ts
 // Pre-configured standardized templates matching the official HSK 3.0 Hanban/CTI 样卷 (from HSK3.0 folder)
@@ -21,7 +21,8 @@ export interface ImportedQuestion {
   sectionId?: string;
   sectionTitle?: string;
   sectionInstruction?: string;
-  sectionType?: typeof PASSAGE_SECTION | typeof CLOZE_SECTION;
+  sectionType?: typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof JUDGEMENT_SECTION;
+  evidence?: string;
   groupTitle?: string;
   groupType?: ExamSectionGroup["groupType"];
   groupImages?: ExamSectionGroup["groupImages"];
@@ -467,6 +468,7 @@ export interface QuestionItem {
   id: string;
   questionNo?: string | number;
   blankId?: string;
+  evidence?: string;
   type: string;
   content: string;
   pinyin?: string;
@@ -487,7 +489,7 @@ export interface ExamSectionGroup {
   instruction?: string;
   audioUrl?: string;
   passage?: string;
-  groupType?: typeof PASSAGE_CHOICE | typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof WORD_BANK | typeof CLOZE_PASSAGE | typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
+  groupType?: typeof PASSAGE_JUDGEMENT | typeof JUDGEMENT_SECTION | typeof PASSAGE_CHOICE | typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof WORD_BANK | typeof CLOZE_PASSAGE | typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
   groupImages?: { id: string; label: string; imageUrl: string }[];
   groupReplies?: ExamReply[];
   groupWords?: ExamReply[];
@@ -508,27 +510,30 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
     ? (section.passages || []).map(group => ({ group, section }))
     : [{ group: section, section: undefined }]);
   for (const { group, section } of entries) {
-    const passageChoice = group.groupType === PASSAGE_CHOICE;
+    const readingPassage = isReadingPassage(group.groupType);
+    const judgement = group.groupType === PASSAGE_JUDGEMENT;
     const pictureGroup = group.groupType === "matching_images";
     const replyGroup = group.groupType === READING_REPLIES;
     const wordBank = group.groupType === WORD_BANK;
     const clozePassage = group.groupType === CLOZE_PASSAGE;
     const cloze = wordBank || clozePassage;
-    const groupAudio = pictureGroup || replyGroup || cloze || group.groupType === "listening_choice_abc";
+    const listeningFill = group.groupType === "listening_fill_blank";
+    const listeningEval = group.groupType === "eval_true_false_na";
+    const groupAudio = pictureGroup || replyGroup || cloze || isSharedListeningGroup(group.groupType);
     for (const [index, q] of group.questions.entries()) {
       const questionId = q.id || `q_${qIdx}`;
       const item: ImportedQuestion = {
         id: questionId,
-        type: passageChoice ? "multiple_choice" : cloze ? "fill_blank" : pictureGroup || replyGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
+        type: judgement ? "true_false" : readingPassage ? "multiple_choice" : listeningFill ? "listening_fill" : listeningEval ? "true_false_na" : cloze ? "fill_blank" : pictureGroup || replyGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
         skill: group.skill,
-        content: passageChoice || cloze || replyGroup || (pictureGroup && group.skill === "READING") ? q.content : q.content || `第 ${qIdx} 题`,
+        content: readingPassage || cloze || replyGroup || (pictureGroup && group.skill === "READING") ? q.content : q.content || `第 ${qIdx} 题`,
         pinyin: q.pinyin || "",
         points: Number(q.points),
-        correctAnswer: passageChoice || cloze || pictureGroup || replyGroup ? q.correctAnswer : q.correctAnswer || "A",
+        correctAnswer: readingPassage || cloze || pictureGroup || replyGroup || listeningFill || listeningEval ? q.correctAnswer : q.correctAnswer || "A",
         explanation: q.explanation || "",
-        imageUrl: passageChoice || cloze || replyGroup || (pictureGroup && group.skill === "READING") ? "" : q.imageUrl || "",
+        imageUrl: readingPassage || cloze || replyGroup || (pictureGroup && group.skill === "READING") ? "" : q.imageUrl || "",
         audioUrl: groupAudio ? (index === 0 && group.skill === "LISTENING" ? group.audioUrl || "" : "") : q.audioUrl || group.audioUrl || "",
-        options: replyGroup || wordBank ? [] : clozePassage || passageChoice ? q.options.map(({ id, text, pinyin }) => ({ id, text, pinyin })) : pictureGroup ? PICTURE_CODES.map(id => ({ id, text: `Tranh ${id}` })) : Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
+        options: judgement ? JUDGEMENT_OPTIONS : replyGroup || wordBank || listeningFill ? [] : clozePassage || readingPassage ? q.options.map(({ id, text, pinyin }) => ({ id, text, pinyin })) : pictureGroup ? PICTURE_CODES.map(id => ({ id, text: `Tranh ${id}` })) : Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
           id: opt.id,
           text: opt.text || "",
           pinyin: opt.pinyin || "",
@@ -540,22 +545,23 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         ],
         rubric: (q as any).rubric || "",
       };
-      item.passage = (clozePassage || passageChoice) && index === 0 ? group.passage || "" :
-        pictureGroup || replyGroup || cloze || passageChoice ? "" : group.passage || "";
+      item.passage = (clozePassage || readingPassage) && index === 0 ? group.passage || "" :
+        pictureGroup || replyGroup || cloze || readingPassage ? "" : group.passage || "";
       if (clozePassage) item.blankId = q.blankId;
+      if (judgement) item.evidence = q.evidence || "";
       if (section && isReadingSection(section.groupType)) {
         item.sectionId = section.id;
         item.sectionTitle = section.title;
         item.sectionInstruction = section.instruction;
         item.sectionType = section.groupType;
       }
-      if ((cloze || passageChoice) && index === 0) {
+      if ((cloze || readingPassage) && index === 0) {
         item.instruction = group.instruction || "";
         if (wordBank) {
           item.groupWords = group.groupWords || [];
           item.groupCustom = !!group.groupCustom;
         }
-        if (clozePassage || passageChoice) item.passagePinyin = group.passagePinyin || "";
+        if (clozePassage || readingPassage) item.passagePinyin = group.passagePinyin || "";
       }
       item.groupTitle = group.title || "";
       item.groupId = group.id;
@@ -590,7 +596,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     const explicitGroupType = (q as any).groupType || (q as any).editorData?.groupType || "standard";
     const explicitGroupImages = (q as any).groupImages || (q as any).editorData?.groupImages;
     const cloze = isReadingCloze(explicitGroupType);
-    const passageChoice = explicitGroupType === PASSAGE_CHOICE;
+    const readingPassage = isReadingPassage(explicitGroupType);
     const explicitQuestionNo = (q as any).questionNo || (q as any).editorData?.questionNo;
 
     const sectionId = q.sectionId || (q as any).editorData?.sectionId;
@@ -660,13 +666,14 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       id: q.id || `q_${i + 1}`,
       questionNo: explicitQuestionNo || (i + 1),
       blankId: q.blankId || (q as any).editorData?.blankId,
+      evidence: q.evidence || (q as any).editorData?.evidence,
       type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
-      content: passageChoice || cloze || explicitGroupType === READING_REPLIES ? q.content || "" : q.content || `Câu ${i + 1}`,
+      content: readingPassage || cloze || explicitGroupType === READING_REPLIES ? q.content || "" : q.content || `Câu ${i + 1}`,
       pinyin: q.pinyin || (q as any).pinyinPrompt || "",
       points: Number(q.points ?? 2.5),
       imageUrl: q.imageUrl || "",
       audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
-      correctAnswer: passageChoice || cloze || explicitGroupType === "matching_images" || explicitGroupType === READING_REPLIES ? q.correctAnswer || "" : q.correctAnswer || "A",
+      correctAnswer: readingPassage || cloze || explicitGroupType === "listening_fill_blank" || explicitGroupType === "eval_true_false_na" || explicitGroupType === "matching_images" || explicitGroupType === READING_REPLIES ? q.correctAnswer || "" : q.correctAnswer || "A",
       explanation: q.explanation || "",
       acceptedAnswers: (q as any).acceptedAnswers || (q as any).editorData?.acceptedAnswers || "",
       requiresManualReview: !!((q as any).requiresManualReview || (q as any).editorData?.requiresManualReview),
@@ -677,7 +684,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
             pinyin: typeof opt === "object" && opt ? opt.pinyin || "" : "",
             imageUrl: opt?.imageUrl || "",
           }))
-        : cloze || passageChoice ? [] : [
+        : cloze || readingPassage ? [] : [
             { id: "A", text: "Đáp án A" },
             { id: "B", text: "Đáp án B" },
           ],

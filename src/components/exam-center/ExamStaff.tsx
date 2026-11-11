@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowRight,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -31,14 +30,14 @@ import {
   X,
 } from "lucide-react";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
-import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
+import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
 import ExamPlayer from "./ExamPlayer";
 import ReadingClozeEditor, { initializeReadingCloze } from "./ReadingClozeEditor";
 import ReadingPassagesEditor, { initializeReadingSection } from "./ReadingPassagesEditor";
-import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_SECTION, CLOZE_SECTION, isReadingCloze, isReadingSection } from "@/lib/reading-cloze";
+import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_SECTION, CLOZE_SECTION, JUDGEMENT_SECTION, isReadingCloze, isReadingSection } from "@/lib/reading-cloze";
 import {
   getSampleQuestionsForLevel,
   type ImportedQuestion,
@@ -195,6 +194,17 @@ export const HSK_GROUP_TEMPLATES = [
     options: ["A", "B", "C", "D"].map((l) => ({ id: l, text: `Lựa chọn ${l}` })),
     correctAnswer: "A",
     points: 2.5,
+  },
+  {
+    name: "📖 阅读判断正误 – Đọc đoạn văn phán đoán Đúng/Sai",
+    skill: "READING" as const,
+    groupType: JUDGEMENT_SECTION as typeof JUDGEMENT_SECTION,
+    type: "true_false",
+    samplePrompt: "",
+    instruction: "Đọc đoạn văn và chọn √ Đúng hoặc × Sai cho từng phát biểu.",
+    options: [],
+    correctAnswer: "",
+    points: 2,
   },
   {
     name: "✍️ Sắp xếp các từ thành câu hoàn chỉnh (Sentence Order)",
@@ -523,7 +533,7 @@ export default function ExamStaff({
         title: `Nhóm ${groups.length + 1}: ${template.name}`,
         skill: template.skill,
         instruction: template.instruction,
-        audioUrl: template.skill === "LISTENING" && gType !== "matching_images" && gType !== "listening_choice_abc" ? defaultAudio : "",
+        audioUrl: template.skill === "LISTENING" && gType !== "matching_images" && !isSharedListeningGroup(gType) ? defaultAudio : "",
         passage: template.passage || "",
         groupType: gType,
         groupImages: initialImages,
@@ -1318,6 +1328,7 @@ export default function ExamStaff({
                                 <option value="matching_images">🖼️ {group.skill === "READING" ? "Đọc câu ghép tranh A–F" : "Ghép tranh A–F"}</option>
                                 <option value={READING_REPLIES}>阅读问答匹配 – Đọc nối câu hỏi với câu trả lời A–F</option>
                                 <option value={PASSAGE_SECTION}>Đọc hiểu đoạn văn – Passage + Multiple Choice</option>
+                                <option value={JUDGEMENT_SECTION}>阅读判断正误 – Đọc đoạn văn phán đoán Đúng/Sai</option>
                                 <option value={CLOZE_SECTION}>Đọc điền từ – 选词填空 / 完形填空</option>
                                 {group.groupType === WORD_BANK && <option value={WORD_BANK}>Đọc điền từ A – Một bài</option>}
                                 {group.groupType === CLOZE_PASSAGE && <option value={CLOZE_PASSAGE}>Đọc điền từ B – Một bài</option>}
@@ -1338,7 +1349,7 @@ export default function ExamStaff({
                           </label>
 
                           {/* File bài nghe chung của nhóm (cho phần Nghe tiêu chuẩn) */}
-                          {group.skill === "LISTENING" && group.groupType !== "matching_images" && group.groupType !== "listening_choice_abc" && group.groupType !== "eval_true_false_na" && group.groupType !== "listening_fill_blank" && (
+                          {group.skill === "LISTENING" && group.groupType !== "matching_images" && !isSharedListeningGroup(group.groupType) && (
                             <div style={{ marginTop: 14, padding: 12, background: "#f2f8eb", borderRadius: 10, border: "1px solid #d4e3cb" }}>
                               <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                                 <Music size={16} /> File bài nghe âm thanh (.mp3) chung cho nhóm này:
@@ -1894,38 +1905,7 @@ export default function ExamStaff({
                           </div>
                         ) : group.groupType === "eval_true_false_na" ? (
                           <div style={{ display: "grid", gap: 16 }}>
-                            {/* File audio cho toàn bộ nhóm và sơ đồ thứ tự */}
-                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
-                              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 10 }}>
-                                File audio chung cho nhóm đánh giá ({group.questions.length} phát biểu)
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#f8faf5", padding: 10, borderRadius: 8, border: "1px solid #e0ebd3" }}>
-                                <Music size={18} color="#254422" />
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "#254422" }}>
-                                  {group.audioUrl ? (group.audioUrl.split("/").pop() || "Audio nhóm") : "Chưa chọn file audio"}
-                                </span>
-                                <span style={{ fontSize: 12, color: "#64748b" }}>
-                                  (Chứa phát biểu từ câu {group.questions[0]?.questionNo || 1} đến câu {group.questions[group.questions.length - 1]?.questionNo || group.questions.length})
-                                </span>
-                                <span style={{ marginLeft: "auto", background: "#e2e8f0", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>MP3</span>
-                              </div>
-                              <div style={{ marginTop: 12 }}>
-                                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Thứ tự phát audio:</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                  {group.questions.map((q, qIdx) => (
-                                    <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", border: "2px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#334155" }}>
-                                          {qIdx + 1}
-                                        </div>
-                                        <span style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{q.questionNo || `Câu ${qIdx + 1}`}</span>
-                                      </div>
-                                      {qIdx < group.questions.length - 1 && <ArrowRight size={14} color="#94a3b8" />}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
+                            {groupAudioEditor(group, "Tải tệp audio chung cho nhóm đánh giá")}
 
                             {/* Danh sách các phát biểu Đánh giá Đúng / Sai / Không đề cập */}
                             <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
@@ -2108,38 +2088,7 @@ export default function ExamStaff({
                           </div>
                         ) : group.groupType === "listening_fill_blank" ? (
                           <div style={{ display: "grid", gap: 16 }}>
-                            {/* File audio cho toàn bộ nhóm và sơ đồ thứ tự */}
-                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
-                              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 10 }}>
-                                File audio chung cho nhóm điền từ ({group.questions.length} câu)
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#f8faf5", padding: 10, borderRadius: 8, border: "1px solid #e0ebd3" }}>
-                                <Music size={18} color="#254422" />
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "#254422" }}>
-                                  {group.audioUrl ? (group.audioUrl.split("/").pop() || "Audio nhóm") : "Chưa chọn file audio"}
-                                </span>
-                                <span style={{ fontSize: 12, color: "#64748b" }}>
-                                  (Chứa bài nghe từ câu {group.questions[0]?.questionNo || 1} đến câu {group.questions[group.questions.length - 1]?.questionNo || group.questions.length})
-                                </span>
-                                <span style={{ marginLeft: "auto", background: "#e2e8f0", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>MP3</span>
-                              </div>
-                              <div style={{ marginTop: 12 }}>
-                                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Thứ tự phát audio:</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                  {group.questions.map((q, qIdx) => (
-                                    <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", border: "2px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#334155" }}>
-                                          {qIdx + 1}
-                                        </div>
-                                        <span style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{q.questionNo || `Câu ${qIdx + 1}`}</span>
-                                      </div>
-                                      {qIdx < group.questions.length - 1 && <ArrowRight size={14} color="#94a3b8" />}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
+                            {groupAudioEditor(group, "Tải tệp audio chung cho nhóm điền đáp án")}
 
                             {/* Danh sách các câu hỏi điền từ */}
                             <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
