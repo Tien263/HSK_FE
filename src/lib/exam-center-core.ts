@@ -1,5 +1,7 @@
+import { getQuestionNumber } from "./question-number";
 import { gradeQuestion, publicQuestion, canonicalQuestionType } from "./question-content";
 import { CLOZE_PASSAGE, WORD_BANK, isReadingPassage, isReadingCloze, clozeChoice } from "./reading-cloze";
+import { gradeSentenceOrder } from "./sentence-order";
 import { isMockAnswerCorrect } from "./mock-exam-matcher";
 export const EXAM_LEVELS = [1,2,3,4,5,6,7] as const;
 export const EXAM_SKILLS = ["LISTENING","READING","WRITING","TRANSLATION","SPEAKING"] as const;
@@ -134,10 +136,17 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
      sectionType: raw.sectionType || editor.sectionType,
      sectionInstruction: raw.sectionInstruction || editor.sectionInstruction,
      groupId: raw.groupId || editor.groupId || "",
-     questionNo: raw.questionNo || editor.questionNo || "",
+     questionNo: raw.questionNo ?? editor.questionNo ?? "",
+     questionNumber: getQuestionNumber({
+       questionNumber:raw.questionNumber??editor.questionNumber,questionNo:raw.questionNo??editor.questionNo,
+     }),
      passage: raw.passage || editor.passage || "",
      groupTitle: raw.groupTitle || editor.groupTitle || "",
      acceptedAnswers: String(raw.acceptedAnswers || editor.acceptedAnswers || ""),
+     tokens: Array.isArray(raw.tokens) ? raw.tokens : Array.isArray(editor.tokens) ? editor.tokens : [],
+     tokenIds: Array.isArray(raw.tokenIds) ? raw.tokenIds : Array.isArray(editor.tokenIds) ? editor.tokenIds : [],
+     sampleAnswer: String(raw.sampleAnswer || editor.sampleAnswer || raw.correctAnswer || ""),
+     sentenceOrderMode: String(raw.sentenceOrderMode || editor.sentenceOrderMode || "both"),
      requiresManualReview: !!(raw.requiresManualReview || editor.requiresManualReview),
      ...(raw.type==="multi_choice"?{schemaVersion:2,selectionMode:"MULTIPLE"}:{})
    },
@@ -156,7 +165,7 @@ export function usableQuestion(q:ExamQuestion){
  if(q.type==="matching"&&(!Array.isArray(q.editorData.matchingPairs)||!q.editorData.matchingPairs.length))return false;
  return true;
 }
-export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia){
+export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia, position?:number){
  const safe=publicQuestion({...q,...(q.editorData.schemaVersion===2?{schemaVersion:2}:{}),type:q.type});
  // Option metadata and editorData are never sent to a candidate.
  const options=q.options.map((option,index)=>({
@@ -187,7 +196,8 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia){
    sectionTitle:group?.section?.title||String(q.editorData.sectionTitle||""),
    sectionInstruction:group?.section?.instruction||String(q.editorData.sectionInstruction||""),
    groupType:(q as any).groupType||(q.editorData as any)?.groupType||"",
-   questionNo:(q as any).questionNo||(q.editorData as any)?.questionNo||"",
+   questionNo:q.editorData.questionNo||"",
+   questionNumber:getQuestionNumber(q.editorData)??(q.editorData.questionNo?undefined:position),
    requiresManualReview:!!((q as any).requiresManualReview||(q.editorData as any)?.requiresManualReview),
    options,
    selectionMode:safe.selectionMode,
@@ -196,7 +206,14 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia){
    blanks:safe.blanks,
    matchingLeftItems:safe.matchingLeftItems,
    matchingRightItems:safe.matchingRightItems,
-   tokenItems:safe.tokenItems,
+   tokenItems: safe.tokenItems && (safe.tokenItems as unknown[]).length > 0
+     ? safe.tokenItems
+     : (Array.isArray(q.editorData.tokens) ? q.editorData.tokens : []).map((text: string, i: number) => ({
+         id: (Array.isArray(q.editorData.tokenIds) ? q.editorData.tokenIds[i] : undefined) || `tok_${i}`,
+         text,
+       })),
+   tokens: (Array.isArray(q.editorData.tokens) ? q.editorData.tokens : []) as string[],
+   sentenceOrderMode: ((q.editorData as any).sentenceOrderMode || "both") as "interactive" | "text" | "both",
    essayMin:safe.essayMin,
    essayMax:safe.essayMax,
    translationDirection:safe.translationDirection
@@ -219,6 +236,13 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
   if(isReadingCloze(q.editorData.groupType)||isReadingPassage(q.editorData.groupType)){
    const correct=!!answer&&answer===q.correctAnswer;
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
+  }
+  if(q.type==="sentence_order"){
+   const tokenList=(Array.isArray(q.editorData.tokens)?q.editorData.tokens:[]).map((text:string,i:number)=>({
+    id:(Array.isArray(q.editorData.tokenIds)?q.editorData.tokenIds[i]:undefined)||`tok_${i}`,text
+   }));
+   const res=gradeSentenceOrder(answer,q.correctAnswer||String(q.editorData.sampleAnswer||""),tokenList,q.editorData.acceptedAnswers as string);
+   return {questionId:q.id,manual:false,correct:res.correct,earned:res.correct?q.points:0,max:q.points};
   }
   const listeningFill=q.editorData.groupType==="listening_fill_blank";
   const graded=q.skill==="SPEAKING"?{manual:true,correct:false}:gradeQuestion(listeningFill?{
@@ -283,12 +307,12 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
    expiresAt:attempt.expiresAt,
    answers:attempt.answers,
    serverNow:new Date().toISOString(),
-   questions:attempt.paper.questions.map(q=>{
+   questions:attempt.paper.questions.map((q,index)=>{
      const groupId=String(q.editorData.groupId||"");
      const media=attempt.paper.groups?.[groupId];
      const pub=publicExamQuestion(q,media&&(!shownGroups.has(groupId)?media:{
        audioUrl:media.audioUrl,instruction:media.instruction,section:media.section,images:[],replies:[],words:[],passage:"",passagePinyin:""
-     }));
+     }),index+1);
      if(media)shownGroups.add(groupId);
      const isListening=q.skill==="LISTENING";
      // Khi đang thi (chưa nộp bài): ẩn đề bài / kịch bản nghe để học sinh nghe hiểu thật

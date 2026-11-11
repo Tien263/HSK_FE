@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import type { attemptForOwner } from "@/lib/exam-center-core";
+import { displayQuestionNumber } from "@/lib/question-number";
 import { passageParts, wordSentenceParts } from "@/lib/reading-cloze";
 import s from "./ExamPlayer.module.css";
 
@@ -83,7 +84,10 @@ export default function ReadingClozePlayer({ questions, wordBank, passageChoice 
           return (
             <fieldset key={question.id} id={fieldId(question.id)} tabIndex={-1} className={s.clozeQuestion}
               data-highlighted={highlighted === question.id} disabled={finished || disabled}>
-              <legend>{judgement ? `Phát biểu ${index + 1}` : wordBank || passageChoice ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống (${question.blankId.slice(5)})`}</legend>
+              <legend>
+                Câu {displayQuestionNumber(question, index + 1)}
+                {!wordBank && !passageChoice && <small> · Chỗ trống ({question.blankId.slice(5)})</small>}
+              </legend>
               {wordBank && (
                 <div className={s.matchingSentence} lang="zh">{before}<span className={s.clozeBlank}>{selectedWord?.text || "______"}</span>{after}</div>
               )}

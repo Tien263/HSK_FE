@@ -16,15 +16,17 @@ import {
   readingClozeIssues,
   repeatedWordAnswer,
 } from "@/lib/reading-cloze";
+import { getQuestionNumber, nextQuestionNumber } from "@/lib/question-number";
 import type { ExamSectionGroup, QuestionItem, QuestionOption } from "./hsk-sample-templates";
+import QuestionNumberInput from "./QuestionNumberInput";
 import s from "./ExamCenter.module.css";
 
 type ClozeMode = typeof WORD_BANK | typeof CLOZE_PASSAGE;
 export const readingItemId = () => crypto.randomUUID?.() || `cloze_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const emptyOptions = (count: number) => CLOZE_CODES.slice(0, count).map(id => ({ id, text: "", pinyin: "" }));
 
-function newQuestion(points = 2): QuestionItem {
-  return { id: readingItemId(), type: "fill_blank", content: "", points, correctAnswer: "", options: [] };
+function newQuestion(points = 2, questionNumber?: number): QuestionItem {
+  return { id: readingItemId(), questionNumber, type: "fill_blank", content: "", points, correctAnswer: "", options: [] };
 }
 
 function markersOf(passage: string) {
@@ -41,31 +43,39 @@ function nextBlank(passage: string, assigned: Set<string | undefined>) {
   return { blankId, passage: passage ? `${passage} [${blankId}]` : `[${blankId}]` };
 }
 
-export function initializeReadingCloze(group: ExamSectionGroup, mode: ClozeMode): Partial<ExamSectionGroup> {
+export function initializeReadingCloze(group: ExamSectionGroup, mode: ClozeMode, startNumber?: number): Partial<ExamSectionGroup> {
   if (group.groupType === mode) return {};
   const fromCloze = isReadingCloze(group.groupType);
-  const questions = group.questions.length ? group.questions : [newQuestion()];
+  const questions = group.questions.length ? group.questions : [newQuestion(2, startNumber)];
   if (mode === WORD_BANK) {
     const words = group.groupWords || emptyOptions(6);
+    const existingCount = questions.length;
     return {
       groupType: mode, skill: "READING", groupWords: words,
       groupCustom: questions.length > 5 || words.length !== 6,
       questions: [
-        ...questions.map(q => ({ ...q, correctAnswer: "" })),
-        ...Array.from({ length: Math.max(0, 5 - questions.length) }, () => newQuestion(questions[0].points)),
+        ...questions.map((q, i) => ({
+          ...q,
+          questionNumber: q.questionNumber !== undefined ? q.questionNumber : (startNumber !== undefined ? startNumber + i : undefined),
+          correctAnswer: "",
+        })),
+        ...Array.from({ length: Math.max(0, 5 - existingCount) }, (_, i) =>
+          newQuestion(questions[0]?.points ?? 2, startNumber !== undefined ? startNumber + existingCount + i : undefined)
+        ),
       ],
     };
   }
 
   let passage = group.passage || "";
   const assigned = new Set<string>();
-  const linkedQuestions = questions.map(q => {
+  const linkedQuestions = questions.map((q, qIndex) => {
     const next = nextBlank(passage, assigned);
     passage = next.passage;
     assigned.add(next.blankId);
     const keepOptions = (!fromCloze || !!q.blankId) && q.type === "fill_blank" && q.options.length >= 2 && q.options.every(clozeChoice);
     return {
       ...q,
+      questionNumber: q.questionNumber !== undefined ? q.questionNumber : (startNumber !== undefined ? startNumber + qIndex : undefined),
       blankId: next.blankId,
       options: keepOptions ? q.options : emptyOptions(4),
       correctAnswer: keepOptions && !fromCloze ? q.correctAnswer : "",
@@ -74,8 +84,10 @@ export function initializeReadingCloze(group: ExamSectionGroup, mode: ClozeMode)
   return { groupType: mode, skill: "READING", questions: linkedQuestions, passage };
 }
 
-export default function ReadingClozeEditor({ group, onChange }: {
+export default function ReadingClozeEditor({ group, allQuestions, duplicatedNumbers, onChange }: {
   group: ExamSectionGroup;
+  allQuestions?: readonly QuestionItem[];
+  duplicatedNumbers?: readonly number[];
   onChange: (patch: Partial<ExamSectionGroup>) => void;
 }) {
   const bank = group.groupType === WORD_BANK;
@@ -93,9 +105,10 @@ export default function ReadingClozeEditor({ group, onChange }: {
     onChange({ questions: group.questions.map(q => q.id === id ? { ...q, ...patch } : q) });
 
   function addQuestion(source?: QuestionItem) {
+    const nextNum = nextQuestionNumber(allQuestions || group.questions);
     const question = source
-      ? { ...source, id: readingItemId(), questionNo: undefined, options: source.options.map(option => ({ ...option })) }
-      : newQuestion(group.questions.at(-1)?.points);
+      ? { ...source, id: readingItemId(), questionNo: undefined, questionNumber: nextNum, options: source.options.map(option => ({ ...option })) }
+      : newQuestion(group.questions.at(-1)?.points, nextNum);
     if (bank || choice) {
       onChange({ questions: [...group.questions, choice ? {
         ...question, type: judgement ? "true_false" : "multiple_choice",
@@ -193,7 +206,14 @@ export default function ReadingClozeEditor({ group, onChange }: {
         <strong>{bank ? "Câu cần điền" : judgement ? "Phát biểu Đúng/Sai" : choice ? "Câu hỏi đọc hiểu" : "Lựa chọn cho từng chỗ trống"}</strong>
         {group.questions.map((question, index) => (
           <fieldset key={question.id} className={s.examReplyQuestion}>
-            <legend>{judgement ? `Phát biểu ${index + 1}` : bank || choice ? `Câu ${question.questionNo || index + 1}` : `Chỗ trống ${question.blankId?.slice(5) || index + 1}`}</legend>
+            <legend>
+              <QuestionNumberInput
+                question={question}
+                isDuplicate={duplicatedNumbers ? duplicatedNumbers.includes(getQuestionNumber(question)!) : false}
+                onChange={questionNumber => updateQuestion(question.id, { questionNumber })}
+              />
+              {!bank && !choice && <small>Chỗ trống {question.blankId?.slice(5) || index + 1}</small>}
+            </legend>
             {bank ? (
               <>
                 <label>Câu chữ Hán chứa [blank]
@@ -290,7 +310,7 @@ export default function ReadingClozeEditor({ group, onChange }: {
         ) : (
           <button type="button" className={s.secondary} onClick={() => onChange({
             groupCustom: true,
-            questions: [...group.questions, newQuestion(group.questions.at(-1)?.points)],
+            questions: [...group.questions, newQuestion(group.questions.at(-1)?.points, nextQuestionNumber(allQuestions || group.questions))],
           })}><Plus size={15} /> Thêm câu hỏi nhỏ (chuyển sang tùy chỉnh)</button>
         )}
       </section>

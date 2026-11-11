@@ -7,6 +7,7 @@ import { EXAM_LEVELS,levelGroup,levelLabel } from "@/lib/exam-center-core";
 import type { dashboard,reviewData } from "@/lib/exam-center-service";
 import { examApi,dateText,resultNames,skillNames,timeText,typeNames,dayKey } from "./exam-client";
 import ExamPlayer from "./ExamPlayer";
+import { displayQuestionNumber } from "@/lib/question-number";
 import { CLOZE_PASSAGE, PASSAGE_CHOICE, PASSAGE_JUDGEMENT, WORD_BANK, passageParts } from "@/lib/reading-cloze";
 import ExamStaff from "./ExamStaff";
 import ExamCatalog,{ExamIntroduction,ScoreTrend} from "./ExamCatalog";
@@ -41,7 +42,10 @@ function ReadingReviewContext({ question }: { question: Review["wrong"][number][
   {question.groupWords.length>0&&<ul className={s.reviewWords}>{question.groupWords.map(word=><li key={word.id}>
    <strong>{word.id}</strong> <span lang="zh">{word.text}</span>{word.pinyin&&<small> {word.pinyin}</small>}
   </li>)}</ul>}
-  <h3>{cloze&&question.blankId?`Chỗ trống (${question.blankId.slice(5)})`:question.content}</h3>
+  <h3>
+   {(question.questionNumber!==undefined||question.questionNo)&&<>Câu {displayQuestionNumber(question,1)} · </>}
+   {cloze&&question.blankId?`Chỗ trống (${question.blankId.slice(5)})`:question.content}
+  </h3>
  </>;
 }
 function readingReviewAnswer(question:Review["wrong"][number]["question"],answer:string){

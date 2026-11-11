@@ -38,6 +38,7 @@ import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleE
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
 import ReadingClozePlayer from "./ReadingClozePlayer";
+import { displayQuestionNumber } from "@/lib/question-number";
 import { isReadingCloze, WORD_BANK, isReadingPassage, PASSAGE_JUDGEMENT } from "@/lib/reading-cloze";
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamPlayer.module.css";
@@ -289,6 +290,10 @@ export default function ExamPlayer({
   const questions = useMemo(() => {
     return Array.isArray(attempt?.questions) ? attempt.questions : [];
   }, [attempt?.questions]);
+
+  const positions = useMemo(() => new Map(questions.map((question, index) => [question.id, index])), [questions]);
+  const numberOf = (question: (typeof questions)[number]) =>
+    displayQuestionNumber(question, (positions.get(question.id) ?? 0) + 1);
 
   const skillGroups = useMemo(() => {
     const map = new Map<
@@ -668,12 +673,10 @@ export default function ExamPlayer({
           {/* Card Top Meta */}
           <div className={s.cardTopMeta}>
             <div className={s.brushBadge}>
-              {skillNames[currentQ.skill]} · Phần {Math.ceil(currentSkillIndex / 10)} (Câu{" "}
-              {(currentSkillGroup?.startIndex ?? 0) + 1} –{" "}
-              {(currentSkillGroup?.endIndex ?? 0) + 1})
+              {skillNames[currentQ.skill]} · Phần {Math.ceil(currentSkillIndex / 10)}
             </div>
             <div className={s.questionStepPill}>
-              Câu {currentSkillIndex} / {currentSkillTotal}
+              Câu {numberOf(currentQ)} · {currentSkillIndex}/{currentSkillTotal}
             </div>
           </div>
 
@@ -854,7 +857,7 @@ export default function ExamPlayer({
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontWeight: 700, fontSize: 14, color: "#254422", minWidth: 65 }}>
-                            {(q as any).questionNo || `Câu ${questions.indexOf(q) + 1}`}
+                            Câu {numberOf(q)}
                           </span>
                           {q.skill === "READING" && (
                             <div>
@@ -869,7 +872,7 @@ export default function ExamPlayer({
                           )}
                         </div>
 
-                        <div className={s.matchingChoices} role="group" aria-label={`Chọn ${replyMatching ? "câu trả lời" : "tranh"} cho câu ${q.questionNo || questions.indexOf(q) + 1}`}>
+                        <div className={s.matchingChoices} role="group" aria-label={`Chọn ${replyMatching ? "câu trả lời" : "tranh"} cho câu ${numberOf(q)}`}>
                           {PICTURE_CODES.map((optId) => {
                             const isChecked = selectedAns === optId;
                             const isCorrect = finished && q.correctAnswer === optId;
@@ -967,7 +970,7 @@ export default function ExamPlayer({
                         <div style={{ flex: 1, minWidth: 220 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                             <span style={{ fontWeight: 700, fontSize: 14, color: "#254422" }}>
-                              {(q as any).questionNo || `Câu ${questions.indexOf(q) + 1}`}
+                              Câu {numberOf(q)}
                             </span>
                             {q.pinyin && (
                               <span style={{ fontSize: 12, color: "#617d5c" }}>[{q.pinyin}]</span>
@@ -1204,21 +1207,19 @@ export default function ExamPlayer({
                       ) : (
                         <PenTool size={15} />
                       )}
-                      {skillNames[group.skill]} ({group.startIndex + 1} – {group.endIndex + 1})
+                      {skillNames[group.skill]} · {group.questions.length} câu
                     </span>
                     <span>{isCollapsed ? "▼" : "▲"}</span>
                   </button>
 
                   {!isCollapsed && (
                     <div className={s.questionNumbersGrid}>
-                      {group.questions.map((q, localIdx) => {
-                        const globalIdx = group.startIndex + localIdx;
+                      {group.questions.map(q => {
+                        const globalIdx = positions.get(q.id) ?? group.startIndex;
                         const isCurrent = globalIdx === index;
                         const isAnswered = hasAnswer(answers[q.id]);
                         const isMarked = bookmarked.has(q.id);
-                        const displayNum = (q as any).questionNo
-                          ? String((q as any).questionNo).replace(/^(câu|c)\s*/i, "").trim()
-                          : String(globalIdx + 1);
+                        const displayNum = numberOf(q);
 
                         return (
                           <button
@@ -1232,11 +1233,11 @@ export default function ExamPlayer({
                                 : ""
                             } ${isMarked ? s.bookmarked : ""}`}
                             onClick={() => setIndex(globalIdx)}
-                            title={`${(q as any).questionNo || `Câu ${globalIdx + 1}`}${
+                            title={`Câu ${displayNum}${
                               isAnswered ? " (Đã làm)" : " (Chưa làm)"
                             }`}
                           >
-                            {isAnswered && !isCurrent ? "✓" : displayNum}
+                            {displayNum}
                           </button>
                         );
                       })}

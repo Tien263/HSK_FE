@@ -1,3 +1,4 @@
+import { nextQuestionNumber, suggestQuestionNumbers } from "../../lib/question-number";
 import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_CHOICE, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, PASSAGE_SECTION, CLOZE_SECTION, isReadingPassage, isReadingCloze, isReadingSection } from "../../lib/reading-cloze";
 import { PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, legacyReplyChoices, isSharedListeningGroup, type ExamReply } from "../../lib/exam-center-core";
 
@@ -33,7 +34,12 @@ export interface ImportedQuestion {
   groupCustom?: boolean;
   instruction?: string;
   questionNo?: string | number;
+  questionNumber?: string | number;
   passage?: string;
+  tokens?: string[];
+  tokenIds?: string[];
+  sampleAnswer?: string;
+  sentenceOrderMode?: "interactive" | "text" | "both";
   acceptedAnswers?: string;
   requiresManualReview?: boolean;
 }
@@ -467,6 +473,7 @@ export interface QuestionOption {
 export interface QuestionItem {
   id: string;
   questionNo?: string | number;
+  questionNumber?: string | number;
   blankId?: string;
   evidence?: string;
   type: string;
@@ -476,6 +483,10 @@ export interface QuestionItem {
   imageUrl?: string;
   audioUrl?: string;
   correctAnswer: string;
+  sampleAnswer?: string;
+  tokens?: string[];
+  tokenIds?: string[];
+  sentenceOrderMode?: "interactive" | "text" | "both";
   explanation?: string;
   acceptedAnswers?: string;
   requiresManualReview?: boolean;
@@ -501,6 +512,22 @@ export interface ExamSectionGroup {
 
 export function sectionQuestions(group: ExamSectionGroup): QuestionItem[] {
   return isReadingSection(group.groupType) ? (group.passages || []).flatMap(passage => passage.questions) : group.questions;
+}
+
+export function withQuestionNumbers(groups: ExamSectionGroup[], append = false): ExamSectionGroup[] {
+  const questions = groups.flatMap(sectionQuestions);
+  if (questions.every(question => question.questionNumber !== undefined)) return groups;
+  const hasExistingNumbers = questions.some(q => q.questionNumber !== undefined);
+  const start = append || hasExistingNumbers ? nextQuestionNumber(questions) : 1;
+  const numbers = suggestQuestionNumbers(questions, start);
+  let index = 0;
+  const assign = (question: QuestionItem) => {
+    const number = numbers[index++];
+    return question.questionNumber === undefined ? { ...question, questionNumber: number } : question;
+  };
+  return groups.map(group => isReadingSection(group.groupType)
+    ? { ...group, passages: group.passages?.map(passage => ({ ...passage, questions: passage.questions.map(assign) })) }
+    : { ...group, questions: group.questions.map(assign) });
 }
 
 export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
@@ -572,7 +599,12 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         item.groupCustom = !!group.groupCustom;
         item.instruction = group.instruction || "";
       }
-      item.questionNo = replyGroup && group.groupCustom ? index + 1 : q.questionNo || "";
+      item.questionNumber = q.questionNumber;
+      item.questionNo = q.questionNo;
+      item.tokens = q.tokens;
+      item.tokenIds = q.tokenIds;
+      item.sampleAnswer = q.sampleAnswer || q.correctAnswer;
+      item.sentenceOrderMode = q.sentenceOrderMode;
       item.acceptedAnswers = q.acceptedAnswers || "";
       item.requiresManualReview = !!q.requiresManualReview;
       result.push(item);
@@ -597,7 +629,8 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     const explicitGroupImages = (q as any).groupImages || (q as any).editorData?.groupImages;
     const cloze = isReadingCloze(explicitGroupType);
     const readingPassage = isReadingPassage(explicitGroupType);
-    const explicitQuestionNo = (q as any).questionNo || (q as any).editorData?.questionNo;
+    const explicitQuestionNo = q.questionNo ?? (q as any).editorData?.questionNo;
+    const explicitQuestionNumber = q.questionNumber ?? (q as any).editorData?.questionNumber;
 
     const sectionId = q.sectionId || (q as any).editorData?.sectionId;
     const sectionType = q.sectionType || (q as any).editorData?.sectionType;
@@ -664,7 +697,8 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
 
     grp.questions.push({
       id: q.id || `q_${i + 1}`,
-      questionNo: explicitQuestionNo || (i + 1),
+      questionNo: explicitQuestionNo,
+      questionNumber: explicitQuestionNumber,
       blankId: q.blankId || (q as any).editorData?.blankId,
       evidence: q.evidence || (q as any).editorData?.evidence,
       type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
@@ -674,6 +708,10 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       imageUrl: q.imageUrl || "",
       audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
       correctAnswer: readingPassage || cloze || explicitGroupType === "listening_fill_blank" || explicitGroupType === "eval_true_false_na" || explicitGroupType === "matching_images" || explicitGroupType === READING_REPLIES ? q.correctAnswer || "" : q.correctAnswer || "A",
+      sampleAnswer: q.sampleAnswer || (q as any).editorData?.sampleAnswer,
+      tokens: q.tokens || (q as any).editorData?.tokens,
+      tokenIds: q.tokenIds || (q as any).editorData?.tokenIds,
+      sentenceOrderMode: q.sentenceOrderMode || (q as any).editorData?.sentenceOrderMode,
       explanation: q.explanation || "",
       acceptedAnswers: (q as any).acceptedAnswers || (q as any).editorData?.acceptedAnswers || "",
       requiresManualReview: !!((q as any).requiresManualReview || (q as any).editorData?.requiresManualReview),
@@ -691,7 +729,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     });
   }
 
-  return ordered.map(group => {
+  return withQuestionNumbers(ordered.map(group => {
     if (group.skill !== "READING" || group.passage || group.groupType !== "standard") return group;
     const replies = legacyReplyChoices(group.title, group.questions);
     return replies ? {
@@ -700,7 +738,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       groupReplies: replies,
       questions: group.questions.map(question => ({ ...question, type: "matching", options: [] })),
     } : group;
-  });
+  }));
 }
 
 export function buildDefaultGroups(level: number): ExamSectionGroup[] {

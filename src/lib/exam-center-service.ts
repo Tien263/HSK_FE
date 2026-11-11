@@ -1,3 +1,4 @@
+import { duplicateQuestionNumbers, normalizeQuestionNumber, suggestQuestionNumbers } from "./question-number";
 import examBlueprint from "../config/exam_blueprint.json";
 import { randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
@@ -184,10 +185,17 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  const questions=body.questions.map((raw:Record<string,unknown>,idx:number)=>{
   const points=Number(raw.points??1);
   if(!Number.isFinite(points)||points<0)throw new ExamError(400,`Điểm câu ${idx+1} không hợp lệ.`);
+  const editor=raw.editorData as Record<string,unknown>|undefined;
+  const providedNumber=raw.questionNumber??editor?.questionNumber;
+  if(providedNumber!==undefined&&normalizeQuestionNumber(providedNumber)===undefined)
+   throw new ExamError(400,`Số thứ tự ở vị trí ${idx+1} phải là số nguyên dương.`);
   const q=snapshotQuestion({...raw,level},points);
   q.editorData.rubric=raw.rubric||q.editorData.rubric||"";
   return q;
  });
+ const numbers=suggestQuestionNumbers(questions.map(q=>q.editorData));
+ const duplicateNumbers=duplicateQuestionNumbers(numbers.map(questionNumber=>({questionNumber})));
+ questions.forEach((q,index)=>{q.editorData.questionNumber=numbers[index];});
  const legacy=restoreLegacyReplyGroups(questions,prefix);
  const sections=new Map<string,NonNullable<ExamGroupMedia["section"]>>();
  const passageOwners=new Map<string,string>();
@@ -374,7 +382,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
    userId:user.id,action:PUBLICATION,entity:createdSet.id,
    details:JSON.stringify({approved:body.approved!==false,durationMin,passScore,maxScore:totalScore,groups}),
   }});
-  return {success:true,paperId:createdSet.id};
+  return {success:true,paperId:createdSet.id,duplicateQuestionNumbers:duplicateNumbers};
  });
 }
 
@@ -407,7 +415,19 @@ export async function reviewData(user:AuthUser){
  const [attempts,bookmark,legacy]=await Promise.all([ownAttempts(user),prisma.auditLog.findFirst({where:{id:`exam-review:${user.id}`,userId:user.id,action:REVIEW}}),prisma.wrongQuestion.findMany({where:{studentId:user.id,consecutiveRight:{lt:3}},include:{question:true}})]);
  const saved=new Set(parse<{keys?:string[]}>(bookmark?.details||null).keys||[]);
  const hidden=new Set(parse<{hidden?:string[]}>(bookmark?.details||null).hidden||[]);
- const wrong=attempts.flatMap(({id,state})=>state.status==="IN_PROGRESS"?[]:state.results.flatMap(result=>{const question=state.paper.questions.find(q=>q.id===result.questionId);return question&&result.correct===false?[{key:`${id}:${question.id}`,attemptId:id,paperTitle:state.paper.title,level:state.paper.level,question:{...question,...publicExamQuestion(question,state.paper.groups?.[String(question.editorData.groupId||"")])},userAnswer:state.answers[question.id]||"",saved:saved.has(`${id}:${question.id}`),frequency:1}]:[];}));
+ const wrong=attempts.flatMap(({id,state})=>{
+  if(state.status==="IN_PROGRESS")return [];
+  const positions=new Map(state.paper.questions.map((question,index)=>[question.id,{question,position:index+1}]));
+  return state.results.flatMap(result=>{
+   const entry=positions.get(result.questionId);
+   if(!entry||result.correct!==false)return [];
+   const {question,position}=entry;
+   const group=state.paper.groups?.[String(question.editorData.groupId||"")];
+   return [{key:`${id}:${question.id}`,attemptId:id,paperTitle:state.paper.title,level:state.paper.level,
+    question:{...question,...publicExamQuestion(question,group,position)},userAnswer:state.answers[question.id]||"",
+    saved:saved.has(`${id}:${question.id}`),frequency:1}];
+  });
+ });
  for(const row of legacy){const question=snapshotQuestion(row.question as unknown as Record<string,unknown>,Number((row.question.editorData as Record<string,unknown>|null)?.points)||1);wrong.push({key:`legacy-question:${question.id}`,attemptId:"",paperTitle:"Kho câu sai đã lưu trước đây",level:question.level,question:{...question,...publicExamQuestion(question)},userAnswer:"",saved:!hidden.has(`legacy-question:${question.id}`),frequency:row.wrongCount});}
  const weak=(kind:string)=>{const groups=new Map<string,{id:string;title:string;count:number;attemptId:string;level:number}>();for(const row of wrong){if(!`${row.question.tags} ${row.question.editorData.sourceContent||""}`.toLowerCase().includes(kind)&&!(kind==="grammar"&&row.question.tags.toLowerCase().includes("ngữ pháp"))&&!(kind==="vocab"&&row.question.tags.toLowerCase().includes("từ vựng")))continue;const metadata=row.question.editorData;const fields=kind==="grammar"?[metadata.grammarRule,metadata.grammarPoint,metadata.structure]:[metadata.hanzi,metadata.word,metadata.vocabulary,metadata.sourceWord];const tagMatch=row.question.tags.match(kind==="grammar"?/(?:grammar|ngữ pháp)\s*[:=]\s*([^,;|]+)/i:/(?:vocab(?:ulary)?|từ vựng)\s*[:=]\s*([^,;|]+)/i);const label=fields.find(value=>typeof value==="string"&&value.trim())||tagMatch?.[1]?.trim()||row.question.content;const groupId=`${kind}:${row.level}:${String(label)}`;const value=groups.get(groupId)||{id:groupId,title:String(label),count:0,attemptId:row.attemptId,level:row.level};value.count+=row.frequency;groups.set(value.id,value);}return[...groups.values()].sort((a,b)=>b.count-a.count);};
  return{wrong,grammar:weak("grammar"),vocabulary:weak("vocab")};

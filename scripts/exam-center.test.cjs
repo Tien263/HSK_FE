@@ -428,3 +428,186 @@ test('reading judgement presents both statements but withholds keys and passage 
  assert.equal(review.question.passage,first.passage);
  assert.equal(review.question.editorData.evidence,'周末他在家休息');
 });
+
+test('reading question numbering continues across passages, preserves manual numbers and detects duplicates',async()=>{
+ const f=fixture();
+ const qNum=require(path.resolve('src/lib/question-number.ts'));
+ const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const {PASSAGE_CHOICE,PASSAGE_SECTION}=require(path.resolve('src/lib/reading-cloze.ts'));
+
+ // 1. suggestQuestionNumbers: starting after 36-40 continues to 41, does NOT reset to 1
+ const existing=[36,37,38,39,40].map(n=>({questionNumber:n}));
+ const batch=[...existing,{},{},{},{},{}];
+ const suggested=qNum.suggestQuestionNumbers(batch);
+ assert.deepEqual(suggested,[36,37,38,39,40,41,42,43,44,45]);
+
+ // 2. Deleting question 38 must not alter 36, 37, 39, 40
+ const afterDelete=[36,37,39,40].map(n=>({questionNumber:n}));
+ const nextAdded=[...afterDelete,{}];
+ assert.deepEqual(qNum.suggestQuestionNumbers(nextAdded),[36,37,39,40,41]);
+
+ // 3. Duplicate detection
+ assert.deepEqual(qNum.duplicateQuestionNumbers([{questionNumber:21},{questionNumber:22},{questionNumber:21}]),[21]);
+
+ // 4. Passage round trip and student view preservation
+ const options=['看书','学习','吃饭','买书'].map((text,i)=>({id:'ABCD'[i],text}));
+ const q=(id,num,ans)=>({id,questionNumber:num,content:`第${num}题：他在做什么？`,correctAnswer:ans,type:'multiple_choice',points:2,options,explanation:`Giải thích câu ${num}`});
+ const p1={id:'p1',title:'Bài 1 (36-40)',passage:'我们每天都在图书馆认真学习汉语。',skill:'READING',groupType:PASSAGE_CHOICE,questions:[36,37,38,39,40].map(n=>q(`q-${n}`,n,'A'))};
+ const p2={id:'p2',title:'Bài 2 (41-45)',passage:'学校里有一家很大的书店。',skill:'READING',groupType:PASSAGE_CHOICE,questions:[41,42,43,44,45].map(n=>q(`q-${n}`,n,'B'))};
+ const section={id:'sec-reading',title:'Phần 3 Đọc hiểu',skill:'READING',groupType:PASSAGE_SECTION,instruction:'Đọc bài và trả lời.',questions:[],passages:[p1,p2]};
+
+ const flat=templates.flattenGroups([section]);
+ assert.deepEqual(flat.map(item=>item.questionNumber),[36,37,38,39,40,41,42,43,44,45]);
+
+ const body={level:4,title:'Đọc hiểu HSK 4',durationMin:30,passScore:null};
+ const {paperId}=await f.service.importPaper(actors.admin,{...body,questions:flat});
+ const attempt=await start(f,paperId);
+
+ // Student receives the exact question numbers
+ assert.deepEqual(attempt.questions.map(item=>item.questionNumber),[36,37,38,39,40,41,42,43,44,45]);
+
+ // Submit attempt with a wrong answer on question 36
+ const answers=Object.fromEntries(attempt.questions.map((item,idx)=>[item.id,idx===0?'C':item.options[1].id]));
+ const saved=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,answers});
+ const result=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:saved.revision,answers},true);
+
+ // Wrong question review retains questionNumber = 36
+ const wrongReviews=(await f.service.reviewData(actors.a)).wrong;
+ const review36=wrongReviews.find(r=>r.question.id===attempt.questions[0].id);
+ assert.ok(review36);
+ assert.equal(review36.question.questionNumber,36);
+});
+
+
+test('sentence_order upgrade: multi-character token segmentation, ending period requirement, token vs text grading', async () => {
+  const f = fixture();
+  const { segmentChineseSentence, gradeSentenceOrder, hasEndingPunctuation } = require(path.resolve('src/lib/sentence-order.ts'));
+  const templates = require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+
+  // 1. Chinese segmentation keeps multi-character words together, separates trailing period
+  const seg = segmentChineseSentence('我在北京学习汉语。');
+  const words = seg.map(t => t.text);
+  assert.ok(words.includes('我在') || words.includes('北京') || words.includes('学习') || words.includes('汉语'), 'keeps multi-character words intact');
+  assert.equal(words[words.length - 1], '。', 'splits ending period as distinct token');
+
+  // Manual split with slashes
+  const manualSeg = segmentChineseSentence('他 / 每天 / 都在 / 认真工作。');
+  assert.deepEqual(manualSeg.map(t => t.text), ['他', '每天', '都在', '认真工作', '。']);
+
+  // 2. Strict ending punctuation check:
+  assert.ok(!hasEndingPunctuation('我在北京学习汉语'));
+  assert.ok(hasEndingPunctuation('我在北京学习汉语。'));
+  assert.ok(hasEndingPunctuation('你在做什么？'));
+
+  // 3. Grading: without period MUST FAIL
+  const target = '我在北京学习汉语。';
+  const tokens = [
+    { id: 't1', text: '我在' },
+    { id: 't2', text: '北京' },
+    { id: 't3', text: '学习' },
+    { id: 't4', text: '汉语' },
+    { id: 't5', text: '。' }
+  ];
+
+  // Failure when student enters sentence without period
+  const noPeriodResult = gradeSentenceOrder('我在北京学习汉语', target, tokens);
+  assert.equal(noPeriodResult.correct, false, 'Sentence missing period must not be marked correct');
+  assert.ok(noPeriodResult.reason.includes('dấu chấm'));
+
+  // Passing when student enters sentence with period (direct text)
+  const textPassResult = gradeSentenceOrder('我在北京学习汉语。', target, tokens);
+  assert.equal(textPassResult.correct, true);
+
+  // Passing when student enters JSON array of token IDs
+  const jsonPassResult = gradeSentenceOrder(JSON.stringify(['t1', 't2', 't3', 't4', 't5']), target, tokens);
+  assert.equal(jsonPassResult.correct, true);
+
+  // Failure when student assembles tokens without period token
+  const jsonNoPeriodResult = gradeSentenceOrder(JSON.stringify(['t1', 't2', 't3', 't4']), target, tokens);
+  assert.equal(jsonNoPeriodResult.correct, false);
+
+  // 4. Repeated tokens with different IDs
+  const repeatedTarget = '这件衣服比那件衣服贵。';
+  const repeatedTokens = [
+    { id: 'r1', text: '这件衣服' },
+    { id: 'r2', text: '比' },
+    { id: 'r3', text: '那件衣服' },
+    { id: 'r4', text: '贵' },
+    { id: 'r5', text: '。' }
+  ];
+  const repPass = gradeSentenceOrder(JSON.stringify(['r1', 'r2', 'r3', 'r4', 'r5']), repeatedTarget, repeatedTokens);
+  assert.equal(repPass.correct, true);
+
+  // 5. Full paper flow: student takes sentence order question
+  const qItem = {
+    id: 'order-q1',
+    questionNumber: 46,
+    content: 'Sắp xếp từ thành câu:',
+    correctAnswer: target,
+    sampleAnswer: target,
+    tokens: tokens.map(t => t.text),
+    tokenIds: tokens.map(t => t.id),
+    sentenceOrderMode: 'both',
+    type: 'sentence_order',
+    points: 5,
+    options: [],
+    explanation: 'Ngữ pháp: Chủ ngữ + 在 + Địa điểm + Động từ + Tân ngữ.'
+  };
+
+  const group = {
+    id: 'sec-write',
+    title: 'Phần Viết - Sắp xếp câu',
+    skill: 'WRITING',
+    questions: [qItem]
+  };
+
+  const flat = templates.flattenGroups([group]);
+  assert.equal(flat[0].questionNumber, 46);
+
+  const { paperId } = await f.service.importPaper(actors.admin, {
+    level: 3,
+    title: 'Thi viết HSK 3',
+    durationMin: 15,
+    passScore: null,
+    questions: flat
+  });
+
+  const attempt = await start(f, paperId);
+  assert.equal(attempt.questions[0].questionNumber, 46);
+  assert.equal(attempt.questions[0].type, 'sentence_order');
+  assert.deepEqual(attempt.questions[0].tokens, tokens.map(t => t.text));
+
+  // Correct answer must be hidden before submission
+  assert.equal(attempt.questions[0].correctAnswer, undefined);
+
+  // Student submits correct token order
+  const saved = await f.service.writeAttempt(actors.a, {
+    id: attempt.id,
+    revision: attempt.revision,
+    answers: { [attempt.questions[0].id]: JSON.stringify(['t1', 't2', 't3', 't4', 't5']) }
+  });
+  const result = await f.service.writeAttempt(actors.a, {
+    id: attempt.id,
+    revision: saved.revision,
+    answers: saved.answers
+  }, true);
+
+  assert.equal(result.questions[0].result.earned, 5);
+  assert.equal(result.questions[0].result.correct, true);
+  assert.equal(result.questions[0].explanation, qItem.explanation);
+
+  // Student B attempts same paper: enters text without period -> fails
+  const attemptB = await f.service.startAttempt(actors.b, { paperId, requestId: requestId(), forceNew: true });
+  const resultB = await f.service.writeAttempt(actors.b, {
+    id: attemptB.id,
+    revision: attemptB.revision,
+    answers: { [attemptB.questions[0].id]: '我在北京学习汉语' } // missing period
+  }, true);
+  assert.equal(resultB.questions[0].result.correct, false, 'Missing period must receive 0 points');
+  assert.equal(resultB.questions[0].result.earned, 0);
+
+  // Student B review contains the explanation and target answer
+  const reviewB = (await f.service.reviewData(actors.b)).wrong.find(r => r.question.id === attemptB.questions[0].id);
+  assert.ok(reviewB);
+  assert.equal(reviewB.question.correctAnswer, target);
+});

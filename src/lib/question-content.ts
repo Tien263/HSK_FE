@@ -1,4 +1,5 @@
 import {parseCurriculumCsv} from "./curriculum-format";
+import {gradeSentenceOrder} from "./sentence-order";
 export type QuestionDraft = Record<string, any>;
 export const QUESTION_TYPES = ["multiple_choice","matching","flashcard","fill_blank","sentence_order","true_false","true_false_na","handwriting_photo","essay","translation","find_error","listening_choice","listening_fill"];
 export const canonicalQuestionType = (type:string) => ({listening_mcq:"listening_choice",single_choice:"multiple_choice",short_answer:"fill_blank",sentence_ordering:"sentence_order",eval_true_false_na:"true_false_na"}[type]||type);
@@ -48,7 +49,13 @@ export function gradeQuestion(q:QuestionDraft,value:string):{manual:boolean;corr
  if(["fill_blank","listening_fill"].includes(q.type)&&!q.blanks?.some((blank:any)=>blank.answer?.trim())) {const normText=(s:unknown)=>String(s||"").normalize("NFC").toLowerCase().replace(/[，。！？、“”‘’；：、（）()\[\]【】,.!?:;"'~_`\-\s]/g,"").trim();const actualNorm=normText(value),targets=[q.correctAnswer,...alternatives(q.acceptedAnswers)].filter(Boolean);const isMatch=targets.some(expected=>actualNorm!==""&&actualNorm===normText(expected));if(isMatch)return{manual:false,correct:true};if(q.requiresManualReview&&actualNorm!=="")return{manual:true,correct:false};return{manual:false,correct:false};}
  if(q.type==="matching") {const actual=decode(value,{}),expected=decode(q.correctAnswer,{});return{manual:false,correct:Object.keys(expected).length>0&&Object.keys(actual).length===Object.keys(expected).length&&Object.keys(expected).every(id=>normalize(actual[id])===normalize(expected[id]))};}
  if(q.schemaVersion===2&&((q.type==="multiple_choice"||q.type==="listening_choice")&&q.selectionMode==="MULTIPLE"||q.type==="find_error")) {const actual=decode(value,[]),expected=decode(q.correctAnswer,[]);return{manual:false,correct:Array.isArray(actual)&&Array.isArray(expected)&&expected.length>0&&JSON.stringify([...new Set(actual)].sort())===JSON.stringify([...expected].sort())};}
- if(q.type==="sentence_order") {const actual=decode(value,null),expected=decode(q.correctAnswer,null);if(Array.isArray(actual)&&Array.isArray(expected)&&JSON.stringify(actual)===JSON.stringify(expected))return{manual:false,correct:true};const assembled=Array.isArray(actual)&&q.tokenIds?actual.map(id=>q.tokens[q.tokenIds.indexOf(id)]||"").join(""):value;const target=Array.isArray(actual)&&q.schemaVersion===2?null:Array.isArray(expected)&&q.tokens?q.tokens.join(""):q.correctAnswer;return{manual:false,correct:[...(target===null?[]:[target]),...alternatives(q.acceptedAnswers)].some(answer=>normalize(assembled).replace(/\s/g,"")===normalize(answer).replace(/\s/g,""))};}
+ if(q.type==="sentence_order") {
+  const tokenList=(Array.isArray(q.tokens)?q.tokens:[]).map((text:string,i:number)=>({
+   id:(Array.isArray(q.tokenIds)?q.tokenIds[i]:undefined)||`tok_${i}`,text
+  }));
+  const res=gradeSentenceOrder(value,q.correctAnswer||String(q.sampleAnswer||""),tokenList,q.acceptedAnswers as string);
+  return {manual:false,correct:res.correct};
+ }
  return{manual:false,correct:String(q.correctAnswer||"").split("|").some(answer=>normalize(value)!==""&&normalize(value)===normalize(answer))};
 }
 export function importQuestionCsv(text:string):QuestionDraft[] {

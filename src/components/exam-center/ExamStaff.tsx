@@ -35,8 +35,11 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
 import ExamPlayer from "./ExamPlayer";
+import QuestionNumberInput from "./QuestionNumberInput";
+import { duplicateQuestionNumbers, getQuestionNumber, nextQuestionNumber } from "@/lib/question-number";
 import ReadingClozeEditor, { initializeReadingCloze } from "./ReadingClozeEditor";
 import ReadingPassagesEditor, { initializeReadingSection } from "./ReadingPassagesEditor";
+import SentenceOrderEditor from "./SentenceOrderEditor";
 import { WORD_BANK, CLOZE_PASSAGE, PASSAGE_SECTION, CLOZE_SECTION, JUDGEMENT_SECTION, isReadingCloze, isReadingSection } from "@/lib/reading-cloze";
 import {
   getSampleQuestionsForLevel,
@@ -47,6 +50,7 @@ import {
   buildDefaultGroups,
   flattenGroups,
   sectionQuestions,
+  withQuestionNumbers,
   unflattenToGroups,
 } from "./hsk-sample-templates";
 import examBlueprint from "@/config/exam_blueprint.json";
@@ -293,7 +297,7 @@ export default function ExamStaff({
 
   // Mode: "grouped" (visual group editor - recommended) or "raw" (JSON editor)
   const [authorMode, setAuthorMode] = useState<"grouped" | "raw">("grouped");
-  const [groups, setGroups] = useState<ExamSectionGroup[]>(() => buildDefaultGroups(1));
+  const [groups, setGroups] = useState<ExamSectionGroup[]>(() => withQuestionNumbers(buildDefaultGroups(1)));
   const [activeGroupId, setActiveGroupId] = useState<string>("group_1");
   const [jsonInput, setJsonInput] = useState("");
 
@@ -366,7 +370,7 @@ export default function ExamStaff({
       {mediaActions(`${group.id}_audio`, group.audioUrl || "", "audio", "video", audioUrl => handleUpdateGroup(group.id, { audioUrl }))}
       {group.audioUrl ? <audio key={group.audioUrl} controls preload="metadata" src={group.audioUrl} style={{ width: "100%" }} /> :
         <p className={s.error}>Tải tệp audio chung cho nhóm.</p>}
-      <p>Thứ tự câu trong audio · {group.questions.map((q, index) => q.questionNo || index + 1).join(" → ")}</p>
+      <p>Thứ tự câu trong audio · {group.questions.map((q, index) => q.questionNumber ?? index + 1).join(" → ")}</p>
     </div>
   );
 
@@ -401,7 +405,7 @@ export default function ExamStaff({
   const loadSampleTemplate = (lvl: number) => {
     if (mediaUploading) return;
     const bp = examBlueprint.levels.find((l) => l.level === lvl);
-    const defGroups = buildDefaultGroups(lvl);
+    const defGroups = withQuestionNumbers(buildDefaultGroups(lvl));
     const flat = flattenGroups(defGroups);
 
     setAuthorLevel(lvl);
@@ -503,6 +507,8 @@ export default function ExamStaff({
     const newId = `group_${Date.now()}`;
     const defaultAudio = groupAudioForLevel(authorLevel);
     let newGroup: ExamSectionGroup;
+    const allExistingQuestions = groups.flatMap(sectionQuestions);
+    const startNum = nextQuestionNumber(allExistingQuestions);
 
     if (template) {
       const gType = ("groupType" in template ? template.groupType : undefined) || "standard";
@@ -517,9 +523,9 @@ export default function ExamStaff({
       for (let i = 1; i <= questionsCount; i++) {
         initialQuestions.push({
           id: `q_${Date.now()}_${i}`,
-          questionNo: i,
+          questionNumber: startNum + i - 1,
           type: template.type,
-          content: (gType === "matching_images" && template.skill === "READING") || gType === READING_REPLIES ? "" : `第 ${i} 题：${template.samplePrompt || "请选择正确答案。"}`,
+          content: (gType === "matching_images" && template.skill === "READING") || gType === READING_REPLIES ? "" : template.samplePrompt || "请选择正确答案。",
           points: template.points,
           correctAnswer: gType === "matching_images" || gType === READING_REPLIES ? "" : template.correctAnswer,
           acceptedAnswers: (template as any).acceptedAnswers || "",
@@ -550,9 +556,9 @@ export default function ExamStaff({
         questions: [
           {
             id: `q_${Date.now()}_1`,
-            questionNo: 1,
+            questionNumber: startNum,
             type: "multiple_choice",
-            content: "第 1 题：请选择正确答案。",
+            content: "请选择正确答案。",
             points: 2.5,
             correctAnswer: "A",
             options: [
@@ -568,10 +574,10 @@ export default function ExamStaff({
     if (isReadingSection(newGroup.groupType)) {
       newGroup = {
         ...newGroup,
-        ...initializeReadingSection({ ...newGroup, groupType: "standard" }, newGroup.groupType, true),
+        ...initializeReadingSection({ ...newGroup, groupType: "standard" }, newGroup.groupType, true, startNum),
       };
     }
-    setGroups([...groups, newGroup]);
+    setGroups(prev => withQuestionNumbers([...prev, newGroup], true));
     setActiveGroupId(newId);
   };
 
@@ -583,13 +589,11 @@ export default function ExamStaff({
         const qIndex = g.questions.findIndex((q) => q.id === qId);
         if (qIndex === -1) return g;
         const source = g.questions[qIndex];
-        const nextQNo = source.questionNo && !isNaN(Number(source.questionNo))
-          ? Number(source.questionNo) + 1
-          : g.questions.length + 1;
         const cloned: QuestionItem = {
           ...source,
           id: `q_${Date.now()}_copy`,
-          questionNo: nextQNo,
+          questionNo: undefined,
+          questionNumber: nextQuestionNumber(prev.flatMap(sectionQuestions)),
           content: g.groupType === READING_REPLIES ? source.content : `${source.content} (Bản sao)`,
           options: source.options.map((opt) => ({ ...opt })),
         };
@@ -617,13 +621,12 @@ export default function ExamStaff({
   // Cập nhật thông tin nhóm bài
   const handleUpdateGroup = (groupId: string, patch: Partial<ExamSectionGroup>) => {
     setGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g))
+      withQuestionNumbers(prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)), true)
     );
   };
 
   const replyQuestions = (group: ExamSectionGroup, count: number): QuestionItem[] => Array.from({ length: count }, (_, index) => ({
     id: `${group.id}_reply_${Date.now()}_${index}`,
-    questionNo: group.questions.length + index + 1,
     type: "matching",
     content: "",
     points: group.questions.at(-1)?.points ?? 2,
@@ -648,13 +651,13 @@ export default function ExamStaff({
       prev.map((g) => {
         if (g.id !== groupId) return g;
         if (g.groupType === READING_REPLIES) {
-          return g.groupCustom ? { ...g, questions: [...g.questions, ...replyQuestions(g, 1)] } : g;
+          return g.groupCustom ? { ...g, questions: [...g.questions, {
+            ...replyQuestions(g, 1)[0], questionNumber: nextQuestionNumber(prev.flatMap(sectionQuestions)),
+          }] } : g;
         }
         const totalInGroup = g.questions.length + 1;
         const lastQ = g.questions[g.questions.length - 1];
-        const nextQNo = lastQ?.questionNo && !isNaN(Number(lastQ.questionNo))
-          ? Number(lastQ.questionNo) + 1
-          : totalInGroup;
+        const nextQNo = nextQuestionNumber(prev.flatMap(sectionQuestions));
 
         const targetType = g.groupType === "matching_images" ? "matching" : lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
         let initialOptions: QuestionOption[] = [
@@ -696,9 +699,9 @@ export default function ExamStaff({
 
         const newQ: QuestionItem = {
           id: `q_${Date.now()}_${totalInGroup}`,
-          questionNo: nextQNo,
+          questionNumber: nextQNo,
           type: targetType,
-          content: g.groupType === "matching_images" && g.skill === "READING" ? "" : `第 ${nextQNo} 题：请根据题目选择正确答案。`,
+          content: g.groupType === "matching_images" && g.skill === "READING" ? "" : "请根据题目选择正确答案。",
           points: lastQ?.points ?? 2.5,
           correctAnswer: initialAnswer,
           acceptedAnswers: lastQ?.acceptedAnswers || "",
@@ -895,7 +898,7 @@ export default function ExamStaff({
         throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
       }
 
-      const { paperId } = await examApi<{ paperId: string }>("importPaper", {
+      const { paperId, duplicateQuestionNumbers: duplicates } = await examApi<{ paperId: string; duplicateQuestionNumbers: number[] }>("importPaper", {
         level: authorLevel,
         title: authorTitle,
         description: authorDesc,
@@ -905,7 +908,9 @@ export default function ExamStaff({
       });
 
       setPublishedLink(`/s/mock-exam?${new URLSearchParams({ view: "intro", id: paperId, level: String(levelGroup(authorLevel)) })}`);
-      setMessage(`Đã xuất bản đề “${authorTitle}” (${parsed.length} câu). Học sinh có thể mở đề trong phòng thi.`);
+      setMessage(`Đã xuất bản đề “${authorTitle}” (${parsed.length} câu). Học sinh có thể mở đề trong phòng thi.${
+        duplicates?.length ? ` Cảnh báo: trùng số câu ${duplicates.join(", ")}.` : ""
+      }`);
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -913,6 +918,8 @@ export default function ExamStaff({
       setBusy(false);
     }
   };
+
+  const duplicatedNumbers = duplicateQuestionNumbers(groups.flatMap(sectionQuestions));
 
   const totalQuestionsCount = authorMode === "grouped"
     ? groups.reduce((sum, g) => sum + sectionQuestions(g).length, 0)
@@ -1134,6 +1141,9 @@ export default function ExamStaff({
             {authorMode === "grouped" && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "#3e5b38" }}>
                 <span>Tổng cộng: <strong>{totalQuestionsCount} câu hỏi</strong></span>
+                {duplicatedNumbers.length > 0 && (
+                  <span role="status" className={s.notice}>Trùng số câu trong đề: {duplicatedNumbers.join(", ")}</span>
+                )}
                 <span>•</span>
                 <span>Tổng điểm: <strong>{totalPointsSum.toFixed(1)} điểm</strong></span>
                 <span>•</span>
@@ -1433,9 +1443,19 @@ export default function ExamStaff({
 
                         {/* Danh sách câu hỏi trong nhóm - Xử lý theo từng loại groupType */}
                         {isReadingSection(group.groupType) ? (
-                          <ReadingPassagesEditor section={group} onChange={patch => handleUpdateGroup(group.id, patch)} />
+                          <ReadingPassagesEditor
+                            section={group}
+                            allQuestions={groups.flatMap(sectionQuestions)}
+                            duplicatedNumbers={duplicatedNumbers}
+                            onChange={patch => handleUpdateGroup(group.id, patch)}
+                          />
                         ) : isReadingCloze(group.groupType) ? (
-                          <ReadingClozeEditor group={group} onChange={patch => handleUpdateGroup(group.id, patch)} />
+                          <ReadingClozeEditor
+                            group={group}
+                            allQuestions={groups.flatMap(sectionQuestions)}
+                            duplicatedNumbers={duplicatedNumbers}
+                            onChange={patch => handleUpdateGroup(group.id, patch)}
+                          />
                         ) : group.groupType === READING_REPLIES ? (
                           <div className={s.examReadingFields}>
                             <div className={s.examGroupCard}>
@@ -1469,7 +1489,13 @@ export default function ExamStaff({
                               <strong>Bước 2. Nhập câu hỏi và chọn đáp án</strong>
                               {group.questions.map((question, index) => (
                                 <fieldset key={question.id} className={s.examReplyQuestion}>
-                                  <legend>Câu {group.groupCustom ? index + 1 : question.questionNo || index + 1}</legend>
+                                  <legend>
+                                    <QuestionNumberInput
+                                      question={question}
+                                      isDuplicate={duplicatedNumbers.includes(getQuestionNumber(question)!)}
+                                      onChange={questionNumber => handleUpdateQuestion(group.id, question.id, { questionNumber })}
+                                    />
+                                  </legend>
                                   <label>Câu hỏi chữ Hán
                                     <input lang="zh" value={question.content} onChange={event => handleUpdateQuestion(group.id, question.id, { content: event.target.value })} />
                                   </label>
@@ -1559,13 +1585,10 @@ export default function ExamStaff({
                                     <div key={q.id} style={{ border: "1px solid #e2ebd5", borderRadius: 8, padding: 10, background: "#fcfdfb" }}>
                                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                          <input
-                                            value={q.questionNo || `Câu ${qIdx + 1}`}
-                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
-                                            style={{ width: 85, fontWeight: 700, fontSize: 12, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1" }}
-                                            placeholder="Mã câu"
-                                            aria-label="Mã câu hỏi"
-                                            title="Sửa mã câu hỏi"
+                                          <QuestionNumberInput
+                                            question={q}
+                                            isDuplicate={duplicatedNumbers.includes(getQuestionNumber(q)!)}
+                                            onChange={questionNumber => handleUpdateQuestion(group.id, q.id, { questionNumber })}
                                           />
                                         </div>
 
@@ -1733,12 +1756,10 @@ export default function ExamStaff({
                                     {/* Top Row: questionNo, Points, Actions */}
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <input
-                                          value={q.questionNo || `Câu ${qIndex + 1}`}
-                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
-                                          style={{ width: 100, fontWeight: 700, fontSize: 13, padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }}
-                                          placeholder="Số câu"
-                                          title="Tự điền số thứ tự câu trong đề thi"
+                                        <QuestionNumberInput
+                                          question={q}
+                                          isDuplicate={duplicatedNumbers.includes(getQuestionNumber(q)!)}
+                                          onChange={questionNumber => handleUpdateQuestion(group.id, q.id, { questionNumber })}
                                         />
                                         <span style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
                                           (Nghe chọn A, B, C)
@@ -1941,12 +1962,10 @@ export default function ExamStaff({
                                     <div key={q.id} style={{ border: "1px solid #e2ebd5", borderRadius: 10, padding: 12, background: "#fcfdfb" }}>
                                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                          <input
-                                            value={q.questionNo || `Câu ${qIdx + 1}`}
-                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
-                                            style={{ width: 85, fontWeight: 700, fontSize: 12, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1" }}
-                                            placeholder="Số câu"
-                                            title="Số thứ tự câu"
+                                          <QuestionNumberInput
+                                            question={q}
+                                            isDuplicate={duplicatedNumbers.includes(getQuestionNumber(q)!)}
+                                            onChange={questionNumber => handleUpdateQuestion(group.id, q.id, { questionNumber })}
                                           />
                                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                             {[
@@ -2123,11 +2142,10 @@ export default function ExamStaff({
                                     {/* Top row */}
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <input
-                                          value={q.questionNo || `Câu ${qIdx + 1}`}
-                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
-                                          style={{ width: 85, fontWeight: 700, fontSize: 12, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1" }}
-                                          placeholder="Số câu"
+                                        <QuestionNumberInput
+                                          question={q}
+                                          isDuplicate={duplicatedNumbers.includes(getQuestionNumber(q)!)}
+                                          onChange={questionNumber => handleUpdateQuestion(group.id, q.id, { questionNumber })}
                                         />
                                         <span style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
                                           (Nghe và điền từ vào chỗ trống)
@@ -2279,12 +2297,10 @@ export default function ExamStaff({
                                 {/* Question Top Row */}
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <input
-                                      value={q.questionNo || `Câu ${qIndex + 1}`}
-                                      onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
-                                      style={{ width: 85, fontWeight: 700, fontSize: 12, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1" }}
-                                      placeholder="Số câu"
-                                      title="Sửa số thứ tự câu trong đề thi"
+                                    <QuestionNumberInput
+                                      question={q}
+                                      isDuplicate={duplicatedNumbers.includes(getQuestionNumber(q)!)}
+                                      onChange={questionNumber => handleUpdateQuestion(group.id, q.id, { questionNumber })}
                                     />
                                     <select
                                       value={q.type}
@@ -2362,7 +2378,7 @@ export default function ExamStaff({
                                 <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", background: "#f2f7ed", padding: 10, borderRadius: 8 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#254422" }}>
                                     <ImageIcon size={15} />
-                                    Ảnh đề bài {q.questionNo || `câu ${qIndex + 1}`}:
+                                    Ảnh đề bài {q.questionNumber ?? qIndex + 1}:
                                   </div>
                                   <input
                                     style={{ flex: 1, minWidth: 200, fontSize: 12, padding: "4px 8px" }}
@@ -2396,7 +2412,7 @@ export default function ExamStaff({
                                   <div style={{ textAlign: "center", margin: "4px 0" }}>
                                     <img
                                       src={q.imageUrl}
-                                      alt={`Ảnh ${q.questionNo || `câu ${qIndex + 1}`}`}
+                                      alt={`Ảnh ${q.questionNumber ?? qIndex + 1}`}
                                       style={{ maxWidth: 240, maxHeight: 150, objectFit: "contain", borderRadius: 8, border: "1px solid #d4dfc7" }}
                                     />
                                   </div>
@@ -2542,7 +2558,12 @@ export default function ExamStaff({
                                       />
                                     </label>
                                   </div>
-                                ) : q.type === "fill_blank" || q.type === "sentence_order" || q.type === "writing" ? (
+                                ) : q.type === "sentence_order" ? (
+                                  <SentenceOrderEditor
+                                    question={q}
+                                    onChange={patch => handleUpdateQuestion(group.id, q.id, patch)}
+                                  />
+                                ) : q.type === "fill_blank" || q.type === "writing" ? (
                                   <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
                                     <label style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", margin: 0 }}>
                                       Đáp án chuẩn / Từ cần điền:

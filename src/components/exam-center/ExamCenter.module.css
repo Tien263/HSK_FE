@@ -211,3 +211,18 @@
   border-radius: 6px;
   background: #f1f5e9;
 }
+
+.questionNumberField {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.questionNumberField input[type=number] {
+  width: 76px;
+  padding: 4px 6px;
+}
+.examReplyQuestion legend > small {
+  margin-left: 8px;
+  color: #56644f;
+}
