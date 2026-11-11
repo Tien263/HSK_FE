@@ -61,12 +61,14 @@ export default function ExamQuestionInput({
         return {
           id: String(opt.id || String.fromCharCode(65 + idx)),
           text: String(opt.text || opt.content || ""),
+          pinyin: opt.pinyin ? String(opt.pinyin) : undefined,
           imageUrl: opt.imageUrl ? String(opt.imageUrl) : undefined,
         };
       }
       return {
         id: String.fromCharCode(65 + idx),
         text: String(opt ?? ""),
+        pinyin: undefined,
         imageUrl: undefined,
       };
     });
@@ -243,9 +245,23 @@ export default function ExamQuestionInput({
               <span className={s.optionIdBadge}>
                 {option.id === "true" ? "√" : option.id === "false" ? "×" : option.id}
               </span>
-              <span style={{ fontSize: 15, fontWeight: 500, color: "#284325" }}>
-                {option.text}
-              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {option.pinyin && (
+                  <span style={{ fontSize: 12, color: "#617d5c", letterSpacing: "0.5px" }}>
+                    {option.pinyin}
+                  </span>
+                )}
+                <span
+                  style={{
+                    fontSize: option.pinyin ? 18 : 16,
+                    fontWeight: 600,
+                    color: "#1e3321",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {option.text}
+                </span>
+              </div>
             </label>
           );
         })}

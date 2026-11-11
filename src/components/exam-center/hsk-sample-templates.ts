@@ -438,11 +438,13 @@ export function getSampleQuestionsForLevel(level: number): ImportedQuestion[] {
 export interface QuestionOption {
   id: string;
   text?: string;
+  pinyin?: string;
   imageUrl?: string;
 }
 
 export interface QuestionItem {
   id: string;
+  questionNo?: string | number;
   type: string;
   content: string;
   pinyin?: string;
@@ -461,6 +463,8 @@ export interface ExamSectionGroup {
   instruction?: string;
   audioUrl?: string;
   passage?: string;
+  groupType?: "matching_images" | "listening_choice_abc" | "standard";
+  groupImages?: { id: string; label: string; imageUrl: string }[];
   questions: QuestionItem[];
 }
 
@@ -481,7 +485,12 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         explanation: q.explanation || "",
         imageUrl: q.imageUrl || "",
         audioUrl: q.audioUrl || group.audioUrl || "",
-        options: Array.isArray(q.options) && q.options.length ? q.options : [
+        options: Array.isArray(q.options) && q.options.length ? q.options.map((opt) => ({
+          id: opt.id,
+          text: opt.text || "",
+          pinyin: opt.pinyin || "",
+          imageUrl: opt.imageUrl || "",
+        })) : [
           { id: "A", text: "Đáp án A" },
           { id: "B", text: "Đáp án B" },
           { id: "C", text: "Đáp án C" },
@@ -490,6 +499,9 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
       };
       (item as any).passage = group.passage || "";
       (item as any).groupTitle = group.title || "";
+      (item as any).groupType = group.groupType || "";
+      (item as any).groupImages = group.groupImages || [];
+      (item as any).questionNo = q.questionNo || "";
       result.push(item);
       qIdx++;
     }
@@ -506,6 +518,9 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     const q = questions[i];
     const explicitGroupTitle = (q as any).groupTitle || (q as any).editorData?.groupTitle;
     const explicitPassage = (q as any).passage || (q as any).editorData?.passage;
+    const explicitGroupType = (q as any).groupType || (q as any).editorData?.groupType || "standard";
+    const explicitGroupImages = (q as any).groupImages || (q as any).editorData?.groupImages;
+    const explicitQuestionNo = (q as any).questionNo || (q as any).editorData?.questionNo;
 
     let key = explicitGroupTitle;
     if (!key) {
@@ -523,6 +538,12 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
         skill: (q.skill as any) || "READING",
         audioUrl: q.audioUrl || "",
         passage: explicitPassage || "",
+        groupType: explicitGroupType,
+        groupImages: Array.isArray(explicitGroupImages) && explicitGroupImages.length
+          ? explicitGroupImages
+          : explicitGroupType === "matching_images"
+          ? ["A", "B", "C", "D", "E", "F"].map((id) => ({ id, label: `Tranh ${id}`, imageUrl: "" }))
+          : undefined,
         questions: [],
       });
     }
@@ -530,9 +551,16 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
     const grp = groupsMap.get(key)!;
     if (explicitPassage && !grp.passage) grp.passage = explicitPassage;
     if (q.audioUrl && !grp.audioUrl) grp.audioUrl = q.audioUrl;
+    if (explicitGroupType && explicitGroupType !== "standard" && grp.groupType === "standard") {
+      grp.groupType = explicitGroupType;
+    }
+    if (Array.isArray(explicitGroupImages) && explicitGroupImages.length && !grp.groupImages) {
+      grp.groupImages = explicitGroupImages;
+    }
 
     grp.questions.push({
       id: q.id || `q_${i + 1}`,
+      questionNo: explicitQuestionNo || (i + 1),
       type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
       content: q.content || `Câu ${i + 1}`,
       pinyin: q.pinyin || "",
@@ -545,6 +573,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
         ? q.options.map((opt: any, optIdx: number) => ({
             id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),
             text: typeof opt === "string" ? opt : opt?.text || opt?.content || "",
+            pinyin: typeof opt === "object" && opt ? opt.pinyin || "" : "",
             imageUrl: opt?.imageUrl || "",
           }))
         : [
@@ -606,11 +635,14 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
         id: "group_3",
         title: "Phần 3 Nghe: Đối thoại ngắn chọn tranh A - F (Câu 11 - 15)",
         skill: "LISTENING",
+        groupType: "matching_images",
+        groupImages: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, label: `Tranh ${l}`, imageUrl: "" })),
         instruction: "Nghe đối thoại ngắn giữa 2 người và chọn bức tranh A - F tương ứng.",
         audioUrl,
         questions: [11, 12, 13, 14, 15].map((i, idx) => ({
           id: `hsk1_q${i}`,
-          type: "multiple_choice",
+          questionNo: i,
+          type: "matching",
           content: `第 ${i} 题：请听对话并选择正确的图片 (A-F)。`,
           points: 2.5,
           correctAnswer: ["E", "F", "B", "D", "A"][idx],
@@ -630,22 +662,91 @@ export function buildDefaultGroups(level: number): ExamSectionGroup[] {
         id: "group_4",
         title: "Phần 4 Nghe: Nghe câu chọn đáp án A, B, C (Câu 16 - 20)",
         skill: "LISTENING",
-        instruction: "Nghe câu hỏi và chọn đáp án A, B hoặc C.",
+        groupType: "listening_choice_abc",
+        instruction: "Nghe câu hỏi hoặc đoạn hội thoại và chọn đáp án A, B hoặc C.",
         audioUrl,
-        questions: [16, 17, 18, 19, 20].map((i, idx) => ({
-          id: `hsk1_q${i}`,
-          type: "multiple_choice",
-          content: `第 ${i} 题：请听录音并选择正确答案。`,
-          points: 2.5,
-          correctAnswer: ["A", "B", "C", "A", "C"][idx],
-          imageUrl: "",
-          explanation: `Câu ${i}: Đáp án đúng là ${["A", "B", "C", "A", "C"][idx]}.`,
-          options: [
-            { id: "A", text: "Đáp án A" },
-            { id: "B", text: "Đáp án B" },
-            { id: "C", text: "Đáp án C" },
-          ],
-        })),
+        questions: [
+          {
+            id: "hsk1_q16",
+            questionNo: 16,
+            type: "listening_choice",
+            content: "第 16 题：男：认识你很高兴。女：我也很高兴。问：男的怎么了？",
+            pinyin: "Rènshi nǐ hěn gāoxìng.",
+            points: 2.5,
+            correctAnswer: "A",
+            imageUrl: "",
+            explanation: "Theo đoạn ghi âm: Nữ đáp lại 'Tôi cũng rất vui' => Đáp án A (很高兴).",
+            options: [
+              { id: "A", text: "很高兴", pinyin: "hěn gāoxìng" },
+              { id: "B", text: "太少了", pinyin: "tài shǎo le" },
+              { id: "C", text: "没关系", pinyin: "méi guānxi" },
+            ],
+          },
+          {
+            id: "hsk1_q17",
+            questionNo: 17,
+            type: "listening_choice",
+            content: "第 17 题：男：你去哪儿？女：我去医院看朋友。问：女的去哪儿？",
+            pinyin: "Wǒ qù yīyuàn kàn péngyou.",
+            points: 2.5,
+            correctAnswer: "B",
+            imageUrl: "",
+            explanation: "Người nữ nói: '我去医院看朋友' (Tôi đi bệnh viện thăm bạn) => Đáp án A (去医院).",
+            options: [
+              { id: "A", text: "去医院", pinyin: "qù yīyuàn" },
+              { id: "B", text: "在学校", pinyin: "zài xuéxiào" },
+              { id: "C", text: "去饭店", pinyin: "qù fàndiàn" },
+            ],
+          },
+          {
+            id: "hsk1_q18",
+            questionNo: 18,
+            type: "listening_choice",
+            content: "第 18 题：男：你想喝点儿什么？女：我想喝茶。问：女的想喝什么？",
+            pinyin: "Wǒ xiǎng hē chá.",
+            points: 2.5,
+            correctAnswer: "C",
+            imageUrl: "",
+            explanation: "Người nữ nói muốn uống trà '喝茶' => Đáp án C (喝茶).",
+            options: [
+              { id: "A", text: "买衣服", pinyin: "mǎi yīfu" },
+              { id: "B", text: "看电影", pinyin: "kàn diànyǐng" },
+              { id: "C", text: "喝茶", pinyin: "hē chá" },
+            ],
+          },
+          {
+            id: "hsk1_q19",
+            questionNo: 19,
+            type: "listening_choice",
+            content: "第 19 题：男：现在几点了？女：现在上午九点。问：现在几点？",
+            pinyin: "Xiànzài shàngwǔ jiǔ diǎn.",
+            points: 2.5,
+            correctAnswer: "B",
+            imageUrl: "",
+            explanation: "Người nữ nói hiện tại là 9 giờ sáng (九点) => Đáp án B (9点).",
+            options: [
+              { id: "A", text: "8点", pinyin: "bā diǎn" },
+              { id: "B", text: "9点", pinyin: "jiǔ diǎn" },
+              { id: "C", text: "10点", pinyin: "shí diǎn" },
+            ],
+          },
+          {
+            id: "hsk1_q20",
+            questionNo: 20,
+            type: "listening_choice",
+            content: "第 20 题：男：桌子上有几个苹果？女：有五个。问：有几个苹果？",
+            pinyin: "Yǒu wǔ gè píngguǒ.",
+            points: 2.5,
+            correctAnswer: "C",
+            imageUrl: "",
+            explanation: "Trên bàn có 5 quả táo (五个苹果) => Đáp án C (5个).",
+            options: [
+              { id: "A", text: "3个", pinyin: "sān gè" },
+              { id: "B", text: "4个", pinyin: "sì gè" },
+              { id: "C", text: "5个", pinyin: "wǔ gè" },
+            ],
+          },
+        ],
       },
       {
         id: "group_5",

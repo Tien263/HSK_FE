@@ -16,7 +16,30 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
  const editor=raw.editorData&&typeof raw.editorData==="object"&&!Array.isArray(raw.editorData)?raw.editorData as Record<string,unknown>:{};
  let options:unknown=[];try{options=typeof raw.options==="string"?JSON.parse(raw.options):raw.options||editor.options||[];}catch{}
  const type=questionType(String(raw.type||""));
- return {id:String(raw.id),type,content:String(raw.content||""),skill:skillOf(String(raw.skill||"READING")),level:Number(raw.level||1),points,correctAnswer:String(raw.correctAnswer||""),explanation:String(raw.explanation||editor.explanation||""),options:Array.isArray(options)?options:[],pinyinPrompt:String(raw.pinyinPrompt||editor.pinyin||""),audioUrl:String(raw.audioUrl||editor.audioUrl||""),imageUrl:String(raw.imageUrl||editor.imageUrl||""),editorData:{...editor,...(raw.type==="multi_choice"?{schemaVersion:2,selectionMode:"MULTIPLE"}:{})},tags:[raw.skill,raw.tags,editor.sourceContent].filter(Boolean).join(" ")};
+ return {
+   id:String(raw.id),
+   type,
+   content:String(raw.content||""),
+   skill:skillOf(String(raw.skill||"READING")),
+   level:Number(raw.level||1),
+   points,
+   correctAnswer:String(raw.correctAnswer||""),
+   explanation:String(raw.explanation||editor.explanation||""),
+   options:Array.isArray(options)?options:[],
+   pinyinPrompt:String(raw.pinyinPrompt||editor.pinyin||raw.pinyin||""),
+   audioUrl:String(raw.audioUrl||editor.audioUrl||""),
+   imageUrl:String(raw.imageUrl||editor.imageUrl||""),
+   editorData:{
+     ...editor,
+     groupImages: raw.groupImages || editor.groupImages || [],
+     groupType: raw.groupType || editor.groupType || "",
+     questionNo: raw.questionNo || editor.questionNo || "",
+     passage: raw.passage || editor.passage || "",
+     groupTitle: raw.groupTitle || editor.groupTitle || "",
+     ...(raw.type==="multi_choice"?{schemaVersion:2,selectionMode:"MULTIPLE"}:{})
+   },
+   tags:[raw.skill,raw.tags,editor.sourceContent].filter(Boolean).join(" ")
+ };
 }
 export function usableQuestion(q:ExamQuestion){
  if(!supportedTypes.has(q.type)||!q.content.trim()||!Number.isFinite(q.points)||q.points<0)return false;
@@ -29,8 +52,38 @@ export function usableQuestion(q:ExamQuestion){
 export function publicExamQuestion(q:ExamQuestion){
  const safe=publicQuestion({...q,...(q.editorData.schemaVersion===2?{schemaVersion:2}:{}),type:q.type});
  // Option metadata and editorData are never sent to a candidate.
- const options=q.options.map((option,index)=>({id:typeof option==="object"&&option&&typeof (option as Record<string,unknown>).id==="string"?String((option as Record<string,unknown>).id):String.fromCharCode(65+index),text:typeof option==="string"?option:String((option as Record<string,unknown>)?.text||(option as Record<string,unknown>)?.content||""),...(typeof option==="object"&&option&&"imageUrl" in (option as Record<string,unknown>)?{imageUrl:String((option as Record<string,unknown>).imageUrl||"")}:{})}));
- return {id:q.id,type:q.type,skill:q.skill,content:q.content,points:q.points,pinyin:q.pinyinPrompt,audioUrl:q.audioUrl,imageUrl:q.imageUrl,passage:(q as any).passage||(q.editorData as any)?.passage||"",groupTitle:(q as any).groupTitle||(q.editorData as any)?.groupTitle||"",options,selectionMode:safe.selectionMode,errorMode:safe.errorMode,errorTokens:safe.errorTokens,blanks:safe.blanks,matchingLeftItems:safe.matchingLeftItems,matchingRightItems:safe.matchingRightItems,tokenItems:safe.tokenItems,essayMin:safe.essayMin,essayMax:safe.essayMax,translationDirection:safe.translationDirection};
+ const options=q.options.map((option,index)=>({
+   id:typeof option==="object"&&option&&typeof (option as Record<string,unknown>).id==="string"?String((option as Record<string,unknown>).id):String.fromCharCode(65+index),
+   text:typeof option==="string"?option:String((option as Record<string,unknown>)?.text||(option as Record<string,unknown>)?.content||""),
+   pinyin:typeof option==="object"&&option&&"pinyin" in (option as Record<string,unknown>)?String((option as Record<string,unknown>).pinyin||""):"",
+   ...(typeof option==="object"&&option&&"imageUrl" in (option as Record<string,unknown>)?{imageUrl:String((option as Record<string,unknown>).imageUrl||"")}:{})
+ }));
+ return {
+   id:q.id,
+   type:q.type,
+   skill:q.skill,
+   content:q.content,
+   points:q.points,
+   pinyin:q.pinyinPrompt,
+   audioUrl:q.audioUrl,
+   imageUrl:q.imageUrl,
+   passage:(q as any).passage||(q.editorData as any)?.passage||"",
+   groupTitle:(q as any).groupTitle||(q.editorData as any)?.groupTitle||"",
+   groupImages:(q as any).groupImages||(q.editorData as any)?.groupImages||[],
+   groupType:(q as any).groupType||(q.editorData as any)?.groupType||"",
+   questionNo:(q as any).questionNo||(q.editorData as any)?.questionNo||"",
+   options,
+   selectionMode:safe.selectionMode,
+   errorMode:safe.errorMode,
+   errorTokens:safe.errorTokens,
+   blanks:safe.blanks,
+   matchingLeftItems:safe.matchingLeftItems,
+   matchingRightItems:safe.matchingRightItems,
+   tokenItems:safe.tokenItems,
+   essayMin:safe.essayMin,
+   essayMax:safe.essayMax,
+   translationDirection:safe.translationDirection
+ };
 }
 export function paperSummary(paper:ExamPaper){return{createdAt:paper.createdAt||null,customConfig:paper.customConfig||null,id:paper.id,title:paper.title,description:paper.description,level:paper.level,source:paper.source,durationMin:paper.durationMin,maxScore:paper.maxScore,passScore:paper.passScore,proctorEnabled:paper.proctorEnabled!==false,questionsCount:paper.questions.length,skills:[...new Set(paper.questions.map(q=>q.skill))],mode:paper.mode};}
 export function hasAnswer(answer:unknown):boolean {
@@ -66,7 +119,31 @@ export function attemptSummary(id:string,attempt:CenterAttempt,now=new Date()){
 }
 export function attemptForOwner(id:string,attempt:CenterAttempt){
  const finished=attempt.status!=="IN_PROGRESS";
- return {...attemptSummary(id,attempt),revision:attempt.revision,expiresAt:attempt.expiresAt,answers:attempt.answers,serverNow:new Date().toISOString(),questions:attempt.paper.questions.map(q=>({...publicExamQuestion(q),...(finished?{correctAnswer:q.correctAnswer,explanation:q.explanation,result:attempt.results.find(row=>row.questionId===q.id)}:{})}))};
+ return {
+   ...attemptSummary(id,attempt),
+   revision:attempt.revision,
+   expiresAt:attempt.expiresAt,
+   answers:attempt.answers,
+   serverNow:new Date().toISOString(),
+   questions:attempt.paper.questions.map(q=>{
+     const pub=publicExamQuestion(q);
+     const isListening=q.skill==="LISTENING";
+     // Khi đang thi (chưa nộp bài): ẩn đề bài / kịch bản nghe để học sinh nghe hiểu thật
+     const content=(!finished&&isListening)?"":pub.content;
+     const pinyin=(!finished&&isListening)?"":pub.pinyin;
+     return {
+       ...pub,
+       content,
+       pinyin,
+       ...(finished?{
+         correctAnswer:q.correctAnswer,
+         explanation:q.explanation,
+         audioScript:q.content,
+         result:attempt.results.find(row=>row.questionId===q.id)
+       }:{})
+     };
+   })
+ };
 }
 export function examStatistics(papers:ExamPaper[],attempts:{id:string;state:CenterAttempt}[],filter=0){
  const rows=attempts.filter(row=>!filter||levelGroup(row.state.paper.level)===filter);

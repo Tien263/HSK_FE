@@ -324,6 +324,57 @@ export default function ExamPlayer({
     setCollapsedSections((prev) => ({ ...prev, [skill]: !prev[skill] }));
   };
 
+  // Group matching_images check
+  const matchingGroupQuestions = useMemo(() => {
+    if (!currentQ || (currentQ as any).groupType !== "matching_images") return null;
+    const gTitle = (currentQ as any).groupTitle;
+    const list = questions.filter(
+      (q) =>
+        (q as any).groupType === "matching_images" &&
+        q.skill === currentQ.skill &&
+        (!gTitle || (q as any).groupTitle === gTitle)
+    );
+    return list.length > 0 ? list : null;
+  }, [currentQ, questions]);
+
+  const matchingImages = useMemo(() => {
+    if (!matchingGroupQuestions) return [];
+    const foundImages = (matchingGroupQuestions[0] as any)?.groupImages;
+    if (Array.isArray(foundImages) && foundImages.length === 6) {
+      return foundImages;
+    }
+    return ["A", "B", "C", "D", "E", "F"].map((id) => ({
+      id,
+      label: `Tranh ${id}`,
+      imageUrl: "",
+    }));
+  }, [matchingGroupQuestions]);
+
+  const canGoPrev = matchingGroupQuestions
+    ? questions.indexOf(matchingGroupQuestions[0]) > 0
+    : index > 0;
+  const canGoNext = matchingGroupQuestions
+    ? questions.indexOf(matchingGroupQuestions[matchingGroupQuestions.length - 1]) < totalQuestions - 1
+    : index < totalQuestions - 1;
+
+  const prevQ = () => {
+    if (matchingGroupQuestions) {
+      const firstGroupIdx = questions.indexOf(matchingGroupQuestions[0]);
+      if (firstGroupIdx > 0) setIndex(firstGroupIdx - 1);
+    } else {
+      setIndex(Math.max(0, index - 1));
+    }
+  };
+
+  const nextQ = () => {
+    if (matchingGroupQuestions) {
+      const lastGroupIdx = questions.indexOf(matchingGroupQuestions[matchingGroupQuestions.length - 1]);
+      if (lastGroupIdx < totalQuestions - 1) setIndex(lastGroupIdx + 1);
+    } else {
+      setIndex(Math.min(totalQuestions - 1, index + 1));
+    }
+  };
+
   // Audio Playback Handler
   const toggleAudio = () => {
     if (!audioRef.current) return;
@@ -624,38 +675,9 @@ export default function ExamPlayer({
             </div>
           )}
 
-          {/* Question Prompt */}
-          <div className={s.promptRow}>
-            <Volume2 size={20} className={s.speakerIcon} />
-            <h2 className={s.promptText}>{currentQ.content}</h2>
-          </div>
-
-          {/* Pinyin Hint */}
-          {currentQ.pinyin && currentQ.skill !== "LISTENING" && (
-            <p className={s.pinyinHint}>[{currentQ.pinyin}]</p>
-          )}
-
-          {/* Question Image (ảnh minh họa câu hỏi) */}
-          {currentQ.imageUrl && (
-            <div style={{ margin: "14px 0", textAlign: "center" }}>
-              <img
-                src={currentQ.imageUrl}
-                alt="Hình ảnh minh họa câu hỏi"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: 320,
-                  objectFit: "contain",
-                  borderRadius: 12,
-                  border: "1px solid #d4decb",
-                  display: "inline-block",
-                }}
-              />
-            </div>
-          )}
-
-          {/* Audio Player Bar (for Listening questions) */}
+          {/* Audio Player Bar (for Listening questions - đặt trên cùng để nghe liên tục xuyên suốt nhóm) */}
           {currentQ.skill === "LISTENING" && (
-            <div className={s.audioBar}>
+            <div className={s.audioBar} style={{ marginBottom: 16 }}>
               <audio
                 ref={audioRef}
                 src={
@@ -729,34 +751,208 @@ export default function ExamPlayer({
             </div>
           )}
 
-          {/* Interactive Question Input (Picture Options, Ordering, Writing, etc.) */}
-          <ComponentErrorBoundary name="Khu vực trả lời câu hỏi">
-            <ExamQuestionInput
-              key={currentQ.id}
-              question={currentQ}
-              value={answers[currentQ.id] || ""}
-              disabled={finished || busy || conflict}
-              onChange={(val) => handleAnswer(currentQ.id, val)}
-            />
-          </ComponentErrorBoundary>
+          {/* Render theo loại câu hỏi: Dạng Ghép Tranh A-F hiển thị toàn bộ 6 tranh + 5 câu cùng lúc */}
+          {matchingGroupQuestions ? (
+            <div style={{ display: "grid", gap: 18 }}>
+              {/* 6 Tranh A - F Dùng chung */}
+              <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 14, padding: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 12 }}>
+                  🖼️ 6 Bức tranh lựa chọn (A – F):
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  {matchingImages.map((img) => (
+                    <div key={img.id} style={{ border: "1px solid #d8e2cf", borderRadius: 10, background: "#fbfcf9", padding: 8, textAlign: "center" }}>
+                      {img.imageUrl ? (
+                        <img
+                          src={img.imageUrl}
+                          alt={img.label}
+                          style={{ width: "100%", height: 130, objectFit: "contain", borderRadius: 6, background: "#fff" }}
+                        />
+                      ) : (
+                        <div style={{ height: 130, display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: 6, color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>
+                          Tranh {img.id} (Chưa tải ảnh)
+                        </div>
+                      )}
+                      <div style={{ marginTop: 6, fontWeight: 700, fontSize: 14, color: "#254422" }}>
+                        {img.label || `Tranh ${img.id}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          {/* Post-exam Answer Explanation */}
-          {finished && (
-            <div style={{ marginTop: 20, padding: 18, background: "#f4f8ed", borderRadius: 14, border: "1px solid #d4e3cb" }}>
-              <strong style={{ fontSize: 15, color: "#2b4c27" }}>
-                {currentQ.result?.earned === null
-                  ? "Đang chờ chấm tay"
-                  : `Đạt ${currentQ.result?.earned ?? 0} / ${currentQ.points} điểm`}
-              </strong>
-              <p style={{ margin: "8px 0 4px", fontSize: 13, color: "#3e573a" }}>
-                <strong>Đáp án chuẩn:</strong> {currentQ.correctAnswer || "Chấm theo biểu điểm"}
-              </p>
-              {currentQ.explanation && (
-                <p style={{ margin: 0, fontSize: 13, color: "#546d50" }}>
-                  <strong>Giải thích:</strong> {currentQ.explanation}
-                </p>
-              )}
+              {/* Bảng các câu hỏi lựa chọn đáp án A - F */}
+              <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 14, padding: 18 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 14 }}>
+                  📝 Chọn tranh tương ứng cho từng câu:
+                </div>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {matchingGroupQuestions.map((q) => {
+                    const selectedAns = answers[q.id] || "";
+                    const isFocused = q.id === currentQ.id;
+                    return (
+                      <div
+                        key={q.id}
+                        style={{
+                          border: isFocused ? "2px solid #4a7c43" : "1px solid #dce4cb",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          background: isFocused ? "#f6faf3" : "#fdfdfb",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: "#254422", minWidth: 65 }}>
+                            {(q as any).questionNo || `Câu ${questions.indexOf(q) + 1}`}
+                          </span>
+                          {finished && (q as any).audioScript && (
+                            <span style={{ fontSize: 13, color: "#475569", fontStyle: "italic" }}>
+                              [{(q as any).audioScript}]
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {["A", "B", "C", "D", "E", "F"].map((optId) => {
+                            const isChecked = selectedAns === optId;
+                            const isCorrect = finished && q.correctAnswer === optId;
+                            const isWrong = finished && isChecked && q.correctAnswer !== optId;
+                            return (
+                              <button
+                                key={optId}
+                                type="button"
+                                disabled={finished || busy || conflict}
+                                onClick={() => handleAnswer(q.id, optId)}
+                                style={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: "50%",
+                                  border: isCorrect
+                                    ? "2px solid #16a34a"
+                                    : isWrong
+                                    ? "2px solid #dc2626"
+                                    : isChecked
+                                    ? "2px solid #27492c"
+                                    : "1.5px solid #cbd5e1",
+                                  background: isCorrect
+                                    ? "#dcfce7"
+                                    : isWrong
+                                    ? "#fee2e2"
+                                    : isChecked
+                                    ? "#27492c"
+                                    : "#ffffff",
+                                  color: isCorrect
+                                    ? "#15803d"
+                                    : isWrong
+                                    ? "#b91c1c"
+                                    : isChecked
+                                    ? "#ffffff"
+                                    : "#334155",
+                                  fontWeight: 700,
+                                  fontSize: 14,
+                                  cursor: finished ? "default" : "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                {optId}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {finished && (
+                          <div style={{ width: "100%", marginTop: 4, fontSize: 12, color: "#4b5563" }}>
+                            <strong>Đáp án đúng:</strong> {q.correctAnswer}
+                            {q.explanation && <span> · <strong>Giải thích:</strong> {q.explanation}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
+          ) : (
+            /* Dạng câu hỏi đơn lẻ tiêu chuẩn */
+            <>
+              {/* Question Prompt */}
+              <div className={s.promptRow}>
+                <Volume2 size={20} className={s.speakerIcon} />
+                <h2 className={s.promptText}>
+                  {currentQ.content || (currentQ.skill === "LISTENING" ? "Nghe câu hỏi / hội thoại và chọn đáp án chính xác:" : "")}
+                </h2>
+              </div>
+
+              {/* Pinyin Hint (chỉ hiện cho kỹ năng không phải Nghe) */}
+              {currentQ.pinyin && currentQ.skill !== "LISTENING" && (
+                <p className={s.pinyinHint}>[{currentQ.pinyin}]</p>
+              )}
+
+              {/* Post-exam Audio Script (khi đã nộp bài) */}
+              {finished && currentQ.skill === "LISTENING" && (currentQ as any).audioScript && (
+                <div style={{ margin: "10px 0 14px", padding: "12px 16px", background: "#f0f5e9", borderRadius: 10, border: "1px solid #d2e0cb" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#254422", marginBottom: 4 }}>
+                    🎧 Kịch bản nghe (Audio Script):
+                  </div>
+                  <div style={{ fontSize: 15, color: "#1e3321", lineHeight: 1.6 }}>{(currentQ as any).audioScript}</div>
+                </div>
+              )}
+
+              {/* Question Image (ảnh minh họa câu hỏi) */}
+              {currentQ.imageUrl && (
+                <div style={{ margin: "14px 0", textAlign: "center" }}>
+                  <img
+                    src={currentQ.imageUrl}
+                    alt="Hình ảnh minh họa câu hỏi"
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: 320,
+                      objectFit: "contain",
+                      borderRadius: 12,
+                      border: "1px solid #d4decb",
+                      display: "inline-block",
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Interactive Question Input (Picture Options, Ordering, Writing, etc.) */}
+              <ComponentErrorBoundary name="Khu vực trả lời câu hỏi">
+                <ExamQuestionInput
+                  key={currentQ.id}
+                  question={currentQ}
+                  value={answers[currentQ.id] || ""}
+                  disabled={finished || busy || conflict}
+                  onChange={(val) => handleAnswer(currentQ.id, val)}
+                />
+              </ComponentErrorBoundary>
+
+              {/* Post-exam Answer Explanation */}
+              {finished && (
+                <div style={{ marginTop: 20, padding: 18, background: "#f4f8ed", borderRadius: 14, border: "1px solid #d4e3cb" }}>
+                  <strong style={{ fontSize: 15, color: "#2b4c27" }}>
+                    {currentQ.result?.earned === null
+                      ? "Đang chờ chấm tay"
+                      : `Đạt ${currentQ.result?.earned ?? 0} / ${currentQ.points} điểm`}
+                  </strong>
+                  <p style={{ margin: "8px 0 4px", fontSize: 13, color: "#3e573a" }}>
+                    <strong>Đáp án chuẩn:</strong> {currentQ.correctAnswer || "Chấm theo biểu điểm"}
+                  </p>
+                  {currentQ.explanation && (
+                    <p style={{ margin: 0, fontSize: 13, color: "#546d50" }}>
+                      <strong>Giải thích:</strong> {currentQ.explanation}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {/* 04. BOTTOM CONTROLS BAR: ĐÁNH DẤU, CÂU TRƯỚC, CÂU TIẾP */}
@@ -777,8 +973,8 @@ export default function ExamPlayer({
               <button
                 type="button"
                 className={s.prevBtn}
-                disabled={index === 0}
-                onClick={() => setIndex(index - 1)}
+                disabled={!canGoPrev}
+                onClick={prevQ}
               >
                 &lt; Câu trước
               </button>
@@ -786,8 +982,8 @@ export default function ExamPlayer({
               <button
                 type="button"
                 className={s.nextBtn}
-                disabled={index === totalQuestions - 1}
-                onClick={() => setIndex(index + 1)}
+                disabled={!canGoNext}
+                onClick={nextQ}
               >
                 Câu tiếp &gt;
               </button>
@@ -852,6 +1048,9 @@ export default function ExamPlayer({
                         const isCurrent = globalIdx === index;
                         const isAnswered = hasAnswer(answers[q.id]);
                         const isMarked = bookmarked.has(q.id);
+                        const displayNum = (q as any).questionNo
+                          ? String((q as any).questionNo).replace(/^(câu|c)\s*/i, "").trim()
+                          : String(globalIdx + 1);
 
                         return (
                           <button
@@ -865,11 +1064,11 @@ export default function ExamPlayer({
                                 : ""
                             } ${isMarked ? s.bookmarked : ""}`}
                             onClick={() => setIndex(globalIdx)}
-                            title={`Câu ${globalIdx + 1}${
+                            title={`${(q as any).questionNo || `Câu ${globalIdx + 1}`}${
                               isAnswered ? " (Đã làm)" : " (Chưa làm)"
                             }`}
                           >
-                            {isAnswered && !isCurrent ? "✓" : globalIdx + 1}
+                            {isAnswered && !isCurrent ? "✓" : displayNum}
                           </button>
                         );
                       })}

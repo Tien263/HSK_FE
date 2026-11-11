@@ -165,6 +165,9 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
         imageUrl:q.imageUrl||"",
         passage:q.passage||(typeof q.editorData==="object"&&(q.editorData as any)?.passage)||"",
         groupTitle:q.groupTitle||(typeof q.editorData==="object"&&(q.editorData as any)?.groupTitle)||"",
+        groupImages:q.groupImages||(typeof q.editorData==="object"&&(q.editorData as any)?.groupImages)||[],
+        groupType:q.groupType||(typeof q.editorData==="object"&&(q.editorData as any)?.groupType)||"",
+        questionNo:q.questionNo||(typeof q.editorData==="object"&&(q.editorData as any)?.questionNo)||"",
         ...(typeof q.editorData==="object"&&q.editorData?q.editorData:{})
        }
       }
