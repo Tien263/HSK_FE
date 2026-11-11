@@ -11,7 +11,7 @@ export const levelGroup=(level:number)=>level>=7?7:level;
 export const levelLabel=(level:number)=>level>=7?"HSK 7–9":`HSK ${level}`;
 export function skillOf(value:string):ExamSkill { const key=value.toUpperCase();return key.includes("SPEAK")?"SPEAKING":key.includes("TRANS")?"TRANSLATION":key.includes("LISTEN")?"LISTENING":key.includes("WRIT")||key.includes("GRAMMAR")?"WRITING":"READING"; }
 export function questionType(value:string){return canonicalQuestionType(({multi_choice:"multiple_choice",ordering:"sentence_order",pinyin_input:"fill_blank",listening:"listening_choice"} as Record<string,string>)[value]||value);}
-export const supportedTypes = new Set(["multiple_choice","listening_choice","true_false","fill_blank","listening_fill","matching","sentence_order","find_error","essay","translation","speaking","speaking_audio","audio","writing","handwriting_photo"]);
+export const supportedTypes = new Set(["multiple_choice","listening_choice","true_false","true_false_na","fill_blank","listening_fill","matching","sentence_order","find_error","essay","translation","speaking","speaking_audio","audio","writing","handwriting_photo"]);
 export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQuestion {
  const editor=raw.editorData&&typeof raw.editorData==="object"&&!Array.isArray(raw.editorData)?raw.editorData as Record<string,unknown>:{};
  let options:unknown=[];try{options=typeof raw.options==="string"?JSON.parse(raw.options):raw.options||editor.options||[];}catch{}
@@ -36,6 +36,8 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
      questionNo: raw.questionNo || editor.questionNo || "",
      passage: raw.passage || editor.passage || "",
      groupTitle: raw.groupTitle || editor.groupTitle || "",
+     acceptedAnswers: String(raw.acceptedAnswers || editor.acceptedAnswers || ""),
+     requiresManualReview: !!(raw.requiresManualReview || editor.requiresManualReview),
      ...(raw.type==="multi_choice"?{schemaVersion:2,selectionMode:"MULTIPLE"}:{})
    },
    tags:[raw.skill,raw.tags,editor.sourceContent].filter(Boolean).join(" ")
@@ -72,6 +74,8 @@ export function publicExamQuestion(q:ExamQuestion){
    groupImages:(q as any).groupImages||(q.editorData as any)?.groupImages||[],
    groupType:(q as any).groupType||(q.editorData as any)?.groupType||"",
    questionNo:(q as any).questionNo||(q.editorData as any)?.questionNo||"",
+   acceptedAnswers:String((q as any).acceptedAnswers||(q.editorData as any)?.acceptedAnswers||""),
+   requiresManualReview:!!((q as any).requiresManualReview||(q.editorData as any)?.requiresManualReview),
    options,
    selectionMode:safe.selectionMode,
    errorMode:safe.errorMode,
@@ -97,7 +101,7 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
   const answer=attempt.answers[q.id]||"";
   const graded=q.skill==="SPEAKING"?{manual:true,correct:false}:gradeQuestion(q,answer);
   let correct=graded.correct;
-  if(!graded.manual&&q.editorData?.schemaVersion!==2&&["multiple_choice","listening_choice","fill_blank","true_false"].includes(q.type)){
+  if(!graded.manual&&q.editorData?.schemaVersion!==2&&["multiple_choice","listening_choice","fill_blank","listening_fill","true_false","true_false_na"].includes(q.type)){
    const option=q.options.find(item=>typeof item==="object"&&item&&(item as Record<string,unknown>).id===answer);
    const resolved=option?String((option as Record<string,unknown>).text||(option as Record<string,unknown>).content||answer):answer;
    correct=isMockAnswerCorrect(answer,q.correctAnswer,q.options.map(option=>typeof option==="string"?option:String((option as Record<string,unknown>)?.text||"")))||resolved!==answer&&isMockAnswerCorrect(resolved,q.correctAnswer);

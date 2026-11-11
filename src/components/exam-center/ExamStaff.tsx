@@ -99,6 +99,34 @@ export const HSK_GROUP_TEMPLATES = [
     points: 2.5,
   },
   {
+    name: "🎧 Nghe đánh giá Đúng / Sai / Không đề cập (√ / × / 〇)",
+    skill: "LISTENING" as const,
+    groupType: "eval_true_false_na" as const,
+    type: "true_false_na",
+    samplePrompt: "请听录音并对各陈述进行判断（√ / × / 〇）。",
+    instruction: "Nghe ghi âm và đánh giá từng phát biểu: √ (Đúng), × (Sai), hoặc 〇 (Không đề cập).",
+    options: [
+      { id: "true", text: "√ Đúng (对)" },
+      { id: "false", text: "× Sai (错)" },
+      { id: "not_mentioned", text: "〇 Không đề cập (没提及)" },
+    ],
+    correctAnswer: "true",
+    points: 2,
+  },
+  {
+    name: "🎧 Nghe và điền đáp án (Chỗ trống / Chấm tự động & Chuẩn hóa)",
+    skill: "LISTENING" as const,
+    groupType: "listening_fill_blank" as const,
+    type: "listening_fill",
+    samplePrompt: "请听录音并在空格处填入正确的词语。",
+    instruction: "Nghe ghi âm và nhập từ ngữ chính xác vào chỗ trống.",
+    correctAnswer: "",
+    acceptedAnswers: "",
+    requiresManualReview: false,
+    options: [],
+    points: 2,
+  },
+  {
     name: "🎧 Nghe chọn tranh A, B, C (Trắc nghiệm hình ảnh)",
     skill: "LISTENING" as const,
     type: "multiple_choice",
@@ -434,7 +462,7 @@ export default function ExamStaff({
         ? ["A", "B", "C", "D", "E", "F"].map((id) => ({ id, label: `Tranh ${id}`, imageUrl: "" }))
         : undefined;
 
-      const questionsCount = gType === "matching_images" ? 5 : 1;
+      const questionsCount = (gType === "matching_images" || gType === "eval_true_false_na") ? 5 : 1;
       const initialQuestions: QuestionItem[] = [];
       for (let i = 1; i <= questionsCount; i++) {
         initialQuestions.push({
@@ -444,7 +472,9 @@ export default function ExamStaff({
           content: `第 ${i} 题：${template.samplePrompt || "请选择正确答案。"}`,
           points: template.points,
           correctAnswer: template.correctAnswer,
-          options: template.options.map((opt) => ({ ...opt })),
+          acceptedAnswers: (template as any).acceptedAnswers || "",
+          requiresManualReview: !!(template as any).requiresManualReview,
+          options: Array.isArray(template.options) ? template.options.map((opt) => ({ ...opt })) : [],
         });
       }
 
@@ -562,6 +592,16 @@ export default function ExamStaff({
             { id: "B", text: "喝茶", pinyin: "hē chá" },
             { id: "C", text: "看书", pinyin: "kàn shū" },
           ];
+        } else if (g.groupType === "eval_true_false_na" || targetType === "true_false_na") {
+          initialOptions = [
+            { id: "true", text: "√ Đúng (对)" },
+            { id: "false", text: "× Sai (错)" },
+            { id: "not_mentioned", text: "〇 Không đề cập (没提及)" },
+          ];
+          initialAnswer = "true";
+        } else if (g.groupType === "listening_fill_blank" || targetType === "listening_fill") {
+          initialOptions = [];
+          initialAnswer = "";
         } else if (targetType === "true_false") {
           initialOptions = [
             { id: "true", text: "Đúng (对)" },
@@ -579,6 +619,8 @@ export default function ExamStaff({
           content: `第 ${nextQNo} 题：请根据题目选择正确答案。`,
           points: lastQ?.points ?? 2.5,
           correctAnswer: initialAnswer,
+          acceptedAnswers: lastQ?.acceptedAnswers || "",
+          requiresManualReview: !!lastQ?.requiresManualReview,
           options: initialOptions,
         };
         return { ...g, questions: [...g.questions, newQ] };
@@ -1191,6 +1233,8 @@ export default function ExamStaff({
                                 <option value="standard">Tiêu chuẩn (Trắc nghiệm / Tự luận từng câu)</option>
                                 <option value="matching_images">🖼️ Nghe ghép tranh A–F (Tải 6 tranh dùng chung cho nhóm)</option>
                                 <option value="listening_choice_abc">🎧 Nghe câu hỏi – Chọn đáp án A/B/C (Ẩn kịch bản với HS)</option>
+                                <option value="eval_true_false_na">✅ Nghe đánh giá Đúng / Sai / Không đề cập (√ / × / 〇)</option>
+                                <option value="listening_fill_blank">⌨️ Nghe và điền đáp án (Chỗ trống / Dùng chung Audio)</option>
                               </select>
                             </label>
                           </div>
@@ -1205,7 +1249,7 @@ export default function ExamStaff({
                           </label>
 
                           {/* File bài nghe chung của nhóm (cho phần Nghe tiêu chuẩn) */}
-                          {group.skill === "LISTENING" && group.groupType !== "matching_images" && group.groupType !== "listening_choice_abc" && (
+                          {group.skill === "LISTENING" && group.groupType !== "matching_images" && group.groupType !== "listening_choice_abc" && group.groupType !== "eval_true_false_na" && group.groupType !== "listening_fill_blank" && (
                             <div style={{ marginTop: 14, padding: 12, background: "#f2f8eb", borderRadius: 10, border: "1px solid #d4e3cb" }}>
                               <label style={{ fontSize: 13, fontWeight: 600, color: "#254422", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                                 <Music size={16} /> File bài nghe âm thanh (.mp3) chung cho nhóm này:
@@ -1762,6 +1806,401 @@ export default function ExamStaff({
                               })}
                             </div>
                           </div>
+                        ) : group.groupType === "eval_true_false_na" ? (
+                          <div style={{ display: "grid", gap: 16 }}>
+                            {/* File audio cho toàn bộ nhóm và sơ đồ thứ tự */}
+                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 10 }}>
+                                File audio chung cho nhóm đánh giá ({group.questions.length} phát biểu)
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#f8faf5", padding: 10, borderRadius: 8, border: "1px solid #e0ebd3" }}>
+                                <Music size={18} color="#254422" />
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "#254422" }}>
+                                  {group.audioUrl ? (group.audioUrl.split("/").pop() || "Audio nhóm") : "Chưa chọn file audio"}
+                                </span>
+                                <span style={{ fontSize: 12, color: "#64748b" }}>
+                                  (Chứa phát biểu từ câu {group.questions[0]?.questionNo || 1} đến câu {group.questions[group.questions.length - 1]?.questionNo || group.questions.length})
+                                </span>
+                                <span style={{ marginLeft: "auto", background: "#e2e8f0", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>MP3</span>
+                              </div>
+                              <div style={{ marginTop: 12 }}>
+                                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Thứ tự phát audio:</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                  {group.questions.map((q, qIdx) => (
+                                    <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", border: "2px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#334155" }}>
+                                          {qIdx + 1}
+                                        </div>
+                                        <span style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{q.questionNo || `Câu ${qIdx + 1}`}</span>
+                                      </div>
+                                      {qIdx < group.questions.length - 1 && <ArrowRight size={14} color="#94a3b8" />}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Danh sách các phát biểu Đánh giá Đúng / Sai / Không đề cập */}
+                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: "#254422" }}>
+                                  Cài đặt đáp án cho {group.questions.length} phát biểu (√ Đúng / × Sai / 〇 Không đề cập)
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddQuestionToGroup(group.id)}
+                                  style={{
+                                    background: "#41683d",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: 6,
+                                    padding: "4px 10px",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Plus size={13} /> Thêm phát biểu
+                                </button>
+                              </div>
+
+                              <div style={{ display: "grid", gap: 12 }}>
+                                {group.questions.map((q, qIdx) => {
+                                  const isScriptOpen = openQuestionScripts[q.id];
+                                  return (
+                                    <div key={q.id} style={{ border: "1px solid #e2ebd5", borderRadius: 10, padding: 12, background: "#fcfdfb" }}>
+                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                          <input
+                                            value={q.questionNo || `Câu ${qIdx + 1}`}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
+                                            style={{ width: 85, fontWeight: 700, fontSize: 12, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1" }}
+                                            placeholder="Số câu"
+                                            title="Số thứ tự câu"
+                                          />
+                                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                            {[
+                                              { id: "true", label: "√ Đúng (对)", activeBg: "#dcfce7", activeBorder: "#16a34a", activeText: "#15803d" },
+                                              { id: "false", label: "× Sai (错)", activeBg: "#fee2e2", activeBorder: "#dc2626", activeText: "#b91c1c" },
+                                              { id: "not_mentioned", label: "〇 Không đề cập (没提及)", activeBg: "#fef3c7", activeBorder: "#d97706", activeText: "#b45309" },
+                                            ].map((btn) => {
+                                              const isChecked = q.correctAnswer === btn.id;
+                                              return (
+                                                <button
+                                                  key={btn.id}
+                                                  type="button"
+                                                  onClick={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: btn.id })}
+                                                  style={{
+                                                    padding: "4px 10px",
+                                                    borderRadius: 6,
+                                                    fontSize: 12,
+                                                    fontWeight: isChecked ? 700 : 500,
+                                                    cursor: "pointer",
+                                                    border: isChecked ? `2px solid ${btn.activeBorder}` : "1px solid #cbd5e1",
+                                                    background: isChecked ? btn.activeBg : "#ffffff",
+                                                    color: isChecked ? btn.activeText : "#475569",
+                                                  }}
+                                                >
+                                                  {btn.label}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                          <label style={{ fontSize: 12, color: "#375531", display: "flex", alignItems: "center", gap: 4, margin: 0 }}>
+                                            Điểm:
+                                            <input
+                                              type="number"
+                                              step="0.5"
+                                              min={0}
+                                              value={q.points}
+                                              onChange={(e) => handleUpdateQuestion(group.id, q.id, { points: Number(e.target.value) })}
+                                              style={{ width: 55, padding: "2px 4px", fontSize: 12 }}
+                                            />
+                                          </label>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleQuestionScript(q.id)}
+                                            style={{
+                                              background: isScriptOpen ? "#dcfce7" : "#f1f5f9",
+                                              color: isScriptOpen ? "#166534" : "#475569",
+                                              border: "1px solid #cbd5e1",
+                                              borderRadius: 6,
+                                              padding: "4px 8px",
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              cursor: "pointer",
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: 4,
+                                            }}
+                                          >
+                                            {isScriptOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                            Kịch bản & Lời giải
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDuplicateQuestion(group.id, q.id)}
+                                            style={{ background: "#e2ede0", color: "#254422", border: "1px solid #c5d9bf", borderRadius: 6, padding: "4px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600 }}
+                                            title="Nhân bản"
+                                          >
+                                            <Copy size={13} />
+                                          </button>
+
+                                          {group.questions.length > 1 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteQuestion(group.id, q.id)}
+                                              style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}
+                                              title="Xóa phát biểu này"
+                                            >
+                                              <Trash2 size={13} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Nội dung phát biểu */}
+                                      <div className={s.formColumns}>
+                                        <label style={{ margin: 0 }}>
+                                          Nội dung phát biểu (Chữ Hán) *
+                                          <input
+                                            value={q.content}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { content: e.target.value })}
+                                            placeholder="Ví dụ: 小张打算下个月结婚。"
+                                          />
+                                        </label>
+                                        <label style={{ margin: 0 }}>
+                                          Pinyin phát biểu (tùy chọn)
+                                          <input
+                                            value={q.pinyin || ""}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { pinyin: e.target.value })}
+                                            placeholder="Ví dụ: Xiǎo Zhāng dǎsuàn xià ge yuè jiéhūn."
+                                          />
+                                        </label>
+                                      </div>
+
+                                      {isScriptOpen && (
+                                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #d5dfc3", display: "grid", gap: 8 }}>
+                                          <label style={{ fontSize: 12, margin: 0 }}>
+                                            Kịch bản hội thoại / bài nói (Ẩn trong phòng thi, chỉ hiện sau khi nộp bài)
+                                            <textarea
+                                              rows={2}
+                                              value={(q as any).audioScript || ""}
+                                              onChange={(e) => handleUpdateQuestion(group.id, q.id, { audioScript: e.target.value } as any)}
+                                              placeholder="Ví dụ: 男：听说小张下个月要结婚了？ 女：没有的事，他连女朋友都没有呢。"
+                                              style={{ width: "100%", fontSize: 12, marginTop: 4 }}
+                                            />
+                                          </label>
+                                          <label style={{ fontSize: 12, margin: 0 }}>
+                                            Giải thích đáp án
+                                            <input
+                                              value={q.explanation || ""}
+                                              onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
+                                              placeholder="Ví dụ: Người nữ đính chính Tiểu Trương chưa có bạn gái nên phát biểu là Sai (×)..."
+                                              style={{ width: "100%", fontSize: 12, marginTop: 4 }}
+                                            />
+                                          </label>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div style={{ marginTop: 12, fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+                                {group.questions.filter((q) => q.correctAnswer).length}/{group.questions.length} phát biểu đã chọn đáp án.
+                              </div>
+                            </div>
+                          </div>
+                        ) : group.groupType === "listening_fill_blank" ? (
+                          <div style={{ display: "grid", gap: 16 }}>
+                            {/* File audio cho toàn bộ nhóm và sơ đồ thứ tự */}
+                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 10 }}>
+                                File audio chung cho nhóm điền từ ({group.questions.length} câu)
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#f8faf5", padding: 10, borderRadius: 8, border: "1px solid #e0ebd3" }}>
+                                <Music size={18} color="#254422" />
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "#254422" }}>
+                                  {group.audioUrl ? (group.audioUrl.split("/").pop() || "Audio nhóm") : "Chưa chọn file audio"}
+                                </span>
+                                <span style={{ fontSize: 12, color: "#64748b" }}>
+                                  (Chứa bài nghe từ câu {group.questions[0]?.questionNo || 1} đến câu {group.questions[group.questions.length - 1]?.questionNo || group.questions.length})
+                                </span>
+                                <span style={{ marginLeft: "auto", background: "#e2e8f0", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>MP3</span>
+                              </div>
+                              <div style={{ marginTop: 12 }}>
+                                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>Thứ tự phát audio:</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                  {group.questions.map((q, qIdx) => (
+                                    <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", border: "2px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#334155" }}>
+                                          {qIdx + 1}
+                                        </div>
+                                        <span style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{q.questionNo || `Câu ${qIdx + 1}`}</span>
+                                      </div>
+                                      {qIdx < group.questions.length - 1 && <ArrowRight size={14} color="#94a3b8" />}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Danh sách các câu hỏi điền từ */}
+                            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 12, padding: 16 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: "#254422" }}>
+                                  Danh sách câu hỏi điền từ ({group.questions.length} câu)
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddQuestionToGroup(group.id)}
+                                  style={{
+                                    background: "#41683d",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: 6,
+                                    padding: "4px 10px",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Plus size={13} /> Thêm câu hỏi
+                                </button>
+                              </div>
+
+                              <div style={{ display: "grid", gap: 14 }}>
+                                {group.questions.map((q, qIdx) => (
+                                  <div key={q.id} style={{ border: "1px solid #e2ebd5", borderRadius: 10, padding: 14, background: "#fcfdfb", display: "grid", gap: 10 }}>
+                                    {/* Top row */}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <input
+                                          value={q.questionNo || `Câu ${qIdx + 1}`}
+                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { questionNo: e.target.value })}
+                                          style={{ width: 85, fontWeight: 700, fontSize: 12, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1" }}
+                                          placeholder="Số câu"
+                                        />
+                                        <span style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}>
+                                          (Nghe và điền từ vào chỗ trống)
+                                        </span>
+                                      </div>
+
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <label style={{ fontSize: 12, color: "#375531", display: "flex", alignItems: "center", gap: 4, margin: 0 }}>
+                                          Điểm:
+                                          <input
+                                            type="number"
+                                            step="0.5"
+                                            min={0}
+                                            value={q.points}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { points: Number(e.target.value) })}
+                                            style={{ width: 55, padding: "2px 4px", fontSize: 12 }}
+                                          />
+                                        </label>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDuplicateQuestion(group.id, q.id)}
+                                          style={{ background: "#e2ede0", color: "#254422", border: "1px solid #c5d9bf", borderRadius: 6, padding: "4px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600 }}
+                                          title="Nhân bản"
+                                        >
+                                          <Copy size={13} />
+                                        </button>
+
+                                        {group.questions.length > 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteQuestion(group.id, q.id)}
+                                            style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer" }}
+                                            title="Xóa câu này"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Câu văn chứa chỗ trống */}
+                                    <div className={s.formColumns}>
+                                      <label style={{ margin: 0 }}>
+                                        Nội dung câu có chỗ trống (Chữ Hán) *
+                                        <input
+                                          value={q.content}
+                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { content: e.target.value })}
+                                          placeholder="Ví dụ: 王老师每天早上___去学校。"
+                                        />
+                                      </label>
+                                      <label style={{ margin: 0 }}>
+                                        Pinyin câu hỏi (tùy chọn)
+                                        <input
+                                          value={q.pinyin || ""}
+                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { pinyin: e.target.value })}
+                                          placeholder="Ví dụ: Wáng lǎoshī měitiān zǎoshang ___ qù xuéxiào."
+                                        />
+                                      </label>
+                                    </div>
+
+                                    {/* Đáp án chuẩn & biến thể */}
+                                    <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3", display: "grid", gap: 10 }}>
+                                      <div className={s.formColumns}>
+                                        <label style={{ margin: 0 }}>
+                                          Đáp án chuẩn (chính xác) *
+                                          <input
+                                            value={q.correctAnswer}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { correctAnswer: e.target.value })}
+                                            placeholder="Ví dụ: 骑自行车"
+                                          />
+                                        </label>
+                                        <label style={{ margin: 0 }}>
+                                          Các biến thể được chấp nhận (phân cách bằng / hoặc phẩy)
+                                          <input
+                                            value={q.acceptedAnswers || ""}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { acceptedAnswers: e.target.value })}
+                                            placeholder="Ví dụ: 骑车 / 骑单车 / 自行车"
+                                          />
+                                        </label>
+                                      </div>
+
+                                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#2b4a27", cursor: "pointer", margin: 0 }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={!!q.requiresManualReview}
+                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { requiresManualReview: e.target.checked })}
+                                          style={{ width: 16, height: 16 }}
+                                        />
+                                        <span>Cần giáo viên kiểm tra / chấm tay nếu học sinh điền khác các biến thể trên</span>
+                                      </label>
+                                    </div>
+
+                                    {/* Giải thích đáp án */}
+                                    <label style={{ margin: 0, fontSize: 12 }}>
+                                      Giải thích đáp án (tùy chọn)
+                                      <input
+                                        value={q.explanation || ""}
+                                        onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
+                                        placeholder="Ví dụ: Theo đoạn nghe, thầy Vương đi xe đạp đến trường..."
+                                        style={{ fontSize: 12 }}
+                                      />
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           /* Dạng chuẩn (Mặc định cho các loại bài tập khác) */
                           <div style={{ display: "grid", gap: 16 }}>
@@ -1820,6 +2259,8 @@ export default function ExamStaff({
                                       <option value="multiple_choice">Trắc nghiệm (A, B, C, D...)</option>
                                       <option value="listening_choice">Nghe chọn đáp án</option>
                                       <option value="true_false">Phán đoán Đúng / Sai (对 / 错)</option>
+                                      <option value="true_false_na">Đánh giá Đúng / Sai / Không đề cập (√ / × / 〇)</option>
+                                      <option value="listening_fill">Nghe và điền từ vào chỗ trống</option>
                                       <option value="matching">Ghép nối tranh / từ (A-F)</option>
                                       <option value="fill_blank">Điền từ vào chỗ trống</option>
                                       <option value="sentence_order">Sắp xếp các từ thành câu (HSK 3-5)</option>
@@ -1927,7 +2368,93 @@ export default function ExamStaff({
                                 )}
 
                                 {/* Options & Correct Answer Editor */}
-                                {q.type === "true_false" ? (
+                                {q.type === "true_false_na" ? (
+                                  <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", display: "block", marginBottom: 8 }}>
+                                      Chọn đáp án đúng cho phát biểu này:
+                                    </span>
+                                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: "true" })}
+                                        style={{
+                                          padding: "8px 18px",
+                                          borderRadius: 8,
+                                          fontWeight: 700,
+                                          fontSize: 13,
+                                          cursor: "pointer",
+                                          border: q.correctAnswer === "true" ? "2px solid #16a34a" : "1px solid #cbd5e1",
+                                          background: q.correctAnswer === "true" ? "#dcfce7" : "#fff",
+                                          color: q.correctAnswer === "true" ? "#15803d" : "#475569",
+                                        }}
+                                      >
+                                        ✔ Đúng (√ 对)
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: "false" })}
+                                        style={{
+                                          padding: "8px 18px",
+                                          borderRadius: 8,
+                                          fontWeight: 700,
+                                          fontSize: 13,
+                                          cursor: "pointer",
+                                          border: q.correctAnswer === "false" ? "2px solid #dc2626" : "1px solid #cbd5e1",
+                                          background: q.correctAnswer === "false" ? "#fee2e2" : "#fff",
+                                          color: q.correctAnswer === "false" ? "#b91c1c" : "#475569",
+                                        }}
+                                      >
+                                        ✖ Sai (× 错)
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateQuestion(group.id, q.id, { correctAnswer: "not_mentioned" })}
+                                        style={{
+                                          padding: "8px 18px",
+                                          borderRadius: 8,
+                                          fontWeight: 700,
+                                          fontSize: 13,
+                                          cursor: "pointer",
+                                          border: q.correctAnswer === "not_mentioned" ? "2px solid #d97706" : "1px solid #cbd5e1",
+                                          background: q.correctAnswer === "not_mentioned" ? "#fef3c7" : "#fff",
+                                          color: q.correctAnswer === "not_mentioned" ? "#b45309" : "#475569",
+                                        }}
+                                      >
+                                        〇 Không đề cập (没提及)
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : q.type === "listening_fill" ? (
+                                  <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3", display: "grid", gap: 10 }}>
+                                    <div className={s.formColumns}>
+                                      <label style={{ margin: 0 }}>
+                                        Đáp án chuẩn (chính xác) *
+                                        <input
+                                          value={q.correctAnswer}
+                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { correctAnswer: e.target.value })}
+                                          placeholder="Ví dụ: 骑自行车"
+                                        />
+                                      </label>
+                                      <label style={{ margin: 0 }}>
+                                        Các biến thể được chấp nhận (phân cách bằng / hoặc dấu phẩy)
+                                        <input
+                                          value={q.acceptedAnswers || ""}
+                                          onChange={(e) => handleUpdateQuestion(group.id, q.id, { acceptedAnswers: e.target.value })}
+                                          placeholder="Ví dụ: 骑车 / 骑单车 / 自行车"
+                                        />
+                                      </label>
+                                    </div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#2b4a27", cursor: "pointer", margin: 0 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={!!q.requiresManualReview}
+                                        onChange={(e) => handleUpdateQuestion(group.id, q.id, { requiresManualReview: e.target.checked })}
+                                        style={{ width: 16, height: 16 }}
+                                      />
+                                      <span>Cần giáo viên kiểm tra / chấm tay nếu học sinh điền khác các biến thể trên</span>
+                                    </label>
+                                  </div>
+                                ) : q.type === "true_false" ? (
                                   <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
                                     <span style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", display: "block", marginBottom: 8 }}>
                                       Chọn đáp án đúng cho câu này:

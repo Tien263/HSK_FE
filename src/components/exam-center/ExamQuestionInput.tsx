@@ -202,13 +202,19 @@ export default function ExamQuestionInput({
       </div>
     );
   }
-  // 3. Text Multiple Choice / True-False Options
-  else if (["multiple_choice", "listening_choice", "true_false"].includes(q.type)) {
+  // 3. Text Multiple Choice / True-False / True-False-NA Options
+  else if (["multiple_choice", "listening_choice", "true_false", "true_false_na", "eval_true_false_na"].includes(q.type)) {
     const options =
-      q.type === "true_false"
+      q.type === "true_false_na" || q.type === "eval_true_false_na"
         ? [
-            { id: "true", text: "Đúng (√)" },
-            { id: "false", text: "Sai (×)" },
+            { id: "true", text: "Đúng (对)", symbol: "√" },
+            { id: "false", text: "Sai (错)", symbol: "×" },
+            { id: "not_mentioned", text: "Không đề cập (没提及)", symbol: "〇" },
+          ]
+        : q.type === "true_false"
+        ? [
+            { id: "true", text: "Đúng (√)", symbol: "√" },
+            { id: "false", text: "Sai (×)", symbol: "×" },
           ]
         : normalizedOptions;
     const multiple = q.selectionMode === "MULTIPLE";
@@ -218,6 +224,7 @@ export default function ExamQuestionInput({
       <div className={s.textOptionsList}>
         {options.map((option: any) => {
           const isSelected = Array.isArray(chosen) && chosen.includes(option.id);
+          const badgeSymbol = option.symbol || (option.id === "true" ? "√" : option.id === "false" ? "×" : option.id === "not_mentioned" ? "〇" : option.id);
           return (
             <label
               key={option.id}
@@ -243,7 +250,7 @@ export default function ExamQuestionInput({
                 style={{ display: "none" }}
               />
               <span className={s.optionIdBadge}>
-                {option.id === "true" ? "√" : option.id === "false" ? "×" : option.id}
+                {badgeSymbol}
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {option.pinyin && (
@@ -422,6 +429,38 @@ export default function ExamQuestionInput({
                 + {item.text}
               </button>
             ))}
+        </div>
+      </div>
+    );
+  }
+  // 6.5. Listening Fill-in-the-blank / Dictation text input
+  else if (["listening_fill", "fill_blank"].includes(q.type)) {
+    inputContent = (
+      <div style={{ display: "grid", gap: 10 }}>
+        <label style={{ fontSize: 13, fontWeight: 600, color: "#2d4b29" }}>
+          ⌨️ Nhập đáp án bằng bàn phím vào chỗ trống:
+        </label>
+        <input
+          type="text"
+          disabled={disabled}
+          value={strVal}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Nhập từ hoặc cụm từ cần điền (chữ Hán)..."
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "2px solid #27492c",
+            background: "#ffffff",
+            fontSize: 16,
+            fontWeight: 600,
+            color: "#1e3321",
+            outline: "none",
+          }}
+        />
+        <div style={{ fontSize: 12, color: "#617d5c" }}>
+          💡 Lưu ý: Hệ thống tự động chuẩn hóa dấu câu và khoảng trắng khi chấm điểm.
         </div>
       </div>
     );

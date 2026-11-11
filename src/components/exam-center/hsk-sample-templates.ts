@@ -453,6 +453,8 @@ export interface QuestionItem {
   audioUrl?: string;
   correctAnswer: string;
   explanation?: string;
+  acceptedAnswers?: string;
+  requiresManualReview?: boolean;
   options: QuestionOption[];
 }
 
@@ -463,7 +465,7 @@ export interface ExamSectionGroup {
   instruction?: string;
   audioUrl?: string;
   passage?: string;
-  groupType?: "matching_images" | "listening_choice_abc" | "standard";
+  groupType?: "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
   groupImages?: { id: string; label: string; imageUrl: string }[];
   questions: QuestionItem[];
 }
@@ -502,6 +504,8 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
       (item as any).groupType = group.groupType || "";
       (item as any).groupImages = group.groupImages || [];
       (item as any).questionNo = q.questionNo || "";
+      (item as any).acceptedAnswers = q.acceptedAnswers || "";
+      (item as any).requiresManualReview = !!q.requiresManualReview;
       result.push(item);
       qIdx++;
     }
@@ -569,6 +573,8 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
       correctAnswer: q.correctAnswer || "A",
       explanation: q.explanation || "",
+      acceptedAnswers: (q as any).acceptedAnswers || (q as any).editorData?.acceptedAnswers || "",
+      requiresManualReview: !!((q as any).requiresManualReview || (q as any).editorData?.requiresManualReview),
       options: Array.isArray(q.options) && q.options.length
         ? q.options.map((opt: any, optIdx: number) => ({
             id: typeof opt === "object" && opt ? opt.id : String.fromCharCode(65 + optIdx),

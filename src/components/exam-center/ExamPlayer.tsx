@@ -337,6 +337,19 @@ export default function ExamPlayer({
     return list.length > 0 ? list : null;
   }, [currentQ, questions]);
 
+  // Group eval_true_false_na check (Đánh giá Đúng / Sai / Không đề cập)
+  const evalGroupQuestions = useMemo(() => {
+    if (!currentQ || (currentQ as any).groupType !== "eval_true_false_na") return null;
+    const gTitle = (currentQ as any).groupTitle;
+    const list = questions.filter(
+      (q) =>
+        (q as any).groupType === "eval_true_false_na" &&
+        q.skill === currentQ.skill &&
+        (!gTitle || (q as any).groupTitle === gTitle)
+    );
+    return list.length > 0 ? list : null;
+  }, [currentQ, questions]);
+
   const matchingImages = useMemo(() => {
     if (!matchingGroupQuestions) return [];
     const foundImages = (matchingGroupQuestions[0] as any)?.groupImages;
@@ -350,16 +363,18 @@ export default function ExamPlayer({
     }));
   }, [matchingGroupQuestions]);
 
-  const canGoPrev = matchingGroupQuestions
-    ? questions.indexOf(matchingGroupQuestions[0]) > 0
+  const currentMultiGroup = matchingGroupQuestions || evalGroupQuestions;
+
+  const canGoPrev = currentMultiGroup
+    ? questions.indexOf(currentMultiGroup[0]) > 0
     : index > 0;
-  const canGoNext = matchingGroupQuestions
-    ? questions.indexOf(matchingGroupQuestions[matchingGroupQuestions.length - 1]) < totalQuestions - 1
+  const canGoNext = currentMultiGroup
+    ? questions.indexOf(currentMultiGroup[currentMultiGroup.length - 1]) < totalQuestions - 1
     : index < totalQuestions - 1;
 
   const prevQ = () => {
-    if (matchingGroupQuestions) {
-      const firstGroupIdx = questions.indexOf(matchingGroupQuestions[0]);
+    if (currentMultiGroup) {
+      const firstGroupIdx = questions.indexOf(currentMultiGroup[0]);
       if (firstGroupIdx > 0) setIndex(firstGroupIdx - 1);
     } else {
       setIndex(Math.max(0, index - 1));
@@ -367,8 +382,8 @@ export default function ExamPlayer({
   };
 
   const nextQ = () => {
-    if (matchingGroupQuestions) {
-      const lastGroupIdx = questions.indexOf(matchingGroupQuestions[matchingGroupQuestions.length - 1]);
+    if (currentMultiGroup) {
+      const lastGroupIdx = questions.indexOf(currentMultiGroup[currentMultiGroup.length - 1]);
       if (lastGroupIdx < totalQuestions - 1) setIndex(lastGroupIdx + 1);
     } else {
       setIndex(Math.min(totalQuestions - 1, index + 1));
@@ -879,6 +894,107 @@ export default function ExamPlayer({
                 </div>
               </div>
             </div>
+          ) : evalGroupQuestions ? (
+            /* Dạng Đánh giá Đúng / Sai / Không đề cập theo nhóm */
+            <div style={{ background: "#ffffff", border: "1px solid #dce4cb", borderRadius: 14, padding: 18 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#254422", marginBottom: 14 }}>
+                📝 Đánh giá từng phát biểu: √ (Đúng), × (Sai), hoặc 〇 (Không đề cập):
+              </div>
+              <div style={{ display: "grid", gap: 12 }}>
+                {evalGroupQuestions.map((q) => {
+                  const selectedAns = answers[q.id] || "";
+                  const isFocused = q.id === currentQ.id;
+                  return (
+                    <div
+                      key={q.id}
+                      style={{
+                        border: isFocused ? "2px solid #4a7c43" : "1px solid #dce4cb",
+                        borderRadius: 10,
+                        padding: "12px 16px",
+                        background: isFocused ? "#f6faf3" : "#fdfdfb",
+                        display: "grid",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 220 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: "#254422" }}>
+                              {(q as any).questionNo || `Câu ${questions.indexOf(q) + 1}`}
+                            </span>
+                            {q.pinyin && (
+                              <span style={{ fontSize: 12, color: "#617d5c" }}>[{q.pinyin}]</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 16, fontWeight: 600, color: "#1e3321", lineHeight: 1.4 }}>
+                            {q.content}
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {[
+                            { id: "true", label: "√ Đúng", symbol: "√", activeBg: "#dcfce7", activeBorder: "#16a34a", activeText: "#15803d" },
+                            { id: "false", label: "× Sai", symbol: "×", activeBg: "#fee2e2", activeBorder: "#dc2626", activeText: "#b91c1c" },
+                            { id: "not_mentioned", label: "〇 Không đề cập", symbol: "〇", activeBg: "#fef3c7", activeBorder: "#d97706", activeText: "#b45309" },
+                          ].map((btn) => {
+                            const isChecked = selectedAns === btn.id;
+                            const isCorrect = finished && q.correctAnswer === btn.id;
+                            const isWrong = finished && isChecked && q.correctAnswer !== btn.id;
+                            return (
+                              <button
+                                key={btn.id}
+                                type="button"
+                                disabled={finished || busy || conflict}
+                                onClick={() => handleAnswer(q.id, btn.id)}
+                                style={{
+                                  padding: "8px 14px",
+                                  borderRadius: 8,
+                                  fontWeight: 700,
+                                  fontSize: 13,
+                                  cursor: finished ? "default" : "pointer",
+                                  border: isCorrect
+                                    ? "2px solid #16a34a"
+                                    : isWrong
+                                    ? "2px solid #dc2626"
+                                    : isChecked
+                                    ? `2px solid ${btn.activeBorder}`
+                                    : "1.5px solid #cbd5e1",
+                                  background: isCorrect
+                                    ? "#dcfce7"
+                                    : isWrong
+                                    ? "#fee2e2"
+                                    : isChecked
+                                    ? btn.activeBg
+                                    : "#ffffff",
+                                  color: isCorrect
+                                    ? "#15803d"
+                                    : isWrong
+                                    ? "#b91c1c"
+                                    : isChecked
+                                    ? btn.activeText
+                                    : "#334155",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                {btn.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {finished && (
+                        <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed #d5dfc3", fontSize: 13, color: "#475569" }}>
+                          <strong>Đáp án đúng:</strong> {q.correctAnswer === "true" ? "√ Đúng" : q.correctAnswer === "false" ? "× Sai" : "〇 Không đề cập"}
+                          {(q as any).audioScript && <div><strong>Kịch bản nghe:</strong> {(q as any).audioScript}</div>}
+                          {q.explanation && <div><strong>Giải thích:</strong> {q.explanation}</div>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ) : (
             /* Dạng câu hỏi đơn lẻ tiêu chuẩn */
             <>
@@ -945,6 +1061,11 @@ export default function ExamPlayer({
                   <p style={{ margin: "8px 0 4px", fontSize: 13, color: "#3e573a" }}>
                     <strong>Đáp án chuẩn:</strong> {currentQ.correctAnswer || "Chấm theo biểu điểm"}
                   </p>
+                  {(currentQ as any).acceptedAnswers && (
+                    <p style={{ margin: "4px 0", fontSize: 13, color: "#3e573a" }}>
+                      <strong>Các biến thể được chấp nhận:</strong> {(currentQ as any).acceptedAnswers}
+                    </p>
+                  )}
                   {currentQ.explanation && (
                     <p style={{ margin: 0, fontSize: 13, color: "#546d50" }}>
                       <strong>Giải thích:</strong> {currentQ.explanation}
