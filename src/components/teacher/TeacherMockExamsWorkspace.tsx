@@ -160,7 +160,7 @@ export default function TeacherMockExamsWorkspace({
     }
   };
 
-  // 3. ĐỌC FILE JSON ĐỀ THI DO GIÁO VIÊN TẢI LÊN
+  // 3. ĐỌC FILE JSON ĐỀ THI DO GIÁO VIÊN TẢI LÊN (HỖ TRỢ MỌI ĐỊNH DẠNG: MẢNG CÂU HỎI HOẶC OBJECT ĐỀ THI)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null);
     const file = e.target.files?.[0];
@@ -172,21 +172,76 @@ export default function TeacherMockExamsWorkspace({
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
 
-        if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
-          setUploadError("File JSON không hợp lệ hoặc không có danh sách câu hỏi trong trường 'questions'. Thầy/Cô vui lòng tải template mẫu để xem định dạng chuẩn nhé!");
+        let rawQuestions: any[] = [];
+        let title = "";
+        let description = "";
+        let level = selectedLevel;
+        let totalScore = selectedLevel <= 2 ? 200 : 300;
+
+        if (Array.isArray(parsed)) {
+          rawQuestions = parsed;
+        } else if (parsed && typeof parsed === "object") {
+          rawQuestions = Array.isArray(parsed.questions)
+            ? parsed.questions
+            : Array.isArray(parsed.exam?.questions)
+            ? parsed.exam.questions
+            : Array.isArray(parsed.data)
+            ? parsed.data
+            : [];
+          title = parsed.title || parsed.exam?.title || "";
+          description = parsed.description || parsed.exam?.description || "";
+          level = Number(parsed.hskLevel || parsed.level || parsed.exam?.hskLevel || selectedLevel);
+          totalScore = Number(parsed.totalScore || parsed.exam?.totalScore || totalScore);
+        }
+
+        if (!rawQuestions || rawQuestions.length === 0) {
+          setUploadError("File JSON không hợp lệ hoặc không có danh sách câu hỏi. Thầy/Cô vui lòng kiểm tra lại file nhé!");
           return;
         }
 
+        // Chuẩn hóa câu hỏi để đảm bảo hiển thị và lưu đề an toàn 100%
+        const normalizedQuestions = rawQuestions.map((q: any, idx: number) => {
+          let options = q.options || [];
+          if (typeof options === "string") {
+            try { options = JSON.parse(options); } catch {}
+          }
+          if (Array.isArray(options)) {
+            options = options.map((opt: any) => typeof opt === "object" && opt ? (opt.text || opt.content || opt.id || "") : String(opt));
+          } else {
+            options = [];
+          }
+          const skillUpper = String(q.skill || "").toUpperCase();
+          const determinedSkill = skillUpper.includes("LISTEN")
+            ? "LISTENING"
+            : skillUpper.includes("WRITE")
+            ? "WRITING"
+            : "READING";
+
+          return {
+            ...q,
+            id: q.id || `q_${idx + 1}`,
+            content: q.content || q.prompt || q.question || q.title || `Câu ${idx + 1}`,
+            pinyinPrompt: q.pinyinPrompt || q.pinyin || "",
+            options,
+            correctAnswer: String(q.correctAnswer ?? (options[0] || "A")),
+            explanation: q.explanation || "",
+            skill: determinedSkill,
+            points: Number(q.points || 5),
+          };
+        });
+
         // Đếm kỹ năng
-        const listening = parsed.questions.filter((q: any) => q.skill === "LISTENING").length;
-        const reading = parsed.questions.filter((q: any) => q.skill === "READING").length;
-        const writing = parsed.questions.filter((q: any) => q.skill === "WRITING").length;
+        const listening = normalizedQuestions.filter((q: any) => q.skill === "LISTENING").length;
+        const reading = normalizedQuestions.filter((q: any) => q.skill === "READING").length;
+        const writing = normalizedQuestions.filter((q: any) => q.skill === "WRITING").length;
 
         setUploadedExamPreview({
           ...parsed,
-          hskLevel: parsed.hskLevel || selectedLevel,
-          title: parsed.title || `Đề thi thử HSK ${parsed.hskLevel || selectedLevel} do Thầy/Cô biên soạn`,
-          description: parsed.description || "Đề thi thử do Giáo viên biên soạn theo chuẩn HSK 3.0.",
+          questions: normalizedQuestions,
+          hskLevel: level,
+          title: title || `Đề thi thử HSK ${level} do Thầy/Cô biên soạn`,
+          description: description || "Đề thi thử do Giáo viên biên soạn theo chuẩn HSK 3.0.",
+          totalScore,
           skillsCount: { listening, reading, writing },
           fileName: file.name,
         });

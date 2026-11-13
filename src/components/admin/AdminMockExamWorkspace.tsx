@@ -434,10 +434,20 @@ export default function AdminMockExamWorkspace({
         const text = String(event.target?.result || "");
         setJsonImportText(text);
         const parsed = JSON.parse(text);
-        if (!parsed.title || !Array.isArray(parsed.questions)) {
-          throw new Error("File JSON phải có trường 'title' và mảng 'questions'.");
+        const rawQuestions = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.exam?.questions || []);
+        if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
+          throw new Error("File JSON phải chứa danh sách câu hỏi trong mảng 'questions'.");
         }
-        setJsonImportPreview(parsed);
+        let finalPreview = parsed;
+        if (Array.isArray(parsed)) {
+          finalPreview = {
+            title: `Đề thi HSK ${filterLevel || 1} nhập từ file JSON`,
+            description: "Đề thi HSK nhập từ file",
+            hskLevel: filterLevel || 1,
+            questions: rawQuestions,
+          };
+        }
+        setJsonImportPreview(finalPreview);
         setJsonImportError(null);
       } catch (err: any) {
         setJsonImportError(err.message || "Cú pháp JSON không hợp lệ");
@@ -1423,11 +1433,11 @@ export default function AdminMockExamWorkspace({
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-[#163325]">Giải thích đáp án chi tiết</label>
                     <textarea
-                      rows={2}
+                      rows={3}
                       value={currentQ.explanation || ""}
                       onChange={(e) => updateCurrentQuestion({ explanation: e.target.value })}
-                      placeholder="Giải thích ngữ pháp, từ vựng hoặc đoạn hội thoại dẫn chứng..."
-                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-medium focus:outline-[#204434]"
+                      placeholder="Giải thích ngữ pháp, từ vựng hoặc đoạn hội thoại dẫn chứng... (hỗ trợ xuống dòng)"
+                      className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs font-medium focus:outline-[#204434] min-h-[72px] resize-y"
                     />
                   </div>
                 </div>

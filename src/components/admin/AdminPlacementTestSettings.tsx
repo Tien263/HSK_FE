@@ -525,12 +525,12 @@ export default function AdminPlacementTestSettings() {
               <label className="block text-[11px] font-semibold text-[#204434] mb-1">
                 Lời giải thích ngữ pháp / từ vựng (hiển thị khi học viên làm xong):
               </label>
-              <input
-                type="text"
+              <textarea
+                rows={3}
                 value={q.explanation}
                 onChange={(e) => updateQuestion(idx, { explanation: e.target.value })}
-                placeholder="Giải thích vì sao đáp án này đúng..."
-                className="w-full px-3 py-1.5 text-xs rounded-xl border border-[#BC9B6B]/30 focus:border-[#204434] outline-none text-[#204434] bg-[#FAF7EE]/50"
+                placeholder="Giải thích vì sao đáp án này đúng... (hỗ trợ xuống dòng)"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-[#BC9B6B]/30 focus:border-[#204434] outline-none text-[#204434] bg-[#FAF7EE]/50 min-h-[64px] resize-y"
               />
             </div>
           </div>

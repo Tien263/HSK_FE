@@ -3103,11 +3103,11 @@ export default function CurriculumBuilderWorkspace({
                         5. Lời giải thích ngữ pháp chi tiết:
                       </label>
                       <textarea
-                        rows={2}
-                        placeholder="Giải thích vì sao chọn đáp án này, quy tắc ngữ pháp liên quan..."
+                        rows={3}
+                        placeholder="Giải thích vì sao chọn đáp án này, quy tắc ngữ pháp liên quan... (hỗ trợ xuống dòng)"
                         value={newExExplanation}
                         onChange={(e) => setNewExExplanation(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs leading-relaxed"
+                        className="w-full px-3 py-2 rounded-xl border border-[#E5DEC9] text-xs leading-relaxed min-h-[72px] resize-y"
                       />
                     </div>
 

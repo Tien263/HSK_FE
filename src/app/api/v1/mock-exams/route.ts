@@ -261,23 +261,34 @@ export async function POST(request: Request) {
         totalScore: score,
         teacherId: authorId,
         questions: {
-          create: questionsToInsert.map((question, index) => ({
-            orderIndex: index + 1,
-            points: score / questionsToInsert.length,
-            question: {
-              create: {
-                teacherId: authorId,
-                content: question.content,
-                pinyinPrompt: question.pinyinPrompt,
-                type: "single_choice",
-                skill: question.skill || "READING",
-                level,
-                options: JSON.stringify(question.options || []),
-                correctAnswer: question.correctAnswer,
-                explanation: question.explanation,
+          create: questionsToInsert.map((question: any, index) => {
+            let opts = question.options || [];
+            if (typeof opts === "string") {
+              try { opts = JSON.parse(opts); } catch {}
+            }
+            if (Array.isArray(opts)) {
+              opts = opts.map((item: any) => typeof item === "object" && item ? (item.text || item.content || item.id || "") : String(item));
+            } else {
+              opts = [];
+            }
+            return {
+              orderIndex: index + 1,
+              points: Number(question.points || score / questionsToInsert.length),
+              question: {
+                create: {
+                  teacherId: authorId,
+                  content: question.content || question.prompt || question.question || question.title || `Câu ${index + 1}`,
+                  pinyinPrompt: question.pinyinPrompt || question.pinyin || "",
+                  type: question.type || "single_choice",
+                  skill: String(question.skill || "READING").toUpperCase(),
+                  level,
+                  options: JSON.stringify(opts),
+                  correctAnswer: String(question.correctAnswer ?? (opts[0] || "A")),
+                  explanation: question.explanation || "",
+                },
               },
-            },
-          })),
+            };
+          }),
         },
       },
       select: { id: true },

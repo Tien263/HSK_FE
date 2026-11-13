@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Power,
   ShieldOff,
+  GripHorizontal,
 } from "lucide-react";
 
 export interface ExamAntiCheatProctorProps {
@@ -147,6 +148,45 @@ export default function ExamAntiCheatProctor({
   const [lastViolationSnapshot, setLastViolationSnapshot] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [suspiciousNoise, setSuspiciousNoise] = useState(false);
+
+  // Kéo thả di chuyển vị trí khung Giám thị / Test AI
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("input") || target.closest("a") || target.closest("select")) return;
+
+    const el = e.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    dragRef.current = {
+      isDragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: rect.left,
+      origY: rect.top,
+    };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (!dragRef.current?.isDragging) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    const newX = Math.max(8, Math.min(window.innerWidth - 120, dragRef.current.origX + dx));
+    const newY = Math.max(8, Math.min(window.innerHeight - 60, dragRef.current.origY + dy));
+    setPos({ x: newX, y: newY });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    if (dragRef.current?.isDragging) {
+      dragRef.current.isDragging = false;
+      try {
+        (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+      } catch {}
+    }
+  };
 
   // Audio Analyser đo decibel
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -949,10 +989,19 @@ export default function ExamAntiCheatProctor({
   if (!isProctorEnabled) {
     return (
       <aside
-        className="fixed bottom-4 right-4 z-40 bg-[#1B362A]/95 backdrop-blur-md text-white px-3.5 py-2.5 rounded-2xl shadow-xl border border-[#315E48] flex items-center gap-3 text-xs select-none"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={pos ? { left: `${pos.x}px`, top: `${pos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
+        className={`fixed ${pos ? "" : "bottom-4 right-4"} z-40 bg-[#1B362A]/95 backdrop-blur-md text-white px-3.5 py-2.5 rounded-2xl shadow-xl border border-[#315E48] flex items-center gap-2.5 text-xs select-none cursor-grab active:cursor-grabbing hover:border-emerald-400/50 transition-colors`}
         role="region"
         aria-label="Chế độ làm bài tự do"
+        title="Kéo thả để di chuyển vị trí"
       >
+        <div className="flex items-center gap-1 text-stone-400 hover:text-stone-200">
+          <GripHorizontal className="w-3.5 h-3.5 shrink-0" />
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
           <span className="text-stone-200 font-medium text-[11px]">Chế độ thi tự do (Giám thị AI: ĐÃ TẮT)</span>
@@ -974,19 +1023,25 @@ export default function ExamAntiCheatProctor({
     <>
       {/* 1. Khung Camera Giám Sát PiP ở góc màn hình */}
       <aside
-        className={`fixed z-40 transition-all duration-300 shadow-2xl rounded-2xl overflow-hidden border-2 select-none ${
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={pos ? { left: `${pos.x}px`, top: `${pos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
+        className={`fixed z-40 transition-shadow shadow-2xl rounded-2xl overflow-hidden border-2 select-none ${
           violationCount > 0 ? "border-[#9D493E]" : "border-[#204434]"
         } bg-[#1B362A] text-white ${
           isMinimized
-            ? "bottom-4 right-4 w-52 p-2.5 flex items-center justify-between"
-            : "bottom-4 right-4 w-60 sm:w-72"
+            ? `${pos ? "" : "bottom-4 right-4"} w-56 p-2.5 flex items-center justify-between cursor-grab active:cursor-grabbing`
+            : `${pos ? "" : "bottom-4 right-4"} w-60 sm:w-72`
         }`}
         role="region"
         aria-label="Giám thị camera trực tuyến"
       >
-        {/* Header khung giám thị */}
-        <div className="bg-[#12281E] px-3 py-1.5 flex items-center justify-between text-[11px] font-bold border-b border-[#204434]">
+        {/* Header khung giám thị (hỗ trợ kéo thả di chuyển) */}
+        <div className="bg-[#12281E] px-3 py-1.5 flex items-center justify-between text-[11px] font-bold border-b border-[#204434] cursor-grab active:cursor-grabbing" title="Kéo thả để di chuyển vị trí">
           <div className="flex items-center gap-1.5">
+            <GripHorizontal className="w-3.5 h-3.5 text-stone-400 shrink-0" />
             <span
               className={`w-2 h-2 rounded-full ${
                 cameraActive ? "bg-emerald-400 animate-pulse" : "bg-red-400"

@@ -453,14 +453,31 @@ export default function ExamStaff({
       try {
         const text = evt.target?.result as string;
         const parsed = JSON.parse(text);
-        if (!Array.isArray(parsed)) {
-          throw new Error("Tệp JSON phải chứa một danh sách các câu hỏi [ ... ].");
+        let rawQuestions: any[] = [];
+        if (Array.isArray(parsed)) {
+          rawQuestions = parsed;
+        } else if (parsed && typeof parsed === "object") {
+          rawQuestions = Array.isArray(parsed.questions)
+            ? parsed.questions
+            : Array.isArray(parsed.exam?.questions)
+            ? parsed.exam.questions
+            : Array.isArray(parsed.data)
+            ? parsed.data
+            : [];
+          if (parsed.title) setAuthorTitle(parsed.title);
+          if (parsed.description) setAuthorDesc(parsed.description);
+          if (parsed.hskLevel || parsed.level) setAuthorLevel(Number(parsed.hskLevel || parsed.level));
+          if (parsed.durationMin) setAuthorDuration(Number(parsed.durationMin));
+          if (parsed.passScore !== undefined && parsed.passScore !== null) setAuthorPass(String(parsed.passScore));
         }
-        setJsonInput(JSON.stringify(parsed, null, 2));
-        const importedGroups = unflattenToGroups(parsed, authorLevel);
+        if (!rawQuestions.length) {
+          throw new Error("Tệp JSON không chứa danh sách câu hỏi hợp lệ. Vui lòng kiểm tra lại tệp!");
+        }
+        setJsonInput(JSON.stringify(rawQuestions, null, 2));
+        const importedGroups = unflattenToGroups(rawQuestions, authorLevel);
         setGroups(importedGroups);
         if (importedGroups.length > 0) setActiveGroupId(importedGroups[0].id);
-        setMessage(`Đã nạp thành công ${parsed.length} câu hỏi từ tệp "${file.name}". Bấm "Xem trước" để kiểm tra.`);
+        setMessage(`Đã nạp thành công ${rawQuestions.length} câu hỏi từ tệp "${file.name}". Bấm "Xem trước" để kiểm tra.`);
         setError("");
       } catch (err) {
         setError(`Lỗi khi đọc tệp JSON: ${(err as Error).message}`);
@@ -950,6 +967,13 @@ export default function ExamStaff({
       if (!parsed.length) {
         throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
       }
+
+      // Đảm bảo tất cả câu hỏi nhỏ đều có ID riêng để tránh lỗi trùng/thiếu ID
+      parsed.forEach((q, idx) => {
+        if (!q.id || q.id === "undefined") {
+          q.id = `q_${Date.now()}_${idx + 1}`;
+        }
+      });
 
       const { paperId, duplicateQuestionNumbers: duplicates } = await examApi<{ paperId: string; duplicateQuestionNumbers: number[] }>("importPaper", {
         level: authorLevel,
@@ -1631,11 +1655,24 @@ export default function ExamStaff({
                                     />
                                   </legend>
                                   <label>Câu hỏi chữ Hán
-                                    <input lang="zh" value={question.content} onChange={event => handleUpdateQuestion(group.id, question.id, { content: event.target.value })} />
+                                    <textarea
+                                      rows={3}
+                                      lang="zh"
+                                      value={question.content}
+                                      onChange={event => handleUpdateQuestion(group.id, question.id, { content: event.target.value })}
+                                      placeholder="Nhập câu hỏi chữ Hán (hỗ trợ xuống dòng)..."
+                                      style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
+                                    />
                                   </label>
                                   <div className={s.replyFields}>
                                     <label>Pinyin (tùy chọn)
-                                      <input value={question.pinyin || ""} onChange={event => handleUpdateQuestion(group.id, question.id, { pinyin: event.target.value })} />
+                                      <textarea
+                                        rows={2}
+                                        value={question.pinyin || ""}
+                                        onChange={event => handleUpdateQuestion(group.id, question.id, { pinyin: event.target.value })}
+                                        placeholder="Nhập pinyin (hỗ trợ xuống dòng)..."
+                                        style={{ width: "100%", minHeight: 52, resize: "vertical", fontSize: 13, lineHeight: 1.4, padding: "6px 10px" }}
+                                      />
                                     </label>
                                     <label>Điểm
                                       <input type="number" min={0} step="any" value={question.points} onChange={event => handleUpdateQuestion(group.id, question.id, { points: Number(event.target.value) })} />
@@ -1651,7 +1688,13 @@ export default function ExamStaff({
                                     ))}
                                   </div>
                                   <label>Giải thích (tùy chọn)
-                                    <textarea rows={2} value={question.explanation || ""} onChange={event => handleUpdateQuestion(group.id, question.id, { explanation: event.target.value })} />
+                                    <textarea
+                                      rows={3}
+                                      value={question.explanation || ""}
+                                      onChange={event => handleUpdateQuestion(group.id, question.id, { explanation: event.target.value })}
+                                      placeholder="Giải thích vì sao chọn đáp án này... (hỗ trợ xuống dòng)"
+                                      style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
+                                    />
                                   </label>
                                   {group.groupCustom && (
                                     <div className={s.rowActions}>
@@ -1820,12 +1863,13 @@ export default function ExamStaff({
                                           )}
                                           <label style={{ fontSize: 12, margin: 0 }}>
                                             Giải thích đáp án
-                                            <input
-                                              value={q.explanation || ""}
-                                              onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                              placeholder="Vì sao câu này khớp với tranh đã chọn?"
-                                              style={{ width: "100%", fontSize: 12, marginTop: 4 }}
-                                            />
+                                            <textarea
+                                               rows={3}
+                                               value={q.explanation || ""}
+                                               onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
+                                               placeholder="Vì sao câu này khớp với tranh đã chọn? (hỗ trợ xuống dòng)"
+                                               style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }}
+                                             />
                                           </label>
                                         </div>
                                       )}
@@ -2046,12 +2090,7 @@ export default function ExamStaff({
                                     {/* Giải thích đáp án */}
                                     <label style={{ margin: 0, fontSize: 12 }}>
                                       Giải thích đáp án (tùy chọn)
-                                      <input
-                                        value={q.explanation || ""}
-                                        onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                        placeholder="Ví dụ: Người nam nói '我要睡觉' (tôi muốn đi ngủ) nên chọn C."
-                                        style={{ fontSize: 12 }}
-                                      />
+                                      <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder="Ví dụ: Người nam nói '我要睡觉' (tôi muốn đi ngủ) nên chọn C. (hỗ trợ xuống dòng)" style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
                                     </label>
                                   </div>
                                 );
@@ -2221,12 +2260,13 @@ export default function ExamStaff({
                                           </label>
                                           <label style={{ fontSize: 12, margin: 0 }}>
                                             Giải thích đáp án
-                                            <input
-                                              value={q.explanation || ""}
-                                              onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                              placeholder="Ví dụ: Người nữ đính chính Tiểu Trương chưa có bạn gái nên phát biểu là Sai (×)..."
-                                              style={{ width: "100%", fontSize: 12, marginTop: 4 }}
-                                            />
+                                            <textarea
+                                               rows={3}
+                                               value={q.explanation || ""}
+                                               onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
+                                               placeholder="Ví dụ: Người nữ đính chính Tiểu Trương chưa có bạn gái nên phát biểu là Sai (×)... (hỗ trợ xuống dòng)"
+                                               style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }}
+                                             />
                                           </label>
                                         </div>
                                       )}
@@ -2376,12 +2416,7 @@ export default function ExamStaff({
                                     {/* Giải thích đáp án */}
                                     <label style={{ margin: 0, fontSize: 12 }}>
                                       Giải thích đáp án (tùy chọn)
-                                      <input
-                                        value={q.explanation || ""}
-                                        onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                        placeholder="Ví dụ: Theo đoạn nghe, thầy Vương đi xe đạp đến trường..."
-                                        style={{ fontSize: 12 }}
-                                      />
+                                      <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder="Ví dụ: Theo đoạn nghe, thầy Vương đi xe đạp đến trường... (hỗ trợ xuống dòng)" style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
                                     </label>
                                   </div>
                                 ))}
@@ -2862,12 +2897,7 @@ export default function ExamStaff({
                                 {/* Explanation */}
                                 <label style={{ margin: 0, fontSize: 12 }}>
                                   Giải thích đáp án (tùy chọn)
-                                  <input
-                                    value={q.explanation || ""}
-                                    onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                    placeholder="Ví dụ: Theo đoạn ghi âm, câu này miêu tả đúng bức tranh..."
-                                    style={{ fontSize: 12 }}
-                                  />
+                                  <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder="Ví dụ: Theo đoạn ghi âm, câu này miêu tả đúng bức tranh... (hỗ trợ xuống dòng)" style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
                                 </label>
                               </div>
                             ))}

@@ -237,10 +237,23 @@ export default function ReadingClozeEditor({ group, allQuestions, duplicatedNumb
                 {choice ? (
                   <>
                     <label>{judgement ? "Phát biểu chữ Hán" : "Câu hỏi chữ Hán"}
-                      <input lang="zh" value={question.content} onChange={event => updateQuestion(question.id, { content: event.target.value })} />
+                      <textarea
+                        rows={3}
+                        lang="zh"
+                        value={question.content}
+                        onChange={event => updateQuestion(question.id, { content: event.target.value })}
+                        placeholder={judgement ? "Nhập phát biểu chữ Hán (hỗ trợ xuống dòng)..." : "Nhập câu hỏi chữ Hán (hỗ trợ xuống dòng)..."}
+                        style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
+                      />
                     </label>
                     <label>Pinyin câu (tùy chọn)
-                      <input value={question.pinyin || ""} onChange={event => updateQuestion(question.id, { pinyin: event.target.value })} />
+                      <textarea
+                        rows={2}
+                        value={question.pinyin || ""}
+                        onChange={event => updateQuestion(question.id, { pinyin: event.target.value })}
+                        placeholder="Nhập pinyin câu (hỗ trợ xuống dòng)..."
+                        style={{ width: "100%", minHeight: 52, resize: "vertical", fontSize: 13, lineHeight: 1.4, padding: "6px 10px" }}
+                      />
                     </label>
                   </>
                 ) : (
@@ -288,7 +301,13 @@ export default function ReadingClozeEditor({ group, allQuestions, duplicatedNumb
                 value={question.evidence || ""} onChange={event => updateQuestion(question.id, { evidence: event.target.value })} />
             </label>}
             <label>{judgement ? "Giải thích đáp án (tùy chọn)" : "Giải thích ngữ pháp hoặc ngữ cảnh (tùy chọn)"}
-              <textarea rows={2} value={question.explanation || ""} onChange={event => updateQuestion(question.id, { explanation: event.target.value })} />
+              <textarea
+                rows={3}
+                value={question.explanation || ""}
+                onChange={event => updateQuestion(question.id, { explanation: event.target.value })}
+                placeholder="Giải thích vì sao chọn đáp án này, ngữ pháp / từ vựng... (hỗ trợ xuống dòng)"
+                style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
+              />
             </label>
             {canResize && (
               <div className={s.rowActions}>
