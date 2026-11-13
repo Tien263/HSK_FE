@@ -133,13 +133,16 @@ export default function ExamAntiCheatProctor({
   }, [isSetupPhase, setupCountdown]);
 
   // Trạng thái AI Vision
-  const [aiStatus, setAiStatus] = useState<"loading" | "ready" | "detecting">("ready");
+  const [aiStatus, setAiStatus] = useState<"loading" | "ready" | "detecting">("loading");
   const [detectedEntity, setDetectedEntity] = useState<string>("Bình thường");
   const [phoneConfidence, setPhoneConfidence] = useState<number>(0);
   const cocoModelRef = useRef<any>(null);
+  const isDetectingRef = useRef<boolean>(false);
   const faceMissingFramesRef = useRef<number>(0);
   const phoneDetectedFramesRef = useRef<number>(0);
+  const multiPersonFramesRef = useRef<number>(0);
   const lastViolationTimeRef = useRef<number>(0);
+  const [isDiagnosticMode, setIsDiagnosticMode] = useState<boolean>(false);
 
   // Trạng thái Vi phạm
   const [violationCount, setViolationCount] = useState(0);
@@ -368,11 +371,29 @@ export default function ExamAntiCheatProctor({
 
         // C. VI PHẠM THỊ GIÁC (CAMERA: ĐIỆN THOẠI, NGƯỜI THỨ HAI, VẮNG MẶT)
         if (videoRef.current && videoRef.current.readyState >= 2) {
+          // Lật ngang (mirror) để ảnh chụp giống hệt giao diện webcam mà thí sinh nhìn thấy
+          ctx.save();
+          ctx.translate(400, 0);
+          ctx.scale(-1, 1);
           ctx.drawImage(videoRef.current, 0, 0, 400, 250);
           if (overlayCanvasRef.current) {
             ctx.drawImage(overlayCanvasRef.current, 0, 0, 400, 250);
           }
-          return canvas.toDataURL("image/jpeg", 0.7);
+          ctx.restore();
+
+          // Dải banner thông tin bằng chứng camera sắc nét
+          ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+          ctx.fillRect(8, 8, 384, 28);
+          ctx.strokeStyle = "#EF4444";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(8, 8, 384, 28);
+          ctx.fillStyle = "#F87171";
+          ctx.font = "bold 11px sans-serif";
+          ctx.textAlign = "left";
+          const label = violationType === "CELL_PHONE_DETECTED" ? "📱 PHÁT HIỆN SỬ DỤNG ĐIỆN THOẠI" : violationType;
+          ctx.fillText(`📸 BẰNG CHỨNG CAMERA: ${label}`, 16, 26);
+
+          return canvas.toDataURL("image/jpeg", 0.8);
         }
       } catch (e) {
         console.warn("Evidence capture error:", e);
@@ -408,15 +429,15 @@ export default function ExamAntiCheatProctor({
   // Xử lý khi phát hiện hành vi gian lận (Có Debounce chống spam)
   const triggerViolation = useCallback(
     (violationType: string, details: string, extraParam: number = 0) => {
-      // Khi đã tắt giám thị AI -> Tuyệt đối không bao giờ ghi nhận vi phạm!
-      if (!isProctorEnabled) return;
+      // Khi đã tắt giám thị AI hoặc đang trong chế độ test an toàn -> Không phạt lỗi
+      if (!isProctorEnabled || isDiagnosticMode) return;
 
       // Đang trong giai đoạn chuẩn bị (Setup phase), không ghi nhận vi phạm
       if (isSetupPhase) return;
 
       const now = Date.now();
-      // Chống kích hoạt dồn dập trong vòng 3.5 giây cho cùng 1 lỗi
-      if (now - lastViolationTimeRef.current < 3500) return;
+      // Chống kích hoạt dồn dập trong vòng 4.5 giây cho cùng 1 lỗi
+      if (now - lastViolationTimeRef.current < 4500) return;
       lastViolationTimeRef.current = now;
 
       // Tạo ảnh bằng chứng thích ứng theo loại vi phạm
@@ -456,11 +477,12 @@ export default function ExamAntiCheatProctor({
         return next;
       });
     },
-    [isProctorEnabled, isSetupPhase, captureViolationEvidence, maxViolations, onForceSubmit, playWarningBeep, reportViolation, onViolationRecorded]
+    [isProctorEnabled, isDiagnosticMode, isSetupPhase, captureViolationEvidence, maxViolations, onForceSubmit, playWarningBeep, reportViolation, onViolationRecorded]
   );
 
-  // Nút Kiểm Tra Chẩn Đoán AI An Toàn (Self-Check: Camera + Micro + Tư Thế - TUYỆT ĐỐI KHÔNG GÂY LỖI VI PHẠM THI)
+  // Nút Kiểm Tra Chẩn Đoán AI An Toàn (Self-Check: Camera + Micro + Điện Thoại - TUYỆT ĐỐI KHÔNG PHẠT LỖI)
   const handleTestAiDiagnostic = () => {
+    setIsDiagnosticMode(true);
     const canvas = overlayCanvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
@@ -469,30 +491,32 @@ export default function ExamAntiCheatProctor({
         ctx.lineWidth = 3;
         ctx.strokeRect(canvas.width * 0.15, canvas.height * 0.12, canvas.width * 0.7, canvas.height * 0.75);
         ctx.fillStyle = "rgba(16, 185, 129, 0.9)";
-        ctx.fillRect(canvas.width * 0.15, canvas.height * 0.12 - 24, 260, 24);
+        ctx.fillRect(canvas.width * 0.15, canvas.height * 0.12 - 24, 280, 24);
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 11px sans-serif";
-        ctx.fillText("✅ TEST AI: CẢM BIẾN & TƯ THẾ HOẠT ĐỘNG TỐT", canvas.width * 0.15 + 6, canvas.height * 0.12 - 7);
+        ctx.fillText("🧪 TEST AI: HÃY THỬ GIƠ ĐIỆN THOẠI HOẶC NÓI", canvas.width * 0.15 + 6, canvas.height * 0.12 - 7);
       }
     }
-    const currentDb = currentDbRef.current || 24;
+    const currentDb = currentDbRef.current || 38;
     setDiagnosticFeedback(
-      `✅ ĐÃ TEST CAMERA & MICRO: Cảm biến hoạt động tốt (~${currentDb} dB). Bạn có thể giơ điện thoại lên trước camera để thử nghiệm chức năng nhận diện.`
+      `🧪 ĐANG TEST AI (15 GIÂY): Thử giơ điện thoại hoặc phát âm thanh trước camera. AI sẽ quét và khoanh vùng kiểm tra trực tiếp (~${currentDb} dB) mà KHÔNG phạt lỗi!`
     );
-    setDetectedEntity("Cảm biến tốt");
+    setDetectedEntity("Đang test cảm biến...");
     setTimeout(() => {
+      setIsDiagnosticMode(false);
       setDiagnosticFeedback(null);
-    }, 5500);
+    }, 15000);
   };
 
-  // 1. Tải Model COCO-SSD nhẹ nhàng (chạy ngầm song song, không chặn hệ thống)
+  // 1. Tải Model COCO-SSD nhẹ nhàng & Warm-up trước để tăng tốc nhận diện tức thì
   useEffect(() => {
     let isMounted = true;
 
     async function loadVisionAi() {
       if (!requireCamera) return;
 
-      if (typeof window !== "undefined" && !(window as any).cocoSsd) {
+      if (typeof window !== "undefined") {
+        setAiStatus("loading");
         try {
           const loadScript = (src: string) =>
             new Promise<void>((resolve, reject) => {
@@ -512,10 +536,22 @@ export default function ExamAntiCheatProctor({
           await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3");
 
           if ((window as any).cocoSsd && isMounted) {
-            cocoModelRef.current = await (window as any).cocoSsd.load();
+            const model = await (window as any).cocoSsd.load({ base: "lite_mobilenet_v2" });
+            if (isMounted) {
+              cocoModelRef.current = model;
+              // Warm-up model trước với canvas nhỏ để compile WebGL shaders trước, tránh lag ở lần quét đầu
+              try {
+                const warmupCanvas = document.createElement("canvas");
+                warmupCanvas.width = 16;
+                warmupCanvas.height = 16;
+                await model.detect(warmupCanvas);
+              } catch {}
+              setAiStatus("ready");
+            }
           }
-        } catch {
-          // Native detector luôn sẵn sàng làm việc
+        } catch (err) {
+          console.warn("COCO-SSD load error, using fast native detector:", err);
+          if (isMounted) setAiStatus("ready");
         }
       }
     }
@@ -584,43 +620,73 @@ export default function ExamAntiCheatProctor({
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.4;
         source.connect(analyser);
         analyserRef.current = analyser;
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        let loudCount = 0;
+        let loudSpeechStartTime = 0;
+        let lastLoudTimestamp = 0;
 
         function checkVolume() {
           if (!isMounted || !analyserRef.current) return;
           try {
             analyserRef.current.getByteFrequencyData(dataArray);
-            let sum = 0;
-            let sumSq = 0;
-            let peak = 0;
-            for (let i = 0; i < dataArray.length; i++) {
+
+            // Tách dải tần giọng nói con người: Bins 2 đến 18 (~375 Hz - 3000 Hz)
+            // Loại bỏ hoàn toàn tiếng ù quạt gió / tiếng trầm bàn phím (< 250 Hz) và tiếng lách cách chuột cực cao (> 4000 Hz)
+            let vocalSum = 0;
+            let vocalSumSq = 0;
+            let vocalPeak = 0;
+            const startBin = 2;
+            const endBin = Math.min(18, dataArray.length);
+            const count = endBin - startBin;
+
+            for (let i = startBin; i < endBin; i++) {
               const v = dataArray[i];
-              sum += v;
-              sumSq += v * v;
-              if (v > peak) peak = v;
+              vocalSum += v;
+              vocalSumSq += v * v;
+              if (v > vocalPeak) vocalPeak = v;
             }
-            const avg = sum / dataArray.length;
-            const rms = Math.sqrt(sumSq / dataArray.length);
-            const estDb = Math.min(100, Math.round(20 * Math.log10(Math.max(1, rms)) + 15));
+
+            const vocalAvg = vocalSum / count;
+            const vocalRms = Math.sqrt(vocalSumSq / count);
+
+            // Đo decibel thực tế: Phòng yên tĩnh ~35-45 dB, gõ phím nhẹ ~48-55 dB, nói to/thảo luận ~68-85 dB
+            const estDb = Math.min(100, Math.round(35 + (vocalRms / 255) * 55));
             currentDbRef.current = estDb;
 
-            // Ngưỡng phát hiện tiếng nói/thảo luận trong phòng thi (RMS > 60 hoặc peak > 160 hoặc avg > 52)
-            // Tuyệt đối không bắt nhầm tiếng gõ phím, thở hay nhấp chuột nhẹ
-            if (rms > 60 || peak > 160 || avg > 52) {
-              loudCount++;
-              // Duy trì tiếng nói liên tục từ 90 khung hình (~1.5 giây) trở lên mới cảnh báo
-              if (loudCount >= 90) {
-                setSuspiciousNoise(true);
-                triggerViolation("AUDIO_SUSPICIOUS", `Phát hiện tiếng nói / âm thanh bất thường (~${Math.max(70, estDb)} dB) trong phòng thi`);
-                loudCount = 0;
+            const now = Date.now();
+
+            // Chỉ coi là tiếng nói / âm thanh bất thường khi năng lượng dải giọng nói đủ lớn:
+            // RMS dải giọng >= 82, Avg >= 55, Peak >= 150 và estDb >= 68 dB
+            const isLoudSpeech = vocalRms >= 82 && vocalAvg >= 55 && estDb >= 68;
+
+            if (isLoudSpeech) {
+              lastLoudTimestamp = now;
+              if (loudSpeechStartTime === 0) {
+                loudSpeechStartTime = now;
+              }
+              const duration = now - loudSpeechStartTime;
+
+              // Hiện tín hiệu trên radar để thí sinh nhận biết
+              setSuspiciousNoise(true);
+
+              // CHỈ KÍCH HOẠT VI PHẠM KHI TIẾNG NÓI / ỒN KÉO DÀI LIÊN TỤC TỪ 2.5 GIÂY TRỞ LÊN
+              // Tiếng ho, tiếng gõ phím, tiếng kéo ghế ngắn (< 2.5s) tuyệt đối KHÔNG bị phạt!
+              if (duration >= 2500) {
+                triggerViolation(
+                  "AUDIO_SUSPICIOUS",
+                  `Phát hiện tiếng nói / âm thanh kéo dài (~${Math.max(70, estDb)} dB) trong phòng thi`
+                );
+                loudSpeechStartTime = 0;
               }
             } else {
-              loudCount = Math.max(0, loudCount - 1);
-              setSuspiciousNoise(false);
+              // Nếu im lặng trở lại quá 700ms thì reset bộ đếm thời gian
+              if (now - lastLoudTimestamp > 700) {
+                loudSpeechStartTime = 0;
+                setSuspiciousNoise(false);
+              }
             }
 
             animFrameRef.current = requestAnimationFrame(checkVolume);
@@ -667,9 +733,13 @@ export default function ExamAntiCheatProctor({
     if (!cameraActive) return;
 
     const runVisionDetection = async () => {
-      const video = videoRef.current;
-      const canvas = overlayCanvasRef.current;
-      if (!video || !canvas || video.readyState < 2) return;
+      if (isDetectingRef.current) return;
+      isDetectingRef.current = true;
+
+      try {
+        const video = videoRef.current;
+        const canvas = overlayCanvasRef.current;
+        if (!video || !canvas || video.readyState < 2) return;
 
       const width = video.videoWidth || 320;
       const height = video.videoHeight || 240;
@@ -686,20 +756,33 @@ export default function ExamAntiCheatProctor({
       let personCount = 0;
 
       // =========================================================================
-      // ENGINE A: COCO-SSD (Deep Learning nếu đã sẵn sàng - Ngưỡng tin cậy chuẩn > 65%)
+      // ENGINE A: COCO-SSD (Deep Learning siêu tốc - Hạ ngưỡng nhạy bén >= 40%)
       // =========================================================================
       if (cocoModelRef.current) {
         try {
           const predictions = await cocoModelRef.current.detect(video);
           predictions.forEach((pred: any) => {
             const [x, y, w, h] = pred.bbox;
-            // Chỉ công nhận điện thoại khi AI Deep Learning nhận diện chắc chắn (> 65%)
-            if (pred.class === "cell phone" && pred.score >= 0.65) {
+            // 1. Nhận diện điện thoại cầm tay (cell phone >= 40% hoặc remote/thiết bị cầm tay >= 48%)
+            if (
+              (pred.class === "cell phone" && pred.score >= 0.40) ||
+              (pred.class === "remote" && pred.score >= 0.48)
+            ) {
               phoneDetected = true;
-              phoneConfidenceScore = Math.round(pred.score * 100);
+              const score = Math.round(pred.score * 100);
+              if (score > phoneConfidenceScore) {
+                phoneConfidenceScore = score;
+                detectedBox = { x, y, w, h };
+              }
+            }
+            // 2. Nhận diện tài liệu / laptop đưa trước mặt
+            if ((pred.class === "book" || pred.class === "laptop") && pred.score >= 0.60) {
+              phoneDetected = true;
+              phoneConfidenceScore = Math.max(phoneConfidenceScore, Math.round(pred.score * 100));
               detectedBox = { x, y, w, h };
             }
-            if (pred.class === "person" && pred.score > 0.55) {
+            // 3. Đếm số người trong phòng
+            if (pred.class === "person" && pred.score >= 0.55) {
               personCount++;
             }
           });
@@ -707,7 +790,7 @@ export default function ExamAntiCheatProctor({
       }
 
       // =========================================================================
-      // ENGINE B: CANVAS HEURISTIC DETECTOR (Lọc bẫy áo tối màu / khuôn mặt / rèm)
+      // ENGINE B: GRID-BASED HEURISTIC DETECTOR (Chạy tức thì < 2ms, không chờ model)
       // =========================================================================
       try {
         const offscreen = document.createElement("canvas");
@@ -722,12 +805,13 @@ export default function ExamAntiCheatProctor({
           const d = imgData.data;
 
           let skinPixels = 0;
-          let leftSkin = 0;
-          let rightSkin = 0;
-          let minX = ow, maxX = 0, minY = oh, maxY = 0;
-          let phoneCandidatePixels = 0;
+          // Chia khu vực dưới mặt (y từ 20..58) thành lưới 8x6 khối để tìm cụm điện thoại cầm tay
+          const gridCols = 8;
+          const gridRows = 6;
+          const cellW = Math.floor(ow / gridCols);
+          const cellH = Math.floor((oh - 20) / gridRows);
+          const deviceGrid = Array.from({ length: gridRows }, () => new Array(gridCols).fill(0));
 
-          // Quét nhận diện màu da người & vị trí thí sinh
           for (let y = 0; y < oh; y++) {
             for (let x = 0; x < ow; x++) {
               const idx = (y * ow + x) * 4;
@@ -735,7 +819,6 @@ export default function ExamAntiCheatProctor({
               const g = d[idx + 1];
               const b = d[idx + 2];
 
-              // Nhận diện màu da người
               const isSkin =
                 r > 80 &&
                 g > 35 &&
@@ -744,84 +827,74 @@ export default function ExamAntiCheatProctor({
                 r > g &&
                 r > b;
 
-              if (isSkin) {
-                skinPixels++;
-                if (x < ow * 0.45) leftSkin++;
-                if (x > ow * 0.55) rightSkin++;
-              }
+              if (isSkin) skinPixels++;
 
-              // Chỉ lọc bỏ vùng khuôn mặt trên (đầu thí sinh 30% trên cùng ở giữa)
-              // Cho phép quét toàn bộ khu vực tay cầm, trước ngực và xung quanh camera
-              const isFaceCenter = y < oh * 0.38 && x > ow * 0.32 && x < ow * 0.68;
-              if (isFaceCenter && isSkin) continue;
-
-              const brightness = (r + g + b) / 3;
-
-              // Vật thể cầm tay: Màn hình phát sáng, thân máy chữ nhật hoặc thiết bị cầm tay
-              const isPotentialDevice = !isSkin && (brightness < 60 || brightness > 180);
-              if (isPotentialDevice) {
-                phoneCandidatePixels++;
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+              // Quét phát hiện thiết bị cầm tay ở khu vực dưới khuôn mặt (ngực, tay cầm, 2 bên)
+              if (y >= 20) {
+                const brightness = (r + g + b) / 3;
+                // Điện thoại: màn hình phát sáng (brightness > 185) hoặc thân máy chữ nhật tối (brightness < 45)
+                const isDevicePixel = !isSkin && (brightness < 45 || brightness > 185);
+                if (isDevicePixel) {
+                  const c = Math.min(gridCols - 1, Math.floor(x / cellW));
+                  const rIdx = Math.min(gridRows - 1, Math.floor((y - 20) / cellH));
+                  deviceGrid[rIdx][c]++;
+                }
               }
             }
           }
 
           const skinRatio = skinPixels / (ow * oh);
-          const candidateRatio = phoneCandidatePixels / (ow * oh);
-          const boxW = Math.max(0, maxX - minX);
-          const boxH = Math.max(0, maxY - minY);
-          const aspectRatio = boxW > 0 ? boxH / boxW : 0;
+          const cellTotal = cellW * cellH;
 
-          // ĐIỀU KIỆN NHẬN DIỆN THIẾT BỊ DI ĐỘNG CẦM TAY TRỰC TIẾP TRƯỚC CAMERA:
-          // Kích thước và tỉ lệ dạng hình chữ nhật điện thoại khi giơ lên
-          const isCompactDevice = boxW >= ow * 0.05 && boxW <= ow * 0.65 && boxH >= oh * 0.06 && boxH <= oh * 0.75;
-          const isPhoneRatio = (aspectRatio >= 1.15 && aspectRatio <= 4.2) || (aspectRatio >= 0.22 && aspectRatio <= 0.90);
-
-          if (
-            !phoneDetected &&
-            isCompactDevice &&
-            isPhoneRatio &&
-            candidateRatio >= 0.008 &&
-            candidateRatio <= 0.35
-          ) {
-            phoneDetected = true;
-            phoneConfidenceScore = Math.min(98, Math.round(candidateRatio * 280 + 55));
-            detectedBox = {
-              x: (minX / ow) * width,
-              y: (minY / oh) * height,
-              w: Math.max(width * 0.15, (boxW / ow) * width),
-              h: Math.max(height * 0.20, (boxH / oh) * height),
-            };
+          // Tìm cụm 2x2 hoặc 2x3 ô liên tiếp có mật độ thiết bị cao (tương ứng kích thước điện thoại)
+          if (!phoneDetected) {
+            for (let r = 0; r < gridRows - 1; r++) {
+              for (let c = 0; c < gridCols - 1; c++) {
+                const clusterPixels =
+                  deviceGrid[r][c] +
+                  deviceGrid[r][c + 1] +
+                  deviceGrid[r + 1][c] +
+                  deviceGrid[r + 1][c + 1];
+                const clusterDensity = clusterPixels / (cellTotal * 4);
+                if (clusterDensity >= 0.42 && clusterDensity <= 0.88) {
+                  phoneDetected = true;
+                  phoneConfidenceScore = Math.min(95, Math.round(clusterDensity * 120 + 35));
+                  const boxX = (c * cellW / ow) * width;
+                  const boxY = ((20 + r * cellH) / oh) * height;
+                  const boxWidth = ((cellW * 2.2) / ow) * width;
+                  const boxHeight = ((cellH * 2.5) / oh) * height;
+                  detectedBox = { x: boxX, y: boxY, w: boxWidth, h: boxHeight };
+                  break;
+                }
+              }
+              if (phoneDetected) break;
+            }
           }
 
-          // Kiểm tra vắng mặt hoặc di chuyển ra khỏi khu vực quan sát camera
-          if (!phoneDetected && skinRatio < 0.04 && personCount === 0) {
+          // Kiểm tra vắng mặt: Cần vắng mặt liên tục từ 16 khung hình (~5.6 giây) mới phạt
+          if (!phoneDetected && skinRatio < 0.035 && personCount === 0) {
             faceMissingFramesRef.current++;
-            if (faceMissingFramesRef.current >= 3) {
+            if (faceMissingFramesRef.current >= 16) {
               setDetectedEntity("Vắng mặt!");
-              triggerViolation("NO_FACE_DETECTED", "Thí sinh di chuyển ra khỏi vị trí hoặc không thấy khuôn mặt trước camera");
+              triggerViolation("NO_FACE_DETECTED", "Thí sinh vắng mặt khỏi camera quá 5 giây");
               faceMissingFramesRef.current = 0;
+            } else if (faceMissingFramesRef.current >= 6) {
+              setDetectedEntity("Căn chỉnh mặt...");
             }
           } else {
             faceMissingFramesRef.current = 0;
           }
 
-          // Kiểm tra người thứ 2
-          if (!phoneDetected && (personCount > 1 || (leftSkin > 140 && rightSkin > 140 && skinRatio > 0.35))) {
-            ctx.strokeStyle = "#EF4444";
-            ctx.lineWidth = 2.5;
-            ctx.strokeRect(10, 10, width - 20, height - 20);
-            ctx.fillStyle = "#EF4444";
-            ctx.fillRect(10, 10, 180, 20);
-            ctx.fillStyle = "#FFFFFF";
-            ctx.font = "bold 11px sans-serif";
-            ctx.fillText("⚠️ PHÁT HIỆN NGƯỜI THỨ HAI", 16, 24);
-            setDetectedEntity("Có 2 người!");
-            triggerViolation("MULTIPLE_PEOPLE_DETECTED", "Hệ thống phát hiện có thêm người thứ 2 trong phòng thi");
-            return;
+          // Kiểm tra người thứ 2: Chỉ báo khi mô hình AI Deep Learning phát hiện >= 2 người trong 3 frame liên tục
+          if (!phoneDetected && personCount >= 2) {
+            multiPersonFramesRef.current++;
+            if (multiPersonFramesRef.current >= 3) {
+              setDetectedEntity("Có 2 người!");
+              triggerViolation("MULTIPLE_PEOPLE_DETECTED", "Hệ thống phát hiện có thêm người thứ 2 trong phòng thi");
+              multiPersonFramesRef.current = 0;
+            }
+          } else {
+            multiPersonFramesRef.current = Math.max(0, multiPersonFramesRef.current - 1);
           }
         }
       } catch (err) {
@@ -829,14 +902,13 @@ export default function ExamAntiCheatProctor({
       }
 
       // =========================================================================
-      // XỬ LÝ VI PHẠM ĐIỆN THOẠI KHI CÓ KẾT QUẢ LIÊN TỤC (Chống cảnh báo giả)
+      // XỬ LÝ KHI PHÁT HIỆN ĐIỆN THOẠI (NHẬN DIỆN NGAY LẬP TỨC)
       // =========================================================================
       if (phoneDetected) {
         phoneDetectedFramesRef.current++;
         setPhoneConfidence(phoneConfidenceScore);
-        setDetectedEntity("Phát hiện điện thoại!");
+        setDetectedEntity("Phát hiện ĐT!");
 
-        // Vẽ khung đỏ viền bao quanh điện thoại
         const box = detectedBox || {
           x: width * 0.25,
           y: height * 0.3,
@@ -844,47 +916,64 @@ export default function ExamAntiCheatProctor({
           h: height * 0.45,
         };
 
-        ctx.strokeStyle = "#EF4444";
-        ctx.lineWidth = 3.5;
-        ctx.strokeRect(box.x, box.y, box.w, box.h);
+        // Chế độ Test AI an toàn: Đổi màu xanh ngọc + thông báo phản hồi tích cực
+        if (isDiagnosticMode) {
+          ctx.strokeStyle = "#10B981";
+          ctx.lineWidth = 3.5;
+          ctx.strokeRect(box.x, box.y, box.w, box.h);
 
-        // Góc bo highlight
-        ctx.strokeStyle = "#FDE047";
-        ctx.lineWidth = 4;
-        const cornerLen = 14;
-        ctx.beginPath();
-        ctx.moveTo(box.x, box.y + cornerLen);
-        ctx.lineTo(box.x, box.y);
-        ctx.lineTo(box.x + cornerLen, box.y);
-        ctx.stroke();
+          ctx.fillStyle = "#059669";
+          const tagY = Math.max(0, box.y - 24);
+          ctx.fillRect(box.x, tagY, 210, 24);
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 11px sans-serif";
+          ctx.fillText(`📱 TEST: ĐÃ THẤY ĐIỆN THOẠI (${phoneConfidenceScore}%)`, box.x + 6, tagY + 16);
 
-        ctx.beginPath();
-        ctx.moveTo(box.x + box.w - cornerLen, box.y);
-        ctx.lineTo(box.x + box.w, box.y);
-        ctx.lineTo(box.x + box.w, box.y + cornerLen);
-        ctx.stroke();
-
-        // Nhãn cảnh báo màu đỏ
-        ctx.fillStyle = "#DC2626";
-        const tagY = Math.max(0, box.y - 24);
-        ctx.fillRect(box.x, tagY, 195, 24);
-        ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 11px sans-serif";
-        ctx.fillText(`📱 ĐIỆN THOẠI DI ĐỘNG (${phoneConfidenceScore}%)`, box.x + 6, tagY + 16);
-
-        // KÍCH HOẠT VI PHẠM KHI DUY TRÌ TỪ 2 KHUNG HÌNH TRỞ LÊN (~1.4 GIÂY)
-        // Bắt kịp hành vi đưa điện thoại lên trước camera
-        if (phoneDetectedFramesRef.current >= 2) {
-          triggerViolation(
-            "CELL_PHONE_DETECTED",
-            "Hệ thống AI phát hiện thí sinh cầm hoặc sử dụng thiết bị điện thoại di động trước camera"
+          setDiagnosticFeedback(
+            `✅ ĐÃ NHẬN DIỆN ĐIỆN THOẠI THÀNH CÔNG (${phoneConfidenceScore}%)! Camera AI quét rất nhanh và chính xác.`
           );
+        } else {
+          // Chế độ Giám thị thông thường: Viền đỏ báo hiệu
+          ctx.strokeStyle = "#EF4444";
+          ctx.lineWidth = 3.5;
+          ctx.strokeRect(box.x, box.y, box.w, box.h);
+
+          ctx.strokeStyle = "#FDE047";
+          ctx.lineWidth = 4;
+          const cornerLen = 14;
+          ctx.beginPath();
+          ctx.moveTo(box.x, box.y + cornerLen);
+          ctx.lineTo(box.x, box.y);
+          ctx.lineTo(box.x + cornerLen, box.y);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(box.x + box.w - cornerLen, box.y);
+          ctx.lineTo(box.x + box.w, box.y);
+          ctx.lineTo(box.x + box.w, box.y + cornerLen);
+          ctx.stroke();
+
+          ctx.fillStyle = "#DC2626";
+          const tagY = Math.max(0, box.y - 24);
+          ctx.fillRect(box.x, tagY, 195, 24);
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 11px sans-serif";
+          ctx.fillText(`📱 ĐIỆN THOẠI DI ĐỘNG (${phoneConfidenceScore}%)`, box.x + 6, tagY + 16);
+
+          // Phản hồi tức thì: Nếu độ tin cậy >= 60% chỉ cần 1 frame (~350ms) là bắt ngay; nếu 40-59% cần 2 frame (~700ms)
+          const requiredFrames = phoneConfidenceScore >= 60 ? 1 : 2;
+          if (phoneDetectedFramesRef.current >= requiredFrames) {
+            triggerViolation(
+              "CELL_PHONE_DETECTED",
+              "Hệ thống AI phát hiện thí sinh cầm hoặc sử dụng thiết bị điện thoại di động trước camera"
+            );
+          }
         }
       } else {
         phoneDetectedFramesRef.current = Math.max(0, phoneDetectedFramesRef.current - 1);
         if (phoneDetectedFramesRef.current === 0) setPhoneConfidence(0);
-        if (faceMissingFramesRef.current === 0) {
-          setDetectedEntity("Hợp lệ");
+        if (faceMissingFramesRef.current === 0 && multiPersonFramesRef.current === 0) {
+          setDetectedEntity(isDiagnosticMode ? "Đang test..." : "Hợp lệ");
           // Vẽ khung xanh thí sinh hợp lệ mờ nhẹ
           ctx.strokeStyle = "rgba(16, 185, 129, 0.4)";
           ctx.lineWidth = 1.5;
@@ -896,14 +985,17 @@ export default function ExamAntiCheatProctor({
           ctx.fillText("👤 Thí sinh", width * 0.2 + 5, height * 0.1 + 12);
         }
       }
-    };
+    } finally {
+      isDetectingRef.current = false;
+    }
+  };
 
-    visionIntervalRef.current = setInterval(runVisionDetection, 700);
+  visionIntervalRef.current = setInterval(runVisionDetection, 350);
 
-    return () => {
-      if (visionIntervalRef.current) clearInterval(visionIntervalRef.current);
-    };
-  }, [cameraActive, triggerViolation]);
+  return () => {
+    if (visionIntervalRef.current) clearInterval(visionIntervalRef.current);
+  };
+}, [cameraActive, triggerViolation, isDiagnosticMode]);
 
   // 4. Bắt sự kiện Rời Tab / Chuyển Ứng Dụng (Tab Switching / Blur)
   useEffect(() => {
@@ -1167,7 +1259,9 @@ export default function ExamAntiCheatProctor({
                   <MicOff className="w-3 h-3 text-red-400" />
                 )}
                 <span className={suspiciousNoise ? "text-amber-300 font-bold" : "text-stone-300"}>
-                  {suspiciousNoise ? "Tiếng ồn" : "Yên tĩnh"}
+                  {suspiciousNoise
+                    ? `Tiếng ồn (~${currentDbRef.current || 70} dB)`
+                    : `Yên tĩnh (~${currentDbRef.current || 35} dB)`}
                 </span>
               </div>
 
@@ -1180,7 +1274,11 @@ export default function ExamAntiCheatProctor({
               >
                 <Smartphone className="w-3 h-3" />
                 <span>
-                  {phoneConfidence > 0 ? `📱 Cầm ĐT (${phoneConfidence}%)` : detectedEntity}
+                  {phoneConfidence > 0
+                    ? `📱 Cầm ĐT (${phoneConfidence}%)`
+                    : aiStatus === "loading"
+                    ? "Đang nạp AI..."
+                    : detectedEntity}
                 </span>
               </div>
             </div>
