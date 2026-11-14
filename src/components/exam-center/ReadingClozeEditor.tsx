@@ -217,10 +217,23 @@ export default function ReadingClozeEditor({ group, allQuestions, duplicatedNumb
             {bank ? (
               <>
                 <label>Câu chữ Hán chứa [blank]
-                  <input lang="zh" value={question.content} onChange={event => updateQuestion(question.id, { content: event.target.value })} />
+                  <textarea
+                    rows={3}
+                    lang="zh"
+                    value={question.content}
+                    onChange={event => updateQuestion(question.id, { content: event.target.value })}
+                    placeholder="Nhập câu chữ Hán chứa [blank] (hỗ trợ xuống dòng)..."
+                    style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
+                  />
                 </label>
                 <label>Pinyin câu (tùy chọn)
-                  <input value={question.pinyin || ""} onChange={event => updateQuestion(question.id, { pinyin: event.target.value })} />
+                  <textarea
+                    rows={2}
+                    value={question.pinyin || ""}
+                    onChange={event => updateQuestion(question.id, { pinyin: event.target.value })}
+                    placeholder="Nhập pinyin câu (hỗ trợ xuống dòng)..."
+                    style={{ width: "100%", minHeight: 52, resize: "vertical", fontSize: 13, lineHeight: 1.4, padding: "6px 10px" }}
+                  />
                 </label>
                 <div className={s.examPictureAnswers} role="group" aria-label="Chọn từ đúng">
                   {words.map(word => (

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -22,6 +23,8 @@ import {
   Play,
   Plus,
   RefreshCw,
+  RotateCcw,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Trophy,
@@ -320,6 +323,126 @@ export default function ExamStaff({
     setOpenQuestionScripts((prev) => ({ ...prev, [qId]: !prev[qId] }));
   };
 
+  // Hệ thống Tự động sao lưu & Phục hồi bản nháp (Tránh mất đề khi soạn lâu)
+  const DRAFT_KEY = "hsk_exam_staff_draft_v2";
+  const [hasDraft, setHasDraft] = useState(false);
+  const [draftTime, setDraftTime] = useState<string | null>(null);
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
+
+  // 1. Kiểm tra bản nháp tự động lưu khi mở trang
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      const hasContent = (draft.groups && draft.groups.length > 0) || (draft.authorTitle && draft.authorTitle.trim()) || (draft.jsonInput && draft.jsonInput.trim());
+      if (hasContent) {
+        setHasDraft(true);
+        if (draft.savedAt) {
+          const d = new Date(draft.savedAt);
+          setDraftTime(`${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")} ngày ${d.toLocaleDateString("vi-VN")}`);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // 2. Tự động lưu sau 2.5s mỗi khi thay đổi (Debounced Auto-Save)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hasContent = groups.length > 0 || authorTitle.trim().length > 0 || jsonInput.trim().length > 0;
+    if (!hasContent) return;
+
+    const timer = setTimeout(() => {
+      try {
+        const payload = {
+          authorLevel,
+          authorTitle,
+          authorDesc,
+          authorDuration,
+          authorPass,
+          authorMode,
+          groups,
+          jsonInput,
+          savedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+        const now = new Date();
+        setLastAutoSavedAt(`${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`);
+      } catch (e) {
+        console.warn("Auto-save draft failed:", e);
+      }
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [authorLevel, authorTitle, authorDesc, authorDuration, authorPass, authorMode, groups, jsonInput]);
+
+  // Khôi phục bản nháp
+  const handleRestoreDraft = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft.authorLevel) setAuthorLevel(Number(draft.authorLevel));
+      if (draft.authorTitle) setAuthorTitle(draft.authorTitle);
+      if (draft.authorDesc) setAuthorDesc(draft.authorDesc);
+      if (draft.authorDuration) setAuthorDuration(Number(draft.authorDuration));
+      if (draft.authorPass !== undefined) setAuthorPass(draft.authorPass);
+      if (draft.authorMode) setAuthorMode(draft.authorMode);
+      if (Array.isArray(draft.groups) && draft.groups.length > 0) {
+        setGroups(draft.groups);
+        setActiveGroupId(draft.groups[0]?.id || "");
+      }
+      if (draft.jsonInput) setJsonInput(draft.jsonInput);
+      setHasDraft(false);
+      setMessage(`Đã khôi phục thành công bản nháp "${draft.authorTitle || 'Đề chưa đặt tên'}" (${draft.groups?.length || 0} nhóm bài)!`);
+    } catch {
+      setError("Không thể đọc dữ liệu bản nháp từ bộ nhớ trình duyệt.");
+    }
+  };
+
+  // Bỏ qua bản nháp
+  const handleDiscardDraft = () => {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(DRAFT_KEY);
+    setHasDraft(false);
+    setMessage("Đã bỏ qua bản nháp cũ.");
+  };
+
+  // Xuất file JSON dự phòng đầy đủ cấu trúc về máy tính
+  const handleExportBackupJson = () => {
+    try {
+      const payload = {
+        app: "Hanyu HSK Exam Center",
+        backupVersion: 2,
+        exportedAt: new Date().toISOString(),
+        title: authorTitle || `Đề thi HSK ${authorLevel}`,
+        description: authorDesc,
+        level: authorLevel,
+        durationMin: authorDuration,
+        passScore: authorPass,
+        mode: authorMode,
+        groups,
+        questions: authorMode === "grouped" ? flattenGroups(groups) : (jsonInput ? JSON.parse(jsonInput) : []),
+        jsonInput,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (authorTitle || `De_Thi_HSK_${authorLevel}`).replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, "_");
+      a.download = `${safeName}_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setMessage("✅ Đã tải tệp JSON dự phòng về máy! Dữ liệu bài soạn của bạn đã an toàn tuyệt đối.");
+    } catch {
+      setError("Không thể xuất tệp dự phòng.");
+    }
+  };
+
   // Tạo đề mới hoàn toàn trắng tinh
   const handleResetToBlank = () => {
     if (groups.length > 0 || authorTitle.trim()) {
@@ -470,13 +593,30 @@ export default function ExamStaff({
           if (parsed.durationMin) setAuthorDuration(Number(parsed.durationMin));
           if (parsed.passScore !== undefined && parsed.passScore !== null) setAuthorPass(String(parsed.passScore));
         }
-        if (!rawQuestions.length) {
+        if (parsed && typeof parsed === "object") {
+          if (parsed.groups && Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+            setGroups(parsed.groups);
+            if (parsed.groups[0]?.id) setActiveGroupId(parsed.groups[0].id);
+            if (parsed.mode) setAuthorMode(parsed.mode);
+            if (!rawQuestions.length) {
+              rawQuestions = flattenGroups(parsed.groups);
+            }
+          }
+          if (parsed.title) setAuthorTitle(parsed.title);
+          if (parsed.description) setAuthorDesc(parsed.description);
+          if (parsed.hskLevel || parsed.level) setAuthorLevel(Number(parsed.hskLevel || parsed.level));
+          if (parsed.durationMin) setAuthorDuration(Number(parsed.durationMin));
+          if (parsed.passScore !== undefined && parsed.passScore !== null) setAuthorPass(String(parsed.passScore));
+        }
+        if (!rawQuestions.length && (!parsed.groups || !parsed.groups.length)) {
           throw new Error("Tệp JSON không chứa danh sách câu hỏi hợp lệ. Vui lòng kiểm tra lại tệp!");
         }
         setJsonInput(JSON.stringify(rawQuestions, null, 2));
-        const importedGroups = unflattenToGroups(rawQuestions, authorLevel);
-        setGroups(importedGroups);
-        if (importedGroups.length > 0) setActiveGroupId(importedGroups[0].id);
+        if (!parsed.groups || !parsed.groups.length) {
+          const importedGroups = unflattenToGroups(rawQuestions, authorLevel);
+          setGroups(importedGroups);
+          if (importedGroups.length > 0) setActiveGroupId(importedGroups[0].id);
+        }
         setMessage(`Đã nạp thành công ${rawQuestions.length} câu hỏi từ tệp "${file.name}". Bấm "Xem trước" để kiểm tra.`);
         setError("");
       } catch (err) {
@@ -968,16 +1108,28 @@ export default function ExamStaff({
         throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
       }
 
-      // Đảm bảo tất cả câu hỏi nhỏ đều có ID riêng để tránh lỗi trùng/thiếu ID
+      // Tự động bảo hiểm tiêu đề đề thi nếu giáo viên chưa kịp nhập
+      const finalTitle = authorTitle.trim() || `Đề thi mô phỏng HSK ${authorLevel} · ${new Date().toLocaleDateString("vi-VN")}`;
+      if (!authorTitle.trim()) {
+        setAuthorTitle(finalTitle);
+      }
+
+      // Đảm bảo tất cả câu hỏi nhỏ đều có ID riêng, điểm hợp lệ và nội dung không rỗng
       parsed.forEach((q, idx) => {
         if (!q.id || q.id === "undefined") {
           q.id = `q_${Date.now()}_${idx + 1}`;
+        }
+        if (!q.content || !q.content.trim()) {
+          q.content = `Câu hỏi số ${idx + 1}`;
+        }
+        if (q.points === undefined || q.points === null || isNaN(Number(q.points)) || Number(q.points) < 0) {
+          q.points = 1;
         }
       });
 
       const { paperId, duplicateQuestionNumbers: duplicates } = await examApi<{ paperId: string; duplicateQuestionNumbers: number[] }>("importPaper", {
         level: authorLevel,
-        title: authorTitle,
+        title: finalTitle,
         description: authorDesc,
         durationMin: authorDuration,
         passScore: authorPass === "" ? null : Number(authorPass),
@@ -985,7 +1137,7 @@ export default function ExamStaff({
       });
 
       setPublishedLink(`/s/mock-exam?${new URLSearchParams({ view: "intro", id: paperId, level: String(levelGroup(authorLevel)) })}`);
-      setMessage(`Đã xuất bản đề “${authorTitle}” (${parsed.length} câu). Học sinh có thể mở đề trong phòng thi.${
+      setMessage(`Đã xuất bản đề “${finalTitle}” (${parsed.length} câu). Học sinh có thể mở đề trong phòng thi.${
         duplicates?.length ? ` Cảnh báo: trùng số câu ${duplicates.join(", ")}.` : ""
       }`);
       onChanged();
@@ -1046,10 +1198,146 @@ export default function ExamStaff({
           : "Duyệt nội dung sẵn sàng, xóa đề lỗi/đề thử nghiệm, đặt thời gian và ngưỡng đạt trước khi mở cho học sinh."}
       </p>
 
-      {error && <p className={s.error} role="alert">{error}</p>}
+      {error && (
+        <div className={s.error} role="alert" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <AlertTriangle size={18} />
+            <strong style={{ fontSize: 14 }}>Không thể xuất bản đề thi:</strong>
+          </div>
+          <span style={{ fontSize: 13, lineHeight: 1.5 }}>{error}</span>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={handleExportBackupJson}
+              style={{
+                background: "#15803d",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "7px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+              }}
+              title="Tải toàn bộ đề thi đang soạn về máy tính dạng file JSON để bảo toàn 100% công sức"
+            >
+              <Download size={14} /> 💾 Tải ngay file JSON dự phòng về máy (Tránh mất đề)
+            </button>
+            {error.includes("Chỉ Giáo viên và Admin") && (
+              <span style={{ fontSize: 12, color: "#991b1b", fontWeight: 600 }}>
+                💡 Gợi ý: Hãy bấm tải file JSON về máy tính, sau đó đăng nhập tài khoản Admin/Giáo viên và dùng nút &quot;Nạp tệp JSON từ máy&quot; để xuất bản đề ngay lập tức!
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       {message && <p className={s.notice} role="status">{message}{view === "authoring" && publishedLink && (
         <> <Link className={s.publishedExamLink} href={publishedLink} target="_blank" rel="noreferrer">Mở liên kết đề thi cho học sinh</Link></>
       )}</p>}
+
+      {/* DRAFT RECOVERY BANNER (Bản nháp tự động lưu) */}
+      {view === "authoring" && hasDraft && (
+        <div
+          style={{
+            background: "#ecfdf5",
+            border: "2px solid #10b981",
+            borderRadius: 14,
+            padding: "14px 18px",
+            marginTop: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 2px 8px rgba(16,185,129,0.15)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: "#10b981",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <FileCheck2 size={22} />
+            </div>
+            <div>
+              <strong style={{ fontSize: 14, color: "#065f46" }}>
+                📥 Tìm thấy bản nháp đề thi chưa xuất bản (Đã lưu tự động{draftTime ? ` lúc ${draftTime}` : ""})
+              </strong>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#047857" }}>
+                Hệ thống tự động bảo vệ bài soạn của bạn trong bộ nhớ máy. Bạn có muốn khôi phục lại để tiếp tục chỉnh sửa không?
+              </p>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              onClick={handleRestoreDraft}
+              style={{
+                background: "#059669",
+                color: "#fff",
+                border: "none",
+                padding: "7px 14px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+              }}
+            >
+              <RotateCcw size={14} /> Khôi phục bản nháp
+            </button>
+            <button
+              type="button"
+              onClick={handleExportBackupJson}
+              style={{
+                background: "#fff",
+                color: "#065f46",
+                border: "1px solid #a7f3d0",
+                padding: "7px 14px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Download size={14} /> Tải file JSON về máy
+            </button>
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              style={{
+                background: "transparent",
+                color: "#6b7280",
+                border: "none",
+                padding: "7px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              Bỏ qua
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* VIEW: AUTHORING WORKSPACE */}
       {view === "authoring" && (
@@ -1081,7 +1369,7 @@ export default function ExamStaff({
 
               <span style={{ fontSize: 13, fontWeight: 600, color: "#375531", marginLeft: 4 }}>
                 <Sparkles size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                Hoặc nạp mẫu:
+                Nạp mẫu:
               </span>
               {EXAM_LEVELS.map((lvl) => (
                 <button
@@ -1097,14 +1385,34 @@ export default function ExamStaff({
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              {lastAutoSavedAt && (
+                <span style={{ fontSize: 11, color: "#166534", background: "#dcfce7", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: 6, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+                  Đã tự động lưu nháp lúc {lastAutoSavedAt}
+                </span>
+              )}
+
               <button
                 type="button"
-                className={s.secondary}
-                style={{ fontSize: 12, padding: "6px 12px", minHeight: 32, display: "inline-flex", alignItems: "center", gap: 5 }}
-                onClick={handleDownloadTemplate}
-                title="Tải tệp mẫu JSON về máy tính để sao lưu"
+                style={{
+                  fontSize: 12,
+                  padding: "6px 12px",
+                  minHeight: 32,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  background: "#15803d",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                }}
+                onClick={handleExportBackupJson}
+                title="Tải toàn bộ đề thi đang soạn về máy tính dạng file JSON để bảo toàn tuyệt đối 100% công sức"
               >
-                <Download size={14} /> Tải tệp JSON cấp {authorLevel}
+                <Download size={14} /> 💾 Tải file JSON dự phòng (Tránh mất đề)
               </button>
 
               <button
@@ -1114,7 +1422,7 @@ export default function ExamStaff({
                 onClick={() => fileInputRef.current?.click()}
                 title="Tải tệp .json từ máy tính lên hệ thống"
               >
-                <Upload size={14} /> Nạp tệp JSON từ máy
+                <Upload size={14} /> 📂 Nạp tệp JSON từ máy
               </button>
               <input
                 ref={fileInputRef}
@@ -1136,14 +1444,14 @@ export default function ExamStaff({
                   background: "#fee2e2",
                   color: "#991b1b",
                   border: "1px solid #f87171",
-                  borderRadius: 10,
+                  borderRadius: 8,
                   cursor: "pointer",
                   fontWeight: 600,
                 }}
                 onClick={handlePurgeOld}
                 title="Xóa toàn bộ đề thi thử cũ và dọn sạch dữ liệu"
               >
-                <Trash2 size={14} /> Xóa tất cả đề cũ
+                <Trash2 size={14} /> Dọn dẹp đề cũ
               </button>
             </div>
           </div>
@@ -1819,10 +2127,23 @@ export default function ExamStaff({
                                       {group.skill === "READING" && (
                                         <div className={s.examReadingFields}>
                                           <label>Câu chữ Hán
-                                            <input lang="zh" value={q.content} onChange={event => handleUpdateQuestion(group.id, q.id, { content: event.target.value })} />
+                                            <textarea
+                                              rows={3}
+                                              lang="zh"
+                                              value={q.content}
+                                              onChange={event => handleUpdateQuestion(group.id, q.id, { content: event.target.value })}
+                                              placeholder="Nhập câu chữ Hán (hỗ trợ xuống dòng)..."
+                                              style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
+                                            />
                                           </label>
                                           <label>Pinyin (tùy chọn)
-                                            <input value={q.pinyin || ""} onChange={event => handleUpdateQuestion(group.id, q.id, { pinyin: event.target.value })} />
+                                            <textarea
+                                              rows={2}
+                                              value={q.pinyin || ""}
+                                              onChange={event => handleUpdateQuestion(group.id, q.id, { pinyin: event.target.value })}
+                                              placeholder="Nhập pinyin (hỗ trợ xuống dòng)..."
+                                              style={{ width: "100%", minHeight: 52, resize: "vertical", fontSize: 13, lineHeight: 1.4, padding: "6px 10px" }}
+                                            />
                                           </label>
                                         </div>
                                       )}

@@ -578,16 +578,40 @@ export default function ExamAntiCheatProctor({
         return;
       }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: requireCamera
-            ? {
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: requireCamera
+              ? {
+                  width: { ideal: 320 },
+                  height: { ideal: 240 },
+                  facingMode: "user",
+                }
+              : false,
+            audio: requireMic
+              ? {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                }
+              : false,
+          });
+        } catch (combinedErr) {
+          // Nếu thiết bị không có micro hoặc quyền micro bị chặn, dự phòng lấy video-only để camera vẫn giám sát tốt
+          if (requireCamera && requireMic) {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
                 width: { ideal: 320 },
                 height: { ideal: 240 },
                 facingMode: "user",
-              }
-            : false,
-          audio: requireMic,
-        });
+              },
+              audio: false,
+            });
+            console.warn("Chỉ bật được camera (microphone không khả dụng):", combinedErr);
+          } else {
+            throw combinedErr;
+          }
+        }
 
         if (!isMounted) {
           stream.getTracks().forEach((t) => t.stop());
@@ -599,9 +623,12 @@ export default function ExamAntiCheatProctor({
           videoRef.current.srcObject = stream;
           setCameraActive(true);
         }
-        if (requireMic) {
+        const hasAudioTrack = stream.getAudioTracks().length > 0;
+        if (requireMic && hasAudioTrack) {
           setMicActive(true);
           initAudioAnalyser(stream);
+        } else if (requireMic) {
+          setMicActive(false);
         }
       } catch (err: any) {
         console.warn("Camera/Mic access denied:", err);
@@ -743,8 +770,8 @@ export default function ExamAntiCheatProctor({
 
       const width = video.videoWidth || 320;
       const height = video.videoHeight || 240;
-      canvas.width = width;
-      canvas.height = height;
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
@@ -756,17 +783,17 @@ export default function ExamAntiCheatProctor({
       let personCount = 0;
 
       // =========================================================================
-      // ENGINE A: COCO-SSD (Deep Learning siêu tốc - Hạ ngưỡng nhạy bén >= 40%)
+      // ENGINE A: COCO-SSD (Deep Learning siêu tốc - Hạ ngưỡng nhạy bén >= 35%)
       // =========================================================================
       if (cocoModelRef.current) {
         try {
           const predictions = await cocoModelRef.current.detect(video);
           predictions.forEach((pred: any) => {
             const [x, y, w, h] = pred.bbox;
-            // 1. Nhận diện điện thoại cầm tay (cell phone >= 40% hoặc remote/thiết bị cầm tay >= 48%)
+            // 1. Nhận diện điện thoại cầm tay (cell phone >= 35% hoặc remote/thiết bị cầm tay >= 40%)
             if (
-              (pred.class === "cell phone" && pred.score >= 0.40) ||
-              (pred.class === "remote" && pred.score >= 0.48)
+              (pred.class === "cell phone" && pred.score >= 0.35) ||
+              (pred.class === "remote" && pred.score >= 0.40)
             ) {
               phoneDetected = true;
               const score = Math.round(pred.score * 100);
@@ -776,7 +803,7 @@ export default function ExamAntiCheatProctor({
               }
             }
             // 2. Nhận diện tài liệu / laptop đưa trước mặt
-            if ((pred.class === "book" || pred.class === "laptop") && pred.score >= 0.60) {
+            if ((pred.class === "book" || pred.class === "laptop") && pred.score >= 0.55) {
               phoneDetected = true;
               phoneConfidenceScore = Math.max(phoneConfidenceScore, Math.round(pred.score * 100));
               detectedBox = { x, y, w, h };
@@ -856,9 +883,9 @@ export default function ExamAntiCheatProctor({
                   deviceGrid[r + 1][c] +
                   deviceGrid[r + 1][c + 1];
                 const clusterDensity = clusterPixels / (cellTotal * 4);
-                if (clusterDensity >= 0.42 && clusterDensity <= 0.88) {
+                if (clusterDensity >= 0.35) {
                   phoneDetected = true;
-                  phoneConfidenceScore = Math.min(95, Math.round(clusterDensity * 120 + 35));
+                  phoneConfidenceScore = Math.min(95, Math.round(clusterDensity * 125 + 35));
                   const boxX = (c * cellW / ow) * width;
                   const boxY = ((20 + r * cellH) / oh) * height;
                   const boxWidth = ((cellW * 2.2) / ow) * width;
@@ -960,8 +987,8 @@ export default function ExamAntiCheatProctor({
           ctx.font = "bold 11px sans-serif";
           ctx.fillText(`📱 ĐIỆN THOẠI DI ĐỘNG (${phoneConfidenceScore}%)`, box.x + 6, tagY + 16);
 
-          // Phản hồi tức thì: Nếu độ tin cậy >= 60% chỉ cần 1 frame (~350ms) là bắt ngay; nếu 40-59% cần 2 frame (~700ms)
-          const requiredFrames = phoneConfidenceScore >= 60 ? 1 : 2;
+          // Phản hồi tức thì: Nếu độ tin cậy >= 45% chỉ cần 1 frame (~350ms) là bắt ngay; nếu dưới 45% cần 2 frame (~700ms)
+          const requiredFrames = phoneConfidenceScore >= 45 ? 1 : 2;
           if (phoneDetectedFramesRef.current >= requiredFrames) {
             triggerViolation(
               "CELL_PHONE_DETECTED",
@@ -1085,7 +1112,10 @@ export default function ExamAntiCheatProctor({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={pos ? { left: `${pos.x}px`, top: `${pos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
+        style={{
+          ...(pos ? { left: `${pos.x}px`, top: `${pos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : {}),
+          touchAction: "none",
+        }}
         className={`fixed ${pos ? "" : "bottom-4 right-4"} z-40 bg-[#1B362A]/95 backdrop-blur-md text-white px-3.5 py-2.5 rounded-2xl shadow-xl border border-[#315E48] flex items-center gap-2.5 text-xs select-none cursor-grab active:cursor-grabbing hover:border-emerald-400/50 transition-colors`}
         role="region"
         aria-label="Chế độ làm bài tự do"
@@ -1119,7 +1149,10 @@ export default function ExamAntiCheatProctor({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={pos ? { left: `${pos.x}px`, top: `${pos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : undefined}
+        style={{
+          ...(pos ? { left: `${pos.x}px`, top: `${pos.y}px`, bottom: "auto", right: "auto", position: "fixed" } : {}),
+          touchAction: "none",
+        }}
         className={`fixed z-40 transition-shadow shadow-2xl rounded-2xl overflow-hidden border-2 select-none ${
           violationCount > 0 ? "border-[#9D493E]" : "border-[#204434]"
         } bg-[#1B362A] text-white ${
