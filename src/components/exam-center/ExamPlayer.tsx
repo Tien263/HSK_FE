@@ -28,6 +28,7 @@ import {
   Volume2,
   VolumeX,
   Wifi,
+  WifiOff,
   X,
   ShieldAlert,
 } from "lucide-react";
@@ -66,7 +67,7 @@ export default function ExamPlayer({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error" | "offline">("saved");
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [now, setNow] = useState(Date.now);
@@ -206,6 +207,19 @@ export default function ExamPlayer({
             if (data.status !== "IN_PROGRESS") onChanged();
             setError("");
           } catch (err) {
+            // Lưu ngoại tuyến ngay lập tức vào LocalStorage khi mất mạng
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(sent));
+            } catch {}
+
+            const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+            const errMsg = (err as Error).message || "";
+            if (isOffline || errMsg.includes("Failed to fetch") || errMsg.includes("NetworkError") || errMsg.includes("offline")) {
+              setSaveStatus("offline");
+              setError("⚠️ Đang làm bài ở chế độ ngoại tuyến (Mất mạng tạm thời). Bài làm của bạn đã được lưu an toàn 100% trên máy và sẽ tự động đồng bộ lên server ngay khi có mạng trở lại.");
+              return;
+            }
+
             setSaveStatus("error");
             if ((err as Error & { status?: number }).status === 409) setConflict(true);
             setError((err as Error).message);
@@ -217,6 +231,17 @@ export default function ExamPlayer({
     },
     [id, onChanged, previewAttempt, receive, storageKey]
   );
+
+  // Tự động đồng bộ bài thi khi kết nối mạng được phục hồi
+  useEffect(() => {
+    const handleOnline = () => {
+      if (current.current?.status === "IN_PROGRESS") {
+        void persist().catch(() => {});
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [persist]);
 
   useEffect(() => {
     registerLeave?.(() => persist());
@@ -550,13 +575,19 @@ export default function ExamPlayer({
                 ? "✓ Đã lưu"
                 : saveStatus === "saving"
                 ? "Đang lưu..."
+                : saveStatus === "offline"
+                ? "⚠️ Lưu ngoại tuyến (An toàn)"
                 : "Chưa lưu"}
             </span>
           </div>
 
           {/* Wifi Indicator */}
-          <div className={s.wifiIndicator} title="Kết nối mạng ổn định">
-            <Wifi size={18} />
+          <div
+            className={s.wifiIndicator}
+            style={saveStatus === "offline" ? { color: "#f59e0b" } : undefined}
+            title={saveStatus === "offline" ? "Mất kết nối mạng tạm thời - Đang lưu ngoại tuyến an toàn" : "Kết nối mạng ổn định"}
+          >
+            {saveStatus === "offline" ? <WifiOff size={18} /> : <Wifi size={18} />}
           </div>
 
           {/* Timer Card (Server-Authoritative) */}

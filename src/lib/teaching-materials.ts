@@ -1,7 +1,18 @@
 import { prisma } from "./prisma";
 import { classAccess, PortalError, type PortalUser } from "./portal-auth";
 
-export const materialSelection = { id: true, teacherId: true, title: true, description: true, fileName: true, mimeType: true, byteSize: true, createdAt: true, classes: { select: { classId: true, class: { select: { name: true } } } } } as const;
+export const materialSelection = {
+  id: true,
+  teacherId: true,
+  title: true,
+  description: true,
+  fileName: true,
+  mimeType: true,
+  byteSize: true,
+  createdAt: true,
+  teacher: { select: { id: true, name: true, username: true, email: true } },
+  classes: { select: { classId: true, class: { select: { name: true } } } },
+} as const;
 export async function materialAccess(user: PortalUser, id: string, write = false) {
   const item = await prisma.teachingMaterial.findUnique({ where: { id }, select: materialSelection });
   if (!item) throw new PortalError(404, "Không tìm thấy tài liệu.");

@@ -10,10 +10,12 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Cloud,
   Copy,
   Download,
   Eye,
   FileCheck2,
+  FileSpreadsheet,
   FileText,
   Headphones,
   Image as ImageIcon,
@@ -32,6 +34,7 @@ import {
   Volume2,
   X,
 } from "lucide-react";
+import ExamFileImportModal from "./ExamFileImportModal";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
 import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
 import { uploadToCloudinary } from "@/lib/cloudinary";
@@ -329,6 +332,28 @@ export default function ExamStaff({
   const [draftTime, setDraftTime] = useState<string | null>(null);
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
 
+  // Smart File Importer (Excel & Word .docx)
+  const [showFileImportModal, setShowFileImportModal] = useState(false);
+
+  // Server-Side Cloud Drafts (Đồng bộ đa người dùng / đa máy tính của Admin & Giáo viên)
+  const [serverDrafts, setServerDrafts] = useState<any[]>([]);
+  const [showCloudDraftsModal, setShowCloudDraftsModal] = useState(false);
+
+  const fetchServerDrafts = useCallback(async () => {
+    try {
+      const res = await examApi<any[]>("drafts");
+      if (Array.isArray(res)) {
+        setServerDrafts(res);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (view === "authoring") {
+      fetchServerDrafts();
+    }
+  }, [view, fetchServerDrafts]);
+
   // 1. Kiểm tra bản nháp tự động lưu khi mở trang
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -347,7 +372,7 @@ export default function ExamStaff({
     } catch {}
   }, []);
 
-  // 2. Tự động lưu sau 2.5s mỗi khi thay đổi (Debounced Auto-Save)
+  // 2. Tự động lưu sau 2.5s mỗi khi thay đổi (Debounced LocalStorage & Server Cloud Sync)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hasContent = groups.length > 0 || authorTitle.trim().length > 0 || jsonInput.trim().length > 0;
@@ -374,8 +399,67 @@ export default function ExamStaff({
       }
     }, 2500);
 
-    return () => clearTimeout(timer);
-  }, [authorLevel, authorTitle, authorDesc, authorDuration, authorPass, authorMode, groups, jsonInput]);
+    const cloudTimer = setTimeout(() => {
+      examApi("saveDraft", {
+        draftId: `draft_${authorLevel}_${(authorTitle.trim() || "untitled").slice(0, 40).replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, "_")}`,
+        authorLevel,
+        authorTitle,
+        authorDesc,
+        authorDuration,
+        authorPass,
+        authorMode,
+        groups,
+        jsonInput,
+      }).then(() => fetchServerDrafts()).catch(() => {});
+    }, 4500);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(cloudTimer);
+    };
+  }, [authorLevel, authorTitle, authorDesc, authorDuration, authorPass, authorMode, groups, jsonInput, fetchServerDrafts]);
+
+  // Nạp bản nháp từ Server Cloud
+  const handleLoadCloudDraft = (draft: any) => {
+    if (draft.level) setAuthorLevel(Number(draft.level));
+    if (draft.title) setAuthorTitle(draft.title);
+    if (draft.description) setAuthorDesc(draft.description);
+    if (draft.durationMin) setAuthorDuration(Number(draft.durationMin));
+    if (draft.passScore !== undefined) setAuthorPass(draft.passScore ?? "");
+    if (draft.mode) setAuthorMode(draft.mode);
+    if (Array.isArray(draft.groups) && draft.groups.length > 0) {
+      setGroups(draft.groups);
+      setActiveGroupId(draft.groups[0]?.id || "");
+    }
+    if (draft.jsonInput) setJsonInput(draft.jsonInput);
+    setShowCloudDraftsModal(false);
+    setMessage(`Đã mở thành công bản nháp "${draft.title}" của ${draft.authorName} (${draft.questionsCount || 0} câu)!`);
+  };
+
+  // Xóa bản nháp trên Server Cloud
+  const handleDeleteCloudDraft = async (draftId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa bản nháp này trên máy chủ không?")) return;
+    try {
+      await examApi("deleteDraft", { draftId });
+      setMessage("Đã xóa bản nháp trên máy chủ.");
+      fetchServerDrafts();
+    } catch (e: any) {
+      setError("Không thể xóa bản nháp: " + e.message);
+    }
+  };
+
+  // Tiếp nhận kết quả import từ file Excel / Word
+  const handleFileImportSuccess = (importedGroups: ExamSectionGroup[], rawQuestions: QuestionItem[]) => {
+    if (groups.length === 0) {
+      setGroups(importedGroups);
+      if (importedGroups.length > 0) setActiveGroupId(importedGroups[0].id);
+    } else {
+      setGroups((prev) => withQuestionNumbers([...prev, ...importedGroups], true));
+    }
+    setJsonInput(JSON.stringify(rawQuestions, null, 2));
+    setMessage(`✅ Đã nạp thành công ${rawQuestions.length} câu hỏi từ file vào bộ đề thi!`);
+    setError("");
+  };
 
   // Khôi phục bản nháp
   const handleRestoreDraft = () => {
@@ -1391,6 +1475,57 @@ export default function ExamStaff({
                   Đã tự động lưu nháp lúc {lastAutoSavedAt}
                 </span>
               )}
+
+              {/* Bản nháp trên Server Cloud (Dành cho nhiều Admin/Giáo viên cùng làm việc ở nhiều máy) */}
+              <button
+                type="button"
+                style={{
+                  fontSize: 12,
+                  padding: "6px 12px",
+                  minHeight: 32,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#0284c7",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                }}
+                onClick={() => {
+                  fetchServerDrafts();
+                  setShowCloudDraftsModal(true);
+                }}
+                title="Xem các bản nháp đang soạn được lưu trên máy chủ chung, cho phép nhiều người quản trị ở các máy khác nhau cùng thấy"
+              >
+                <Cloud size={14} /> ☁️ Bản nháp máy chủ {serverDrafts.length > 0 ? `(${serverDrafts.length})` : ""}
+              </button>
+
+              {/* Nạp câu hỏi thông minh từ Excel hoặc Word (.docx) */}
+              <button
+                type="button"
+                style={{
+                  fontSize: 12,
+                  padding: "6px 12px",
+                  minHeight: 32,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#4f46e5",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                }}
+                onClick={() => setShowFileImportModal(true)}
+                title="Nhập đề thi tự động từ file Excel (.xlsx, .xls, .csv) hoặc tài liệu Word (.docx)"
+              >
+                <FileSpreadsheet size={14} /> ✨ Nhập từ Excel / Word (.docx)
+              </button>
 
               <button
                 type="button"
@@ -3572,6 +3707,286 @@ export default function ExamStaff({
           ))}
           {!papers.length && <p className={s.empty}>Chưa có bộ đề nào trong hệ thống.</p>}
         </>
+      )}
+
+      {/* Modal nạp đề từ Excel hoặc Word (.docx) */}
+      {showFileImportModal && (
+        <ExamFileImportModal
+          hskLevel={authorLevel}
+          onImport={handleFileImportSuccess}
+          onClose={() => setShowFileImportModal(false)}
+        />
+      )}
+
+      {/* Modal quản lý bản nháp chung trên Server Cloud */}
+      {showCloudDraftsModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            backdropFilter: "blur(3px)",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCloudDraftsModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              maxWidth: 720,
+              width: "100%",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "#f8fafc",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    background: "#eff6ff",
+                    color: "#2563eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Cloud size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+                    Bản nháp chung trên Máy chủ ({serverDrafts.length})
+                  </h3>
+                  <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+                    Đồng bộ thời gian thực giữa các tài khoản Quản trị viên & Giáo viên ở các máy khác nhau
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCloudDraftsModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#64748b",
+                  padding: 6,
+                  borderRadius: 6,
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: 12,
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  color: "#166534",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <strong>💡 Bạn đang soạn đề trên máy này?</strong>
+                  <div style={{ fontSize: 12, color: "#15803d", marginTop: 2 }}>
+                    Hệ thống tự động lưu lên máy chủ sau mỗi vài giây. Bạn cũng có thể bấm lưu ngay bên cạnh.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await examApi("saveDraft", {
+                        draftId: `draft_${authorLevel}_${(authorTitle.trim() || "untitled").slice(0, 40).replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, "_")}`,
+                        authorLevel,
+                        authorTitle,
+                        authorDesc,
+                        authorDuration,
+                        authorPass,
+                        authorMode,
+                        groups,
+                        jsonInput,
+                      });
+                      await fetchServerDrafts();
+                      setMessage("Đã lưu bản nháp hiện tại lên máy chủ chung thành công!");
+                    } catch (e: any) {
+                      setError("Không thể lưu: " + e.message);
+                    }
+                  }}
+                  style={{
+                    background: "#16a34a",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ☁️ Lưu lên Server ngay
+                </button>
+              </div>
+
+              {serverDrafts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+                  <Cloud size={40} style={{ opacity: 0.4, margin: "0 auto 12px" }} />
+                  <p style={{ margin: 0, fontWeight: 600 }}>Chưa có bản nháp nào được lưu trên máy chủ.</p>
+                  <p style={{ margin: "4px 0 0", fontSize: 12 }}>
+                    Khi bạn hoặc quản trị viên khác soạn đề, đề sẽ tự động xuất hiện ở đây để cả 2 cùng xem và chỉnh sửa.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {serverDrafts.map((d: any) => {
+                    const savedDate = d.savedAt ? new Date(d.savedAt) : new Date();
+                    return (
+                      <div
+                        key={d.id}
+                        style={{
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 12,
+                          padding: 14,
+                          background: "#ffffff",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 12,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                            <span
+                              style={{
+                                background: "#eff6ff",
+                                color: "#1d4ed8",
+                                fontWeight: 700,
+                                fontSize: 11,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                              }}
+                            >
+                              HSK {d.level || 1}
+                            </span>
+                            <span style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>
+                              {d.title || "Đề thi chưa đặt tên"}
+                            </span>
+                            <span style={{ fontSize: 11, color: "#64748b", background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                              {d.questionsCount || 0} câu · {d.groupsCount || 0} phần
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: "#64748b", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                            <span>👤 Người tạo: <strong style={{ color: "#334155" }}>{d.authorName || "Quản trị viên"}</strong> ({d.authorEmail || "Admin"})</span>
+                            <span>🕒 Cập nhật: {savedDate.toLocaleTimeString("vi-VN")} {savedDate.toLocaleDateString("vi-VN")}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => handleLoadCloudDraft(d)}
+                            style={{
+                              background: "#0284c7",
+                              color: "#fff",
+                              border: "none",
+                              padding: "7px 12px",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            📂 Mở bản nháp
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCloudDraft(d.id)}
+                            style={{
+                              background: "#fee2e2",
+                              color: "#dc2626",
+                              border: "1px solid #fca5a5",
+                              padding: "7px 10px",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                            title="Xóa bản nháp này"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: "12px 20px",
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "flex-end",
+                background: "#f8fafc",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowCloudDraftsModal(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#334155",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

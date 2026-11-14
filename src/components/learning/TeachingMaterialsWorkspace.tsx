@@ -16,6 +16,7 @@ type Material = {
   createdAt: string;
   downloadUrl: string;
   canManage?: boolean;
+  teacher?: { id: string; name: string; username?: string; email?: string | null };
   classes: { classId: string; class: { name: string } }[];
 };
 
@@ -172,7 +173,8 @@ export default function TeachingMaterialsWorkspace({
             <p className={styles.muted}>{item.fileName}</p>
             {item.description && <p className={styles.meaning}>{item.description}</p>}
             <p className="mt-3 text-[10px] leading-6 text-[#8a927e]">
-              {new Date(item.createdAt).toLocaleDateString("vi-VN")} ·{" "}
+              {new Date(item.createdAt).toLocaleDateString("vi-VN")}
+              {item.teacher?.name ? ` · Tải lên bởi: ${item.teacher.name}` : ""} ·{" "}
               {item.classes.length
                 ? `Đã chia sẻ: ${item.classes.map((value) => value.class.name).join(", ")}`
                 : "Chỉ trong kho riêng"}

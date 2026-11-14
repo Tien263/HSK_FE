@@ -452,3 +452,89 @@ export async function legacyDetail(user:AuthUser,id:string){
  if(!row)throw new ExamError(404,"Không tìm thấy kết quả thuộc tài khoản này.");
  return {id:row.id,title:row.assignment.title,feedback:row.teacherNote,answers:row.answers.map(answer=>({id:answer.id,content:answer.question.content,userAnswer:answer.userAnswer,correctAnswer:answer.question.correctAnswer,explanation:answer.question.explanation,earned:answer.scoreEarned}))};
 }
+
+const DRAFT = "EXAM_CENTER_DRAFT";
+
+export async function getExamDrafts(user: AuthUser) {
+  if (user.role !== "ADMIN" && user.role !== "TEACHER") throw new ExamError(403, "Chỉ Giáo viên và Admin được xem bản nháp.");
+  const rows = await prisma.auditLog.findMany({
+    where: { action: DRAFT },
+    include: { user: { select: { id: true, name: true, role: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map(r => {
+    const d = parse<any>(r.details);
+    return {
+      id: r.entity,
+      logId: r.id,
+      authorId: r.userId,
+      authorName: r.user?.name || d.authorName || "Giáo viên",
+      authorRole: r.user?.role || "TEACHER",
+      title: d.authorTitle || "Đề chưa đặt tên",
+      description: d.authorDesc || "",
+      level: d.authorLevel || 1,
+      durationMin: d.authorDuration || 40,
+      passScore: d.authorPass ?? null,
+      mode: d.authorMode || "grouped",
+      groups: d.groups || [],
+      jsonInput: d.jsonInput || "",
+      questionsCount: d.groups ? d.groups.reduce((s: number, g: any) => s + (g.questions?.length || 0), 0) : 0,
+      updatedAt: d.savedAt || r.createdAt.toISOString(),
+      canManage: user.role === "ADMIN" || r.userId === user.id,
+    };
+  });
+}
+
+export async function saveExamDraft(user: AuthUser, body: Record<string, unknown>) {
+  if (user.role !== "ADMIN" && user.role !== "TEACHER") throw new ExamError(403, "Chỉ Giáo viên và Admin được lưu bản nháp.");
+  const draftId = String(body.draftId || `draft_${user.id}_${body.authorLevel || 1}`);
+  const payload = {
+    draftId,
+    authorId: user.id,
+    authorName: user.name,
+    authorLevel: Number(body.authorLevel || 1),
+    authorTitle: String(body.authorTitle || "").slice(0, 300),
+    authorDesc: String(body.authorDesc || "").slice(0, 3000),
+    authorDuration: Number(body.authorDuration || 40),
+    authorPass: body.authorPass ?? null,
+    authorMode: body.authorMode || "grouped",
+    groups: body.groups || [],
+    jsonInput: typeof body.jsonInput === "string" ? body.jsonInput : "",
+    savedAt: new Date().toISOString(),
+  };
+
+  const existing = await prisma.auditLog.findFirst({
+    where: { action: DRAFT, entity: draftId },
+  });
+
+  if (existing) {
+    await prisma.auditLog.update({
+      where: { id: existing.id },
+      data: {
+        userId: user.id,
+        details: JSON.stringify(payload),
+      },
+    });
+  } else {
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: DRAFT,
+        entity: draftId,
+        details: JSON.stringify(payload),
+      },
+    });
+  }
+
+  return { success: true, draftId, savedAt: payload.savedAt };
+}
+
+export async function deleteExamDraft(user: AuthUser, body: Record<string, unknown>) {
+  if (user.role !== "ADMIN" && user.role !== "TEACHER") throw new ExamError(403, "Chỉ Giáo viên và Admin có quyền xóa bản nháp.");
+  const draftId = String(body.draftId || body.id || "");
+  if (!draftId) throw new ExamError(400, "Thiếu mã bản nháp cần xóa.");
+  await prisma.auditLog.deleteMany({
+    where: { action: DRAFT, entity: draftId },
+  });
+  return { success: true };
+}

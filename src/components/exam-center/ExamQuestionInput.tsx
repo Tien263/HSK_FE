@@ -6,6 +6,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Edit3, Puzzle, Rotate
 import type { publicExamQuestion } from "@/lib/exam-center-core";
 import { playChineseSpeech } from "@/lib/chinese-speech-player";
 import { countHanzi, checkGivenWordsUsage, type GivenWord } from "@/lib/writing-essay";
+import ExamAudioRecorder from "@/components/common/ExamAudioRecorder";
 import s from "./ExamPlayer.module.css";
 
 type Question = ReturnType<typeof publicExamQuestion>;
@@ -1126,53 +1127,69 @@ export default function ExamQuestionInput({
     q.skill === "SPEAKING" ||
     ["speaking", "speaking_audio", "audio", "handwriting_photo"].includes(q.type)
   ) {
-    inputContent = (
-      <div style={{ display: "grid", gap: 14 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: "#365330" }}>
-          {q.type === "handwriting_photo"
-            ? "Tải ảnh bài viết tay của bạn (Hỗ trợ chụp từ camera)"
-            : "Bản ghi âm bài nói / Trả lời khẩu ngữ"}
-          <input
+    if (q.type === "handwriting_photo") {
+      inputContent = (
+        <div style={{ display: "grid", gap: 14 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#365330" }}>
+            Tải ảnh bài viết tay của bạn (Hỗ trợ chụp từ camera)
+            <input
+              disabled={disabled}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => void media(e.target.files?.[0])}
+              style={{ marginTop: 8, display: "block" }}
+            />
+          </label>
+          {strVal.startsWith("data:image/") && (
+            <img
+              src={strVal}
+              alt="Bài viết của bạn"
+              style={{ maxWidth: "100%", maxHeight: 380, objectFit: "contain", borderRadius: 12 }}
+            />
+          )}
+          {strVal && !disabled && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                border: "1px solid #d4decb",
+                background: "#fff",
+                cursor: "pointer",
+                fontSize: 12,
+                width: "fit-content",
+              }}
+            >
+              Bỏ tệp này và chụp lại
+            </button>
+          )}
+        </div>
+      );
+    } else {
+      inputContent = (
+        <div style={{ display: "grid", gap: 14 }}>
+          <ExamAudioRecorder
             disabled={disabled}
-            type="file"
-            accept={q.type === "handwriting_photo" ? "image/*" : "audio/*"}
-            capture={q.type === "handwriting_photo" ? "environment" : "user"}
-            onChange={(e) => void media(e.target.files?.[0])}
-            style={{ marginTop: 8, display: "block" }}
+            initialAudioUrl={strVal.startsWith("data:audio/") || strVal.startsWith("http") ? strVal : undefined}
+            onAudioReady={(base64) => onChange(base64)}
           />
-        </label>
-
-        {strVal.startsWith("data:audio/") ? (
-          <audio controls src={strVal} style={{ maxWidth: "100%" }} />
-        ) : strVal.startsWith("data:image/") ? (
-          <img
-            src={strVal}
-            alt="Bài viết của bạn"
-            style={{ maxWidth: "100%", maxHeight: 380, objectFit: "contain", borderRadius: 12 }}
-          />
-        ) : (
-          strVal && <p style={{ fontSize: 13, color: "#4f6844" }}>{strVal}</p>
-        )}
-
-        {strVal && !disabled && (
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: "1px solid #d4decb",
-              background: "#fff",
-              cursor: "pointer",
-              fontSize: 12,
-              width: "fit-content",
-            }}
-          >
-            Bỏ tệp này và chọn lại
-          </button>
-        )}
-      </div>
-    );
+          <details style={{ fontSize: 11, color: "#64748b" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+              Hoặc tải lên file âm thanh có sẵn từ máy tính
+            </summary>
+            <input
+              disabled={disabled}
+              type="file"
+              accept="audio/*"
+              onChange={(e) => void media(e.target.files?.[0])}
+              style={{ marginTop: 6, display: "block" }}
+            />
+          </details>
+        </div>
+      );
+    }
   }
   // 2. Picture Multiple Choice Options (Khớp 100% Ảnh mẫu HSK 3)
   else if (hasImageOptions) {

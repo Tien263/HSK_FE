@@ -29,8 +29,24 @@ async function notifyStudentsAboutMaterial(classIds: string[], materialTitle: st
 export function GET(request: Request) { return portalResponse(request, async user => {
   const classId = new URL(request.url).searchParams.get("classId");
   if (classId) await classAccess(user, classId); else teacherOnly(user);
-  const items = await prisma.teachingMaterial.findMany({ where: classId ? { classes: { some: { classId } } } : { teacherId: user.id }, select: materialSelection, orderBy: { createdAt: "desc" } });
-  return portalJson({ success: true, items: items.map(item => ({ ...item, canManage: item.teacherId===user.id||user.role==="ADMIN", classes:user.role==="STUDENT"?item.classes.filter(share=>share.classId===classId):item.classes, downloadUrl: `/api/v1/materials/${item.id}/file` })) });
+  const items = await prisma.teachingMaterial.findMany({
+    where: classId
+      ? { classes: { some: { classId } } }
+      : user.role === "ADMIN"
+      ? {}
+      : { teacherId: user.id },
+    select: materialSelection,
+    orderBy: { createdAt: "desc" },
+  });
+  return portalJson({
+    success: true,
+    items: items.map(item => ({
+      ...item,
+      canManage: item.teacherId === user.id || user.role === "ADMIN",
+      classes: user.role === "STUDENT" ? item.classes.filter(share => share.classId === classId) : item.classes,
+      downloadUrl: `/api/v1/materials/${item.id}/file`,
+    })),
+  });
 }); }
 export function POST(request: Request) { return portalResponse(request, async user => {
   teacherOnly(user);
