@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -19,12 +20,6 @@ type View = "all" | "sentence" | "saved" | "recent";
 const STORAGE_KEY = "hsk-dictionary-v2";
 const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/\s+/g, "").trim();
 const HANZII_URL = "https://hanzii.net/?hl=vi";
-
-function PandaLogo({ size = 48 }: { size?: number }) {
-  return <span className="relative block shrink-0 overflow-hidden rounded-2xl bg-[#f7f7f7]" style={{ width: size, height: size }}>
-    <Image src="/brand/hanzii.jpg" alt="Logo Hanzii" draggable={false} fill sizes={`${size}px`} className="scale-125 object-cover" />
-  </span>;
-}
 
 export default function HanziiDictionaryDrawer() {
   const [isOpen, setIsOpen] = useState(false);
@@ -201,7 +196,7 @@ export default function HanziiDictionaryDrawer() {
       title="Kéo để đổi vị trí · Bấm để mở từ điển · Alt + phím mũi tên để di chuyển"
       style={{...(position ? {left: position.x, top: position.y, right: "auto", bottom: "auto"} : {}), touchAction: "none", userSelect: "none", cursor: dragging ? "grabbing" : "grab"}} aria-haspopup="dialog" aria-expanded={isOpen} aria-label="Mở từ điển Hanzii"
       className="group fixed bottom-20 right-5 z-40 flex items-center gap-3 rounded-[22px] border border-[#E5DEC9] bg-[#FFFCF6] p-2 pr-5 text-[#204434] shadow-[0_8px_36px_#173d2d26] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#315E48] max-sm:bottom-20 max-sm:right-4 max-sm:pr-2">
-      <PandaLogo size={48} />
+      <BrandMark size={48} />
       <span className="text-left max-sm:hidden"><span className="block font-serif text-sm font-bold">Từ điển Trung–Việt</span><span className="mt-0.5 block text-[10px] tracking-wide text-[#7a827b]">Tra một từ · Hiểu một câu</span></span>
     </button>
     {isOpen && createPortal(
@@ -210,7 +205,7 @@ export default function HanziiDictionaryDrawer() {
         <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="dictionary-title" className={styles.dialog}>
           <header className={styles.hero}>
             <Image src="/theme/dashboard/banner-bg.webp" alt="" fill sizes="1240px" className={styles.landscape} />
-            <div className={styles.brand}><PandaLogo size={54} /><div><p className={styles.eyebrow}>Không gian học tiếng Trung</p><h2 id="dictionary-title" className={styles.title}>Từ điển Trung–Việt</h2><p className={styles.subtitle}>Tra một từ, hiểu một câu. Mở thêm một chân trời.</p></div></div>
+            <div className={styles.brand}><BrandMark size={54} /><div><p className={styles.eyebrow}>Không gian học tiếng Trung</p><h2 id="dictionary-title" className={styles.title}>Từ điển Trung–Việt</h2><p className={styles.subtitle}>Tra một từ, hiểu một câu. Mở thêm một chân trời.</p></div></div>
             <span className={styles.seal} aria-hidden="true">学而时习</span>
             <button onClick={() => setIsOpen(false)} aria-label="Đóng từ điển" className={`${styles.iconButton} ${styles.close}`}><X size={18} /></button>
           </header>

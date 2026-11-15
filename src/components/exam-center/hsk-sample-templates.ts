@@ -509,7 +509,7 @@ export interface ExamSectionGroup {
   instruction?: string;
   audioUrl?: string;
   passage?: string;
-  groupType?: typeof PASSAGE_JUDGEMENT | typeof JUDGEMENT_SECTION | typeof PASSAGE_CHOICE | typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof WORD_BANK | typeof CLOZE_PASSAGE | typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "hskk_listen_repeat" | "hskk_read_prompt" | "hskk_picture_speaking" | "standard";
+  groupType?: typeof PASSAGE_JUDGEMENT | typeof JUDGEMENT_SECTION | typeof PASSAGE_CHOICE | typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof WORD_BANK | typeof CLOZE_PASSAGE | typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "hskk_listen_repeat" | "hskk_listen_answer" | "hskk_listen_retell" | "hskk_read_prompt" | "hskk_picture_speaking" | "standard";
   groupImages?: { id: string; label: string; imageUrl: string }[];
   groupReplies?: ExamReply[];
   groupWords?: ExamReply[];
@@ -562,10 +562,10 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         id: questionId,
         type: judgement ? "true_false" : readingPassage ? "multiple_choice" : listeningFill ? "listening_fill" : listeningEval ? "true_false_na" : cloze ? "fill_blank" : pictureGroup || replyGroup ? "matching" : q.type || (group.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
         skill: group.skill,
-        content: readingPassage || cloze || replyGroup || (pictureGroup && group.skill === "READING") ? q.content : q.content || `第 ${qIdx} 题`,
+        content: q.content || "",
         pinyin: q.pinyin || "",
         points: Number(q.points),
-        correctAnswer: readingPassage || cloze || pictureGroup || replyGroup || listeningFill || listeningEval ? q.correctAnswer : q.correctAnswer || "A",
+        correctAnswer: q.correctAnswer || "",
         explanation: q.explanation || "",
         imageUrl: readingPassage || cloze || replyGroup || (pictureGroup && group.skill === "READING") ? "" : q.imageUrl || "",
         audioUrl: groupAudio ? (index === 0 && group.skill === "LISTENING" ? group.audioUrl || "" : "") : q.audioUrl || group.audioUrl || "",
@@ -574,11 +574,7 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
           text: opt.text || "",
           pinyin: opt.pinyin || "",
           imageUrl: opt.imageUrl || "",
-        })) : [
-          { id: "A", text: "Đáp án A" },
-          { id: "B", text: "Đáp án B" },
-          { id: "C", text: "Đáp án C" },
-        ],
+        })) : [],
         rubric: (q as any).rubric || "",
       };
       item.passage = (clozePassage || readingPassage) && index === 0 ? group.passage || "" :
@@ -715,12 +711,12 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
       blankId: q.blankId || (q as any).editorData?.blankId,
       evidence: q.evidence || (q as any).editorData?.evidence,
       type: q.type || (grp.skill === "LISTENING" ? "listening_choice" : "multiple_choice"),
-      content: readingPassage || cloze || explicitGroupType === READING_REPLIES ? q.content || "" : q.content || `Câu ${i + 1}`,
+      content: q.content || "",
       pinyin: q.pinyin || (q as any).pinyinPrompt || "",
       points: Number(q.points ?? 2.5),
       imageUrl: q.imageUrl || "",
       audioUrl: q.audioUrl && q.audioUrl !== grp.audioUrl ? q.audioUrl : "",
-      correctAnswer: readingPassage || cloze || explicitGroupType === "listening_fill_blank" || explicitGroupType === "eval_true_false_na" || explicitGroupType === "matching_images" || explicitGroupType === READING_REPLIES ? q.correctAnswer || "" : q.correctAnswer || "A",
+      correctAnswer: q.correctAnswer || "",
       sampleAnswer: q.sampleAnswer || (q as any).editorData?.sampleAnswer,
       tokens: q.tokens || (q as any).editorData?.tokens,
       tokenIds: q.tokenIds || (q as any).editorData?.tokenIds,
@@ -739,10 +735,7 @@ export function unflattenToGroups(questions: ImportedQuestion[], defaultLevel: n
             pinyin: typeof opt === "object" && opt ? opt.pinyin || "" : "",
             imageUrl: opt?.imageUrl || "",
           }))
-        : cloze || readingPassage ? [] : [
-            { id: "A", text: "Đáp án A" },
-            { id: "B", text: "Đáp án B" },
-          ],
+        : [],
     });
   }
 

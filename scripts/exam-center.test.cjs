@@ -428,6 +428,44 @@ test('paired HSKK prompt audio survives draft save, publication and attempt relo
  assert.equal((await f.service.getAttempt(actors.a,active.id)).hskkExam.groups[0].questions[0].audioUrl,audioUrl);
 });
 
+test('HSKK level templates create empty sections and never publish a blank speaking exam',async()=>{
+ const f=fixture();
+ const {buildHskkTemplate,hskkQuestionType}=require(path.resolve('src/components/exam-center/hskk-templates.ts'));
+ const expected={
+  HSKK_BEGINNER:['speaking_audio','speaking_audio','speaking_prompt'],
+  HSKK_INTERMEDIATE:['speaking_audio','speaking_picture','speaking_prompt'],
+  HSKK_ADVANCED:['speaking_audio','speaking_prompt','speaking_prompt'],
+ };
+ for(const [level,types] of Object.entries(expected)){
+  const hskkExam=buildHskkTemplate(level);
+  assert.deepEqual(hskkExam.groups.map(group=>hskkQuestionType(group.groupType)),types);
+  assert.ok(hskkExam.groups.every(group=>group.questions.length===0&&!group.audioUrl&&!group.imageUrl));
+  const body={level:1,title:'Khung HSKK',durationMin:20,passScore:null,hskkExam,
+   questions:[{id:'q1',skill:'READING',type:'multiple_choice',content:'你好吗？',points:200,options:['甲','乙'],correctAnswer:'A'}]};
+  const {paperId}=await f.service.importPaper(actors.admin,body);
+  const active=await start(f,paperId);
+  const finished=await f.service.writeAttempt(actors.a,{id:active.id,revision:active.revision,answers:{}},true);
+  assert.equal(finished.hskkExam,null);
+  assert.equal(finished.passScore,null);
+  hskkExam.groups[0].questions.push({id:'blank',type:'speaking_audio',content:'',points:2,options:[]});
+  await rejectStatus(f.service.importPaper(actors.admin,body),400);
+ }
+});
+
+test('HSK draft conversion keeps unanswered question fields blank',async()=>{
+ const f=fixture();
+ const {flattenGroups,unflattenToGroups}=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const groups=[{id:'reading',title:'Phần Đọc',skill:'READING',groupType:'standard',
+  questions:[{id:'draft-q',type:'multiple_choice',content:'',correctAnswer:'',points:5,options:[]}]}];
+ const questions=flattenGroups(groups);
+ for(const question of [questions[0],unflattenToGroups(questions,1)[0].questions[0]]){
+  assert.equal(question.content,'');
+  assert.equal(question.correctAnswer,'');
+  assert.deepEqual(question.options,[]);
+ }
+ await rejectStatus(f.service.importPaper(actors.admin,{level:1,title:'Đề chưa hoàn tất',durationMin:20,questions}),400);
+});
+
 test('reading judgement presents both statements but withholds keys and passage evidence until submission',async()=>{
  const f=fixture();
  const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));

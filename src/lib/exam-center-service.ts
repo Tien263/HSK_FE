@@ -50,7 +50,7 @@ export async function officialPapers(){
   const blueprint=examBlueprint.levels.find(row=>row.level===levelGroup(set.hskLevel));
   const durationMin=config?.durationMin||(durations.length===1?durations[0]:blueprint?.durationMin??null);
   const questions=set.questions.filter(row=>{const editor=row.question.editorData as Record<string,unknown>|null;return !editor?.status||editor.status==="READY";}).map(row=>snapshotQuestion(row.question as unknown as Record<string,unknown>,row.points));
-  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,groups:{...config?.groups,...restoreLegacyReplyGroups(questions,set.id)},maxScore:config?.maxScore??set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===(config?.maxScore??set.totalScore)?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),hskkExam:(config as any)?.hskkExam||null,hskkPaperId:(config as any)?.hskkPaperId||null,questions,mode:"EXAM"});
+  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,groups:{...config?.groups,...restoreLegacyReplyGroups(questions,set.id)},maxScore:config?.maxScore??set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore===null?null:config?.passScore??(blueprint?.maxScore===(config?.maxScore??set.totalScore)?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),hskkExam:(config as any)?.hskkExam||null,hskkPaperId:(config as any)?.hskkPaperId||null,questions,mode:"EXAM"});
  }
  return papers;
 }
@@ -171,12 +171,38 @@ export async function publishPaper(user:AuthUser,body:Record<string,unknown>){
  if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>(config?.maxScore??paper.totalScore)))throw new ExamError(400,"Ngưỡng đạt phải nằm trong thang điểm của đề.");
  await prisma.auditLog.create({data:{userId:user.id,action:PUBLICATION,entity:paper.id,details:JSON.stringify({...config,approved:body.approved!==false,durationMin,passScore})}});return{success:true};
 }
+function validatePairedHskk(value: unknown) {
+ if(value==null)return null;
+ if(typeof value!=="object"||!("groups" in value)||!Array.isArray(value.groups)||
+    value.groups.some(group=>!group||!Array.isArray(group.questions)))
+  throw new ExamError(400,"Cấu trúc phần HSKK không hợp lệ.");
+ const groups=value.groups.filter(group=>group.questions.length>0);
+ if(!groups.length)return null;
+ const ids=new Set<string>();
+ for(const group of groups){
+  for(const [index,question] of group.questions.entries()){
+   const label=`HSKK · ${group.title || "Phần thi"} · Câu ${question?.questionNumber ?? index+1}`;
+   if(typeof question?.id!=="string"||!question.id.trim()||ids.has(question.id))
+    throw new ExamError(400,`${label} có mã câu hỏi thiếu hoặc bị trùng.`);
+   ids.add(question.id);
+   const required = question.type==="speaking_audio" ? ["audioUrl","tệp audio"] :
+    question.type==="speaking_picture" ? ["imageUrl","ảnh đề bài"] : ["content","nội dung đề bài"];
+   const content=question[required[0]];
+   if(typeof content!=="string"||!content.trim())throw new ExamError(400,`${label} cần ${required[1]}.`);
+   if(typeof question.points!=="number"||!Number.isFinite(question.points)||question.points<0)
+    throw new ExamError(400,`${label} có điểm không hợp lệ.`);
+  }
+ }
+ return {...value,groups};
+}
+
 export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin được nhập và tạo đề.");
  const level=integer(body.level,1,9,"Cấp độ HSK"),titleStr=title(body.title);
  const description=typeof body.description==="string"?body.description.trim():"Đề thi mô phỏng chuẩn HSK 3.0";
  const durationMin=integer(body.durationMin,1,600,"Thời gian làm bài");
  const passScore=body.passScore==null||body.passScore===""?null:Number(body.passScore);
+ const hskkExam=validatePairedHskk(body.hskkExam);
  if(!Array.isArray(body.questions)||!body.questions.length||
     body.questions.some(q=>!q||typeof q!=="object"||Array.isArray(q)))throw new ExamError(400,"Đề thi cần ít nhất một câu hỏi hợp lệ.");
 
@@ -410,7 +436,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
     passScore,
     maxScore:totalScore,
     groups,
-    hskkExam:body.hskkExam||null,
+    hskkExam,
     hskkPaperId:body.hskkPaperId||null
    }),
   }});

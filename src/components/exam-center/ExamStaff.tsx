@@ -36,13 +36,9 @@ import {
   X,
 } from "lucide-react";
 import ExamFileImportModal from "./ExamFileImportModal";
-import {
-  buildHskkBeginnerTemplate,
-  buildHskkIntermediateTemplate,
-  buildHskkAdvancedTemplate,
-} from "./hskk-templates";
+import { buildHskkTemplate, hskkQuestionType, type HskkLevel } from "./hskk-templates";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
-import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
+import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import ExamRulesLobby from "./ExamRulesLobby";
@@ -70,17 +66,14 @@ import {
 import examBlueprint from "@/config/exam_blueprint.json";
 import s from "./ExamCenter.module.css";
 
-export const groupAudioForLevel = sampleExamAudio;
 
 export const HSK_GROUP_TEMPLATES = [
   {
     name: "🎧 Nghe tranh Đúng / Sai (True / False)",
     skill: "LISTENING" as const,
     type: "true_false",
-    samplePrompt: "请听录音并判断正误 (对 / 错)。",
     instruction: "Nghe ghi âm và phán đoán xem câu nói có khớp với bức tranh hay không (Đúng hoặc Sai).",
     options: [{ id: "true", text: "Đúng (对)" }, { id: "false", text: "Sai (错)" }],
-    correctAnswer: "true",
     points: 2.5,
   },
   {
@@ -88,11 +81,9 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "LISTENING" as const,
     groupType: "matching_images" as const,
     type: "matching",
-    samplePrompt: "请听对话并选择对应的图片 (A-F)。",
     instruction: "Nghe đoạn hội thoại và chọn bức tranh A - F tương ứng.",
     groupImages: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, label: `Tranh ${l}`, imageUrl: "" })),
     options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Tranh ${l}` })),
-    correctAnswer: "A",
     points: 2.5,
   },
   {
@@ -100,14 +91,8 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "LISTENING" as const,
     groupType: "listening_choice_abc" as const,
     type: "listening_choice",
-    samplePrompt: "请听录音并选择正确答案 (A, B, C)。",
     instruction: "Nghe câu hỏi hoặc đoạn hội thoại và chọn câu trả lời chính xác nhất (A, B hoặc C).",
-    options: [
-      { id: "A", text: "吃饭", pinyin: "chī fàn" },
-      { id: "B", text: "喝茶", pinyin: "hē chá" },
-      { id: "C", text: "看书", pinyin: "kàn shū" },
-    ],
-    correctAnswer: "A",
+    options: ["A", "B", "C"].map(id => ({ id, text: "" })),
     points: 2.5,
   },
   {
@@ -115,14 +100,12 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "LISTENING" as const,
     groupType: "eval_true_false_na" as const,
     type: "true_false_na",
-    samplePrompt: "请听录音并对各陈述进行判断（√ / × / 〇）。",
     instruction: "Nghe ghi âm và đánh giá từng phát biểu: √ (Đúng), × (Sai), hoặc 〇 (Không đề cập).",
     options: [
       { id: "true", text: "√ Đúng (对)" },
       { id: "false", text: "× Sai (错)" },
       { id: "not_mentioned", text: "〇 Không đề cập (没提及)" },
     ],
-    correctAnswer: "true",
     points: 2,
   },
   {
@@ -130,10 +113,7 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "LISTENING" as const,
     groupType: "listening_fill_blank" as const,
     type: "listening_fill",
-    samplePrompt: "请听录音并在空格处填入正确的词语。",
     instruction: "Nghe ghi âm và nhập từ ngữ chính xác vào chỗ trống.",
-    correctAnswer: "",
-    acceptedAnswers: "",
     requiresManualReview: false,
     options: [],
     points: 2,
@@ -142,30 +122,24 @@ export const HSK_GROUP_TEMPLATES = [
     name: "🎧 Nghe chọn tranh A, B, C (Trắc nghiệm hình ảnh)",
     skill: "LISTENING" as const,
     type: "multiple_choice",
-    samplePrompt: "请听录音并选择正确的图片 (A, B, C)。",
     instruction: "Nghe từng câu ngắn và chọn bức tranh A, B hoặc C phù hợp nhất.",
     options: [{ id: "A", text: "Tranh A" }, { id: "B", text: "Tranh B" }, { id: "C", text: "Tranh C" }],
-    correctAnswer: "A",
     points: 2.5,
   },
   {
     name: "🎧 Nghe đối thoại / bài nói chọn A, B, C, D (Trắc nghiệm)",
     skill: "LISTENING" as const,
     type: "multiple_choice",
-    samplePrompt: "请听录音并选择正确答案 (A, B, C, D)。",
     instruction: "Nghe đoạn ghi âm và chọn đáp án chính xác nhất (A, B, C, D).",
     options: ["A", "B", "C", "D"].map((l) => ({ id: l, text: `Đáp án ${l}` })),
-    correctAnswer: "A",
     points: 2,
   },
   {
     name: "📖 Đọc nhìn tranh & từ ngữ phán đoán Đúng / Sai",
     skill: "READING" as const,
     type: "true_false",
-    samplePrompt: "看图判断词语是否正确 (对 / 错)。",
     instruction: "Xem bức tranh và từ ngữ chữ Hán đi kèm, phán đoán xem có khớp nhau không (Đúng / Sai).",
     options: [{ id: "true", text: "Đúng (对)" }, { id: "false", text: "Sai (错)" }],
-    correctAnswer: "true",
     points: 2.5,
   },
   {
@@ -173,10 +147,8 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "READING" as const,
     groupType: "matching_images" as const,
     type: "matching",
-    samplePrompt: "阅读句子并选择对应的图片 (A-F)。",
     instruction: "Đọc từng câu và chọn bức tranh A - F tương ứng.",
     options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Tranh ${l}` })),
-    correctAnswer: "A",
     points: 2,
   },
   {
@@ -184,10 +156,8 @@ export const HSK_GROUP_TEMPLATES = [
     groupType: READING_REPLIES as typeof READING_REPLIES,
     skill: "READING" as const,
     type: "matching",
-    samplePrompt: "选择最佳的应答句子 (A-F)。",
     instruction: "Đọc câu hỏi bên dưới và chọn câu trả lời A - F tương ứng.",
     options: [],
-    correctAnswer: "A",
     points: 2,
   },
   {
@@ -195,10 +165,8 @@ export const HSK_GROUP_TEMPLATES = [
     groupType: CLOZE_SECTION as typeof CLOZE_SECTION,
     skill: "READING" as const,
     type: "fill_blank",
-    samplePrompt: "选词填空 (请选择 A-F)。",
     instruction: "Chọn từ thích hợp trong khung (A - F) để điền vào chỗ trống hoàn thành câu.",
     options: ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Từ ${l}` })),
-    correctAnswer: "A",
     points: 2,
   },
   {
@@ -206,11 +174,8 @@ export const HSK_GROUP_TEMPLATES = [
     groupType: PASSAGE_SECTION as typeof PASSAGE_SECTION,
     skill: "READING" as const,
     type: "multiple_choice",
-    samplePrompt: "根据上文，下列哪项是正确的？",
     instruction: "Đọc đoạn văn bản bên dưới và chọn câu trả lời chính xác nhất.",
-    passage: "【Đoạn văn đọc hiểu】：Nhập nội dung bài đọc chung cho nhóm câu hỏi tại đây...",
     options: ["A", "B", "C", "D"].map((l) => ({ id: l, text: `Lựa chọn ${l}` })),
-    correctAnswer: "A",
     points: 2.5,
   },
   {
@@ -218,71 +183,48 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "READING" as const,
     groupType: JUDGEMENT_SECTION as typeof JUDGEMENT_SECTION,
     type: "true_false",
-    samplePrompt: "",
     instruction: "Đọc đoạn văn và chọn √ Đúng hoặc × Sai cho từng phát biểu.",
     options: [],
-    correctAnswer: "",
     points: 2,
   },
   {
     name: "✍️ Sắp xếp các từ thành câu hoàn chỉnh (Sentence Order)",
     skill: "WRITING" as const,
     type: "sentence_order",
-    samplePrompt: "请将给出的词语组合成一句完整通顺的句子。",
     instruction: "Sắp xếp các từ ngữ cho sẵn thành một câu hoàn chỉnh, đúng quy tắc ngữ pháp.",
     options: [],
-    correctAnswer: "词语一 词语二 词语三。",
     points: 5,
   },
   {
     name: "✍️ Nhìn pinyin viết chữ Hán đúng (Điền từ Hán tự)",
     skill: "WRITING" as const,
     type: "fill_blank",
-    samplePrompt: "根据拼音写汉字：听说这些鸟是从北（ fāng ）飞过来的。",
     instruction: "Căn cứ vào phiên âm pinyin trong ngoặc, viết chữ Hán chính xác vào chỗ trống.",
     options: [],
-    correctAnswer: "方",
     points: 4,
   },
   {
     name: "✍️ Nhìn tranh và dùng từ cho trước viết câu (看图造句)",
     skill: "WRITING" as const,
     type: "writing",
-    samplePrompt: "看图并使用给出的词语造句。",
     instruction: "Quan sát bức tranh và sử dụng tất cả từ ngữ cho trước để viết một câu hoàn chỉnh miêu tả tranh.",
     options: [],
-    correctAnswer: "参考答案：虽然下雨，但是我们还是去上课了。",
     points: 10,
-    imageUrl: "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=600&auto=format&fit=crop&q=80",
-    givenWords: [
-      { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
-      { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
-      { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
-    ],
   },
   {
     name: "✍️ Viết đoạn văn tự luận (Essay Writing ~80-400 chữ)",
     skill: "WRITING" as const,
     type: "essay",
-    samplePrompt: "请结合下列词语或图片，写一篇短文。",
     instruction: "Viết bài văn ngắn theo yêu cầu đề bài hoặc tóm tắt nội dung văn bản.",
     options: [],
-    correctAnswer: "参考范文：主题明确，表达流畅。",
     points: 30,
   },
   {
     name: "🔍 Tìm câu có lỗi sai ngữ pháp (HSK 6 Find Error)",
     skill: "READING" as const,
     type: "find_error",
-    samplePrompt: "下列 4 个句子中，存在病句（语病）的是哪一项？",
     instruction: "Trong 4 câu A, B, C, D, hãy chọn ra câu có lỗi sai về ngữ pháp hoặc cách dùng từ.",
-    options: [
-      { id: "A", text: "Câu A: Ngữ pháp chuẩn xác." },
-      { id: "B", text: "Câu B: Có lỗi sai trật tự từ hoặc dùng từ sai." },
-      { id: "C", text: "Câu C: Ngữ pháp chuẩn xác." },
-      { id: "D", text: "Câu D: Ngữ pháp chuẩn xác." },
-    ],
-    correctAnswer: "B",
+    options: ["A", "B", "C", "D"].map(id => ({ id, text: "" })),
     points: 2.5,
   },
   {
@@ -290,10 +232,8 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "SPEAKING" as const,
     groupType: "hskk_listen_repeat" as const,
     type: "speaking_audio",
-    samplePrompt: "请听录音，并在听到提示音后录音复述或回答。",
     instruction: "Hệ thống phát audio đề bài. Sau khi nghe xong, thí sinh ghi âm câu nhắc lại hoặc câu trả lời của mình.",
     options: [],
-    correctAnswer: "Bản ghi âm phát âm rõ ràng, chuẩn thanh điệu và nội dung.",
     points: 4,
     requiresManualReview: true,
   },
@@ -302,11 +242,8 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "SPEAKING" as const,
     groupType: "hskk_read_prompt" as const,
     type: "speaking_prompt",
-    samplePrompt: "请阅读下面的问题，并在准备后录音回答：你平时有什么爱好？为什么喜欢？",
     instruction: "Đọc câu hỏi hoặc đoạn văn chữ Hán (+ pinyin nếu có), suy nghĩ và ghi âm câu trả lời hoàn chỉnh.",
-    pinyin: "Nǐ píngshí yǒu shénme àihào? Wèishénme xǐhuān?",
     options: [],
-    correctAnswer: "Câu trả lời mạch lạc, sử dụng đúng từ vựng và ngữ pháp tương đương cấp độ.",
     points: 10,
     requiresManualReview: true,
   },
@@ -315,11 +252,8 @@ export const HSK_GROUP_TEMPLATES = [
     skill: "SPEAKING" as const,
     groupType: "hskk_picture_speaking" as const,
     type: "speaking_picture",
-    samplePrompt: "请观察图片，结合画面内容说一段完整的话 (至少 3-5 句话)。",
     instruction: "Quan sát bức tranh cẩn thận và ghi âm bài nói miêu tả nội dung, hành động và cảm xúc nhân vật trong tranh.",
-    imageUrl: "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=600&auto=format&fit=crop&q=80",
     options: [],
-    correctAnswer: "Miêu tả đầy đủ chi tiết bức tranh: thời gian, địa điểm, con người, hành động.",
     points: 15,
     requiresManualReview: true,
   },
@@ -390,7 +324,7 @@ export default function ExamStaff({
   const [hskkGroups, setHskkGroups] = useState<ExamSectionGroup[]>([]);
   const [hskkActiveGroupId, setHskkActiveGroupId] = useState<string>("");
   const [hskkDuration, setHskkDuration] = useState<number>(20);
-  const [hskkLevel, setHskkLevel] = useState<"HSKK_BEGINNER" | "HSKK_INTERMEDIATE" | "HSKK_ADVANCED">("HSKK_BEGINNER");
+  const [hskkLevel, setHskkLevel] = useState<HskkLevel>("HSKK_BEGINNER");
   const hskkDraft = useMemo(() => ({ groups: hskkGroups, level: hskkLevel, durationMin: hskkDuration }), [hskkGroups, hskkLevel, hskkDuration]);
   const restoreHskkDraft = (draft?: { groups?: ExamSectionGroup[]; level?: string; durationMin?: number } | null) => {
     const restored = Array.isArray(draft?.groups) ? draft.groups : [];
@@ -534,20 +468,22 @@ export default function ExamStaff({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Nạp mẫu Khẩu ngữ HSKK ghép cùng bộ đề HSK
-  const loadHskkTemplate = (type: "HSKK_BEGINNER" | "HSKK_INTERMEDIATE" | "HSKK_ADVANCED") => {
-    let pkg;
-    if (type === "HSKK_BEGINNER") pkg = buildHskkBeginnerTemplate(`${authorTitle || "Đề thi HSK"} (HSKK Sơ cấp)`);
-    else if (type === "HSKK_INTERMEDIATE") pkg = buildHskkIntermediateTemplate(`${authorTitle || "Đề thi HSK"} (HSKK Trung cấp)`);
-    else pkg = buildHskkAdvancedTemplate(`${authorTitle || "Đề thi HSK"} (HSKK Cao cấp)`);
-
-    setHskkGroups(pkg.groups);
-    if (pkg.groups[0]?.id) setHskkActiveGroupId(pkg.groups[0].id);
-    setHskkDuration(pkg.durationMin);
-    setHskkLevel(pkg.level);
+  // Tạo khung Khẩu ngữ HSKK ghép cùng bộ đề HSK
+  const loadHskkTemplate = (type: HskkLevel) => {
+    if (mediaUploading) return;
+    if (hskkGroups.some(group => group.questions.length > 0)) {
+      setError("Phần HSKK đã có câu hỏi. Hãy thêm nhóm để tiếp tục soạn đề hiện tại.");
+      return;
+    }
+    if (authorMode === "raw" && !handleSwitchMode("grouped")) return;
+    const template = buildHskkTemplate(type);
+    setHskkGroups(template.groups);
+    setHskkActiveGroupId(template.groups[0].id);
+    setHskkDuration(template.durationMin);
+    setHskkLevel(template.level);
     setAuthorActiveTab("hskk");
-    const count = pkg.groups.reduce((sum, g) => sum + sectionQuestions(g).length, 0);
-    setMessage(`✅ Đã nạp thành công bộ mẫu "${pkg.levelName}" (${count} câu) ghép vào cùng bộ đề này! Toàn bộ nội dung bài thi HSK của bạn vẫn được giữ nguyên đầy đủ.`);
+    setError("");
+    setMessage(`Đã tạo khung HSKK ${template.label}. Chọn từng phần và bấm Thêm câu hỏi.`);
   };
 
   // Tiếp nhận kết quả import từ file Excel / Word
@@ -886,7 +822,6 @@ export default function ExamStaff({
   // Thêm nhóm bài mới (hỗ trợ cả HSK và Khẩu ngữ HSKK)
   const handleAddGroup = (template?: typeof HSK_GROUP_TEMPLATES[number]) => {
     const newId = `group_${Date.now()}`;
-    const defaultAudio = groupAudioForLevel(authorLevel);
     const isHskk = authorActiveTab === "hskk" || (template && ("skill" in template) && template.skill === "SPEAKING");
     const targetGroups = isHskk ? hskkGroups : groups;
     const setTargetGroups = isHskk ? setHskkGroups : setGroups;
@@ -905,40 +840,24 @@ export default function ExamStaff({
 
       const questionsCount = (gType === "matching_images" || gType === READING_REPLIES || gType === "eval_true_false_na") ? 5 : 1;
       const initialQuestions: QuestionItem[] = [];
-      for (let i = 1; i <= questionsCount; i++) {
-        const itemGivenWords = (template as any).givenWords
-          ? JSON.parse(JSON.stringify((template as any).givenWords))
-          : template.type === "writing"
-          ? [
-              { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
-              { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
-              { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
-            ]
-          : undefined;
-
+      for (let i = 1; !isHskk && i <= questionsCount; i++) {
         initialQuestions.push({
           id: `q_${Date.now()}_${i}`,
           questionNumber: startNum + i - 1,
           type: template.type,
-          content: (gType === "matching_images" && template.skill === "READING") || gType === READING_REPLIES ? "" : template.samplePrompt || "请选择正确答案。",
+          content: "",
           points: template.points,
-          correctAnswer: gType === "matching_images" || gType === READING_REPLIES ? "" : template.correctAnswer,
-          acceptedAnswers: (template as any).acceptedAnswers || "",
+          correctAnswer: "",
           requiresManualReview: !!(template as any).requiresManualReview,
-          options: Array.isArray(template.options) ? template.options.map((opt) => ({ ...opt })) : [],
-          givenWords: itemGivenWords,
-          imageUrl: (template as any).imageUrl || "",
-          sampleAnswer: (template as any).sampleAnswer || template.correctAnswer || "",
+          options: template.options.map(opt => ({ id: opt.id, text: template.type === "true_false" || template.type === "true_false_na" ? opt.text : "" })),
         });
       }
 
       newGroup = {
         id: newId,
-        title: `Nhóm ${groups.length + 1}: ${template.name}`,
+        title: `Nhóm ${targetGroups.length + 1}: ${template.name}`,
         skill: template.skill,
         instruction: template.instruction,
-        audioUrl: template.skill === "LISTENING" && gType !== "matching_images" && !isSharedListeningGroup(gType) ? defaultAudio : "",
-        passage: template.passage || "",
         groupType: gType,
         groupImages: initialImages,
         groupReplies: gType === READING_REPLIES ? replySlots() : undefined,
@@ -947,26 +866,10 @@ export default function ExamStaff({
     } else {
       newGroup = {
         id: newId,
-        title: `Nhóm ${groups.length + 1}: Phần câu hỏi mới`,
-        skill: "READING",
-        instruction: "Đọc câu hỏi và chọn đáp án chính xác.",
+        title: `Nhóm ${targetGroups.length + 1}: Phần câu hỏi mới`,
+        skill: isHskk ? "SPEAKING" : "READING",
         groupType: "standard",
-        questions: [
-          {
-            id: `q_${Date.now()}_1`,
-            questionNumber: startNum,
-            type: "multiple_choice",
-            content: "请选择正确答案。",
-            points: 2.5,
-            correctAnswer: "A",
-            options: [
-              { id: "A", text: "Lựa chọn A" },
-              { id: "B", text: "Lựa chọn B" },
-              { id: "C", text: "Lựa chọn C" },
-              { id: "D", text: "Lựa chọn D" },
-            ],
-          },
-        ],
+        questions: [],
       };
     }
     if (isReadingSection(newGroup.groupType)) {
@@ -1071,72 +974,62 @@ export default function ExamStaff({
         const lastQ = g.questions[g.questions.length - 1];
         const nextQNo = nextQuestionNumber(prev.flatMap(sectionQuestions));
 
-        let targetType = g.groupType === "matching_images" ? "matching" : lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
+        const targetType = g.groupType === "matching_images" ? "matching" : lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
         if (g.skill === "SPEAKING") {
-          targetType = lastQ ? lastQ.type : (g.groupType === "hskk_listen_repeat" ? "speaking_audio" : g.groupType === "hskk_picture_speaking" ? "speaking_picture" : "speaking_prompt");
+          return { ...g, questions: [...g.questions, {
+            id: `q_${Date.now()}_${totalInGroup}`,
+            questionNumber: nextQNo,
+            type: lastQ?.type || hskkQuestionType(g.groupType),
+            content: "",
+            points: lastQ?.points ?? 0,
+            correctAnswer: "",
+            options: [],
+          }] };
         }
         let initialOptions: QuestionOption[] = [
-          { id: "A", text: "Lựa chọn A" },
-          { id: "B", text: "Lựa chọn B" },
-          { id: "C", text: "Lựa chọn C" },
-          { id: "D", text: "Lựa chọn D" },
+          { id: "A", text: "" },
+          { id: "B", text: "" },
+          { id: "C", text: "" },
+          { id: "D", text: "" },
         ];
-        let initialAnswer = "A";
 
         if (g.groupType === "matching_images" || targetType === "matching") {
-          if (g.groupType === "matching_images") initialAnswer = "";
+
           initialOptions = ["A", "B", "C", "D", "E", "F"].map((l) => ({ id: l, text: `Tranh ${l}` }));
         } else if (g.groupType === "listening_choice_abc") {
-          initialOptions = [
-            { id: "A", text: "吃饭", pinyin: "chī fàn" },
-            { id: "B", text: "喝茶", pinyin: "hē chá" },
-            { id: "C", text: "看书", pinyin: "kàn shū" },
-          ];
+          initialOptions = ["A", "B", "C"].map(id => ({ id, text: "" }));
         } else if (g.groupType === "eval_true_false_na" || targetType === "true_false_na") {
           initialOptions = [
             { id: "true", text: "√ Đúng (对)" },
             { id: "false", text: "× Sai (错)" },
             { id: "not_mentioned", text: "〇 Không đề cập (没提及)" },
           ];
-          initialAnswer = "true";
+
         } else if (g.groupType === "listening_fill_blank" || targetType === "listening_fill") {
           initialOptions = [];
-          initialAnswer = "";
+
         } else if (targetType === "true_false") {
           initialOptions = [
             { id: "true", text: "Đúng (对)" },
             { id: "false", text: "Sai (错)" },
           ];
-          initialAnswer = "true";
+
         } else if (targetType === "writing") {
           initialOptions = [];
-          initialAnswer = lastQ?.correctAnswer || "参考答案：虽然下雨，但是我们还是去上课了。";
+
         } else if (lastQ && Array.isArray(lastQ.options) && lastQ.options.length) {
-          initialOptions = lastQ.options.map((opt) => ({ id: opt.id, text: opt.text || `Lựa chọn ${opt.id}`, pinyin: opt.pinyin || "" }));
+          initialOptions = lastQ.options.map(opt => ({ id: opt.id, text: "" }));
         }
 
         const newQ: QuestionItem = {
           id: `q_${Date.now()}_${totalInGroup}`,
           questionNumber: nextQNo,
           type: targetType,
-          content: targetType === "writing" ? "看图并使用给出的词语造句。" : g.groupType === "matching_images" && g.skill === "READING" ? "" : "请根据题目选择正确答案。",
-          points: lastQ?.points ?? (targetType === "writing" ? 10 : 2.5),
-          correctAnswer: initialAnswer,
-          acceptedAnswers: lastQ?.acceptedAnswers || "",
-          requiresManualReview: targetType === "writing" ? true : !!lastQ?.requiresManualReview,
+          content: "",
+          points: lastQ?.points ?? 0,
+          correctAnswer: "",
+          requiresManualReview: targetType === "writing",
           options: initialOptions,
-          givenWords: targetType === "writing"
-            ? (lastQ && Array.isArray((lastQ as any).givenWords) && (lastQ as any).givenWords.length > 0
-                ? (lastQ as any).givenWords.map((w: any) => ({ ...w, id: `gw_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` }))
-                : [
-                    { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
-                    { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
-                    { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
-                  ])
-            : undefined,
-          sampleAnswer: targetType === "writing" ? (lastQ?.sampleAnswer || initialAnswer) : undefined,
-          explanation: lastQ?.explanation || "",
-          imageUrl: targetType === "writing" && lastQ?.imageUrl ? lastQ.imageUrl : "",
         };
         return { ...g, questions: [...g.questions, newQ] };
       })
@@ -1149,7 +1042,7 @@ export default function ExamStaff({
     setTargetGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
-        if (g.questions.length <= 1) {
+        if (authorActiveTab !== "hskk" && g.questions.length <= 1) {
           setError("Mỗi nhóm bài phải có ít nhất 1 câu hỏi.");
           return g;
         }
@@ -1212,7 +1105,7 @@ export default function ExamStaff({
 
   // Đổi chế độ Soạn bài
   const handleSwitchMode = (targetMode: "grouped" | "raw") => {
-    if (mediaUploading) return;
+    if (mediaUploading) return false;
     if (targetMode === "raw") {
       const flat = flattenGroups(groups);
       setJsonInput(JSON.stringify(flat, null, 2));
@@ -1229,9 +1122,11 @@ export default function ExamStaff({
         }
       } catch {
         setError("JSON chưa đúng định dạng. Đã giữ nguyên cấu trúc nhóm bài cũ.");
+        return false;
       }
       setAuthorMode("grouped");
     }
+    return true;
   };
 
   // Preview giao diện học sinh
@@ -1332,24 +1227,11 @@ export default function ExamStaff({
         throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
       }
 
-      // Tự động bảo hiểm tiêu đề đề thi nếu giáo viên chưa kịp nhập
-      const finalTitle = authorTitle.trim() || `Đề thi mô phỏng HSK ${authorLevel} · ${new Date().toLocaleDateString("vi-VN")}`;
-      if (!authorTitle.trim()) {
-        setAuthorTitle(finalTitle);
-      }
+      // Yêu cầu tiêu đề đã nhập khi xuất bản
+      const finalTitle = authorTitle.trim();
+      if (!finalTitle) throw new Error("Nhập tên đề trước khi xuất bản.");
 
-      // Đảm bảo tất cả câu hỏi nhỏ đều có ID riêng, điểm hợp lệ và nội dung không rỗng
-      parsed.forEach((q, idx) => {
-        if (!q.id || q.id === "undefined") {
-          q.id = `q_${Date.now()}_${idx + 1}`;
-        }
-        if (!q.content || !q.content.trim()) {
-          q.content = `Câu hỏi số ${idx + 1}`;
-        }
-        if (q.points === undefined || q.points === null || isNaN(Number(q.points)) || Number(q.points) < 0) {
-          q.points = 1;
-        }
-      });
+      const publishedHskkGroups = hskkGroups.filter(group => group.questions.length > 0);
 
       const payload: any = {
         level: authorLevel,
@@ -1364,17 +1246,18 @@ export default function ExamStaff({
         payload.paperId = editingPaperId;
       }
 
-      if (hskkGroups.length > 0) {
+      if (publishedHskkGroups.length > 0) {
         payload.hskkExam = {
           title: `${finalTitle} (Khẩu ngữ HSKK)`,
           ...hskkDraft,
+          groups: publishedHskkGroups,
         };
       }
 
       const { paperId, duplicateQuestionNumbers: duplicates } = await examApi<{ paperId: string; duplicateQuestionNumbers: number[] }>("importPaper", payload);
 
       setPublishedLink(`/s/mock-exam?${new URLSearchParams({ view: "intro", id: paperId, level: String(levelGroup(authorLevel)) })}`);
-      const isEdit = !!editingPaperId; setEditingPaperId(null); setMessage(`${isEdit ? "✅ Đã cập nhật thành công" : "Đã xuất bản"} đề “${finalTitle}” (${parsed.length} câu)${hskkGroups.length ? ` kèm Khẩu ngữ HSKK (${hskkGroups.reduce((s, g) => s + sectionQuestions(g).length, 0)} câu)` : ""}. Học sinh có thể mở đề trong phòng thi.${
+      const isEdit = !!editingPaperId; setEditingPaperId(null); setMessage(`${isEdit ? "✅ Đã cập nhật thành công" : "Đã xuất bản"} đề “${finalTitle}” (${parsed.length} câu)${publishedHskkGroups.length ? ` kèm Khẩu ngữ HSKK (${hskkGroups.reduce((s, g) => s + sectionQuestions(g).length, 0)} câu)` : ""}. Học sinh có thể mở đề trong phòng thi.${
         duplicates?.length ? ` Cảnh báo: trùng số câu ${duplicates.join(", ")}.` : ""
       }`);
       onChanged();
@@ -1385,14 +1268,11 @@ export default function ExamStaff({
     }
   };
 
-  const duplicatedNumbers = duplicateQuestionNumbers(groups.flatMap(sectionQuestions));
+  const selectedQuestions = (authorActiveTab === "hskk" ? hskkGroups : groups).flatMap(sectionQuestions);
+  const duplicatedNumbers = duplicateQuestionNumbers(selectedQuestions);
 
   const totalQuestionsCount = authorMode === "grouped"
     ? groups.reduce((sum, g) => sum + sectionQuestions(g).length, 0)
-    : 0;
-
-  const totalPointsSum = authorMode === "grouped"
-    ? groups.reduce((sum, g) => sum + sectionQuestions(g).reduce((qSum, q) => qSum + (Number(q.points) || 0), 0), 0)
     : 0;
 
   return (
@@ -1637,9 +1517,9 @@ export default function ExamStaff({
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
-                title="Nạp mẫu bài thi Khẩu ngữ HSKK Sơ cấp (ghép cùng HSK 1, 2, 3)"
+                title="Tạo khung Khẩu ngữ HSKK Sơ cấp (ghép cùng HSK 1, 2, 3)"
               >
-                🎙️ HSKK Sơ cấp
+                🎙️ Tạo khung HSKK Sơ cấp
               </button>
               <button
                 type="button"
@@ -1655,9 +1535,9 @@ export default function ExamStaff({
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
-                title="Nạp mẫu bài thi Khẩu ngữ HSKK Trung cấp (ghép cùng HSK 4)"
+                title="Tạo khung Khẩu ngữ HSKK Trung cấp (ghép cùng HSK 4)"
               >
-                🎙️ HSKK Trung cấp
+                🎙️ Tạo khung HSKK Trung cấp
               </button>
               <button
                 type="button"
@@ -1673,9 +1553,9 @@ export default function ExamStaff({
                   fontWeight: 600,
                   cursor: "pointer",
                 }}
-                title="Nạp mẫu bài thi Khẩu ngữ HSKK Cao cấp (ghép cùng HSK 5, 6)"
+                title="Tạo khung Khẩu ngữ HSKK Cao cấp (ghép cùng HSK 5, 6)"
               >
-                🎙️ HSKK Cao cấp
+                🎙️ Tạo khung HSKK Cao cấp
               </button>
             </div>
 
@@ -1985,12 +1865,12 @@ export default function ExamStaff({
 
             {authorMode === "grouped" && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "#3e5b38" }}>
-                <span>Tổng cộng: <strong>{totalQuestionsCount} câu hỏi</strong></span>
+                <span>Tổng cộng: <strong>{selectedQuestions.length} câu hỏi</strong></span>
                 {duplicatedNumbers.length > 0 && (
                   <span role="status" className={s.notice}>Trùng số câu trong đề: {duplicatedNumbers.join(", ")}</span>
                 )}
                 <span>•</span>
-                <span>Tổng điểm: <strong>{totalPointsSum.toFixed(1)} điểm</strong></span>
+                <span>Tổng điểm: <strong>{selectedQuestions.reduce((sum, q) => sum + (Number(q.points) || 0), 0).toFixed(1)} điểm</strong></span>
                 <span>•</span>
                 <button
                   type="button"
@@ -2078,7 +1958,7 @@ export default function ExamStaff({
                         Bộ đề này chưa ghép bài thi Khẩu ngữ HSKK (0 nhóm bài)
                       </h4>
                       <p style={{ fontSize: 13, color: "#991b1b", margin: 0, maxWidth: 540, lineHeight: 1.6 }}>
-                        Bạn có thể bấm nạp nhanh mẫu đề thi chuẩn CTI tương ứng với cấp độ HSK đang soạn, hoặc bấm thêm nhóm câu hỏi khẩu ngữ tùy chỉnh.
+                        Bạn có thể bấm tạo nhanh khung phần thi tương ứng với cấp độ HSK đang soạn, hoặc bấm thêm nhóm câu hỏi khẩu ngữ tùy chỉnh.
                       </p>
                     </div>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
@@ -2087,21 +1967,21 @@ export default function ExamStaff({
                         onClick={() => loadHskkTemplate("HSKK_BEGINNER")}
                         style={{ background: "#dc2626", color: "#ffffff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                       >
-                        🎙️ Nạp mẫu HSKK Sơ cấp (HSK 1-3)
+                        🎙️ Tạo khung HSKK Sơ cấp (HSK 1-3)
                       </button>
                       <button
                         type="button"
                         onClick={() => loadHskkTemplate("HSKK_INTERMEDIATE")}
                         style={{ background: "#b91c1c", color: "#ffffff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                       >
-                        🎙️ Nạp mẫu HSKK Trung cấp (HSK 4)
+                        🎙️ Tạo khung HSKK Trung cấp (HSK 4)
                       </button>
                       <button
                         type="button"
                         onClick={() => loadHskkTemplate("HSKK_ADVANCED")}
                         style={{ background: "#991b1b", color: "#ffffff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                       >
-                        🎙️ Nạp mẫu HSKK Cao cấp (HSK 5-6)
+                        🎙️ Tạo khung HSKK Cao cấp (HSK 5-6)
                       </button>
                     </div>
                   </div>
@@ -2292,19 +2172,20 @@ export default function ExamStaff({
                               Kỹ năng *
                               <select
                                 value={group.skill}
-                                disabled={group.groupType === READING_REPLIES || isReadingCloze(group.groupType) || isReadingSection(group.groupType)}
+                                disabled={isHskk || group.groupType === READING_REPLIES || isReadingCloze(group.groupType) || isReadingSection(group.groupType)}
                                 onChange={(e) => handleUpdateGroup(group.id, { skill: e.target.value as any })}
                               >
                                 <option value="LISTENING">🎧 Nghe (LISTENING)</option>
                                 <option value="READING">📖 Đọc (READING)</option>
                                 <option value="WRITING">✍️ Viết (WRITING)</option>
-                                <option value="SPEAKING">🗣️ Nói (SPEAKING)</option>
+                                {isHskk && <option value="SPEAKING">🗣️ Nói (SPEAKING)</option>}
                               </select>
                             </label>
 
                             <label>
                               Định dạng cấu trúc nhóm:
                               <select
+                                disabled={isHskk}
                                 value={group.groupType || "standard"}
                                 onChange={(e) => {
                                   const gType = e.target.value as ExamSectionGroup["groupType"];
@@ -2327,7 +2208,8 @@ export default function ExamStaff({
                                   handleUpdateGroup(group.id, patch);
                                 }}
                               >
-                                <option value="standard">Tiêu chuẩn (Trắc nghiệm / Tự luận từng câu)</option>
+                                {isHskk && <option value={group.groupType || "standard"}>Khẩu ngữ HSKK</option>}
+                                {!isHskk && <option value="standard">Tiêu chuẩn (Trắc nghiệm / Tự luận từng câu)</option>}
                                 <option value="matching_images">🖼️ {group.skill === "READING" ? "Đọc câu ghép tranh A–F" : "Ghép tranh A–F"}</option>
                                 <option value={READING_REPLIES}>阅读问答匹配 – Đọc nối câu hỏi với câu trả lời A–F</option>
                                 <option value={PASSAGE_SECTION}>Đọc hiểu đoạn văn – Passage + Multiple Choice</option>
@@ -3309,33 +3191,19 @@ export default function ExamStaff({
                                     <select
                                       value={q.type}
                                       onChange={(e) => {
-                                        const nextType = e.target.value;
-                                        const patch: Partial<QuestionItem> = { type: nextType };
-                                        if (nextType === "writing") {
-                                          if (group.skill !== "WRITING") {
-                                            handleUpdateGroup(group.id, { skill: "WRITING" });
-                                          }
-                                          if (!q.content || q.content.includes("选择正确答案")) {
-                                            patch.content = "看图并使用给出的词语造句。";
-                                          }
-                                          if (!Array.isArray((q as any).givenWords) || (q as any).givenWords.length === 0) {
-                                            patch.givenWords = [
-                                              { id: "gw_1", word: "虽然", pinyin: "suīrán", meaning: "tuy rằng" },
-                                              { id: "gw_2", word: "下雨", pinyin: "xiàyǔ", meaning: "mưa" },
-                                              { id: "gw_3", word: "但是", pinyin: "dànshì", meaning: "nhưng" },
-                                            ];
-                                          }
-                                          if (!q.imageUrl) {
-                                            patch.imageUrl = "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=600&auto=format&fit=crop&q=80";
-                                          }
-                                          if (!q.correctAnswer || q.correctAnswer === "A") {
-                                            patch.correctAnswer = "参考答案：虽然下雨，但是我们还是去上课了。";
-                                          }
+                                        const type = e.target.value;
+                                        if (type === "writing" && group.skill !== "WRITING") {
+                                          handleUpdateGroup(group.id, { skill: "WRITING" });
                                         }
-                                        handleUpdateQuestion(group.id, q.id, patch);
+                                        handleUpdateQuestion(group.id, q.id, { type });
                                       }}
                                       style={{ fontSize: 12, padding: "4px 8px" }}
                                     >
+                                      {isHskk ? <>
+                                        <option value="speaking_audio">Nghe và ghi âm trả lời</option>
+                                        <option value="speaking_prompt">Đọc và ghi âm trả lời</option>
+                                        <option value="speaking_picture">Nhìn tranh và ghi âm</option>
+                                      </> : <>
                                       <option value="multiple_choice">Trắc nghiệm (A, B, C, D...)</option>
                                       <option value="listening_choice">Nghe chọn đáp án</option>
                                       <option value="true_false">Phán đoán Đúng / Sai (对 / 错)</option>
@@ -3347,6 +3215,7 @@ export default function ExamStaff({
                                       <option value="writing">✍️ Nhìn tranh và dùng từ cho trước viết câu (HSK 4-6)</option>
                                       <option value="essay">✍️ Viết đoạn văn tự luận (Essay Writing ~80-400 chữ)</option>
                                       <option value="find_error">🔍 Tìm câu có lỗi sai ngữ pháp (HSK 6)</option>
+                                      </>}
                                     </select>
                                   </div>
 
@@ -3912,11 +3781,11 @@ export default function ExamStaff({
                 </div>
 
                 <div style={{ fontSize: 12, color: "#506d48" }}>
-                  💡 Hoặc bấm chọn nhanh 1 trong 14 dạng bài thi chuẩn CTI / Hanban (khớp đề thi thực tế HSK 1 - 6):
+                  Chọn dạng bài để tạo nhóm:
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
-                  {HSK_GROUP_TEMPLATES.map((tmpl, idx) => (
+                  {HSK_GROUP_TEMPLATES.filter(template => (template.skill === "SPEAKING") === (authorActiveTab === "hskk")).map((tmpl, idx) => (
                     <button
                       key={idx}
                       type="button"

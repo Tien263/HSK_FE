@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -1042,9 +1043,7 @@ export default function AdminDashboardPage() {
         />
         <div className="relative flex items-center justify-between px-6 pb-6 pt-7">
           <Link href="/" className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#204434] font-serif text-xl text-[#FFFCF6]">
-              宁
-            </span>
+            <BrandMark size={38} />
             <span>
               <strong className="block font-serif text-xl">Hanyu</strong>
               <small className="text-[9px] font-bold uppercase tracking-[.18em] text-[#64755d]">
@@ -1322,9 +1321,7 @@ export default function AdminDashboardPage() {
               <Menu className="w-5 h-5" />
             </button>
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-lg font-bold shadow-md group-hover:scale-105 transition-transform">
-                <span>宁</span>
-              </div>
+              <BrandMark size={38} />
               <div>
                 <div className="font-serif font-bold text-lg text-[#204434] tracking-tight flex items-center gap-2">
                   <span>Hanyu</span>

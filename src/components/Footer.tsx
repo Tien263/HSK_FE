@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import Link from "next/link";
 
 export default function Footer() {
@@ -45,7 +46,7 @@ export default function Footer() {
           {/* Col 1: Logo & Slogan */}
           <div className="md:col-span-4">
             <Link href="/" className="flex items-center gap-2 mb-3">
-              <span className="text-xl">🍃</span>
+              <BrandMark size={38} />
               <span className="font-serif font-bold text-2xl text-white tracking-tight">
                 Hanyu
               </span>

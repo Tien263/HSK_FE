@@ -1,7 +1,7 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Download, X, Share, PlusSquare, Sparkles } from "lucide-react";
 
@@ -97,9 +97,7 @@ export default function PwaInstallBanner() {
       {/* Banner ghim đáy tinh tế cho mobile */}
       <div className="fixed bottom-20 sm:bottom-6 inset-x-3 sm:inset-x-auto sm:right-6 sm:w-96 z-40 bg-[#FFFDF7] border border-[#BC9B6B]/40 rounded-2xl shadow-xl p-3.5 backdrop-blur-md animate-in slide-in-from-bottom-4 duration-300">
         <div className="flex items-start gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#204434] p-1.5 flex items-center justify-center shrink-0 shadow-sm border border-[#D9B472]/30">
-            <span className="text-[#FCEFD2] font-serif font-bold text-lg">汉</span>
-          </div>
+          <BrandMark size={44} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 uppercase tracking-wider">

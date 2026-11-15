@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -268,16 +269,7 @@ export default function ExamRulesLobby({
          ========================================================================= */}
       <nav className={s.topNav}>
         <div className={s.brandCluster}>
-          <div className={s.bambooLogo}>
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <path d="M9 25V3M17 25V7" stroke="#2c5732" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M7 16H11M7 9H11M15 18H19M15 12H19" stroke="#1d4023" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M11 9C14 6 18 7 19 8C17 10 14 11 11 9Z" fill="#3a6b3e" />
-              <path d="M9 16C6 14 3 15 2 16C4 18 7 18 9 16Z" fill="#4b8250" />
-              <path d="M19 12C22 10 25 11 26 12C24 14 21 14 19 12Z" fill="#3a6b3e" />
-              <path d="M17 7C19 4 23 4 24 5C22 7 19 7 17 7Z" fill="#4b8250" />
-            </svg>
-          </div>
+          <BrandMark size={40} />
           <div className={s.brandTexts}>
             <strong className={s.brandEn}>HSK Exam Center</strong>
             <span className={s.brandZh}>汉语水平考试中心</span>

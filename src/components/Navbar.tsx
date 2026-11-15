@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, X, LogIn, Sparkles } from "lucide-react";
@@ -11,9 +12,7 @@ export default function Navbar() {
     <header className="relative z-50 w-full max-w-7xl mx-auto px-6 lg:px-12 pt-6 pb-4 flex items-center justify-between text-white">
       {/* Brand Logo: Circle badge + 2-line brand name */}
       <Link href="/" className="flex items-center gap-3 group">
-        <div className="w-11 h-11 rounded-full border border-white/30 flex items-center justify-center bg-[#0d2816]/80 text-[#c3dc4e] font-black text-xl group-hover:border-[#c3dc4e] transition shadow-md">
-          <span>宁</span>
-        </div>
+        <BrandMark size={44} />
         <div className="leading-tight">
           <span className="font-bold text-white text-[15px] tracking-wider block font-sans">
             宁宁老师中文课堂

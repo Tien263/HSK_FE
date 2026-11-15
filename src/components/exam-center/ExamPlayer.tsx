@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
@@ -16,7 +17,6 @@ import {
   HelpCircle,
   Info,
   Layers,
-  Leaf,
   Lock,
   Mic,
   Pause,
@@ -33,7 +33,7 @@ import {
 import ExamAntiCheatProctor from "@/components/common/ExamAntiCheatProctor";
 import ComponentErrorBoundary from "@/components/common/ComponentErrorBoundary";
 import type { attemptForOwner } from "@/lib/exam-center-core";
-import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, type ExamSkill } from "@/lib/exam-center-core";
+import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, READING_REPLIES, replySlots, type ExamSkill } from "@/lib/exam-center-core";
 import { attemptApi, examApi, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
 import ExamResult from "./ExamResult";
@@ -105,7 +105,7 @@ export default function ExamPlayer({
   // Audio simulation state for Listening
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(18);
+  const [audioDuration, setAudioDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -519,7 +519,7 @@ export default function ExamPlayer({
         {/* Brand Logo & Exam Center Info */}
         <div className={s.brandGroup}>
           <div className={s.brandLogo}>
-            <Leaf size={30} />
+            <BrandMark size={40} />
           </div>
           <div className={s.brandTitles}>
             <strong>HSK Exam Center</strong>
@@ -742,22 +742,28 @@ export default function ExamPlayer({
           )}
 
           {/* Audio Player Bar (for Listening questions - đặt trên cùng để nghe liên tục xuyên suốt nhóm) */}
-          {currentQ.skill === "LISTENING" && (
+          {currentQ.skill === "LISTENING" && !currentQ.audioUrl && <p role="status">Chưa có audio cho câu này.</p>}
+          {currentQ.skill === "LISTENING" && currentQ.audioUrl && (
             <div className={s.audioBar} style={{ marginBottom: 16 }}>
               <audio
                 ref={audioRef}
-                src={
-                  currentQ.audioUrl ||
-                  sampleExamAudio(attempt.level)
-                }
+                src={currentQ.audioUrl}
+                onLoadedMetadata={event => {
+                  const duration = event.currentTarget.duration;
+                  setAudioDuration(Number.isFinite(duration) ? duration : 0);
+                  event.currentTarget.volume = volume;
+                }}
+                onEmptied={() => {
+                  setAudioDuration(0);
+                  setAudioProgress(0);
+                  setIsPlayingAudio(false);
+                }}
                 onPlay={() => setIsPlayingAudio(true)}
                 onPause={() => setIsPlayingAudio(false)}
                 onTimeUpdate={() => {
-                  if (audioRef.current) {
-                    const cur = audioRef.current.currentTime;
-                    const dur = audioRef.current.duration || 18;
-                    setAudioProgress((cur / dur) * 100);
-                    setAudioDuration(dur);
+                  const audio = audioRef.current;
+                  if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
+                    setAudioProgress((audio.currentTime / audio.duration) * 100);
                   }
                 }}
                 onEnded={() => setIsPlayingAudio(false)}

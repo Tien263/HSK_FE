@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -666,9 +667,7 @@ export default function StudentHomePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8F5ED] flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="w-12 h-12 rounded-2xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-2xl font-bold shadow-md mb-4 animate-pulse">
-          宁
-        </div>
+        <BrandMark size={32} />
         <p className="text-sm font-semibold text-[#204434]">Đang tải không gian học tập Hanyu...</p>
       </div>
     );
@@ -706,9 +705,7 @@ export default function StudentHomePage() {
           {/* Logo Brand Header */}
           <div className="h-16 px-5 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-xl bg-[#204434] text-[#FFFCF6] flex items-center justify-center font-serif text-base font-bold shadow-xs group-hover:scale-105 transition-transform">
-                <span>宁</span>
-              </div>
+              <BrandMark size={32} />
               <div className="leading-tight">
                 <div className="font-serif font-bold text-lg text-[#204434] tracking-tight">Hanyu</div>
                 <div className="text-[9px] text-[#315E48] font-bold tracking-[0.16em] uppercase">

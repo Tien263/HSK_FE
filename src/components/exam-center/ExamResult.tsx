@@ -1,4 +1,5 @@
-import { ArrowLeft, ArrowRight, BarChart3, CalendarDays, Clock3, FileText, History, Mic, RotateCcw, Target, Trophy } from "lucide-react";
+import BrandMark from "@/components/common/BrandMark";
+import { ArrowRight, BarChart3, CalendarDays, Clock3, FileText, History, Mic, RotateCcw, Target, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { hasAnswer, levelLabel, type attemptForOwner } from "@/lib/exam-center-core";
 import { dateText, readHskkSubmission, resultNames, skillNames, timeText } from "./exam-client";
@@ -83,7 +84,7 @@ export default function ExamResult({ attempt, error, onReview, onBack, onRetake,
     <main className={s.page}>
       <div className={s.content}>
         <nav aria-label="Điều hướng kết quả" className={s.breadcrumb}>
-          <button onClick={onBack}><ArrowLeft size={15} /> Phòng thi</button>
+          <button onClick={onBack}><BrandMark size={30} /> Phòng thi</button>
           {onHistory && <button onClick={onHistory}>Lịch sử thi</button>}
           <span aria-current="page">Kết quả thi</span>
         </nav>

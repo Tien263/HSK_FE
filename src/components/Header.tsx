@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/common/BrandMark";
 import { useState } from "react";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
@@ -13,7 +14,7 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between relative z-20">
         {/* Logo Left: leaf sprig + Hanyu + Chinese Slogan */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <span className="text-xl sm:text-2xl transition-transform group-hover:rotate-6">🍃</span>
+          <BrandMark size={38} />
           <div className="leading-tight">
             <span className="font-serif font-bold text-2xl text-[#173d2d] tracking-tight block">
               Hanyu
