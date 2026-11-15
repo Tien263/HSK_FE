@@ -509,6 +509,7 @@ export async function getExamDrafts(user: AuthUser) {
       passScore: d.authorPass ?? null,
       mode: d.authorMode || "grouped",
       groups: d.groups || [],
+      hskkExam: d.hskkExam || null,
       jsonInput: d.jsonInput || "",
       questionsCount: d.groups ? d.groups.reduce((s: number, g: any) => s + (g.questions?.length || 0), 0) : 0,
       updatedAt: d.savedAt || r.createdAt.toISOString(),
@@ -531,6 +532,7 @@ export async function saveExamDraft(user: AuthUser, body: Record<string, unknown
     authorPass: body.authorPass ?? null,
     authorMode: body.authorMode || "grouped",
     groups: body.groups || [],
+    hskkExam: body.hskkExam || null,
     jsonInput: typeof body.jsonInput === "string" ? body.jsonInput : "",
     savedAt: new Date().toISOString(),
   };

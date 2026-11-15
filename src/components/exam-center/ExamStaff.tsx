@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BookOpen,
@@ -391,6 +391,15 @@ export default function ExamStaff({
   const [hskkActiveGroupId, setHskkActiveGroupId] = useState<string>("");
   const [hskkDuration, setHskkDuration] = useState<number>(20);
   const [hskkLevel, setHskkLevel] = useState<"HSKK_BEGINNER" | "HSKK_INTERMEDIATE" | "HSKK_ADVANCED">("HSKK_BEGINNER");
+  const hskkDraft = useMemo(() => ({ groups: hskkGroups, level: hskkLevel, durationMin: hskkDuration }), [hskkGroups, hskkLevel, hskkDuration]);
+  const restoreHskkDraft = (draft?: { groups?: ExamSectionGroup[]; level?: string; durationMin?: number } | null) => {
+    const restored = Array.isArray(draft?.groups) ? draft.groups : [];
+    setHskkGroups(restored);
+    setHskkActiveGroupId(restored[0]?.id || "");
+    const level = draft?.level;
+    setHskkLevel(level === "HSKK_INTERMEDIATE" || level === "HSKK_ADVANCED" ? level : "HSKK_BEGINNER");
+    setHskkDuration(typeof draft?.durationMin === "number" && draft.durationMin > 0 ? draft.durationMin : 20);
+  };
   const [showCloudDraftsModal, setShowCloudDraftsModal] = useState(false);
 
   const fetchServerDrafts = useCallback(async () => {
@@ -415,7 +424,7 @@ export default function ExamStaff({
       const raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return;
       const draft = JSON.parse(raw);
-      const hasContent = (draft.groups && draft.groups.length > 0) || (draft.authorTitle && draft.authorTitle.trim()) || (draft.jsonInput && draft.jsonInput.trim());
+      const hasContent = draft.groups?.length || draft.hskkExam?.groups?.length || draft.authorTitle?.trim() || draft.jsonInput?.trim();
       if (hasContent) {
         setHasDraft(true);
         if (draft.savedAt) {
@@ -429,7 +438,7 @@ export default function ExamStaff({
   // 2. Tự động lưu sau 2.5s mỗi khi thay đổi (Debounced LocalStorage & Server Cloud Sync)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const hasContent = groups.length > 0 || authorTitle.trim().length > 0 || jsonInput.trim().length > 0;
+    const hasContent = groups.length > 0 || hskkDraft.groups.length > 0 || authorTitle.trim().length > 0 || jsonInput.trim().length > 0;
     if (!hasContent) return;
 
     const timer = setTimeout(() => {
@@ -442,6 +451,7 @@ export default function ExamStaff({
           authorPass,
           authorMode,
           groups,
+          hskkExam: hskkDraft,
           jsonInput,
           savedAt: new Date().toISOString(),
         };
@@ -463,6 +473,7 @@ export default function ExamStaff({
         authorPass,
         authorMode,
         groups,
+        hskkExam: hskkDraft,
         jsonInput,
       }).then(() => fetchServerDrafts()).catch(() => {});
     }, 4500);
@@ -471,7 +482,7 @@ export default function ExamStaff({
       clearTimeout(timer);
       clearTimeout(cloudTimer);
     };
-  }, [authorLevel, authorTitle, authorDesc, authorDuration, authorPass, authorMode, groups, jsonInput, fetchServerDrafts]);
+  }, [authorLevel, authorTitle, authorDesc, authorDuration, authorPass, authorMode, groups, hskkDraft, jsonInput, fetchServerDrafts]);
 
   // Nạp bản nháp từ Server Cloud
   const handleLoadCloudDraft = (draft: any) => {
@@ -481,11 +492,12 @@ export default function ExamStaff({
     if (draft.durationMin) setAuthorDuration(Number(draft.durationMin));
     if (draft.passScore !== undefined) setAuthorPass(draft.passScore ?? "");
     if (draft.mode) setAuthorMode(draft.mode);
-    if (Array.isArray(draft.groups) && draft.groups.length > 0) {
+    if (Array.isArray(draft.groups)) {
       setGroups(draft.groups);
       setActiveGroupId(draft.groups[0]?.id || "");
     }
-    if (draft.jsonInput) setJsonInput(draft.jsonInput);
+    setJsonInput(draft.jsonInput || "");
+    restoreHskkDraft(draft.hskkExam);
     setShowCloudDraftsModal(false);
     setMessage(`Đã mở thành công bản nháp "${draft.title}" của ${draft.authorName} (${draft.questionsCount || 0} câu)!`);
   };
@@ -514,17 +526,7 @@ export default function ExamStaff({
     setGroups(reconGroups);
     if (reconGroups.length > 0) setActiveGroupId(reconGroups[0].id);
 
-    if ((paper as any).hskkExam) {
-      const hExam = (paper as any).hskkExam;
-      if (Array.isArray(hExam.groups)) {
-        setHskkGroups(hExam.groups);
-        if (hExam.groups[0]?.id) setHskkActiveGroupId(hExam.groups[0].id);
-      }
-      if (hExam.durationMin) setHskkDuration(Number(hExam.durationMin));
-      if (hExam.level) setHskkLevel(hExam.level);
-    } else {
-      setHskkGroups([]);
-    }
+    restoreHskkDraft(paper.hskkExam);
 
     setAuthorActiveTab("hsk");
     onNavigate?.("authoring");
@@ -574,11 +576,12 @@ export default function ExamStaff({
       if (draft.authorDuration) setAuthorDuration(Number(draft.authorDuration));
       if (draft.authorPass !== undefined) setAuthorPass(draft.authorPass);
       if (draft.authorMode) setAuthorMode(draft.authorMode);
-      if (Array.isArray(draft.groups) && draft.groups.length > 0) {
+      if (Array.isArray(draft.groups)) {
         setGroups(draft.groups);
         setActiveGroupId(draft.groups[0]?.id || "");
       }
-      if (draft.jsonInput) setJsonInput(draft.jsonInput);
+      setJsonInput(draft.jsonInput || "");
+      restoreHskkDraft(draft.hskkExam);
       setHasDraft(false);
       setMessage(`Đã khôi phục thành công bản nháp "${draft.authorTitle || 'Đề chưa đặt tên'}" (${draft.groups?.length || 0} nhóm bài)!`);
     } catch {
@@ -608,6 +611,7 @@ export default function ExamStaff({
         passScore: authorPass,
         mode: authorMode,
         groups,
+        hskkExam: hskkDraft,
         questions: authorMode === "grouped" ? flattenGroups(groups) : (jsonInput ? JSON.parse(jsonInput) : []),
         jsonInput,
       };
@@ -658,21 +662,21 @@ export default function ExamStaff({
     } : group));
   };
 
-  const uploadGroupMedia = async (key: string, file: File, kind: "image" | "video", update: (url: string) => void) => {
+  const uploadExamMedia = async (key: string, file: File, kind: "image" | "audio", update: (url: string) => void) => {
     setPendingMedia(prev => ({ ...prev, [key]: true }));
     setMediaErrors(prev => ({ ...prev, [key]: "" }));
     try {
-      const result = await uploadToCloudinary(file, { folder: "hsk_exam_media", resourceType: kind });
+      const result = await uploadToCloudinary(file, { folder: "hsk_exam_media", resourceType: kind === "audio" ? "video" : "image" });
       if (!result.secureUrl) throw new Error("Dịch vụ tải tệp chưa trả về đường dẫn.");
       update(result.secureUrl);
     } catch (error) {
-      setMediaErrors(prev => ({ ...prev, [key]: `Tải tệp thất bại. ${(error as Error).message}` }));
+      setMediaErrors(prev => ({ ...prev, [key]: `Tải tệp thất bại. ${error instanceof TypeError ? "Không kết nối được dịch vụ lưu tệp. Kiểm tra kết nối rồi thử lại." : (error as Error).message}` }));
     } finally {
       setPendingMedia(prev => ({ ...prev, [key]: false }));
     }
   };
 
-  const mediaActions = (key: string, value: string, label: string, kind: "image" | "video", update: (url: string) => void) => (
+  const mediaActions = (key: string, value: string, label: string, kind: "image" | "audio", update: (url: string) => void) => (
     <>
       <div className={s.examMediaActions}>
         <label className={s.secondary}>
@@ -681,12 +685,12 @@ export default function ExamStaff({
             className={s.examMediaInput}
             aria-label={value ? `Thay ${label}` : `Tải ${label}`}
             type="file"
-            accept={kind === "image" ? "image/jpeg,image/png,image/webp,image/gif" : "audio/*,.mp3,.wav,.m4a,.ogg"}
+            accept={kind === "image" ? "image/jpeg,image/png,image/webp,image/gif" : "audio/*,.mp3,.wav,.m4a,.ogg,.aac,.flac,.webm"}
             disabled={pendingMedia[key] || busy}
             onChange={event => {
               const file = event.currentTarget.files?.[0];
               event.currentTarget.value = "";
-              if (file) void uploadGroupMedia(key, file, kind, update);
+              if (file) void uploadExamMedia(key, file, kind, update);
             }}
           />
         </label>
@@ -702,7 +706,14 @@ export default function ExamStaff({
   const groupAudioEditor = (group: ExamSectionGroup, heading: string) => (
     <div className={s.examGroupCard}>
       <strong>{heading}</strong>
-      {mediaActions(`${group.id}_audio`, group.audioUrl || "", "audio", "video", audioUrl => handleUpdateGroup(group.id, { audioUrl }))}
+      <input
+        aria-label="Đường dẫn audio chung"
+        placeholder="Hoặc dán đường dẫn audio"
+        value={group.audioUrl || ""}
+        disabled={pendingMedia[`${group.id}_audio`] || busy}
+        onChange={event => handleUpdateGroup(group.id, { audioUrl: event.target.value })}
+      />
+      {mediaActions(`${group.id}_audio`, group.audioUrl || "", "audio", "audio", audioUrl => handleUpdateGroup(group.id, { audioUrl }))}
       {group.audioUrl ? <audio key={group.audioUrl} controls preload="metadata" src={group.audioUrl} style={{ width: "100%" }} /> :
         <p className={s.error}>Tải tệp audio chung cho nhóm.</p>}
       <p>Thứ tự câu trong audio · {group.questions.map((q, index) => q.questionNumber ?? index + 1).join(" → ")}</p>
@@ -799,6 +810,7 @@ export default function ExamStaff({
           throw new Error("Tệp JSON không chứa danh sách câu hỏi hợp lệ. Vui lòng kiểm tra lại tệp!");
         }
         setJsonInput(JSON.stringify(rawQuestions, null, 2));
+        if (parsed?.app === "Hanyu HSK Exam Center" || parsed?.hskkExam) restoreHskkDraft(parsed.hskkExam);
         if (!parsed.groups || !parsed.groups.length) {
           const importedGroups = unflattenToGroups(rawQuestions, authorLevel);
           setGroups(importedGroups);
@@ -1133,7 +1145,8 @@ export default function ExamStaff({
 
   // Xóa câu hỏi trong nhóm
   const handleDeleteQuestion = (groupId: string, qId: string) => {
-    setGroups((prev) =>
+    const setTargetGroups = authorActiveTab === "hskk" ? setHskkGroups : setGroups;
+    setTargetGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
         if (g.questions.length <= 1) {
@@ -1147,7 +1160,8 @@ export default function ExamStaff({
 
   // Cập nhật câu hỏi trong nhóm
   const handleUpdateQuestion = (groupId: string, qId: string, patch: Partial<QuestionItem>) => {
-    setGroups((prev) =>
+    const setTargetGroups = authorActiveTab === "hskk" ? setHskkGroups : setGroups;
+    setTargetGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
         return {
@@ -1165,17 +1179,6 @@ export default function ExamStaff({
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       handleUpdateQuestion(groupId, qId, { imageUrl: dataUrl });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Upload audio cho câu hỏi (HSKK nghe hoặc đọc có audio)
-  const handleUploadQuestionAudio = (groupId: string, qId: string, file: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      handleUpdateQuestion(groupId, qId, { audioUrl: dataUrl });
     };
     reader.readAsDataURL(file);
   };
@@ -1364,10 +1367,7 @@ export default function ExamStaff({
       if (hskkGroups.length > 0) {
         payload.hskkExam = {
           title: `${finalTitle} (Khẩu ngữ HSKK)`,
-          level: hskkLevel,
-          durationMin: hskkDuration,
-          groups: hskkGroups,
-          questions: flattenGroups(hskkGroups),
+          ...hskkDraft,
         };
       }
 
@@ -2165,7 +2165,9 @@ export default function ExamStaff({
                 </div>
               )) : (
                 (authorActiveTab === "hskk" ? hskkGroups : groups).map((group, gIdx) => {
-                const isExpanded = activeGroupId === group.id;
+                const isHskk = authorActiveTab === "hskk";
+                const isExpanded = (isHskk ? hskkActiveGroupId : activeGroupId) === group.id;
+                const toggleGroup = () => (isHskk ? setHskkActiveGroupId : setActiveGroupId)(isExpanded ? "" : group.id);
                 return (
                   <div
                     key={group.id}
@@ -2189,7 +2191,7 @@ export default function ExamStaff({
                         cursor: "pointer",
                         borderBottom: isExpanded ? "1px solid #d8e3ca" : "none",
                       }}
-                      onClick={() => setActiveGroupId(isExpanded ? "" : group.id)}
+                      onClick={toggleGroup}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
                         <div
@@ -2257,7 +2259,7 @@ export default function ExamStaff({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setActiveGroupId(isExpanded ? "" : group.id)}
+                          onClick={toggleGroup}
                           style={{
                             background: "transparent",
                             border: "none",
@@ -2358,6 +2360,7 @@ export default function ExamStaff({
                               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                                 <select
                                   style={{ minWidth: 260, fontSize: 12, padding: "7px 10px", borderRadius: 8, border: "1px solid #c8d7bf", background: "#fff" }}
+                                  disabled={pendingMedia[`${group.id}_audio`] || busy}
                                   onChange={(e) => {
                                     if (e.target.value) handleUpdateGroup(group.id, { audioUrl: e.target.value });
                                   }}
@@ -2388,24 +2391,10 @@ export default function ExamStaff({
                                   style={{ flex: 1, minWidth: 220 }}
                                   value={group.audioUrl || ""}
                                   onChange={(e) => handleUpdateGroup(group.id, { audioUrl: e.target.value })}
+                                  disabled={pendingMedia[`${group.id}_audio`] || busy}
                                   placeholder="Hoặc dán link audio MP3..."
                                 />
-                                <label style={{ cursor: "pointer", background: "#e0ebdb", padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "#254422", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                  <Upload size={14} /> Tải MP3 từ máy
-                                  <input
-                                    type="file"
-                                    accept="audio/*"
-                                    style={{ display: "none" }}
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                        const r = new FileReader();
-                                        r.onload = () => handleUpdateGroup(group.id, { audioUrl: String(r.result) });
-                                        r.readAsDataURL(file);
-                                      }
-                                    }}
-                                  />
-                                </label>
+                                {mediaActions(`${group.id}_audio`, group.audioUrl || "", "audio", "audio", audioUrl => handleUpdateGroup(group.id, { audioUrl }))}
                               </div>
                               {group.audioUrl && (
                                 <div style={{ marginTop: 8 }}>
@@ -3481,48 +3470,29 @@ export default function ExamStaff({
                                       </span>
                                     </div>
 
-                                    {/* Dạng 1 & Dạng 2: Audio đề bài */}
-                                    {(q.type === "speaking_audio" || q.type === "speaking_prompt") && (
-                                      <div style={{ background: "#ffffff", padding: 10, borderRadius: 8, border: "1px solid #fca5a5" }}>
+                                    {/* Audio đề bài, bắt buộc với dạng nghe */}
+                                    <div style={{ background: "#ffffff", padding: 10, borderRadius: 8, border: "1px solid #fca5a5" }}>
                                         <label style={{ fontSize: 12, fontWeight: 700, color: "#991b1b", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                                          <Headphones size={15} /> Audio đề bài {q.type === "speaking_prompt" ? "(tùy chọn)" : "*"}
+                                          <Headphones size={15} /> Audio đề bài {q.type === "speaking_audio" ? "*" : "(tùy chọn)"}
                                         </label>
                                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                                           <input
                                             style={{ flex: 1, minWidth: 200, fontSize: 12, padding: "5px 8px" }}
+                                            aria-label="Đường dẫn audio đề bài"
+                                            disabled={pendingMedia[`${group.id}_${q.id}_audio`] || busy}
                                             value={q.audioUrl || ""}
                                             onChange={(e) => handleUpdateQuestion(group.id, q.id, { audioUrl: e.target.value })}
                                             placeholder="Dán link audio (mp3/wav) hoặc bấm tải từ máy..."
                                           />
-                                          <label style={{ cursor: "pointer", background: "#dc2626", color: "#ffffff", padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                            <Upload size={13} /> Tải audio từ máy
-                                            <input
-                                              type="file"
-                                              accept="audio/*"
-                                              style={{ display: "none" }}
-                                              onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) handleUploadQuestionAudio(group.id, q.id, file);
-                                              }}
-                                            />
-                                          </label>
-                                          {q.audioUrl && (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleUpdateQuestion(group.id, q.id, { audioUrl: "" })}
-                                              style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}
-                                            >
-                                              Xóa audio
-                                            </button>
-                                          )}
+                                          {mediaActions(`${group.id}_${q.id}_audio`, q.audioUrl || "", "audio", "audio",
+                                            audioUrl => handleUpdateQuestion(group.id, q.id, { audioUrl }))}
                                         </div>
                                         {q.audioUrl && (
                                           <div style={{ marginTop: 6 }}>
                                             <audio controls src={q.audioUrl} style={{ width: "100%", height: 32 }} />
                                           </div>
                                         )}
-                                      </div>
-                                    )}
+                                    </div>
 
                                     {/* Dạng 2 & Dạng 3: Ảnh đề bài */}
                                     {(q.type === "speaking_picture" || q.type === "speaking_prompt") && (
@@ -4378,6 +4348,7 @@ export default function ExamStaff({
                         authorPass,
                         authorMode,
                         groups,
+                        hskkExam: hskkDraft,
                         jsonInput,
                       });
                       await fetchServerDrafts();

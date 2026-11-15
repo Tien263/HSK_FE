@@ -379,35 +379,53 @@ test('reading sections preserve nested passage order, support mixed cloze modes 
  assert.equal((await start(f,large.paperId)).questions.length,501);
 });
 
-test('listening evaluation and fill publish shared uploaded audio and grade normalized responses',async()=>{
+test('all three listening formats retain shared audio after publication and grade normalized responses',async()=>{
  const f=fixture();
  const templates=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
  const audio='/uploaded/nhom-danh-gia.mp3';
  const fillAudio='/uploaded/nhom-dien-dap-an.mp3';
+ const choiceAudio='https://example.test/uploaded/nhom-chon-dap-an.wav';
  const question=(id,correctAnswer,extra={})=>({id,content:'SECRET TRANSCRIPT',correctAnswer,points:2,options:[],...extra});
  const evaluation={id:'eval',title:'Nhóm nghe',skill:'LISTENING',groupType:'eval_true_false_na',audioUrl:audio,
   questions:[question('eval1','true'),question('eval2','not_mentioned')]};
  const fill={id:'fill',title:'Nhóm nghe',skill:'LISTENING',groupType:'listening_fill_blank',audioUrl:fillAudio,
   questions:[question('fill1','骑自行车',{acceptedAnswers:'骑车 / 骑单车，单车'}),question('fill2','老师',{requiresManualReview:true})]};
+ const choice={id:'choice',title:'Nhóm nghe',skill:'LISTENING',groupType:'listening_choice_abc',audioUrl:choiceAudio,
+  questions:['choice1','choice2'].map(id=>question(id,'A',{type:'listening_choice',
+   options:[{id:'A',text:'吃饭'},{id:'B',text:'喝茶'},{id:'C',text:'看书'}]}))};
  const body={level:4,title:'Đề nghe',durationMin:25,passScore:null};
- const questions=templates.flattenGroups([evaluation,fill]);
- assert.deepEqual(questions.map(q=>q.audioUrl),[audio,'',fillAudio,'']);
+ const questions=templates.flattenGroups([evaluation,fill,choice]);
+ assert.deepEqual(questions.map(q=>q.audioUrl),[audio,'',fillAudio,'',choiceAudio,'']);
  const groups=templates.unflattenToGroups(questions,4);
- assert.deepEqual(groups.map(group=>group.audioUrl),[audio,fillAudio]);
- for(const group of [evaluation,fill]){
+ assert.deepEqual(groups.map(group=>group.audioUrl),[audio,fillAudio,choiceAudio]);
+ for(const group of [evaluation,fill,choice]){
   await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:templates.flattenGroups([{...group,audioUrl:''}])}),400);
  }
  const {paperId}=await f.service.importPaper(actors.admin,{...body,questions});
  assert.ok(f.sets.find(set=>set.id===paperId).questions.every(({question})=>!question.audioUrl));
  const attempt=await start(f,paperId);
- assert.deepEqual(attempt.questions.map(q=>q.audioUrl),[audio,audio,fillAudio,fillAudio]);
+ assert.deepEqual(attempt.questions.map(q=>q.audioUrl),[audio,audio,fillAudio,fillAudio,choiceAudio,choiceAudio]);
  assert.ok(!JSON.stringify(attempt.questions).includes('SECRET TRANSCRIPT'));
  assert.ok(!JSON.stringify(attempt.questions).includes('骑车'));
- const answers=Object.fromEntries(attempt.questions.map((q,index)=>[q.id,['true','〇','骑 单车。','学生'][index]]));
+ const answers=Object.fromEntries(attempt.questions.map((q,index)=>[q.id,['true','〇','骑 单车。','学生','A','B'][index]]));
  const submitted=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,answers},true);
  assert.equal(submitted.status,'NEEDS_GRADING');
- assert.deepEqual(submitted.questions.map(q=>q.result.earned),[2,2,2,null]);
+ assert.deepEqual(submitted.questions.map(q=>q.result.earned),[2,2,2,null,2,0]);
  assert.equal(submitted.questions[2].acceptedAnswers,'骑车 / 骑单车，单车');
+});
+
+test('paired HSKK prompt audio survives draft save, publication and attempt reload',async()=>{
+ const f=fixture();
+ const audioUrl='https://example.test/uploaded/hskk.wav';
+ const hskkExam={title:'HSKK',level:'HSKK_BEGINNER',durationMin:18,groups:[{id:'speaking',skill:'SPEAKING',
+  questions:[{id:'repeat',type:'speaking_audio',content:'请听录音。',audioUrl,points:5}]}]};
+ await f.service.saveExamDraft(actors.admin,{authorTitle:'Đề ghép HSKK',hskkExam});
+ assert.deepEqual((await f.service.getExamDrafts(actors.admin))[0].hskkExam,hskkExam);
+ const {paperId}=await f.service.importPaper(actors.admin,{level:1,title:'Đề ghép HSKK',durationMin:20,
+  questions:[{id:'choice',skill:'READING',type:'multiple_choice',content:'你好吗？',points:1,options:['A','B'],correctAnswer:'A'}],hskkExam});
+ const active=await start(f,paperId);
+ await f.service.writeAttempt(actors.a,{id:active.id,revision:active.revision,answers:{}},true);
+ assert.equal((await f.service.getAttempt(actors.a,active.id)).hskkExam.groups[0].questions[0].audioUrl,audioUrl);
 });
 
 test('reading judgement presents both statements but withholds keys and passage evidence until submission',async()=>{
