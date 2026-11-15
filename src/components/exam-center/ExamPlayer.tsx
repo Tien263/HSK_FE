@@ -38,6 +38,8 @@ import type { attemptForOwner } from "@/lib/exam-center-core";
 import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, type ExamSkill } from "@/lib/exam-center-core";
 import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
+import HskkExamPlayerModal from "./HskkExamPlayerModal";
+import { getDefaultHskkForLevel } from "./hskk-templates";
 import ReadingClozePlayer from "./ReadingClozePlayer";
 import { displayQuestionNumber } from "@/lib/question-number";
 import { isReadingCloze, WORD_BANK, isReadingPassage, PASSAGE_JUDGEMENT } from "@/lib/reading-cloze";
@@ -75,6 +77,23 @@ export default function ExamPlayer({
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showHskkModal, setShowHskkModal] = useState(false);
+  const [isHskkReviewMode, setIsHskkReviewMode] = useState(false);
+  const [hasCompletedHskk, setHasCompletedHskk] = useState(false);
+
+  // Nhận diện bài thi Khẩu ngữ HSKK đi kèm bộ đề này
+  const pairedHskk = (attempt as any)?.hskkExam || (attempt ? getDefaultHskkForLevel(attempt.level, attempt.title) : null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !id) return;
+    try {
+      const saved = localStorage.getItem(`hskk_sub_${id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.completed) setHasCompletedHskk(true);
+      }
+    } catch {}
+  }, [id]);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   // Lịch sử vi phạm ghi nhận bởi Giám thị AI trong phòng thi
@@ -678,6 +697,89 @@ export default function ExamPlayer({
                 : `Điểm số: ${attempt.score} / ${attempt.maxScore} điểm.`}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Paired HSKK Speaking Section Continuity Banner */}
+      {finished && pairedHskk && (
+        <div
+          style={{
+            maxWidth: 1360,
+            margin: "0 auto 16px",
+            width: "calc(100% - 32px)",
+            background: hasCompletedHskk ? "#f0fdf4" : "#eff6ff",
+            border: `1.5px solid ${hasCompletedHskk ? "#86efac" : "#93c5fd"}`,
+            borderRadius: 16,
+            padding: "16px 22px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 14,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: hasCompletedHskk ? "#16a34a" : "#2563eb",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Mic size={24} />
+            </div>
+            <div>
+              <strong style={{ fontSize: 16, color: hasCompletedHskk ? "#14532d" : "#1e3a8a" }}>
+                {hasCompletedHskk
+                  ? "✅ Đã hoàn thành phần thi Khẩu ngữ HSKK"
+                  : "🎙️ Tiếp tục phần thi Khẩu ngữ HSKK (Bài thi Nói)"}
+              </strong>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: hasCompletedHskk ? "#166534" : "#2563eb" }}>
+                {hasCompletedHskk
+                  ? "Bạn đã nộp cả bài thi HSK và bài thi Khẩu ngữ HSKK. Nhấn nút bên cạnh để xem lại các bản ghi âm của mình."
+                  : "Bộ đề HSK này có bài thi Nói HSKK tương ứng. Hãy tiếp tục làm bài thi nói để hoàn tất trọn bộ điểm."}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsHskkReviewMode(hasCompletedHskk);
+              setShowHskkModal(true);
+            }}
+            style={{
+              padding: "10px 22px",
+              borderRadius: 10,
+              background: hasCompletedHskk ? "#0284c7" : "#16a34a",
+              color: "#ffffff",
+              border: "none",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+            }}
+          >
+            {hasCompletedHskk ? (
+              <>
+                <FileCheck2 size={16} /> Xem bài làm HSKK
+              </>
+            ) : (
+              <>
+                <Mic size={16} /> Tiếp tục thi HSKK →
+              </>
+            )}
+          </button>
         </div>
       )}
 
@@ -1351,6 +1453,21 @@ export default function ExamPlayer({
           )}
         </aside>
       </div>
+
+      {/* Modal Thi Khẩu ngữ HSKK */}
+      {showHskkModal && pairedHskk && (
+        <HskkExamPlayerModal
+          exam={pairedHskk}
+          parentAttemptId={id}
+          parentPaperTitle={attempt?.title || "Bài thi HSK"}
+          isReviewOnly={isHskkReviewMode}
+          onClose={() => setShowHskkModal(false)}
+          onFinished={() => {
+            setHasCompletedHskk(true);
+            onChanged();
+          }}
+        />
+      )}
 
       {/* CONFIRM SUBMISSION MODAL */}
       {showSubmitModal && (

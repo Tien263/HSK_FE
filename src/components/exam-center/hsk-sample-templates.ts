@@ -476,6 +476,7 @@ export interface QuestionOption {
 
 export interface QuestionItem {
   id: string;
+  skill?: "LISTENING" | "READING" | "WRITING" | "SPEAKING";
   questionNo?: string | number;
   questionNumber?: string | number;
   blankId?: string;
@@ -508,7 +509,7 @@ export interface ExamSectionGroup {
   instruction?: string;
   audioUrl?: string;
   passage?: string;
-  groupType?: typeof PASSAGE_JUDGEMENT | typeof JUDGEMENT_SECTION | typeof PASSAGE_CHOICE | typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof WORD_BANK | typeof CLOZE_PASSAGE | typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "standard";
+  groupType?: typeof PASSAGE_JUDGEMENT | typeof JUDGEMENT_SECTION | typeof PASSAGE_CHOICE | typeof PASSAGE_SECTION | typeof CLOZE_SECTION | typeof WORD_BANK | typeof CLOZE_PASSAGE | typeof READING_REPLIES | "matching_images" | "listening_choice_abc" | "eval_true_false_na" | "listening_fill_blank" | "hskk_listen_repeat" | "hskk_read_prompt" | "hskk_picture_speaking" | "standard";
   groupImages?: { id: string; label: string; imageUrl: string }[];
   groupReplies?: ExamReply[];
   groupWords?: ExamReply[];

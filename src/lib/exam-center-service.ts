@@ -50,7 +50,7 @@ export async function officialPapers(){
   const blueprint=examBlueprint.levels.find(row=>row.level===levelGroup(set.hskLevel));
   const durationMin=config?.durationMin||(durations.length===1?durations[0]:blueprint?.durationMin??null);
   const questions=set.questions.filter(row=>{const editor=row.question.editorData as Record<string,unknown>|null;return !editor?.status||editor.status==="READY";}).map(row=>snapshotQuestion(row.question as unknown as Record<string,unknown>,row.points));
-  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,groups:{...config?.groups,...restoreLegacyReplyGroups(questions,set.id)},maxScore:config?.maxScore??set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===(config?.maxScore??set.totalScore)?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),questions,mode:"EXAM"});
+  papers.push({...(blueprint?.resultMode==="CLASSIFICATION"?{classification:{bands:blueprint.classificationBands}}:{}),createdAt:set.createdAt?.toISOString(),id:set.id,title:set.title,description:set.description||"",level:set.hskLevel,source:"OFFICIAL",durationMin,groups:{...config?.groups,...restoreLegacyReplyGroups(questions,set.id)},maxScore:config?.maxScore??set.totalScore,passScore:blueprint?.resultMode==="CLASSIFICATION"?null:config?.passScore??(blueprint?.maxScore===(config?.maxScore??set.totalScore)?blueprint.targetScore:null),proctorEnabled:config?.proctorEnabled??(set.proctorEnabled!==false),hskkExam:(config as any)?.hskkExam||null,hskkPaperId:(config as any)?.hskkPaperId||null,questions,mode:"EXAM"});
  }
  return papers;
 }
@@ -160,7 +160,7 @@ export async function publicationCandidates(user:AuthUser){
    }
   }
   return {id:row.id,title:row.title,level:row.hskLevel,maxScore:config?.maxScore??row.totalScore,author:row.teacher?.name||"",
-   durationMin:config?.durationMin??paper?.durationMin??null,passScore:config?.passScore??paper?.passScore??null,published:!!paper,questions};
+   durationMin:config?.durationMin??paper?.durationMin??null,passScore:config?.passScore??paper?.passScore??null,published:!!paper,hskkExam:(config as any)?.hskkExam||null,hskkPaperId:(config as any)?.hskkPaperId||null,questions};
  });
 }
 export async function publishPaper(user:AuthUser,body:Record<string,unknown>){
@@ -364,25 +364,57 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>totalScore))
   throw new ExamError(400,`Mốc điểm đạt phải từ 0 đến ${totalScore}. Có thể để trống.`);
 
+ const existingPaperId = typeof body.paperId === "string" && body.paperId.trim() ? body.paperId.trim() : null;
  return prisma.$transaction(async tx=>{
-  const createdSet=await tx.quizSet.create({data:{
-   title:titleStr,description,hskLevel:level,mode:"MOCK_EXAM",status:"READY",
-   totalScore:Math.max(1,Math.round(totalScore)),teacherId:user.id,
-   questions:{create:questions.map((q,idx)=>({
-    orderIndex:idx+1,points:q.points,
-    question:{create:{
-     type:q.type,content:q.content,skill:q.skill,level,correctAnswer:q.correctAnswer,
-     explanation:q.explanation,options:JSON.stringify(q.options),audioUrl:q.audioUrl||null,
-     imageUrl:q.imageUrl||null,
-     editorData:jsonClone({...q.editorData,status:"READY",pinyin:q.pinyinPrompt}) as Prisma.InputJsonObject,
-    }},
-   }))},
-  }});
+  let targetPaperId: string = existingPaperId || "";
+  if(existingPaperId){
+   await tx.quizSetQuestion.deleteMany({where:{quizSetId:existingPaperId}});
+   await tx.quizSet.update({
+    where:{id:existingPaperId},
+    data:{
+     title:titleStr,description,hskLevel:level,
+     totalScore:Math.max(1,Math.round(totalScore)),
+     questions:{create:questions.map((q,idx)=>({
+      orderIndex:idx+1,points:q.points,
+      question:{create:{
+       type:q.type,content:q.content,skill:q.skill,level,correctAnswer:q.correctAnswer,
+       explanation:q.explanation,options:JSON.stringify(q.options),audioUrl:q.audioUrl||null,
+       imageUrl:q.imageUrl||null,
+       editorData:jsonClone({...q.editorData,status:"READY",pinyin:q.pinyinPrompt}) as Prisma.InputJsonObject,
+      }},
+     }))},
+    }
+   });
+   await tx.auditLog.deleteMany({where:{entity:existingPaperId,action:PUBLICATION}});
+  } else {
+   const createdSet=await tx.quizSet.create({data:{
+    title:titleStr,description,hskLevel:level,mode:"MOCK_EXAM",status:"READY",
+    totalScore:Math.max(1,Math.round(totalScore)),teacherId:user.id,
+    questions:{create:questions.map((q,idx)=>({
+     orderIndex:idx+1,points:q.points,
+     question:{create:{
+      type:q.type,content:q.content,skill:q.skill,level,correctAnswer:q.correctAnswer,
+      explanation:q.explanation,options:JSON.stringify(q.options),audioUrl:q.audioUrl||null,
+      imageUrl:q.imageUrl||null,
+      editorData:jsonClone({...q.editorData,status:"READY",pinyin:q.pinyinPrompt}) as Prisma.InputJsonObject,
+     }},
+    }))},
+   }});
+   targetPaperId = createdSet.id;
+  }
   await tx.auditLog.create({data:{
-   userId:user.id,action:PUBLICATION,entity:createdSet.id,
-   details:JSON.stringify({approved:body.approved!==false,durationMin,passScore,maxScore:totalScore,groups}),
+   userId:user.id,action:PUBLICATION,entity:targetPaperId,
+   details:JSON.stringify({
+    approved:body.approved!==false,
+    durationMin,
+    passScore,
+    maxScore:totalScore,
+    groups,
+    hskkExam:body.hskkExam||null,
+    hskkPaperId:body.hskkPaperId||null
+   }),
   }});
-  return {success:true,paperId:createdSet.id,duplicateQuestionNumbers:duplicateNumbers};
+  return {success:true,paperId:targetPaperId,duplicateQuestionNumbers:duplicateNumbers};
  });
 }
 

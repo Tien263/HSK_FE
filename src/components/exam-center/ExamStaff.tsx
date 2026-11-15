@@ -13,6 +13,7 @@ import {
   Cloud,
   Copy,
   Download,
+  Edit3,
   Eye,
   FileCheck2,
   FileSpreadsheet,
@@ -35,6 +36,12 @@ import {
   X,
 } from "lucide-react";
 import ExamFileImportModal from "./ExamFileImportModal";
+import {
+  buildHskkBeginnerTemplate,
+  buildHskkIntermediateTemplate,
+  buildHskkAdvancedTemplate,
+  getDefaultHskkForLevel,
+} from "./hskk-templates";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
 import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
 import { uploadToCloudinary } from "@/lib/cloudinary";
@@ -279,6 +286,44 @@ export const HSK_GROUP_TEMPLATES = [
     correctAnswer: "B",
     points: 2.5,
   },
+  {
+    name: "🎙️ HSKK: Nghe rồi nhắc lại / Trả lời ngắn / Thuật lại (听后重复/回答/复述)",
+    skill: "SPEAKING" as const,
+    groupType: "hskk_listen_repeat" as const,
+    type: "speaking_audio",
+    samplePrompt: "请听录音，并在听到提示音后录音复述或回答。",
+    instruction: "Hệ thống phát audio đề bài. Sau khi nghe xong, thí sinh ghi âm câu nhắc lại hoặc câu trả lời của mình.",
+    options: [],
+    correctAnswer: "Bản ghi âm phát âm rõ ràng, chuẩn thanh điệu và nội dung.",
+    points: 4,
+    requiresManualReview: true,
+  },
+  {
+    name: "🎙️ HSKK: Đọc câu hỏi rồi trả lời (回答问题)",
+    skill: "SPEAKING" as const,
+    groupType: "hskk_read_prompt" as const,
+    type: "speaking_prompt",
+    samplePrompt: "请阅读下面的问题，并在准备后录音回答：你平时有什么爱好？为什么喜欢？",
+    instruction: "Đọc câu hỏi hoặc đoạn văn chữ Hán (+ pinyin nếu có), suy nghĩ và ghi âm câu trả lời hoàn chỉnh.",
+    pinyin: "Nǐ píngshí yǒu shénme àihào? Wèishénme xǐhuān?",
+    options: [],
+    correctAnswer: "Câu trả lời mạch lạc, sử dụng đúng từ vựng và ngữ pháp tương đương cấp độ.",
+    points: 10,
+    requiresManualReview: true,
+  },
+  {
+    name: "🎙️ HSKK: Nhìn tranh nói (看图说话)",
+    skill: "SPEAKING" as const,
+    groupType: "hskk_picture_speaking" as const,
+    type: "speaking_picture",
+    samplePrompt: "请观察图片，结合画面内容说一段完整的话 (至少 3-5 句话)。",
+    instruction: "Quan sát bức tranh cẩn thận và ghi âm bài nói miêu tả nội dung, hành động và cảm xúc nhân vật trong tranh.",
+    imageUrl: "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=600&auto=format&fit=crop&q=80",
+    options: [],
+    correctAnswer: "Miêu tả đầy đủ chi tiết bức tranh: thời gian, địa điểm, con người, hành động.",
+    points: 15,
+    requiresManualReview: true,
+  },
 ];
 
 type Candidate = Awaited<ReturnType<typeof publicationCandidates>>[number];
@@ -337,6 +382,16 @@ export default function ExamStaff({
 
   // Server-Side Cloud Drafts (Đồng bộ đa người dùng / đa máy tính của Admin & Giáo viên)
   const [serverDrafts, setServerDrafts] = useState<any[]>([]);
+
+  // Đang chỉnh sửa đề thi cụ thể từ Quản lý đề (Sửa đề)
+  const [editingPaperId, setEditingPaperId] = useState<string | null>(null);
+
+  // Tab kép trong cùng 1 bộ đề: "hsk" (Nghe, Đọc, Viết) hoặc "hskk" (Khẩu ngữ Nói)
+  const [authorActiveTab, setAuthorActiveTab] = useState<"hsk" | "hskk">("hsk");
+  const [hskkGroups, setHskkGroups] = useState<ExamSectionGroup[]>([]);
+  const [hskkActiveGroupId, setHskkActiveGroupId] = useState<string>("");
+  const [hskkDuration, setHskkDuration] = useState<number>(20);
+  const [hskkLevel, setHskkLevel] = useState<"HSKK_BEGINNER" | "HSKK_INTERMEDIATE" | "HSKK_ADVANCED">("HSKK_BEGINNER");
   const [showCloudDraftsModal, setShowCloudDraftsModal] = useState(false);
 
   const fetchServerDrafts = useCallback(async () => {
@@ -448,6 +503,52 @@ export default function ExamStaff({
     }
   };
 
+  // Chỉnh sửa đề thi từ tab Quản lý đề
+  const handleEditPaper = (paper: Candidate) => {
+    setEditingPaperId(paper.id);
+    setAuthorTitle(paper.title);
+    setAuthorLevel(paper.level);
+    setAuthorDesc((paper as any).description || "");
+    setAuthorDuration(paper.durationMin || 90);
+    setAuthorPass(paper.passScore !== null && paper.passScore !== undefined ? String(paper.passScore) : "");
+    const reconGroups = unflattenToGroups(paper.questions as any, paper.level);
+    setGroups(reconGroups);
+    if (reconGroups.length > 0) setActiveGroupId(reconGroups[0].id);
+
+    if ((paper as any).hskkExam) {
+      const hExam = (paper as any).hskkExam;
+      if (Array.isArray(hExam.groups)) {
+        setHskkGroups(hExam.groups);
+        if (hExam.groups[0]?.id) setHskkActiveGroupId(hExam.groups[0].id);
+      }
+      if (hExam.durationMin) setHskkDuration(Number(hExam.durationMin));
+      if (hExam.level) setHskkLevel(hExam.level);
+    } else {
+      setHskkGroups([]);
+    }
+
+    setAuthorActiveTab("hsk");
+    onNavigate?.("authoring");
+    setMessage(`✏️ Đã mở đề "${paper.title}" để chỉnh sửa. Sau khi sửa xong, nhấn "💾 Cập nhật đề thi".`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Nạp mẫu Khẩu ngữ HSKK ghép cùng bộ đề HSK
+  const loadHskkTemplate = (type: "HSKK_BEGINNER" | "HSKK_INTERMEDIATE" | "HSKK_ADVANCED") => {
+    let pkg;
+    if (type === "HSKK_BEGINNER") pkg = buildHskkBeginnerTemplate(`${authorTitle || "Đề thi HSK"} (HSKK Sơ cấp)`);
+    else if (type === "HSKK_INTERMEDIATE") pkg = buildHskkIntermediateTemplate(`${authorTitle || "Đề thi HSK"} (HSKK Trung cấp)`);
+    else pkg = buildHskkAdvancedTemplate(`${authorTitle || "Đề thi HSK"} (HSKK Cao cấp)`);
+
+    setHskkGroups(pkg.groups);
+    if (pkg.groups[0]?.id) setHskkActiveGroupId(pkg.groups[0].id);
+    setHskkDuration(pkg.durationMin);
+    setHskkLevel(pkg.level);
+    setAuthorActiveTab("hskk");
+    const count = pkg.groups.reduce((sum, g) => sum + sectionQuestions(g).length, 0);
+    setMessage(`✅ Đã nạp thành công bộ mẫu "${pkg.levelName}" (${count} câu) ghép vào cùng bộ đề này! Toàn bộ nội dung bài thi HSK của bạn vẫn được giữ nguyên đầy đủ.`);
+  };
+
   // Tiếp nhận kết quả import từ file Excel / Word
   const handleFileImportSuccess = (importedGroups: ExamSectionGroup[], rawQuestions: QuestionItem[]) => {
     if (groups.length === 0) {
@@ -536,6 +637,9 @@ export default function ExamStaff({
     }
     setGroups([]);
     setActiveGroupId("");
+    setHskkGroups([]);
+    setHskkActiveGroupId("");
+    setEditingPaperId(null);
     setAuthorTitle("");
     setAuthorDesc("");
     setAuthorPass("");
@@ -768,12 +872,16 @@ export default function ExamStaff({
     }
   };
 
-  // Thêm nhóm bài mới (có thể theo khuôn mẫu dạng bài HSK)
+  // Thêm nhóm bài mới (hỗ trợ cả HSK và Khẩu ngữ HSKK)
   const handleAddGroup = (template?: typeof HSK_GROUP_TEMPLATES[number]) => {
     const newId = `group_${Date.now()}`;
     const defaultAudio = groupAudioForLevel(authorLevel);
+    const isHskk = authorActiveTab === "hskk" || (template && ("skill" in template) && template.skill === "SPEAKING");
+    const targetGroups = isHskk ? hskkGroups : groups;
+    const setTargetGroups = isHskk ? setHskkGroups : setGroups;
+    const setTargetActiveId = isHskk ? setHskkActiveGroupId : setActiveGroupId;
     let newGroup: ExamSectionGroup;
-    const allExistingQuestions = groups.flatMap(sectionQuestions);
+    const allExistingQuestions = targetGroups.flatMap(sectionQuestions);
     const startNum = nextQuestionNumber(allExistingQuestions);
 
     if (template) {
@@ -856,13 +964,18 @@ export default function ExamStaff({
         ...initializeReadingSection({ ...newGroup, groupType: "standard" }, newGroup.groupType, true, startNum),
       };
     }
-    setGroups(prev => withQuestionNumbers([...prev, newGroup], true));
-    setActiveGroupId(newId);
+    setTargetGroups(prev => withQuestionNumbers([...prev, newGroup], true));
+    setTargetActiveId(newId);
+    if (isHskk && authorActiveTab !== "hskk") {
+      setAuthorActiveTab("hskk");
+    }
   };
 
   // Sao chép câu hỏi
   const handleDuplicateQuestion = (groupId: string, qId: string) => {
-    setGroups((prev) =>
+    const isHskk = authorActiveTab === "hskk" || hskkGroups.some(g => g.id === groupId);
+    const setTarget = isHskk ? setHskkGroups : setGroups;
+    setTarget((prev) =>
       prev.map((g) => {
         if (g.id !== groupId || (g.groupType === READING_REPLIES && !g.groupCustom)) return g;
         const qIndex = g.questions.findIndex((q) => q.id === qId);
@@ -885,21 +998,28 @@ export default function ExamStaff({
 
   // Xóa nhóm bài
   const handleDeleteGroup = (groupId: string) => {
-    if (groups.length <= 1) {
-      setError("Đề thi phải có ít nhất 1 nhóm bài.");
+    const isHskk = authorActiveTab === "hskk" || hskkGroups.some(g => g.id === groupId);
+    const targetGroups = isHskk ? hskkGroups : groups;
+    const setTarget = isHskk ? setHskkGroups : setGroups;
+    if (!isHskk && targetGroups.length <= 1) {
+      setError("Đề thi HSK phải có ít nhất 1 nhóm bài.");
       return;
     }
     if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ nhóm bài này và các câu hỏi bên trong?")) return;
-    const next = groups.filter((g) => g.id !== groupId);
-    setGroups(next);
-    if (activeGroupId === groupId) {
-      setActiveGroupId(next[0]?.id || "");
+    const next = targetGroups.filter((g) => g.id !== groupId);
+    setTarget(next);
+    if (isHskk) {
+      if (hskkActiveGroupId === groupId) setHskkActiveGroupId(next[0]?.id || "");
+    } else {
+      if (activeGroupId === groupId) setActiveGroupId(next[0]?.id || "");
     }
   };
 
   // Cập nhật thông tin nhóm bài
   const handleUpdateGroup = (groupId: string, patch: Partial<ExamSectionGroup>) => {
-    setGroups((prev) =>
+    const isHskk = authorActiveTab === "hskk" || hskkGroups.some(g => g.id === groupId);
+    const setTarget = isHskk ? setHskkGroups : setGroups;
+    setTarget((prev) =>
       withQuestionNumbers(prev.map((g) => (g.id === groupId ? { ...g, ...patch } : g)), true)
     );
   };
@@ -926,7 +1046,9 @@ export default function ExamStaff({
 
   // Thêm câu hỏi vào nhóm (tự động kế thừa dạng câu hỏi của nhóm)
   const handleAddQuestionToGroup = (groupId: string) => {
-    setGroups((prev) =>
+    const isHskk = authorActiveTab === "hskk" || hskkGroups.some(g => g.id === groupId);
+    const setTarget = isHskk ? setHskkGroups : setGroups;
+    setTarget((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
         if (g.groupType === READING_REPLIES) {
@@ -938,7 +1060,10 @@ export default function ExamStaff({
         const lastQ = g.questions[g.questions.length - 1];
         const nextQNo = nextQuestionNumber(prev.flatMap(sectionQuestions));
 
-        const targetType = g.groupType === "matching_images" ? "matching" : lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
+        let targetType = g.groupType === "matching_images" ? "matching" : lastQ ? lastQ.type : g.skill === "LISTENING" ? "listening_choice" : "multiple_choice";
+        if (g.skill === "SPEAKING") {
+          targetType = lastQ ? lastQ.type : (g.groupType === "hskk_listen_repeat" ? "speaking_audio" : g.groupType === "hskk_picture_speaking" ? "speaking_picture" : "speaking_prompt");
+        }
         let initialOptions: QuestionOption[] = [
           { id: "A", text: "Lựa chọn A" },
           { id: "B", text: "Lựa chọn B" },
@@ -1045,13 +1170,26 @@ export default function ExamStaff({
     reader.readAsDataURL(file);
   };
 
+  // Upload audio cho câu hỏi (HSKK nghe hoặc đọc có audio)
+  const handleUploadQuestionAudio = (groupId: string, qId: string, file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      handleUpdateQuestion(groupId, qId, { audioUrl: dataUrl });
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Upload ảnh cho lựa chọn đáp án
   const handleUploadOptionImage = (groupId: string, qId: string, optId: string, file: File) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
-      setGroups((prev) =>
+      const isHskk = authorActiveTab === "hskk" || hskkGroups.some(g => g.id === groupId);
+      const setTarget = isHskk ? setHskkGroups : setGroups;
+      setTarget((prev) =>
         prev.map((g) => {
           if (g.id !== groupId) return g;
           return {
@@ -1211,17 +1349,33 @@ export default function ExamStaff({
         }
       });
 
-      const { paperId, duplicateQuestionNumbers: duplicates } = await examApi<{ paperId: string; duplicateQuestionNumbers: number[] }>("importPaper", {
+      const payload: any = {
         level: authorLevel,
         title: finalTitle,
         description: authorDesc,
         durationMin: authorDuration,
         passScore: authorPass === "" ? null : Number(authorPass),
         questions: parsed,
-      });
+      };
+
+      if (editingPaperId) {
+        payload.paperId = editingPaperId;
+      }
+
+      if (hskkGroups.length > 0) {
+        payload.hskkExam = {
+          title: `${finalTitle} (Khẩu ngữ HSKK)`,
+          level: hskkLevel,
+          durationMin: hskkDuration,
+          groups: hskkGroups,
+          questions: flattenGroups(hskkGroups),
+        };
+      }
+
+      const { paperId, duplicateQuestionNumbers: duplicates } = await examApi<{ paperId: string; duplicateQuestionNumbers: number[] }>("importPaper", payload);
 
       setPublishedLink(`/s/mock-exam?${new URLSearchParams({ view: "intro", id: paperId, level: String(levelGroup(authorLevel)) })}`);
-      setMessage(`Đã xuất bản đề “${finalTitle}” (${parsed.length} câu). Học sinh có thể mở đề trong phòng thi.${
+      const isEdit = !!editingPaperId; setEditingPaperId(null); setMessage(`${isEdit ? "✅ Đã cập nhật thành công" : "Đã xuất bản"} đề “${finalTitle}” (${parsed.length} câu)${hskkGroups.length ? ` kèm Khẩu ngữ HSKK (${hskkGroups.reduce((s, g) => s + sectionQuestions(g).length, 0)} câu)` : ""}. Học sinh có thể mở đề trong phòng thi.${
         duplicates?.length ? ` Cảnh báo: trùng số câu ${duplicates.join(", ")}.` : ""
       }`);
       onChanged();
@@ -1466,6 +1620,64 @@ export default function ExamStaff({
                   {levelLabel(lvl)}
                 </button>
               ))}
+
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#991b1b", marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <Mic size={14} /> Khẩu ngữ HSKK:
+              </span>
+              <button
+                type="button"
+                onClick={() => loadHskkTemplate("HSKK_BEGINNER")}
+                style={{
+                  fontSize: 12,
+                  padding: "5px 10px",
+                  minHeight: 30,
+                  borderRadius: 8,
+                  border: hskkLevel === "HSKK_BEGINNER" && hskkGroups.length > 0 ? "2px solid #b91c1c" : "1px solid #fca5a5",
+                  background: hskkLevel === "HSKK_BEGINNER" && hskkGroups.length > 0 ? "#fef2f2" : "#ffffff",
+                  color: "#991b1b",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                title="Nạp mẫu bài thi Khẩu ngữ HSKK Sơ cấp (ghép cùng HSK 1, 2, 3)"
+              >
+                🎙️ HSKK Sơ cấp
+              </button>
+              <button
+                type="button"
+                onClick={() => loadHskkTemplate("HSKK_INTERMEDIATE")}
+                style={{
+                  fontSize: 12,
+                  padding: "5px 10px",
+                  minHeight: 30,
+                  borderRadius: 8,
+                  border: hskkLevel === "HSKK_INTERMEDIATE" && hskkGroups.length > 0 ? "2px solid #b91c1c" : "1px solid #fca5a5",
+                  background: hskkLevel === "HSKK_INTERMEDIATE" && hskkGroups.length > 0 ? "#fef2f2" : "#ffffff",
+                  color: "#991b1b",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                title="Nạp mẫu bài thi Khẩu ngữ HSKK Trung cấp (ghép cùng HSK 4)"
+              >
+                🎙️ HSKK Trung cấp
+              </button>
+              <button
+                type="button"
+                onClick={() => loadHskkTemplate("HSKK_ADVANCED")}
+                style={{
+                  fontSize: 12,
+                  padding: "5px 10px",
+                  minHeight: 30,
+                  borderRadius: 8,
+                  border: hskkLevel === "HSKK_ADVANCED" && hskkGroups.length > 0 ? "2px solid #b91c1c" : "1px solid #fca5a5",
+                  background: hskkLevel === "HSKK_ADVANCED" && hskkGroups.length > 0 ? "#fef2f2" : "#ffffff",
+                  color: "#991b1b",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                title="Nạp mẫu bài thi Khẩu ngữ HSKK Cao cấp (ghép cùng HSK 5, 6)"
+              >
+                🎙️ HSKK Cao cấp
+              </button>
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
@@ -1589,6 +1801,98 @@ export default function ExamStaff({
                 <Trash2 size={14} /> Dọn dẹp đề cũ
               </button>
             </div>
+          </div>
+
+          {/* Chế độ Sửa đề thi */}
+          {editingPaperId && (
+            <div
+              style={{
+                background: "#eff6ff",
+                border: "1.5px solid #60a5fa",
+                padding: "12px 18px",
+                borderRadius: 12,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Edit3 size={20} color="#2563eb" />
+                <div>
+                  <strong style={{ fontSize: 14, color: "#1e3a8a" }}>
+                    Đang chỉnh sửa đề thi: “{authorTitle || 'Đề thi'}”
+                  </strong>
+                  <div style={{ fontSize: 12, color: "#3b82f6" }}>
+                    Mã đề: <code>{editingPaperId}</code> · Bạn có thể sửa câu hỏi, đáp án, giải thích hoặc bài nói HSKK, sau đó bấm &quot;Cập nhật đề thi&quot;.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPaperId(null);
+                  handleResetToBlank();
+                }}
+                style={{
+                  background: "#fee2e2",
+                  border: "1px solid #f87171",
+                  color: "#991b1b",
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                ✕ Hủy chế độ sửa / Soạn đề mới
+              </button>
+            </div>
+          )}
+
+          {/* Dual Tabs: [📝 1. Bài thi HSK] & [🎙️ 2. Khẩu ngữ HSKK] */}
+          <div style={{ display: "flex", gap: 10, borderBottom: "2px solid #e2e8f0", paddingBottom: 2, marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={() => setAuthorActiveTab("hsk")}
+              style={{
+                padding: "10px 20px",
+                borderRadius: "10px 10px 0 0",
+                border: "none",
+                borderBottom: authorActiveTab === "hsk" ? "3px solid #16a34a" : "none",
+                background: authorActiveTab === "hsk" ? "#f0fdf4" : "transparent",
+                color: authorActiveTab === "hsk" ? "#15803d" : "#64748b",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              📝 1. Bài thi HSK (Nghe, Đọc, Viết) ({groups.length} nhóm · {totalQuestionsCount} câu)
+            </button>
+            <button
+              type="button"
+              onClick={() => setAuthorActiveTab("hskk")}
+              style={{
+                padding: "10px 20px",
+                borderRadius: "10px 10px 0 0",
+                border: "none",
+                borderBottom: authorActiveTab === "hskk" ? "3px solid #dc2626" : "none",
+                background: authorActiveTab === "hskk" ? "#fef2f2" : "transparent",
+                color: authorActiveTab === "hskk" ? "#b91c1c" : "#64748b",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              🎙️ 2. Khẩu ngữ HSKK (Bài thi Nói) {hskkGroups.length > 0 ? `(${hskkGroups.length} nhóm · ${hskkGroups.reduce((s, g) => s + sectionQuestions(g).length, 0)} câu)` : "(Chưa ghép)"}
+            </button>
           </div>
 
           {/* Form Configuration Metadata */}
@@ -1715,7 +2019,94 @@ export default function ExamStaff({
           {/* MODE 1: SOẠN THEO NHÓM BÀI (GROUPED FORM EDITOR) */}
           {authorMode === "grouped" && (
             <div style={{ display: "grid", gap: 20 }}>
-              {groups.length === 0 ? (
+              {authorActiveTab === "hskk" && (
+                <div style={{ background: "#fef2f2", border: "1.5px solid #fecaca", padding: "14px 18px", borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                  <div>
+                    <strong style={{ fontSize: 14, color: "#991b1b", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Mic size={18} /> Cấu hình phần thi Khẩu ngữ HSKK (Bài thi Nói ghép cùng bộ đề)
+                    </strong>
+                    <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 2 }}>
+                      Thí sinh thi HSK xong bấm nộp bài sẽ tự động thấy nút "Tiếp tục thi HSKK" để làm bài thi này.
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <label style={{ fontSize: 12, color: "#7f1d1d", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
+                      Thời gian thi nói:
+                      <input
+                        type="number"
+                        min={5}
+                        max={60}
+                        value={hskkDuration}
+                        onChange={(e) => setHskkDuration(Number(e.target.value) || 20)}
+                        style={{ width: 60, padding: "4px 8px", fontSize: 12, borderRadius: 6, border: "1px solid #fca5a5" }}
+                      />
+                      phút
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {(authorActiveTab === "hskk" ? hskkGroups : groups).length === 0 ? (
+                authorActiveTab === "hskk" ? (
+                  <div
+                    style={{
+                      background: "#fff5f5",
+                      borderRadius: 14,
+                      border: "2px dashed #fca5a5",
+                      padding: "44px 24px",
+                      textAlign: "center",
+                      display: "grid",
+                      gap: 14,
+                      justifyItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: "50%",
+                        background: "#fee2e2",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#dc2626",
+                      }}
+                    >
+                      <Mic size={28} />
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: 17, color: "#7f1d1d", margin: "0 0 6px", fontWeight: 700 }}>
+                        Bộ đề này chưa ghép bài thi Khẩu ngữ HSKK (0 nhóm bài)
+                      </h4>
+                      <p style={{ fontSize: 13, color: "#991b1b", margin: 0, maxWidth: 540, lineHeight: 1.6 }}>
+                        Bạn có thể bấm nạp nhanh mẫu đề thi chuẩn CTI tương ứng với cấp độ HSK đang soạn, hoặc bấm thêm nhóm câu hỏi khẩu ngữ tùy chỉnh.
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => loadHskkTemplate("HSKK_BEGINNER")}
+                        style={{ background: "#dc2626", color: "#ffffff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        🎙️ Nạp mẫu HSKK Sơ cấp (HSK 1-3)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loadHskkTemplate("HSKK_INTERMEDIATE")}
+                        style={{ background: "#b91c1c", color: "#ffffff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        🎙️ Nạp mẫu HSKK Trung cấp (HSK 4)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loadHskkTemplate("HSKK_ADVANCED")}
+                        style={{ background: "#991b1b", color: "#ffffff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        🎙️ Nạp mẫu HSKK Cao cấp (HSK 5-6)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                 <div
                   style={{
                     background: "#ffffff",
@@ -1773,8 +2164,8 @@ export default function ExamStaff({
                     </button>
                   </div>
                 </div>
-              ) : (
-                groups.map((group, gIdx) => {
+              )) : (
+                (authorActiveTab === "hskk" ? hskkGroups : groups).map((group, gIdx) => {
                 const isExpanded = activeGroupId === group.id;
                 return (
                   <div
@@ -3004,22 +3395,26 @@ export default function ExamStaff({
                                   </div>
                                 </div>
 
-                                {/* Question Content & Pinyin */}
+                                {/* Question Content & Pinyin (Hỗ trợ xuống dòng, tự động co giãn) */}
                                 <div className={s.formColumns}>
                                   <label style={{ margin: 0 }}>
                                     Nội dung câu hỏi (chữ Hán) *
-                                    <input
+                                    <textarea
+                                      rows={3}
                                       value={q.content}
                                       onChange={(e) => handleUpdateQuestion(group.id, q.id, { content: e.target.value })}
-                                      placeholder="Ví dụ: 第 1 题：请听录音并判断正误。"
+                                      placeholder="Ví dụ: 第 1 题：请听录音并判断正误。(hỗ trợ xuống dòng và khoảng trắng)"
+                                      style={{ width: "100%", fontSize: 13, minHeight: 64, resize: "vertical", padding: "6px 8px", whiteSpace: "pre-wrap", lineHeight: 1.4 }}
                                     />
                                   </label>
                                   <label style={{ margin: 0 }}>
                                     Pinyin (phiên âm nếu có)
-                                    <input
+                                    <textarea
+                                      rows={2}
                                       value={q.pinyin || ""}
                                       onChange={(e) => handleUpdateQuestion(group.id, q.id, { pinyin: e.target.value })}
-                                      placeholder="Ví dụ: Nǐ hǎo"
+                                      placeholder="Ví dụ: Nǐ hǎo (hỗ trợ xuống dòng và khoảng trắng)"
+                                      style={{ width: "100%", fontSize: 12, minHeight: 48, resize: "vertical", padding: "6px 8px", whiteSpace: "pre-wrap", lineHeight: 1.4 }}
                                     />
                                   </label>
                                 </div>
@@ -3069,7 +3464,137 @@ export default function ExamStaff({
                                 )}
 
                                 {/* Options & Correct Answer Editor */}
-                                {q.type === "true_false_na" ? (
+                                {(q.skill === "SPEAKING" || ["speaking_audio", "speaking_prompt", "speaking_picture"].includes(q.type)) ? (
+                                  <div style={{ background: "#fef2f2", padding: 14, borderRadius: 10, border: "1.5px solid #fecaca", display: "grid", gap: 12 }}>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, borderBottom: "1px dashed #fca5a5", paddingBottom: 8 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <Mic size={18} color="#dc2626" />
+                                        <strong style={{ fontSize: 13, color: "#991b1b" }}>
+                                          {q.type === "speaking_audio"
+                                            ? "Dạng 1: Nghe rồi nhắc lại / trả lời ngắn / thuật lại (Phát audio trước, ghi âm sau)"
+                                            : q.type === "speaking_picture"
+                                            ? "Dạng 3: Nhìn tranh nói (Hiển thị tranh minh họa và ghi âm bài nói)"
+                                            : "Dạng 2: Đọc câu hỏi rồi trả lời (Đọc chữ Hán/Pinyin, suy nghĩ và ghi âm)"}
+                                        </strong>
+                                      </div>
+                                      <span style={{ fontSize: 11, background: "#fee2e2", color: "#991b1b", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                                        🎙️ Thu âm qua Microphone
+                                      </span>
+                                    </div>
+
+                                    {/* Dạng 1 & Dạng 2: Audio đề bài */}
+                                    {(q.type === "speaking_audio" || q.type === "speaking_prompt") && (
+                                      <div style={{ background: "#ffffff", padding: 10, borderRadius: 8, border: "1px solid #fca5a5" }}>
+                                        <label style={{ fontSize: 12, fontWeight: 700, color: "#991b1b", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                          <Headphones size={15} /> Audio đề bài {q.type === "speaking_prompt" ? "(tùy chọn)" : "*"}
+                                        </label>
+                                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                          <input
+                                            style={{ flex: 1, minWidth: 200, fontSize: 12, padding: "5px 8px" }}
+                                            value={q.audioUrl || ""}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { audioUrl: e.target.value })}
+                                            placeholder="Dán link audio (mp3/wav) hoặc bấm tải từ máy..."
+                                          />
+                                          <label style={{ cursor: "pointer", background: "#dc2626", color: "#ffffff", padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                            <Upload size={13} /> Tải audio từ máy
+                                            <input
+                                              type="file"
+                                              accept="audio/*"
+                                              style={{ display: "none" }}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleUploadQuestionAudio(group.id, q.id, file);
+                                              }}
+                                            />
+                                          </label>
+                                          {q.audioUrl && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUpdateQuestion(group.id, q.id, { audioUrl: "" })}
+                                              style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}
+                                            >
+                                              Xóa audio
+                                            </button>
+                                          )}
+                                        </div>
+                                        {q.audioUrl && (
+                                          <div style={{ marginTop: 6 }}>
+                                            <audio controls src={q.audioUrl} style={{ width: "100%", height: 32 }} />
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Dạng 2 & Dạng 3: Ảnh đề bài */}
+                                    {(q.type === "speaking_picture" || q.type === "speaking_prompt") && (
+                                      <div style={{ background: "#ffffff", padding: 10, borderRadius: 8, border: "1px solid #fca5a5" }}>
+                                        <label style={{ fontSize: 12, fontWeight: 700, color: "#991b1b", display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                          <ImageIcon size={15} /> Ảnh đề bài minh họa {q.type === "speaking_prompt" ? "(tùy chọn)" : "*"}
+                                        </label>
+                                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                          <input
+                                            style={{ flex: 1, minWidth: 200, fontSize: 12, padding: "5px 8px" }}
+                                            value={q.imageUrl || ""}
+                                            onChange={(e) => handleUpdateQuestion(group.id, q.id, { imageUrl: e.target.value })}
+                                            placeholder="Dán link ảnh hoặc bấm tải từ máy..."
+                                          />
+                                          <label style={{ cursor: "pointer", background: "#dc2626", color: "#ffffff", padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                            <Upload size={13} /> Tải ảnh từ máy
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              style={{ display: "none" }}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleUploadQuestionImage(group.id, q.id, file);
+                                              }}
+                                            />
+                                          </label>
+                                          {q.imageUrl && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUpdateQuestion(group.id, q.id, { imageUrl: "" })}
+                                              style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}
+                                            >
+                                              Xóa ảnh
+                                            </button>
+                                          )}
+                                        </div>
+                                        {q.imageUrl && (
+                                          <div style={{ textAlign: "center", marginTop: 6 }}>
+                                            <img
+                                              src={q.imageUrl}
+                                              alt="Tranh đề bài"
+                                              style={{ maxHeight: 160, maxWidth: "100%", borderRadius: 8, border: "1px solid #fca5a5" }}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Tiêu chí chấm điểm / Gợi ý bài nói */}
+                                    <label style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#7f1d1d" }}>
+                                      Tiêu chí chấm điểm / Gợi ý bài nói chuẩn (để chấm hoặc đối chiếu):
+                                      <textarea
+                                        rows={3}
+                                        value={q.correctAnswer || ""}
+                                        onChange={(e) => handleUpdateQuestion(group.id, q.id, { correctAnswer: e.target.value })}
+                                        placeholder="Nhập nội dung mẫu thí sinh cần nói, từ vựng ngữ pháp yêu cầu hoặc tiêu chí chấm (hỗ trợ xuống dòng và khoảng trắng)..."
+                                        style={{
+                                          width: "100%",
+                                          fontSize: 12,
+                                          marginTop: 4,
+                                          minHeight: 64,
+                                          resize: "vertical",
+                                          whiteSpace: "pre-wrap",
+                                          padding: "6px 8px",
+                                          border: "1px solid #fca5a5",
+                                          borderRadius: 6,
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                ) : q.type === "true_false_na" ? (
                                   <div style={{ background: "#f8faf5", padding: 12, borderRadius: 8, border: "1px solid #e0ebd3" }}>
                                     <span style={{ fontSize: 12, fontWeight: 600, color: "#2b4a27", display: "block", marginBottom: 8 }}>
                                       Chọn đáp án đúng cho phát biểu này:
@@ -3350,10 +3875,27 @@ export default function ExamStaff({
                                   </div>
                                 )}
 
-                                {/* Explanation */}
-                                <label style={{ margin: 0, fontSize: 12 }}>
-                                  Giải thích đáp án (tùy chọn)
-                                  <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder="Ví dụ: Theo đoạn ghi âm, câu này miêu tả đúng bức tranh... (hỗ trợ xuống dòng)" style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
+                                {/* Explanation (Rộng rãi, nhiều dòng, hỗ trợ gõ phím cách và enter xuống dòng) */}
+                                <label style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#2b4a27" }}>
+                                  Giải thích đáp án & Kiến thức bổ trợ (hỗ trợ xuống dòng và cách lề thoải mái)
+                                  <textarea
+                                    rows={4}
+                                    value={q.explanation || ""}
+                                    onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
+                                    placeholder="Nhập giải thích chi tiết, dịch nghĩa, phân tích từ vựng và ngữ pháp... (thoải mái gõ phím Enter để xuống dòng và khoảng trắng)"
+                                    style={{
+                                      width: "100%",
+                                      fontSize: 12,
+                                      marginTop: 4,
+                                      minHeight: 84,
+                                      resize: "vertical",
+                                      padding: "8px 10px",
+                                      whiteSpace: "pre-wrap",
+                                      lineHeight: 1.5,
+                                      border: "1px solid #cbd5e1",
+                                      borderRadius: 6,
+                                    }}
+                                  />
                                 </label>
                               </div>
                             ))}
@@ -3684,6 +4226,7 @@ export default function ExamStaff({
               key={paper.id}
               paper={paper}
               busy={busy}
+              onEdit={() => handleEditPaper(paper)}
               onDelete={() => handleDeletePaper(paper.id)}
               onSave={async (durationMin, passScore, approved) => {
                 setBusy(true);
@@ -3995,11 +4538,13 @@ export default function ExamStaff({
 function PublicationCard({
   paper,
   busy,
+  onEdit,
   onSave,
   onDelete,
 }: {
   paper: Candidate;
   busy: boolean;
+  onEdit: () => void;
   onSave: (duration: number, pass: number | null, approved: boolean) => void;
   onDelete: () => void;
 }) {
@@ -4012,33 +4557,58 @@ function PublicationCard({
     <article className={s.staffCard}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h2>{paper.title}</h2>
+          <h2>{paper.title}{(paper as any).hskkExam && <span style={{ marginLeft: 8, fontSize: 11, background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", padding: "2px 8px", borderRadius: 12, fontWeight: 700, verticalAlign: "middle" }}>🎙️ Kèm Khẩu ngữ HSKK</span>}</h2>
           <p>
             HSK {paper.level} · {paper.author} · {paper.questions.length} câu · {paper.maxScore} điểm ·{" "}
             {paper.published ? "Đang xuất bản" : "Chưa được duyệt"}
           </p>
         </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onDelete}
-          style={{
-            background: "#fee2e2",
-            color: "#991b1b",
-            border: "1px solid #f87171",
-            borderRadius: 8,
-            padding: "6px 12px",
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 5,
-          }}
-          title="Xóa vĩnh viễn đề thi này"
-        >
-          <Trash2 size={13} /> Xóa đề
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onEdit}
+            style={{
+              background: "#0284c7",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 8,
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+            }}
+            title="Mở toàn bộ đề thi ra trình soạn để chỉnh sửa câu hỏi, đáp án, giải thích..."
+          >
+            <Edit3 size={13} /> Sửa đề
+          </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onDelete}
+            style={{
+              background: "#fee2e2",
+              color: "#991b1b",
+              border: "1px solid #f87171",
+              borderRadius: 8,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+            title="Xóa vĩnh viễn đề thi này"
+          >
+            <Trash2 size={13} /> Xóa đề
+          </button>
+        </div>
       </div>
 
       <details>

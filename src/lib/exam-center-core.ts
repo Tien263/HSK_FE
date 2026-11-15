@@ -90,7 +90,7 @@ export const sampleExamAudio=(level:number)=>`/audio/hsk${level>=7?7:level}_exam
 export function examAudioUrl(url:string,level:number) {
  return url.startsWith("/HSK3.0/HSK/音频/")?sampleExamAudio(level):url;
 }
-export type ExamPaper = { groups?:Record<string,ExamGroupMedia>; classification?:{bands:{minScore:number;maxScore:number;label:string}[]}; createdAt?:string; customConfig?:{skills:string[];types:string[];count:number}; id:string; title:string; description:string; level:number; source:"OFFICIAL"|"CUSTOM"; durationMin:number|null; maxScore:number; passScore:number|null; proctorEnabled?:boolean; questions:ExamQuestion[]; mode:"EXAM"|"PRACTICE" };
+export type ExamPaper = { groups?:Record<string,ExamGroupMedia>; classification?:{bands:{minScore:number;maxScore:number;label:string}[]}; createdAt?:string; customConfig?:{skills:string[];types:string[];count:number}; id:string; title:string; description:string; level:number; source:"OFFICIAL"|"CUSTOM"; durationMin:number|null; maxScore:number; passScore:number|null; proctorEnabled?:boolean; hskkExam?:any; hskkPaperId?:string|null; questions:ExamQuestion[]; mode:"EXAM"|"PRACTICE" };
 export type ExamResult = { questionId:string; manual:boolean; correct:boolean|null; earned:number|null; max:number };
 export type CenterAttempt = { schemaVersion:1; paper:ExamPaper; answers:Record<string,string>; results:ExamResult[]; status:"IN_PROGRESS"|"NEEDS_GRADING"|"GRADED"; startedAt:string; expiresAt:string|null; submittedAt:string|null; score:number|null; revision:number; timedOut:boolean };
 export const levelGroup=(level:number)=>level>=7?7:level;
@@ -223,7 +223,7 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia, positi
     translationDirection: safe.translationDirection
  };
 }
-export function paperSummary(paper:ExamPaper){return{createdAt:paper.createdAt||null,customConfig:paper.customConfig||null,id:paper.id,title:paper.title,description:paper.description,level:paper.level,source:paper.source,durationMin:paper.durationMin,maxScore:paper.maxScore,passScore:paper.passScore,proctorEnabled:paper.proctorEnabled!==false,questionsCount:paper.questions.length,skills:[...new Set(paper.questions.map(q=>q.skill))],mode:paper.mode};}
+export function paperSummary(paper:ExamPaper){return{createdAt:paper.createdAt||null,customConfig:paper.customConfig||null,id:paper.id,title:paper.title,description:paper.description,level:paper.level,source:paper.source,durationMin:paper.durationMin,maxScore:paper.maxScore,passScore:paper.passScore,proctorEnabled:paper.proctorEnabled!==false,hskkExam:(paper as any).hskkExam||null,hskkPaperId:(paper as any).hskkPaperId||null,questionsCount:paper.questions.length,skills:[...new Set(paper.questions.map(q=>q.skill))],mode:paper.mode};}
 export function hasAnswer(answer:unknown):boolean {
  if(typeof answer!=="string"||!answer.trim())return false;
  try{const value=JSON.parse(answer);if(Array.isArray(value))return value.length>0&&value.some(item=>String(item).trim());if(value&&typeof value==="object")return Object.values(value).some(item=>String(item??"").trim());}catch{}
