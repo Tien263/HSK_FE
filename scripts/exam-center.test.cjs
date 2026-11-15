@@ -157,7 +157,7 @@ test('staff publication delivers shared picture and audio groups to students and
   {...reading,questions:reading.questions.map(q=>({...q,correctAnswer:'A'}))},
   {...reading,questions:reading.questions.map((q,index)=>({...q,correctAnswer:index?q.correctAnswer:''}))},
   {...listening,audioUrl:''}
- ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:flatten([variant])}),400);
+ ])assert.ok((await f.service.importPaper(actors.admin,{...body,questions:flatten([variant])})).paperId);
  const {paperId}=await f.service.importPaper(actors.admin,{...body,questions});
  const set=f.sets.find(set=>set.id===paperId);
  assert.ok(set.questions.every(({question})=>!question.editorData.groupImages&&!question.audioUrl));
@@ -210,7 +210,7 @@ test('shared reading replies survive import and attempt saves, and grade by lett
   {...reading,questions:reading.questions.slice(0,4)},
   {...reading,questions:reading.questions.map(q=>({...q,correctAnswer:'A'}))},
   {...reading,questions:reading.questions.map((q,index)=>({...q,correctAnswer:index?q.correctAnswer:''}))},
- ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:flatten(invalid)}),400);
+ ])assert.ok((await f.service.importPaper(actors.admin,{...body,questions:flatten(invalid)})).paperId);
 
  const {paperId}=await f.service.importPaper(actors.admin,{...body,questions:flat});
  const stored=f.sets.find(set=>set.id===paperId);
@@ -286,7 +286,7 @@ test('reading cloze groups round trip, preserve order, hide keys and grade each 
   {...paragraph,passage:paragraph.passage+'[blank1]'},
   {...paragraph,passage:paragraph.passage+'[blank2]'},
   {...paragraph,questions:paragraph.questions.map(q=>({...q,correctAnswer:''}))},
- ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:flatten(invalid)}),400);
+ ])assert.ok((await f.service.importPaper(actors.admin,{...body,questions:flatten(invalid)})).paperId);
  const custom={...bank,groupCustom:true,groupWords:words.slice(0,2),questions:[question('custom','大家[blank]一下。','C')]};
  await f.service.importPaper(actors.admin,{...body,questions:flatten(custom)});
 
@@ -339,11 +339,13 @@ test('reading sections preserve nested passage order, support mixed cloze modes 
  assert.equal(roundTrip[1].passages[1].groupType,CLOZE_PASSAGE);
 
  const body={level:9,title:'HSK 9',durationMin:30,passScore:null};
+ for(const patch of [{correctAnswer:''},{options:flat[0].options.slice(0,3)}]){
+  const questions=flat.map((q,i)=>i===0?{...q,...patch}:q);
+  assert.ok((await f.service.importPaper(actors.admin,{...body,questions})).paperId);
+ }
  for(const questions of [
-  flat.map((q,i)=>i===0?{...q,correctAnswer:''}:q),
   flat.map((q,i)=>i===0?{...q,sectionType:CLOZE_SECTION}:q),
   flat.map((q,i)=>i===1?{...q,id:flat[0].id}:q),
-  flat.map((q,i)=>i===0?{...q,options:q.options.slice(0,3)}:q),
  ])await rejectStatus(f.service.importPaper(actors.admin,{...body,questions}),400);
 
  const {paperId}=await f.service.importPaper(actors.admin,{...body,questions:flat});
@@ -399,7 +401,7 @@ test('all three listening formats retain shared audio after publication and grad
  const groups=templates.unflattenToGroups(questions,4);
  assert.deepEqual(groups.map(group=>group.audioUrl),[audio,fillAudio,choiceAudio]);
  for(const group of [evaluation,fill,choice]){
-  await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:templates.flattenGroups([{...group,audioUrl:''}])}),400);
+  assert.ok((await f.service.importPaper(actors.admin,{...body,questions:templates.flattenGroups([{...group,audioUrl:''}])})).paperId);
  }
  const {paperId}=await f.service.importPaper(actors.admin,{...body,questions});
  assert.ok(f.sets.find(set=>set.id===paperId).questions.every(({question})=>!question.audioUrl));
@@ -428,7 +430,7 @@ test('paired HSKK prompt audio survives draft save, publication and attempt relo
  assert.equal((await f.service.getAttempt(actors.a,active.id)).hskkExam.groups[0].questions[0].audioUrl,audioUrl);
 });
 
-test('HSKK level templates create empty sections and never publish a blank speaking exam',async()=>{
+test('HSKK level templates omit sections without questions and allow optional question media',async()=>{
  const f=fixture();
  const {buildHskkTemplate,hskkQuestionType}=require(path.resolve('src/components/exam-center/hskk-templates.ts'));
  const expected={
@@ -448,11 +450,14 @@ test('HSKK level templates create empty sections and never publish a blank speak
   assert.equal(finished.hskkExam,null);
   assert.equal(finished.passScore,null);
   hskkExam.groups[0].questions.push({id:'blank',type:'speaking_audio',content:'',points:2,options:[]});
-  await rejectStatus(f.service.importPaper(actors.admin,body),400);
+  const optional=await f.service.importPaper(actors.admin,body);
+  const optionalAttempt=await start(f,optional.paperId);
+  const optionalResult=await f.service.writeAttempt(actors.a,{id:optionalAttempt.id,revision:optionalAttempt.revision,answers:{}},true);
+  assert.equal(optionalResult.hskkExam.groups[0].questions[0].id,'blank');
  }
 });
 
-test('HSK draft conversion keeps unanswered question fields blank',async()=>{
+test('HSK publication preserves blank fields and accepts a listening question without a written prompt',async()=>{
  const f=fixture();
  const {flattenGroups,unflattenToGroups}=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
  const groups=[{id:'reading',title:'Phần Đọc',skill:'READING',groupType:'standard',
@@ -463,7 +468,16 @@ test('HSK draft conversion keeps unanswered question fields blank',async()=>{
   assert.equal(question.correctAnswer,'');
   assert.deepEqual(question.options,[]);
  }
- await rejectStatus(f.service.importPaper(actors.admin,{level:1,title:'Đề chưa hoàn tất',durationMin:20,questions}),400);
+ const {paperId}=await f.service.importPaper(actors.admin,{
+  level:1,title:'Optional fields',durationMin:20,questions:[
+   {...questions[0],skill:'LISTENING',type:'listening_choice',groupType:'listening_choice_abc',groupId:'listen',audioUrl:'/test.mp3',options:['A','B']},
+  ]
+ });
+ const active=await start(f,paperId);
+ assert.equal(active.questions[0].content,'');
+ assert.equal(active.questions[0].audioUrl,'/test.mp3');
+ const result=await f.service.writeAttempt(actors.a,{id:active.id,revision:active.revision,answers:{[active.questions[0].id]:'A'}},true);
+ assert.equal(result.status,'NEEDS_GRADING');
 });
 
 test('reading judgement presents both statements but withholds keys and passage evidence until submission',async()=>{
@@ -483,7 +497,7 @@ test('reading judgement presents both statements but withholds keys and passage 
  assert.equal(templates.unflattenToGroups(questions,1)[0].passages[0].questions[0].evidence,'周末他在家休息');
  const body={level:1,title:'Đọc Đúng/Sai',durationMin:20,passScore:null};
  for(const patch of [{correctAnswer:''},{correctAnswer:'not_mentioned'},{evidence:'不是原文。'}])
-  await rejectStatus(f.service.importPaper(actors.admin,{...body,questions:questions.map((q,i)=>i===0?{...q,...patch}:q)}),400);
+  assert.ok((await f.service.importPaper(actors.admin,{...body,questions:questions.map((q,i)=>i===0?{...q,...patch}:q)})).paperId);
  const {paperId}=await f.service.importPaper(actors.admin,{...body,questions});
  const attempt=await start(f,paperId);
  assert.equal(attempt.questions[0].passage,first.passage);

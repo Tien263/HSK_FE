@@ -2,7 +2,8 @@ import BrandMark from "@/components/common/BrandMark";
 import { ArrowRight, BarChart3, CalendarDays, Clock3, FileText, History, Mic, RotateCcw, Target, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { hasAnswer, levelLabel, type attemptForOwner } from "@/lib/exam-center-core";
-import { dateText, readHskkSubmission, resultNames, skillNames, timeText } from "./exam-client";
+import { dateText, resultNames, skillNames, timeText } from "./exam-client";
+import { readHskkSubmission } from "./hskk-storage";
 import s from "./ExamResult.module.css";
 
 type Attempt = ReturnType<typeof attemptForOwner>;
@@ -27,7 +28,13 @@ export default function ExamResult({ attempt, error, onReview, onBack, onRetake,
   const [speakingComplete, setSpeakingComplete] = useState(false);
   const { id, hskkExam } = attempt;
   useEffect(() => {
-    setSpeakingComplete(hskkExam ? readHskkSubmission(id, hskkExam).completed : false);
+    let active = true;
+    if (hskkExam) {
+      void readHskkSubmission(id, hskkExam).then(saved => {
+        if (active) setSpeakingComplete(saved.completed);
+      });
+    }
+    return () => { active = false; };
   }, [id, hskkExam]);
   useEffect(() => {
     window.scrollTo(0, 0);

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import ExamAudioRecorder from "@/components/common/ExamAudioRecorder";
 import type { PairedHskkExam } from "@/lib/exam-center-core";
-import { readHskkSubmission } from "./exam-client";
+import { readHskkSubmission, saveHskkSubmission } from "./hskk-storage";
 import s from "./ExamResult.module.css";
 
 export default function HskkExamPlayer({
@@ -30,10 +30,11 @@ export default function HskkExamPlayer({
   parentPaperTitle: string;
   onClose: () => void;
 }) {
-  const storageKey = `hskk_sub_${parentAttemptId}`;
   const allQuestions = React.useMemo(() => exam.groups.flatMap(group => group.questions || []), [exam.groups]);
   const [step, setStep] = useState<"loading" | "mic_check" | "exam" | "completed">("loading");
   const [storageError, setStorageError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [capturePending, setCapturePending] = useState(false);
 
   // Microphone Check State
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
@@ -50,24 +51,35 @@ export default function HskkExamPlayer({
 
   // User recordings { [qId]: base64DataUri }
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const answersRef = useRef(answers);
+  const pendingSave = useRef<Promise<void>>(Promise.resolve());
   const [audioPromptPlaying, setAudioPromptPlaying] = useState(false);
   const promptAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const saved = readHskkSubmission(parentAttemptId, exam);
-    setAnswers(saved.answers);
-    setStep(saved.completed ? "completed" : "mic_check");
+    let active = true;
+    void readHskkSubmission(parentAttemptId, exam).then(saved => {
+      if (!active) return;
+      answersRef.current = saved.answers;
+      setAnswers(saved.answers);
+      setStep(saved.completed ? "completed" : "mic_check");
+    });
+    return () => { active = false; };
   }, [exam, parentAttemptId]);
 
   function persistAnswers(nextAnswers: Record<string, string>, completed = false) {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ paperTitle: exam.title, answers: nextAnswers, completed }));
-      setStorageError("");
-      return true;
-    } catch {
-      setStorageError("Không lưu được bản ghi âm trên thiết bị này. Hãy thử lại sau khi giải phóng dung lượng lưu trữ.");
-      return false;
-    }
+    const save = pendingSave.current.then(async () => {
+      try {
+        await saveHskkSubmission(parentAttemptId, { paperTitle: exam.title, answers: nextAnswers, completed });
+        setStorageError("");
+        return true;
+      } catch {
+        setStorageError("Trình duyệt không lưu được bản ghi âm. Hãy giữ trang này mở và thử nộp bài lại.");
+        return false;
+      }
+    });
+    pendingSave.current = save.then(() => {});
+    return save;
   }
 
   const stopMicCheck = useCallback(() => {
@@ -143,16 +155,20 @@ export default function HskkExamPlayer({
   }, [currentQ?.id, currentQ?.audioUrl, currentAnswer, step]);
 
   const handleAudioAnswerReady = (audioDataUri: string) => {
-    const next = { ...answers, [currentQ.id]: audioDataUri };
+    const next = { ...answersRef.current, [currentQ.id]: audioDataUri };
+    answersRef.current = next;
     setAnswers(next);
-    persistAnswers(next, false);
+    void persistAnswers(next);
   };
 
-  const handleFinishExam = () => {
-    if (persistAnswers(answers, true)) setStep("completed");
+  const handleFinishExam = async () => {
+    setSubmitting(true);
+    if (await persistAnswers(answersRef.current, true)) setStep("completed");
+    setSubmitting(false);
   };
 
   const answeredCount = Object.keys(answers).filter((k) => !!answers[k]).length;
+  const navigationLocked = capturePending || submitting;
   const currentGroup = exam.groups.find(group => group.questions?.some(question => question.id === currentQ?.id));
 
   return (
@@ -378,6 +394,7 @@ export default function HskkExamPlayer({
                       <button
                         key={q.id}
                         type="button"
+                        disabled={navigationLocked}
                         onClick={() => setCurrentIdx(idx)}
                         style={{
                           width: 28,
@@ -520,6 +537,8 @@ export default function HskkExamPlayer({
                   key={currentQ.id}
                   initialAudioUrl={answers[currentQ.id]}
                   onAudioReady={handleAudioAnswerReady}
+                  onCapturePendingChange={setCapturePending}
+                  disabled={submitting}
                 />
               </div>
 
@@ -527,7 +546,7 @@ export default function HskkExamPlayer({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24 }}>
                 <button
                   type="button"
-                  disabled={currentIdx === 0}
+                  disabled={currentIdx === 0 || navigationLocked}
                   onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
                   style={{
                     padding: "8px 16px",
@@ -549,6 +568,7 @@ export default function HskkExamPlayer({
                 {currentIdx < allQuestions.length - 1 ? (
                   <button
                     type="button"
+                    disabled={navigationLocked}
                     onClick={() => setCurrentIdx((prev) => Math.min(allQuestions.length - 1, prev + 1))}
                     style={{
                       padding: "8px 20px",
@@ -570,6 +590,7 @@ export default function HskkExamPlayer({
                   <button
                     type="button"
                     onClick={handleFinishExam}
+                    disabled={navigationLocked}
                     style={{
                       padding: "8px 24px",
                       borderRadius: 8,
@@ -585,7 +606,7 @@ export default function HskkExamPlayer({
                       boxShadow: "0 2px 8px rgba(220, 38, 38, 0.3)",
                     }}
                   >
-                    <CheckCircle2 size={16} /> Nộp bài thi Khẩu ngữ HSKK
+                    <CheckCircle2 size={16} /> {submitting ? "Đang lưu bài thi…" : "Nộp bài thi Khẩu ngữ HSKK"}
                   </button>
                 )}
               </div>

@@ -7,6 +7,7 @@ interface ExamAudioRecorderProps {
   maxDurationSec?: number;
   initialAudioUrl?: string;
   onAudioReady: (audioBase64: string, durationSec: number) => void;
+  onCapturePendingChange?: (pending: boolean) => void;
   disabled?: boolean;
 }
 
@@ -14,9 +15,11 @@ export default function ExamAudioRecorder({
   maxDurationSec = 120,
   initialAudioUrl,
   onAudioReady,
+  onCapturePendingChange,
   disabled = false,
 }: ExamAudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
+  const [capturePending, setCapturePending] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(initialAudioUrl || null);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -47,6 +50,8 @@ export default function ExamAudioRecorder({
     }
 
     try {
+      setCapturePending(true);
+      onCapturePendingChange?.(true);
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -79,8 +84,15 @@ export default function ExamAudioRecorder({
         // Chuyển blob thành base64 để lưu vào kết quả bài thi
         const reader = new FileReader();
         reader.onloadend = () => {
-          const base64data = reader.result as string;
-          onAudioReady(base64data, duration);
+          if (typeof reader.result === "string" && audioBlob.size > 0) {
+            onAudioReady(reader.result, duration);
+          } else {
+            URL.revokeObjectURL(localUrl);
+            setAudioUrl(null);
+            setError("Không đọc được bản ghi âm. Hãy ghi âm lại.");
+          }
+          setCapturePending(false);
+          onCapturePendingChange?.(false);
         };
         reader.readAsDataURL(audioBlob);
       };
@@ -98,6 +110,8 @@ export default function ExamAudioRecorder({
         });
       }, 1000);
     } catch (err: any) {
+      setCapturePending(false);
+      onCapturePendingChange?.(false);
       console.error("Lỗi khởi động ghi âm:", err);
       setError("Vui lòng cấp quyền Microphone để thực hiện phần thi nói / HSKK.");
     }
@@ -167,7 +181,7 @@ export default function ExamAudioRecorder({
 
         {/* Action Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {!isRecording && !audioUrl && (
+          {!capturePending && !audioUrl && (
             <button
               type="button"
               disabled={disabled}
@@ -213,7 +227,7 @@ export default function ExamAudioRecorder({
             </button>
           )}
 
-          {audioUrl && !isRecording && (
+          {audioUrl && !capturePending && (
             <>
               <button
                 type="button"

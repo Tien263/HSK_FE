@@ -161,8 +161,11 @@ export function snapshotQuestion(raw:Record<string,unknown>,points:number):ExamQ
    tags:[raw.skill,raw.tags,editor.sourceContent].filter(Boolean).join(" ")
  };
 }
+export function playableQuestion(q:ExamQuestion){
+ return supportedTypes.has(q.type)&&Number.isFinite(q.points)&&q.points>=0;
+}
 export function usableQuestion(q:ExamQuestion){
- if(!supportedTypes.has(q.type)||!Number.isFinite(q.points)||q.points<0)return false;
+ if(!playableQuestion(q))return false;
  if(q.editorData.groupType==="matching_images"||q.editorData.groupType===READING_REPLIES)return (q.skill==="LISTENING"||!!q.content.trim())&&PICTURE_CODES.some(code=>code===q.correctAnswer);
  if(q.editorData.groupType===WORD_BANK)return !!q.content.trim()&&!!q.correctAnswer;
  if(q.editorData.groupType===CLOZE_PASSAGE)return !!q.editorData.blankId&&q.options.some(option=>clozeChoice(option)&&option.id===q.correctAnswer);
@@ -238,6 +241,16 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
  if(attempt.status!=="IN_PROGRESS")return attempt;
  const results=attempt.paper.questions.map(q=>{
   const answer=attempt.answers[q.id]||"";
+  const groupedReading=isReadingCloze(q.editorData.groupType)||isReadingPassage(q.editorData.groupType);
+  const hasFillKey=!groupedReading&&["fill_blank","listening_fill"].includes(q.type)&&(
+   (q.editorData.groupType==="listening_fill_blank"&&String(q.editorData.acceptedAnswers||"").trim())||
+   (Array.isArray(q.editorData.blanks)&&q.editorData.blanks.some(blank=>typeof blank?.answer==="string"&&blank.answer.trim()))
+  );
+  const keyMissing=!q.correctAnswer.trim()&&!hasFillKey&&!(q.type==="sentence_order"&&q.editorData.sampleAnswer);
+  if(keyMissing&&q.skill!=="SPEAKING"&&!gradeQuestion(q,"").manual){
+   const manual=hasAnswer(answer);
+   return {questionId:q.id,manual,correct:manual?null:false,earned:manual?null:0,max:q.points};
+  }
   if(q.editorData.groupType==="matching_images"||q.editorData.groupType===READING_REPLIES){
    const correct=PICTURE_CODES.some(code=>code===answer&&code===q.correctAnswer);
    return {questionId:q.id,manual:false,correct,earned:correct?q.points:0,max:q.points};
@@ -360,7 +373,7 @@ export function recommendExam(papers:ExamPaper[],attempts:{id:string;state:Cente
  const history=attempts.filter(row=>!level||levelGroup(row.state.paper.level)===level).sort((a,b)=>Date.parse(b.state.submittedAt||b.state.startedAt)-Date.parse(a.state.submittedAt||a.state.startedAt));
  const latest=history.find(row=>row.state.status==='GRADED')?.state;
  const weak=latest?EXAM_SKILLS.flatMap(skill=>{const questions=latest.paper.questions.filter(q=>q.skill===skill),max=questions.reduce((sum,q)=>sum+q.points,0);return max?[{skill,ratio:questions.reduce((sum,q)=>sum+(latest.results.find(r=>r.questionId===q.id)?.earned||0),0)/max}]:[];}).sort((a,b)=>a.ratio-b.ratio).filter(row=>row.ratio<1).slice(0,2).map(row=>row.skill):[];
- const candidates=papers.filter(p=>p.source==='OFFICIAL'&&(!level||levelGroup(p.level)===level)&&p.durationMin&&p.maxScore>0&&p.questions.length&&p.questions.every(usableQuestion)&&p.questions.some(q=>q.points>0));
+ const candidates=papers.filter(p=>p.source==='OFFICIAL'&&(!level||levelGroup(p.level)===level)&&p.durationMin&&p.maxScore>0&&p.questions.length&&p.questions.every(playableQuestion)&&p.questions.some(q=>q.points>0));
  const active=new Set(history.filter(row=>row.state.status==='IN_PROGRESS').map(row=>row.state.paper.id));
  const count=(paper:ExamPaper)=>history.filter(row=>row.state.paper.id===paper.id).length;
  const fit=(paper:ExamPaper)=>weak.filter(skill=>paper.questions.some(q=>q.skill===skill)).length;

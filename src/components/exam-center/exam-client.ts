@@ -1,18 +1,4 @@
 /* eslint-disable @next/next/no-location-assign-relative-destination -- Discard protected client state through a full navigation after session expiry. */
-import type { PairedHskkExam } from "@/lib/exam-center-core";
-
-export function readHskkSubmission(id: string, exam: PairedHskkExam) {
- try {
-  const saved = JSON.parse(localStorage.getItem(`hskk_sub_${id}`) || "null");
-  const questions = exam.groups.flatMap(group => group.questions || []);
-  const answers = Object.fromEntries(questions.flatMap(({ id }) =>
-   typeof saved?.answers?.[id] === "string" && saved.answers[id] ? [[id, saved.answers[id]]] : []
-  ));
-  return { answers, completed: saved?.completed === true && (saved.paperTitle === exam.title || Object.keys(answers).length > 0) };
- } catch {
-  return { answers: {}, completed: false };
- }
-}
 
 export async function examApi<T>(action:string,body?:Record<string,unknown>,signal?:AbortSignal):Promise<T>{
  const response=await fetch(body?'/api/v1/exam-center':`/api/v1/exam-center?action=${encodeURIComponent(action)}`,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal,...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,action})}:{})});

@@ -4,9 +4,9 @@ import { randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
-import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, PASSAGE_SECTION, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, isReadingPassage, isReadingCloze, isReadingSection, clozeChoice, readingClozeIssues, passageChoiceIssues, passageJudgementIssues } from "./reading-cloze";
+import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, PASSAGE_SECTION, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, isReadingPassage, isReadingCloze, isReadingSection, clozeChoice } from "./reading-cloze";
 import { NextResponse } from "next/server";
-import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, usableQuestion, pictureGroupIssues, isSharedListeningGroup, replyGroupIssues, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
+import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, playableQuestion, usableQuestion, isSharedListeningGroup, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
 
 const ATTEMPT="EXAM_CENTER_ATTEMPT", PAPER="EXAM_CENTER_PAPER", PUBLICATION="EXAM_CENTER_PUBLICATION", REVIEW="EXAM_CENTER_REVIEW";
 export class ExamError extends Error { constructor(public status:number,message:string){super(message);} }
@@ -88,7 +88,7 @@ export async function dashboard(user:AuthUser){
  const bank=EXAM_LEVELS.map(level=>{const pool=approvedPool(official,level);return{level,count:pool.length,skills:EXAM_SKILLS.map(skill=>({skill,count:pool.filter(q=>q.skill===skill).length})),types:[...new Set(pool.map(q=>q.type))].map(type=>({type,count:pool.filter(q=>q.type===type).length,skills:[...new Set(pool.filter(q=>q.type===type).map(q=>q.skill))],skillCounts:EXAM_SKILLS.map(skill=>({skill,count:pool.filter(q=>q.type===type&&q.skill===skill).length}))}))};});
  const summaries=attempts.map(row=>attemptSummary(row.id,row.state));
  const legacyStats=legacy.filter(row=>row.status==="GRADED"&&row.score!==null&&Number.isFinite(row.score)&&row.score>=0&&row.score<=row.maxScore&&row.maxScore>0).map(row=>({id:row.id,state:{schemaVersion:1,paper:{id:row.paperId,title:row.title,description:"",level:row.level,source:official.some(p=>p.id===row.paperId)?"OFFICIAL":"CUSTOM",durationMin:null,maxScore:row.maxScore,passScore:null,questions:[],mode:"EXAM"},answers:{},results:[],status:"GRADED",startedAt:row.startedAt,expiresAt:null,submittedAt:row.submittedAt,score:row.score,revision:0,timedOut:false} as CenterAttempt}));
- return {recommendations:[0,...EXAM_LEVELS].map(level=>({level,recommendation:recommendExam(official,attempts,level)})),blueprints:examBlueprint.levels,papers:papers.map(paper=>({...paperSummary(paper),available:paper.questions.length>0&&paper.questions.every(usableQuestion)&&paper.maxScore>0&&paper.questions.some(q=>q.points>0)&&!!paper.durationMin})),levels:EXAM_LEVELS.map(level=>{const rows=official.filter(p=>levelGroup(p.level)===level),times=rows.flatMap(p=>p.durationMin?[p.durationMin]:[]);return{level,count:rows.length,durationMin:times.length?Math.min(...times):null,durationMax:times.length?Math.max(...times):null};}),attempts:summaries,legacy,statistics:[0,...EXAM_LEVELS].map(level=>({level,...examStatistics(official,[...attempts,...legacyStats],level)})),bank,serverNow:new Date().toISOString()};
+ return {recommendations:[0,...EXAM_LEVELS].map(level=>({level,recommendation:recommendExam(official,attempts,level)})),blueprints:examBlueprint.levels,papers:papers.map(paper=>({...paperSummary(paper),available:paper.questions.length>0&&paper.questions.every(playableQuestion)&&paper.maxScore>0&&paper.questions.some(q=>q.points>0)&&!!paper.durationMin})),levels:EXAM_LEVELS.map(level=>{const rows=official.filter(p=>levelGroup(p.level)===level),times=rows.flatMap(p=>p.durationMin?[p.durationMin]:[]);return{level,count:rows.length,durationMin:times.length?Math.min(...times):null,durationMax:times.length?Math.max(...times):null};}),attempts:summaries,legacy,statistics:[0,...EXAM_LEVELS].map(level=>({level,...examStatistics(official,[...attempts,...legacyStats],level)})),bank,serverNow:new Date().toISOString()};
 }
 export async function getAttempt(user:AuthUser,id:string){return attemptForOwner(id,await settledState(user,id));}
 export async function startAttempt(user:AuthUser,body:Record<string,unknown>){
@@ -96,7 +96,7 @@ export async function startAttempt(user:AuthUser,body:Record<string,unknown>){
  const prior=await prisma.auditLog.findFirst({where:{id,userId:user.id,action:ATTEMPT}});if(prior)return getAttempt(user,id);
  const paperId=String(body.paperId||"");const papers=await Promise.all([officialPapers(),privatePapers(user)]);const paper=papers.flat().find(p=>p.id===paperId);
  if(!paper)throw new ExamError(404,"Đề chưa được Admin xuất bản hoặc không thuộc tài khoản của bạn.");
- if(!paper.questions.length||paper.questions.some(q=>!usableQuestion(q))||!paper.questions.some(q=>q.points>0)||paper.maxScore<=0)throw new ExamError(409,"Đề chưa có đủ dữ liệu chấm điểm hoặc có dạng câu hỏi chưa hỗ trợ.");
+ if(!paper.questions.length||paper.questions.some(q=>!playableQuestion(q))||!paper.questions.some(q=>q.points>0)||paper.maxScore<=0)throw new ExamError(409,"Đề chưa có câu hỏi tính điểm hoặc có dạng câu hỏi chưa hỗ trợ.");
  if(!paper.durationMin)throw new ExamError(409,"Admin chưa cấu hình thời gian cho đề này.");
  const active=!body.forceNew?(await ownAttempts(user)).find(row=>row.state.status==="IN_PROGRESS"&&row.state.paper.id===paper.id):null;if(active)return attemptForOwner(active.id,active.state);
  const now=new Date();const state:CenterAttempt={schemaVersion:1,paper:jsonClone(paper),answers:{},results:[],status:"IN_PROGRESS",startedAt:now.toISOString(),expiresAt:paper.mode==="EXAM"?new Date(now.getTime()+paper.durationMin*60000).toISOString():null,submittedAt:null,score:null,revision:0,timedOut:false};
@@ -185,10 +185,6 @@ function validatePairedHskk(value: unknown) {
    if(typeof question?.id!=="string"||!question.id.trim()||ids.has(question.id))
     throw new ExamError(400,`${label} có mã câu hỏi thiếu hoặc bị trùng.`);
    ids.add(question.id);
-   const required = question.type==="speaking_audio" ? ["audioUrl","tệp audio"] :
-    question.type==="speaking_picture" ? ["imageUrl","ảnh đề bài"] : ["content","nội dung đề bài"];
-   const content=question[required[0]];
-   if(typeof content!=="string"||!content.trim())throw new ExamError(400,`${label} cần ${required[1]}.`);
    if(typeof question.points!=="number"||!Number.isFinite(question.points)||question.points<0)
     throw new ExamError(400,`${label} có điểm không hợp lệ.`);
   }
@@ -239,8 +235,7 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
       (sectionType===PASSAGE_SECTION?groupType!==PASSAGE_CHOICE:
        sectionType===JUDGEMENT_SECTION?groupType!==PASSAGE_JUDGEMENT:!isReadingCloze(groupType)))
     throw new ExamError(400,"Bài lớn chưa được liên kết với đúng phần thi.");
-   const sectionTitle=String(q.editorData.sectionTitle||"").trim();
-   if(!sectionTitle||!String(q.editorData.groupTitle||"").trim())throw new ExamError(400,"Nhập tên phần thi và tên từng bài lớn.");
+   const sectionTitle=String(q.editorData.sectionTitle||"").trim()||"Phần Đọc";
    section=sections.get(rawSectionId);
    if(section&&previousSectionId!==rawSectionId)
     throw new ExamError(400,"Các bài lớn thuộc cùng phần thi cần nằm liền nhau.");
@@ -282,8 +277,6 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
    if(groupType==="eval_true_false_na"||groupType==="listening_fill_blank"){
     if(q.skill!=="LISTENING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Nghe.`);
     q.type=groupType==="eval_true_false_na"?"true_false_na":"listening_fill";
-    if(q.type==="true_false_na"&&!["true","false","not_mentioned"].includes(q.correctAnswer))
-     throw new ExamError(400,`${group.title} — Chọn Đúng, Sai hoặc Không đề cập cho từng câu.`);
    }
    if(groupType===WORD_BANK||groupType===CLOZE_PASSAGE||isReadingPassage(groupType)){
     if(q.skill!=="READING")throw new ExamError(400,`${group.title} — Chọn kỹ năng Đọc.`);
@@ -367,24 +360,13 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  }
 
  const groups:Record<string,ExamGroupMedia>={};
- for(const {title,questions,media} of grouped.values()){
+ for(const {questions,media} of grouped.values()){
   const first=questions[0];
-  const issues=first.editorData.groupType==="matching_images"?pictureGroupIssues(media.images||[],questions,first.skill==="READING"):[];
-  if(first.editorData.groupType===READING_REPLIES)issues.push(...replyGroupIssues(media.replies||[],questions,media.custom));
-  const type=first.editorData.groupType;
-  if(type===WORD_BANK||type===CLOZE_PASSAGE)
-   issues.push(...readingClozeIssues(type,media,questions.map(q=>({...q,blankId:String(q.editorData.blankId||"")}))));
-  if(type===PASSAGE_CHOICE)issues.push(...passageChoiceIssues(media.passage||"",questions));
-  if(type===PASSAGE_JUDGEMENT)issues.push(...passageJudgementIssues(media.passage||"",questions.map(q=>({
-   ...q,evidence:String(q.editorData.evidence||"")
-  }))));
-  if(first.skill==="LISTENING"&&!media.audioUrl)issues.push("Tải tệp audio chung cho nhóm.");
-  if(issues.length)throw new ExamError(400,`${title} — ${issues.join(" ")}`);
   if(media.replies)media.replies=replySlots(media.replies);
   groups[String(first.editorData.groupId)]=media;
  }
- const invalid=questions.findIndex(q=>!usableQuestion(q));
- if(invalid>=0)throw new ExamError(400,`Câu ${invalid+1} chưa có đủ nội dung hoặc đáp án để chấm điểm.`);
+ const invalid=questions.findIndex(q=>!playableQuestion(q));
+ if(invalid>=0)throw new ExamError(400,`Câu ${invalid+1} có dạng câu hỏi chưa hỗ trợ.`);
  const totalScore=questions.reduce((sum,q)=>sum+q.points,0);
  if(totalScore<=0||Math.round(totalScore)>2147483647)throw new ExamError(400,"Tổng điểm của đề không hợp lệ.");
  if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>totalScore))

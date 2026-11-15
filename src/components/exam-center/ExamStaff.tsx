@@ -1214,9 +1214,6 @@ export default function ExamStaff({
     try {
       let parsed: ImportedQuestion[] = [];
       if (authorMode === "grouped") {
-        const empty = groups.find(group => isReadingSection(group.groupType) &&
-          (!group.passages?.length || group.passages.some(passage => !passage.questions.length)));
-        if (empty) throw new Error(`${empty.title || "Phần Đọc"} cần ít nhất một bài lớn và mỗi bài cần câu hỏi nhỏ.`);
         parsed = flattenGroups(groups);
       } else {
         if (jsonInput.trim()) {
