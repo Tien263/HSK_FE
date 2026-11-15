@@ -11,7 +11,6 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  FileCheck2,
   Flag,
   Headphones,
   HelpCircle,
@@ -23,7 +22,6 @@ import {
   Pause,
   PenTool,
   Play,
-  RotateCcw,
   Save,
   Volume2,
   VolumeX,
@@ -36,10 +34,9 @@ import ExamAntiCheatProctor from "@/components/common/ExamAntiCheatProctor";
 import ComponentErrorBoundary from "@/components/common/ComponentErrorBoundary";
 import type { attemptForOwner } from "@/lib/exam-center-core";
 import { hasAnswer, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, sampleExamAudio, READING_REPLIES, replySlots, type ExamSkill } from "@/lib/exam-center-core";
-import { attemptApi, examApi, resultNames, skillNames, timeText } from "./exam-client";
+import { attemptApi, examApi, skillNames, timeText } from "./exam-client";
 import ExamQuestionInput from "./ExamQuestionInput";
-import HskkExamPlayerModal from "./HskkExamPlayerModal";
-import { getDefaultHskkForLevel } from "./hskk-templates";
+import ExamResult from "./ExamResult";
 import ReadingClozePlayer from "./ReadingClozePlayer";
 import { displayQuestionNumber } from "@/lib/question-number";
 import { isReadingCloze, WORD_BANK, isReadingPassage, PASSAGE_JUDGEMENT } from "@/lib/reading-cloze";
@@ -56,6 +53,8 @@ export default function ExamPlayer({
   registerLeave = () => {},
   previewAttempt,
   onRetake,
+  onHistory,
+  onSpeaking,
 }: {
   id?: string;
   userId?: string;
@@ -63,7 +62,9 @@ export default function ExamPlayer({
   onChanged?: () => void;
   registerLeave?: (fn: (() => Promise<void>) | null) => void;
   previewAttempt?: View;
-  onRetake?: (paperId: string) => void;
+  onRetake?: (paperId: string, level: number) => Promise<void>;
+  onHistory?: () => void;
+  onSpeaking?: () => void;
 }) {
   const [attempt, setAttempt] = useState<View | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -77,23 +78,7 @@ export default function ExamPlayer({
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set());
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [showHskkModal, setShowHskkModal] = useState(false);
-  const [isHskkReviewMode, setIsHskkReviewMode] = useState(false);
-  const [hasCompletedHskk, setHasCompletedHskk] = useState(false);
-
-  // Nhận diện bài thi Khẩu ngữ HSKK đi kèm bộ đề này
-  const pairedHskk = (attempt as any)?.hskkExam || (attempt ? getDefaultHskkForLevel(attempt.level, attempt.title) : null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !id) return;
-    try {
-      const saved = localStorage.getItem(`hskk_sub_${id}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.completed) setHasCompletedHskk(true);
-      }
-    } catch {}
-  }, [id]);
+  const [showReview, setShowReview] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   // Lịch sử vi phạm ghi nhận bởi Giám thị AI trong phòng thi
@@ -195,7 +180,6 @@ export default function ExamPlayer({
               ? {
                   ...prev,
                   status: "GRADED",
-                  score: prev.maxScore,
                   submittedAt: new Date().toISOString(),
                 }
               : null
@@ -479,6 +463,22 @@ export default function ExamPlayer({
     );
   }
 
+  if (finished && !showReview && !previewAttempt) {
+    return (
+      <ExamResult
+        attempt={attempt}
+        error={error}
+        onReview={() => {
+          setShowReview(true);
+          window.scrollTo(0, 0);
+        }}
+        onBack={onBack}
+        onHistory={onHistory}
+        onRetake={onRetake && (() => onRetake(attempt.paperId, attempt.level))}
+        onSpeaking={onSpeaking}
+      />
+    );
+  }
   // 2. Empty questions state
   if (totalQuestions === 0) {
     return (
@@ -681,108 +681,16 @@ export default function ExamPlayer({
         </div>
       )}
 
-      {/* Finished Result Banner */}
-      {finished && (
-        <div style={{ maxWidth: 1360, margin: "0 auto 16px", width: "calc(100% - 32px)", background: "#eef6ea", border: "1.5px solid #a6d093", borderRadius: 16, padding: "16px 22px", display: "flex", alignItems: "center", gap: 14 }}>
-          <CheckCircle2 size={28} color="#2b5e23" />
-          <div>
-            <strong style={{ fontSize: 18, color: "#1f411b" }}>
-              {attempt.status === "NEEDS_GRADING"
-                ? "Bài thi đã nộp thành công · Có câu chờ chấm tự luận"
-                : attempt.classificationLabel || resultNames[attempt.result]}
-            </strong>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#4f6e4a" }}>
-              {attempt.score === null
-                ? "Đang chờ giáo viên chấm phần viết/nói."
-                : `Điểm số: ${attempt.score} / ${attempt.maxScore} điểm.`}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Paired HSKK Speaking Section Continuity Banner */}
-      {finished && pairedHskk && (
-        <div
-          style={{
-            maxWidth: 1360,
-            margin: "0 auto 16px",
-            width: "calc(100% - 32px)",
-            background: hasCompletedHskk ? "#f0fdf4" : "#eff6ff",
-            border: `1.5px solid ${hasCompletedHskk ? "#86efac" : "#93c5fd"}`,
-            borderRadius: 16,
-            padding: "16px 22px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 14,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                background: hasCompletedHskk ? "#16a34a" : "#2563eb",
-                color: "#ffffff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Mic size={24} />
-            </div>
-            <div>
-              <strong style={{ fontSize: 16, color: hasCompletedHskk ? "#14532d" : "#1e3a8a" }}>
-                {hasCompletedHskk
-                  ? "✅ Đã hoàn thành phần thi Khẩu ngữ HSKK"
-                  : "🎙️ Tiếp tục phần thi Khẩu ngữ HSKK (Bài thi Nói)"}
-              </strong>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: hasCompletedHskk ? "#166534" : "#2563eb" }}>
-                {hasCompletedHskk
-                  ? "Bạn đã nộp cả bài thi HSK và bài thi Khẩu ngữ HSKK. Nhấn nút bên cạnh để xem lại các bản ghi âm của mình."
-                  : "Bộ đề HSK này có bài thi Nói HSKK tương ứng. Hãy tiếp tục làm bài thi nói để hoàn tất trọn bộ điểm."}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsHskkReviewMode(hasCompletedHskk);
-              setShowHskkModal(true);
-            }}
-            style={{
-              padding: "10px 22px",
-              borderRadius: 10,
-              background: hasCompletedHskk ? "#0284c7" : "#16a34a",
-              color: "#ffffff",
-              border: "none",
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-            }}
-          >
-            {hasCompletedHskk ? (
-              <>
-                <FileCheck2 size={16} /> Xem bài làm HSKK
-              </>
-            ) : (
-              <>
-                <Mic size={16} /> Tiếp tục thi HSKK →
-              </>
-            )}
+      {finished && !previewAttempt && (
+        <section className={s.readingScores}>
+          <button type="button" onClick={() => {
+            setShowReview(false);
+            window.scrollTo(0, 0);
+          }}>
+            ← Về tổng quan kết quả
           </button>
-        </div>
+        </section>
       )}
-
       {finished && readingSections.length > 0 && (
         <section className={s.readingScores} aria-label="Điểm theo phần thi và bài lớn">
           <h2>Điểm phần Đọc</h2>
@@ -1429,17 +1337,6 @@ export default function ExamPlayer({
 
           {finished && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-              {onRetake && attempt?.paperId && (
-                <button
-                  type="button"
-                  className={s.submitExamBtn}
-                  onClick={() => onRetake(attempt.paperId)}
-                  style={{ background: "#27492c", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                >
-                  <RotateCcw size={16} />
-                  Làm lại bài thi này (Thi lại)
-                </button>
-              )}
               <button
                 type="button"
                 className={s.submitExamBtn}
@@ -1453,21 +1350,6 @@ export default function ExamPlayer({
           )}
         </aside>
       </div>
-
-      {/* Modal Thi Khẩu ngữ HSKK */}
-      {showHskkModal && pairedHskk && (
-        <HskkExamPlayerModal
-          exam={pairedHskk}
-          parentAttemptId={id}
-          parentPaperTitle={attempt?.title || "Bài thi HSK"}
-          isReviewOnly={isHskkReviewMode}
-          onClose={() => setShowHskkModal(false)}
-          onFinished={() => {
-            setHasCompletedHskk(true);
-            onChanged();
-          }}
-        />
-      )}
 
       {/* CONFIRM SUBMISSION MODAL */}
       {showSubmitModal && (

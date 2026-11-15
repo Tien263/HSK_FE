@@ -427,17 +427,3 @@ export function buildHskkAdvancedTemplate(baseTitle = "Đề thi HSKK Cao cấp"
     groups,
   };
 }
-
-/**
- * Lấy mẫu HSKK phù hợp theo cấp độ HSK
- */
-export function getDefaultHskkForLevel(hskLevel: number, paperTitle?: string): HskkExamPackage {
-  const title = paperTitle ? `${paperTitle} (Khẩu ngữ HSKK)` : "Đề thi Khẩu ngữ HSKK";
-  if (hskLevel <= 3) {
-    return buildHskkBeginnerTemplate(title + " Sơ cấp");
-  } else if (hskLevel === 4) {
-    return buildHskkIntermediateTemplate(title + " Trung cấp");
-  } else {
-    return buildHskkAdvancedTemplate(title + " Cao cấp");
-  }
-}

@@ -1,70 +1,48 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
   Mic,
   Volume2,
-  VolumeX,
   Play,
-  Square,
   RotateCcw,
   CheckCircle2,
   AlertTriangle,
-  Clock,
   ArrowRight,
   ArrowLeft,
   X,
-  Sparkles,
-  HelpCircle,
-  FileCheck2,
   Check,
 } from "lucide-react";
 import ExamAudioRecorder from "@/components/common/ExamAudioRecorder";
-import type { ExamSectionGroup, QuestionItem } from "./hsk-sample-templates";
-import s from "./ExamCenter.module.css";
+import type { PairedHskkExam } from "@/lib/exam-center-core";
+import { readHskkSubmission } from "./exam-client";
+import s from "./ExamResult.module.css";
 
-interface HskkExamPackage {
-  title: string;
-  level: string;
-  durationMin: number;
-  groups: ExamSectionGroup[];
-}
-
-interface HskkExamPlayerModalProps {
-  exam: HskkExamPackage;
-  parentAttemptId: string;
-  parentPaperTitle: string;
-  isReviewOnly?: boolean;
-  onClose: () => void;
-  onFinished: (answers: Record<string, string>) => void;
-}
-
-export default function HskkExamPlayerModal({
+export default function HskkExamPlayer({
   exam,
   parentAttemptId,
   parentPaperTitle,
-  isReviewOnly = false,
   onClose,
-  onFinished,
-}: HskkExamPlayerModalProps) {
-  const STORAGE_KEY = `hskk_sub_${parentAttemptId}`;
-
-  // Step: "mic_check" -> "exam" -> "completed"
-  const [step, setStep] = useState<"mic_check" | "exam" | "completed">(isReviewOnly ? "completed" : "mic_check");
+}: {
+  exam: PairedHskkExam;
+  parentAttemptId: string;
+  parentPaperTitle: string;
+  onClose: () => void;
+}) {
+  const storageKey = `hskk_sub_${parentAttemptId}`;
+  const allQuestions = React.useMemo(() => exam.groups.flatMap(group => group.questions || []), [exam.groups]);
+  const [step, setStep] = useState<"loading" | "mic_check" | "exam" | "completed">("loading");
+  const [storageError, setStorageError] = useState("");
 
   // Microphone Check State
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [micVolume, setMicVolume] = useState<number>(0);
   const [micError, setMicError] = useState<string>("");
   const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const micRequest = useRef(0);
   const animFrameRef = useRef<number | null>(null);
-
-  // Flatten all questions
-  const allQuestions = React.useMemo(() => {
-    return exam.groups.flatMap((g) => g.questions);
-  }, [exam.groups]);
 
   // Current Question Pointer
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -75,55 +53,54 @@ export default function HskkExamPlayerModal({
   const [audioPromptPlaying, setAudioPromptPlaying] = useState(false);
   const promptAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load existing answers from LocalStorage if previously attempted
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.answers) {
-          setAnswers(parsed.answers);
-          if (parsed.completed || isReviewOnly) {
-            setStep("completed");
-          }
-        }
-      }
-    } catch {}
-  }, [STORAGE_KEY, isReviewOnly]);
+    const saved = readHskkSubmission(parentAttemptId, exam);
+    setAnswers(saved.answers);
+    setStep(saved.completed ? "completed" : "mic_check");
+  }, [exam, parentAttemptId]);
 
-  // Save answers to local storage
-  const persistAnswers = (nextAnswers: Record<string, string>, isComplete = false) => {
+  function persistAnswers(nextAnswers: Record<string, string>, completed = false) {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          attemptId: parentAttemptId,
-          answers: nextAnswers,
-          completed: isComplete,
-          savedAt: new Date().toISOString(),
-        })
-      );
-    } catch {}
-  };
+      localStorage.setItem(storageKey, JSON.stringify({ paperTitle: exam.title, answers: nextAnswers, completed }));
+      setStorageError("");
+      return true;
+    } catch {
+      setStorageError("Không lưu được bản ghi âm trên thiết bị này. Hãy thử lại sau khi giải phóng dung lượng lưu trữ.");
+      return false;
+    }
+  }
+
+  const stopMicCheck = useCallback(() => {
+    micRequest.current += 1;
+    if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    void audioContextRef.current?.close().catch(() => {});
+    audioContextRef.current = null;
+  }, []);
 
   // 1. Microphone setup & live volume level meter
-  const startMicCheck = async () => {
+  const startMicCheck = useCallback(async () => {
+    stopMicCheck();
+    const request = micRequest.current;
+    setMicStream(null);
     setMicError("");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicStream(stream);
+      if (request !== micRequest.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      streamRef.current = stream;
 
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioCtx();
+      const ctx = new AudioContext();
       audioContextRef.current = ctx;
 
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      analyserRef.current = analyser;
-
       const source = ctx.createMediaStreamSource(stream);
       source.connect(analyser);
+      setMicStream(stream);
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       const updateVolume = () => {
@@ -137,37 +114,24 @@ export default function HskkExamPlayerModal({
         animFrameRef.current = requestAnimationFrame(updateVolume);
       };
       updateVolume();
-    } catch (e: any) {
+    } catch {
+      if (request !== micRequest.current) return;
+      stopMicCheck();
       setMicError(
         "Trình duyệt chưa được cấp quyền Micro hoặc máy tính chưa cắm Micro. Vui lòng bấm Cho phép (Allow) ở thanh địa chỉ."
       );
     }
-  };
-
-  const stopMicCheck = () => {
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    if (micStream) {
-      micStream.getTracks().forEach((t) => t.stop());
-      setMicStream(null);
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-  };
+  }, [stopMicCheck]);
 
   useEffect(() => {
-    if (step === "mic_check") {
-      void startMicCheck();
-    } else {
-      stopMicCheck();
-    }
-    return () => stopMicCheck();
-  }, [step]);
+    if (step === "mic_check") void startMicCheck();
+    return stopMicCheck;
+  }, [step, startMicCheck, stopMicCheck]);
 
   // Auto-play audio prompt if the current question has audioUrl and not yet answered
+  const currentAnswer = currentQ ? answers[currentQ.id] : undefined;
   useEffect(() => {
-    if (step === "exam" && currentQ?.audioUrl && !answers[currentQ.id]) {
+    if (step === "exam" && currentQ?.audioUrl && !currentAnswer) {
       setAudioPromptPlaying(true);
       if (promptAudioRef.current) {
         promptAudioRef.current.currentTime = 0;
@@ -176,7 +140,7 @@ export default function HskkExamPlayerModal({
         });
       }
     }
-  }, [currentIdx, step]);
+  }, [currentQ?.id, currentQ?.audioUrl, currentAnswer, step]);
 
   const handleAudioAnswerReady = (audioDataUri: string) => {
     const next = { ...answers, [currentQ.id]: audioDataUri };
@@ -185,41 +149,15 @@ export default function HskkExamPlayerModal({
   };
 
   const handleFinishExam = () => {
-    persistAnswers(answers, true);
-    setStep("completed");
-    onFinished(answers);
+    if (persistAnswers(answers, true)) setStep("completed");
   };
 
   const answeredCount = Object.keys(answers).filter((k) => !!answers[k]).length;
-  const currentGroup = exam.groups.find((g) => g.questions.some((q) => q.id === currentQ?.id)) || exam.groups[0];
+  const currentGroup = exam.groups.find(group => group.questions?.some(question => question.id === currentQ?.id));
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        background: "rgba(15, 23, 42, 0.75)",
-        backdropFilter: "blur(5px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-    >
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 20,
-          maxWidth: 960,
-          width: "100%",
-          maxHeight: "92vh",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          overflow: "hidden",
-        }}
-      >
+    <main className={s.room}>
+      <article style={{ background: "#fff", borderRadius: 18, overflow: "hidden", boxShadow: "0 8px 32px #183f3026" }}>
         {/* Header */}
         <div
           style={{
@@ -280,7 +218,7 @@ export default function HskkExamPlayerModal({
                 padding: 6,
                 borderRadius: 8,
               }}
-              title="Đóng cửa sổ"
+              aria-label="Quay lại kết quả HSK"
             >
               <X size={20} />
             </button>
@@ -288,7 +226,9 @@ export default function HskkExamPlayerModal({
         </div>
 
         {/* Body content based on step */}
-        <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+        <div style={{ padding: 24 }}>
+          {step === "loading" && <p role="status">Đang tải bài thi khẩu ngữ…</p>}
+          {storageError && <p role="alert" className={s.error}>{storageError}</p>}
           {/* STEP 1: MICROPHONE CHECK */}
           {step === "mic_check" && (
             <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center", padding: "20px 0" }}>
@@ -422,7 +362,7 @@ export default function HskkExamPlayerModal({
               >
                 <div>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "#047857", textTransform: "uppercase" }}>
-                    {currentGroup.title}
+                    {currentGroup?.title}
                   </span>
                   <div style={{ fontSize: 13, color: "#64748b" }}>
                     Câu số <strong>{currentIdx + 1}</strong> / {allQuestions.length} ({currentQ.points} điểm)
@@ -459,7 +399,7 @@ export default function HskkExamPlayerModal({
               </div>
 
               {/* Question Instruction */}
-              {currentGroup.instruction && (
+              {currentGroup?.instruction && (
                 <div
                   style={{
                     background: "#f0fdf4",
@@ -471,7 +411,7 @@ export default function HskkExamPlayerModal({
                     marginBottom: 16,
                   }}
                 >
-                  <strong>💡 Hướng dẫn phần này:</strong> {currentGroup.instruction}
+                  <strong>💡 Hướng dẫn phần này:</strong> {currentGroup?.instruction}
                 </div>
               )}
 
@@ -738,7 +678,7 @@ export default function HskkExamPlayerModal({
           }}
         >
           <span style={{ fontSize: 12, color: "#64748b" }}>
-            Trắc nghiệm Khẩu ngữ HSKK chuẩn Hanban · Hanyu Exam Center
+            Phòng thi khẩu ngữ HSKK{exam.durationMin > 0 && ` · ${exam.durationMin} phút`}
           </span>
           <button
             type="button"
@@ -754,10 +694,10 @@ export default function HskkExamPlayerModal({
               cursor: "pointer",
             }}
           >
-            Đóng
+            Quay lại kết quả HSK
           </button>
         </div>
-      </div>
-    </div>
+      </article>
+    </main>
   );
 }

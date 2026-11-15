@@ -40,7 +40,6 @@ import {
   buildHskkBeginnerTemplate,
   buildHskkIntermediateTemplate,
   buildHskkAdvancedTemplate,
-  getDefaultHskkForLevel,
 } from "./hskk-templates";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
 import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, sampleExamAudio, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";

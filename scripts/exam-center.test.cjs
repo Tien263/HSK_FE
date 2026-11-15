@@ -37,6 +37,24 @@ function fixture(){
 let serial=0;const requestId=()=>`00000000-0000-4000-8000-${String(++serial).padStart(12,'0')}`;
 const rejectStatus=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 const start=(f,paperId='off1',extra={})=>f.service.startAttempt(actors.a,{paperId,requestId:requestId(),...extra});
+test('only submitted attempts with authored speaking questions expose the paired HSKK exam',async()=>{
+ const f=fixture();
+ const publish=groups=>f.audit.push({action:'EXAM_CENTER_PUBLICATION',entity:'off1',details:JSON.stringify({
+  approved:true,durationMin:20,passScore:120,hskkExam:{title:'HSKK',level:'HSKK_BEGINNER',durationMin:15,groups},
+ })});
+ const submit=attempt=>f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,answers:{}},true);
+ assert.equal((await submit(await start(f))).hskkExam,null);
+ publish([{id:'empty',questions:[]}]);
+ assert.equal((await submit(await start(f))).hskkExam,null);
+ const groups=[{id:'speaking',questions:[{id:'prompt',content:'请介绍你自己。'}]}];
+ publish(groups);
+ const active=await start(f);
+ assert.equal(active.hskkExam,null);
+ assert.equal((await f.service.getAttempt(actors.a,active.id)).hskkExam,null);
+ assert.ok(!(await f.service.dashboard(actors.a)).papers.some(paper=>Object.hasOwn(paper,'hskkExam')));
+ assert.deepEqual((await submit(active)).hskkExam.groups,groups);
+ assert.deepEqual((await f.service.getAttempt(actors.a,active.id)).hskkExam.groups,groups);
+});
 test('anonymous, locked and password-change sessions are denied before protected data access',async()=>{
  const f=fixture();for(const actor of [null,{...actors.a,status:'LOCKED'},{...actors.a,mustChangePassword:true}]){f.actor(actor);let called=false;const response=await f.service.examResponse(new Request('https://hanyu.test/api?studentId=a',{headers:{'x-user-id':'a'}}),async()=>{called=true;return Response.json({});});assert.equal(response.status,actor?.mustChangePassword?403:401);assert.equal(called,false);}assert.equal(f.audit.length,0);
 });

@@ -7,6 +7,7 @@ import { EXAM_LEVELS,levelGroup,levelLabel } from "@/lib/exam-center-core";
 import type { dashboard,reviewData } from "@/lib/exam-center-service";
 import { examApi,dateText,resultNames,skillNames,timeText,typeNames,dayKey } from "./exam-client";
 import ExamPlayer from "./ExamPlayer";
+import HskkRoom from "./HskkRoom";
 import { displayQuestionNumber } from "@/lib/question-number";
 import { CLOZE_PASSAGE, PASSAGE_CHOICE, PASSAGE_JUDGEMENT, WORD_BANK, passageParts } from "@/lib/reading-cloze";
 import ExamStaff from "./ExamStaff";
@@ -65,7 +66,7 @@ export default function ExamCenter({user}:{user:{id:string;name:string;role:stri
  const beforeLeave=useRef<(()=>Promise<void>)|null>(null);
  const registerLeave=useCallback((fn:(()=>Promise<void>)|null)=>{beforeLeave.current=fn;},[]);
  const reload=useCallback(()=>{void Promise.all([examApi<Dashboard>('dashboard'),examApi<Review>('review')]).then(([next,review])=>{setData(next);setReview(review);setError('');}).catch(error=>setError(error.message)).finally(()=>setLoading(false));},[]);
- useEffect(()=>{if(view!=="attempt")reload();},[reload,view]);
+ useEffect(()=>{if(view!=="attempt"&&view!=="hskk")reload();},[reload,view]);
  const go=useCallback(async(next:string,options:Record<string,string|number>={})=>{try{await beforeLeave.current?.();const query=new URLSearchParams({view:next,...Object.fromEntries(Object.entries(options).map(([key,value])=>[key,String(value)]))});router.push(`${pathname}?${query}`);window.scrollTo({top:0,behavior:'instant'});}catch(error){setError((error as Error).message);}},[router,pathname]);
  const navigate=(next:string,level=selectedLevel)=>void go(next,level?{level}:{});
  async function start(paper:Paper,forceNew=false){setWorking(paper.id);try{const attempt=await examApi<{id:string}>('start',{paperId:paper.id,requestId:safeUUID(),forceNew});await go('attempt',{id:attempt.id,level:levelGroup(paper.level)});reload();}catch(error){setError((error as Error).message);}finally{setWorking('');}}
@@ -79,6 +80,10 @@ export default function ExamCenter({user}:{user:{id:string;name:string;role:stri
  const levelSelect=(allowAll=true)=><select aria-label="Lọc cấp HSK" value={selectedLevel} onChange={e=>navigate(view,Number(e.target.value))}>{allowAll&&<option value={0}>Tất cả cấp độ</option>}{EXAM_LEVELS.map(level=><option key={level} value={level}>{levelLabel(level)}</option>)}</select>;
  const historyTable=(rows:typeof history)=><div className={s.tableWrap}><table><thead><tr><th>Đề thi</th><th>Ngày thi</th><th>Điểm số</th><th>Kết quả</th><th/></tr></thead><tbody>{rows.map(row=><tr key={row.id}><td><strong>{row.title}</strong><small>{levelLabel(row.level)} · {row.source==='CUSTOM'?'Đề cá nhân':row.source==='LEGACY'?'Lịch sử trước đây':'Đề chính thức'}</small></td><td>{dateText(row.submittedAt||row.startedAt)}</td><td>{row.score===null?'Chờ chấm':`${row.score} / ${row.maxScore}`}</td><td><span className={s.status} data-result={row.result}>{('classificationLabel' in row&&row.classificationLabel)||resultNames[row.result]||'Đã nộp'}</span></td><td>{row.source==='LEGACY'?<details onToggle={async event=>{if(!event.currentTarget.open||legacyDetails[row.id])return;try{const response=await fetch(`/api/v1/exam-center?action=legacy&id=${encodeURIComponent(row.id)}`,{cache:"no-store"});const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||"Không tải được kết quả cũ.");setLegacyDetails(values=>({...values,[row.id]:result.data}));}catch(error){setError((error as Error).message);}}}><summary>Xem chi tiết</summary><p>{row.feedback||"Kết quả trước đây"}</p>{legacyDetails[row.id]?.answers.map(answer=><div key={answer.id} className={s.legacyAnswer}><strong>{answer.content}</strong><p>Đã trả lời: {answer.userAnswer||"Bỏ trống"}</p><p>Đáp án: {answer.correctAnswer}</p><p>{answer.explanation}</p><small>{answer.earned} điểm trọng số</small></div>)}{legacyDetails[row.id]&&!legacyDetails[row.id].answers.length&&<p>Lượt thi cũ chưa có bản lưu từng câu.</p>}</details>:<button className={s.textButton} onClick={()=>void go('attempt',{id:row.id,level:levelGroup(row.level)})}>Xem chi tiết →</button>}</td></tr>)}</tbody></table>{!rows.length&&<p className={s.empty}>Chưa có lượt thi phù hợp.</p>}</div>;
  const statistics=<section className={s.panel} aria-label="Tiến độ học tập"><div className={s.sectionHeading}><h2><ChartNoAxesColumnIncreasing size={20}/>Tiến độ học tập</h2>{levelSelect()}</div>{stats?<><div className={s.statsGrid}><div className={s.ring} style={{background:`conic-gradient(#69934b ${stats.completionPercent}%,#e6e9dc 0)`}}><div><strong>{stats.total?`${stats.completionPercent}%`:'—'}</strong><small>Hoàn thành</small></div></div><div className={s.averages}><h3>Điểm trung bình theo cấp & thang điểm</h3>{stats.averages.length?stats.averages.map(group=><p key={`${group.level}:${group.maxScore}`}><small>HSK {group.level} · {group.count} lượt đã chấm</small><strong>{group.average} <span>/ {group.maxScore}</span></strong></p>):<p>Chưa có bài đã chấm để tính trung bình.</p>}<small>{stats.done}/{stats.total} đề Admin xuất bản đã hoàn thành. Không cộng đề cá nhân vào tỷ lệ này.</small></div><div className={s.skills}><h3>Phân tích kỹ năng</h3>{stats.skills.map(skill=><div key={skill.skill}><span>{skillNames[skill.skill]}</span><progress max={100} value={skill.percent??0}/><small>{skill.percent===null?'—':`${skill.percent}%`}</small></div>)}<small>Tỷ lệ điểm theo kỹ năng từ các lượt đã chấm; chuẩn hóa từng lượt trước khi lấy trung bình.</small></div></div></>:<p>Đang tải thống kê…</p>}</section>;
+ const attemptId=params.get('id')||'';
+ if (view === 'hskk') {
+   return <HskkRoom key={attemptId} id={attemptId} onBack={()=>void go('attempt',{id:attemptId,level:selectedLevel})}/>;
+ }
  if (view === 'attempt') {
    return (
      <ComponentErrorBoundary
@@ -101,15 +106,17 @@ export default function ExamCenter({user}:{user:{id:string;name:string;role:stri
        }
      >
        <ExamPlayer
-         id={params.get('id') || ''}
+         key={attemptId}
+         id={attemptId}
          userId={user.id}
          onBack={() => navigate('exams')}
          onChanged={reload}
          registerLeave={registerLeave}
-         onRetake={(paperId) => {
-           const paper = data?.papers.find((p) => p.id === paperId);
-           if (paper) void start(paper, true);
-           else navigate('exams');
+         onHistory={() => navigate('history')}
+         onSpeaking={() => void go('hskk', {id:attemptId,level:selectedLevel})}
+         onRetake={async (paperId, level) => {
+           const next = await examApi<{id:string}>('start',{paperId,requestId:safeUUID(),forceNew:true});
+           await go('attempt',{id:next.id,level:levelGroup(level)});
          }}
        />
      </ComponentErrorBoundary>
