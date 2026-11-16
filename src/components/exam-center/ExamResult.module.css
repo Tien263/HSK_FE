@@ -128,6 +128,28 @@
 .error { color: #922e25; background: #fff1e9; border-radius: 8px; padding: 10px 14px; }
 .room { max-width: 960px; margin-inline: auto; padding: 32px 16px; }
 
+.resultLayout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.singleResult { grid-template-columns: minmax(0, 1fr); }
+.resultCard {
+  grid-area: auto;
+  min-width: 0;
+  padding: clamp(16px, 2.2vw, 32px);
+  border: 1px solid #dce2d2;
+  border-radius: 20px;
+  background: #fffdf4f5;
+  box-shadow: 0 4px 18px #42624714;
+}
+.resultHeader { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.resultHeader h2 { font-size: 1.2rem; margin: 0; }
+.resultHeader p { margin: 3px 0 0; color: #526354; }
+.resultHeader strong { color: #194e32; white-space: nowrap; }
+.resultSections { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 16px 0 0; padding: 0; list-style: none; font-size: .875rem; }
+.resultCard th, .resultCard td { min-width: max-content; }
+@media (max-width: 700px) {
+  .resultLayout { grid-template-columns: minmax(0, 1fr); }
+  .resultCard table { min-width: 390px; }
+}
+
 @media (max-width: 920px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "paper score" "detail detail" "chart analysis"; }
 }

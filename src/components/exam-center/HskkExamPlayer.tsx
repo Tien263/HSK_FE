@@ -32,12 +32,14 @@ export default function HskkExamPlayer({
   parentAttemptId,
   parentPaperTitle,
   submittedAttempt,
+  onSubmitted,
   onClose,
 }: {
   exam: PairedHskkExam;
   parentAttemptId: string;
   parentPaperTitle: string;
   submittedAttempt: Attempt | null;
+  onSubmitted: (attempt: Attempt) => void;
   onClose: () => void;
 }) {
   const allQuestions = React.useMemo(() => exam.groups.flatMap(group => group.questions || []), [exam.groups]);
@@ -209,6 +211,7 @@ export default function HskkExamPlayer({
       });
       setAnswers(submittedRecordings(submitted));
       setStep("completed");
+      onSubmitted(submitted);
     } catch (error) {
       setStorageError((error as Error).message);
     } finally {
@@ -693,7 +696,9 @@ export default function HskkExamPlayer({
               </h4>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {allQuestions.map((q, idx) => (
+                {allQuestions.map((q, idx) => {
+                  const result = submittedAttempt?.questions.find(question => question.hskkQuestionId === q.id)?.result;
+                  return (
                   <div
                     key={q.id}
                     style={{
@@ -707,7 +712,7 @@ export default function HskkExamPlayer({
                       <strong>
                         Câu {idx + 1}: {q.content || "Bài thi nghe/nói"}
                       </strong>
-                      <span style={{ fontSize: 12, color: "#64748b" }}>{q.points} điểm</span>
+                      <span style={{ fontSize: 12, color: "#64748b" }}>{result?.earned == null ? "Chờ chấm" : result.earned} / {result?.max ?? q.points} điểm</span>
                     </div>
 
                     {q.audioUrl && (
@@ -733,8 +738,10 @@ export default function HskkExamPlayer({
                         💡 <strong>Gợi ý/Giải thích:</strong> {q.explanation}
                       </div>
                     )}
+                    {result?.feedback && <p style={{ whiteSpace: "pre-wrap" }}><strong>Nhận xét chấm tay:</strong> {result.feedback}</p>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

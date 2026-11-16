@@ -101,7 +101,7 @@ test('HSKK submission adds speaking to the same attempt and preserves earlier wr
   level:1,title:'Paired HSKK',durationMin:20,passScore:3,
   questions:[{type:'essay',skill:'WRITING',content:'写短文',points:5}],
   hskkExam:{groups:[{title:'口语',questions:[
-   {id:'s1',content:'请介绍你自己。',points:0},
+   {id:'s1',content:'请介绍你自己。',points:2},
    {id:'s2',content:'你喜欢什么？',points:0},
   ]}]},
  });
@@ -125,11 +125,13 @@ test('HSKK submission adds speaking to the same attempt and preserves earlier wr
  await rejectStatus(f.service.submitHskk(actors.a,{id:active.id,recordings:{s2:recordingId}}),400);
  const body={id:active.id,recordings:{s1:recordingId}};
  const submitted=await f.service.submitHskk(actors.a,body);
- assert.equal(submitted.status,'NEEDS_GRADING');
+ assert.equal(submitted.status,'GRADED');
+ assert.equal(submitted.hskkResult.status,'NEEDS_GRADING');
  assert.ok(submitted.hskkSubmittedAt);
  assert.equal((await f.service.submitHskk(actors.a,body)).revision,submitted.revision);
  const [spoken,blank]=submitted.questions.filter(question=>question.skill==='SPEAKING');
- assert.equal(spoken.points,1);
+ assert.equal(spoken.points,2);
+ assert.equal(blank.points,0);
  assert.equal(blank.result.earned,0);
  assert.match(submitted.answers[spoken.id],/hskkRecording/);
  const [pending]=await f.service.gradingQueue(actors.admin);
@@ -145,6 +147,10 @@ test('HSKK submission adds speaking to the same attempt and preserves earlier wr
  assert.equal(result.questions.find(question=>question.id===spoken.id).result.feedback,'Nói rõ, luyện thêm thanh điệu.');
  assert.equal(result.questions.find(question=>question.id===spoken.id).result.earned,0.75);
  assert.deepEqual(result.hskkScore,{earned:0.75,max:2});
+ assert.equal(result.hskkResult.status,'GRADED');
+ const stored=JSON.parse(f.audit.find(row=>row.id===active.id).details);
+ assert.equal(stored.results.length,1);
+ assert.equal(stored.hskkSubmission.results.length,2);
  assert.deepEqual(await f.service.gradingQueue(actors.admin),[]);
 });
 test('anonymous, locked and password-change sessions are denied before protected data access',async()=>{
@@ -188,8 +194,8 @@ test('statistics retain separate level/scale averages and normalize skill ratios
  const state=(id,level,maxScore,score,earned,max)=>({id,state:{schemaVersion:1,paper:{...paper,id,level,maxScore,questions:[{...q,points:max}]},answers:{},results:[{questionId:'q',manual:false,correct:true,earned,max}],status:'GRADED',startedAt:new Date().toISOString(),score}});
  const rows=[state('p',1,200,100,5,10),state('p',1,200,200,10,10),state('other',1,100,100,2,2),state('advanced',3,300,240,8,10)];const stats=core.examStatistics([paper],rows,1);assert.equal(stats.done,1);assert.equal(stats.completionPercent,100);assert.deepEqual(stats.averages.map(row=>[row.level,row.maxScore,row.average]),[[1,200,150],[1,100,100]]);assert.equal(stats.skills.find(row=>row.skill==='READING').percent,83);assert.equal(stats.skills.find(row=>row.skill==='SPEAKING').percent,null);
 });
-test('review and legacy results are owner-scoped and topic counts use recorded metadata',async()=>{
- const f=fixture(),review=await f.service.reviewData(actors.a);assert.equal(review.wrong.length,1);assert.equal(review.wrong[0].question.id,'old-wrong');assert.equal(review.grammar[0].title,'比字句');assert.equal(review.grammar[0].count,3);await f.service.saveWrong(actors.a,{key:review.wrong[0].key,saved:false});assert.equal((await f.service.reviewData(actors.a)).wrong[0].saved,false);assert.equal(f.wrong[0].wrongCount,3);await rejectStatus(f.service.saveWrong(actors.b,{key:review.wrong[0].key,saved:true}),404);assert.equal((await f.service.legacyDetail(actors.a,'legacy:legacy-a')).answers.length,1);await rejectStatus(f.service.legacyDetail(actors.b,'legacy:legacy-a'),404);
+test('review and legacy results are owner-scoped and tags alone do not populate weak topics',async()=>{
+ const f=fixture(),review=await f.service.reviewData(actors.a);assert.equal(review.wrong.length,1);assert.equal(review.wrong[0].question.id,'old-wrong');assert.deepEqual(review.grammar,[]);await f.service.saveWrong(actors.a,{key:review.wrong[0].key,saved:false});assert.equal((await f.service.reviewData(actors.a)).wrong[0].saved,false);assert.equal(f.wrong[0].wrongCount,3);await rejectStatus(f.service.saveWrong(actors.b,{key:review.wrong[0].key,saved:true}),404);assert.equal((await f.service.legacyDetail(actors.a,'legacy:legacy-a')).answers.length,1);await rejectStatus(f.service.legacyDetail(actors.b,'legacy:legacy-a'),404);
 });
 test('wrong answers populate both weak-topic tabs from labelled author explanations',async()=>{
  const f=fixture();
@@ -198,22 +204,25 @@ test('wrong answers populate both weak-topic tabs from labelled author explanati
  const {paperId}=await f.service.importPaper(actors.admin,{level:1,title:'Review explanations',durationMin:20,
   questions:[
    {type:'multiple_choice',content:'Chọn từ',options:['甲','乙'],correctAnswer:'A',points:1,
-    explanation:`Lời giải chung.\r\nGIẢI THÍCH TỪ VỰNG: ${vocabulary}\r\nGiải thích ngữ pháp\r\n${grammar}\r\nGiải thích từ vựng： ${vocabulary}`},
+    explanation:`GIẢI THÍCH TỪ VỰNG: ${vocabulary}\r\nGiải thích ngữ pháp\r\n${grammar}\r\nGiải thích từ vựng： ${vocabulary}\r\nGiải thích đáp án: Vì sao chọn A?\r\nDựa vào bài đọc.`},
    {type:'multiple_choice',content:'Chọn đáp án',options:['甲','乙'],correctAnswer:'A',points:1,
     explanation:'Giải thích từ vựng: Nội dung câu đã làm đúng.'},
-   {type:'multiple_choice',content:'Câu không có nhãn',options:['甲','乙'],correctAnswer:'A',points:1,
-    explanation:'Lời giải chung có nhắc đến từ vựng.'},
+   {type:'true_false',content:'宁宁',options:[],correctAnswer:'false',points:1,
+    explanation:'Giải thích từ vựng: nghĩa này là'},
   ],
  });
  const attempt=await start(f,paperId);
  await f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,
-  answers:Object.fromEntries(attempt.questions.map((question,index)=>[question.id,index===1?'A':'B'])),
+  answers:Object.fromEntries(attempt.questions.map((question,index)=>[question.id,index===1?'A':index===2?'true':'B'])),
  },true);
  const review=await f.service.reviewData(actors.a);
  assert.deepEqual(review.vocabulary.map(({title,count,attemptId})=>({title,count,attemptId})),
-  [{title:vocabulary,count:1,attemptId:attempt.id}]);
+  [{title:vocabulary,count:1,attemptId:attempt.id},{title:'nghĩa này là',count:1,attemptId:attempt.id}]);
+ const wrong=review.wrong.find(row=>row.question.id===attempt.questions[0].id);
+ assert.equal(wrong.saved,false);
+ assert.equal(wrong.question.explanation,'Vì sao chọn A?\nDựa vào bài đọc.');
  assert.ok(review.grammar.some(item=>item.title===grammar&&item.count===1&&item.attemptId===attempt.id));
- assert.ok(review.grammar.some(item=>item.title==='比字句'&&item.count===3));
+ assert.equal(review.grammar.length,1);
  assert.ok((await f.service.reviewData(actors.b)).vocabulary.every(item=>item.attemptId!==attempt.id&&item.title!==vocabulary));
 });
 test('existing results contribute to the correct average scale without leaking other users',async()=>{

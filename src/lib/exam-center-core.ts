@@ -91,13 +91,29 @@ export const sampleExamAudio=(level:number)=>`/audio/hsk${level>=7?7:level}_exam
 export function examAudioUrl(url:string,level:number) {
  return url.startsWith("/HSK3.0/HSK/音频/")?sampleExamAudio(level):url;
 }
-export type PairedHskkExam = {title:string;level:string;durationMin:number;groups:ExamSectionGroup[]};
+export type PairedHskkExam = {title:string;level:string;durationMin:number;passScore?:number|null;groups:ExamSectionGroup[]};
 export function hasHskkQuestions(exam:PairedHskkExam|null|undefined): exam is PairedHskkExam {
  return Array.isArray(exam?.groups)&&exam.groups.some(group=>Array.isArray(group?.questions)&&group.questions.length>0);
 }
 export type ExamPaper = { groups?:Record<string,ExamGroupMedia>; classification?:{bands:{minScore:number;maxScore:number;label:string}[]}; createdAt?:string; customConfig?:{skills:string[];types:string[];count:number}; id:string; title:string; description:string; level:number; source:"OFFICIAL"|"CUSTOM"; durationMin:number|null; maxScore:number; passScore:number|null; proctorEnabled?:boolean; hskkExam?:PairedHskkExam|null; hskkPaperId?:string|null; questions:ExamQuestion[]; mode:"EXAM"|"PRACTICE" };
 export type ExamResult = { questionId:string; manual:boolean; correct:boolean|null; earned:number|null; max:number; feedback?:string };
-export type CenterAttempt = { schemaVersion:1; paper:ExamPaper; answers:Record<string,string>; results:ExamResult[]; status:"IN_PROGRESS"|"NEEDS_GRADING"|"GRADED"; startedAt:string; expiresAt:string|null; submittedAt:string|null; hskkSubmission?:{submittedAt:string;questionIds:Record<string,string>}; score:number|null; revision:number; timedOut:boolean };
+type GradingStatus = "NEEDS_GRADING"|"GRADED";
+export type CenterAttempt = { schemaVersion:1; paper:ExamPaper; answers:Record<string,string>; results:ExamResult[]; status:"IN_PROGRESS"|GradingStatus; startedAt:string; expiresAt:string|null; submittedAt:string|null; hskkSubmission?:{submittedAt:string;questionIds:Record<string,string>;results?:ExamResult[];status?:GradingStatus}; score:number|null; revision:number; timedOut:boolean };
+
+export function isHskkQuestion(attempt:CenterAttempt,id:string){
+ return Object.hasOwn(attempt.hskkSubmission?.questionIds??{},id);
+}
+
+export function gradingStatus(results:ExamResult[]):GradingStatus{
+ return results.some(result=>result.manual&&result.earned===null)?"NEEDS_GRADING":"GRADED";
+}
+
+export function splitExamResults(attempt:CenterAttempt){
+ return {
+  hsk:attempt.results.filter(result=>!isHskkQuestion(attempt,result.questionId)),
+  hskk:attempt.hskkSubmission?.results??attempt.results.filter(result=>isHskkQuestion(attempt,result.questionId)),
+ };
+}
 export const levelGroup=(level:number)=>level>=7?7:level;
 export const levelLabel=(level:number)=>level>=7?"HSK 7–9":`HSK ${level}`;
 export function skillOf(value:string):ExamSkill { const key=value.toUpperCase();return key.includes("SPEAK")?"SPEAKING":key.includes("TRANS")?"TRANSLATION":key.includes("LISTEN")?"LISTENING":key.includes("WRIT")||key.includes("GRAMMAR")?"WRITING":"READING"; }
@@ -282,27 +298,35 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
  return {...attempt,status:results.some(row=>row.manual)?"NEEDS_GRADING":"GRADED",results,score:weight?Math.round(earned/weight*attempt.paper.maxScore*100)/100:0,submittedAt:now.toISOString(),revision:attempt.revision+1};
 }
 export function finishManual(attempt:CenterAttempt,marks:Record<string,number>,feedback:Record<string,string>={}):CenterAttempt {
- const results=attempt.results.map(result=>{
-  if(!result.manual||result.earned!==null)return result;
+ const grade=(result:ExamResult)=>{
+  if(!Object.hasOwn(marks,result.questionId))return result;
   const value=marks[result.questionId];
-  if(!Number.isFinite(value)||value<0||value>result.max)throw new Error("Điểm chấm tay phải nằm trong điểm tối đa của câu.");
+  if(!result.manual||result.earned!==null||!Number.isFinite(value)||value<0||value>result.max)throw new Error("Điểm chấm tay phải nằm trong điểm tối đa của câu.");
   return {...result,earned:value,correct:value===result.max,feedback:feedback[result.questionId]};
- });
- const speakingIds=new Set(Object.keys(attempt.hskkSubmission?.questionIds??{}));
- const hskResults=results.filter(row=>!speakingIds.has(row.questionId));
+ };
+ const split=splitExamResults(attempt);
+ const hskResults=split.hsk.map(grade),hskkResults=split.hskk.map(grade);
  const weight=hskResults.reduce((sum,row)=>sum+row.max,0),earned=hskResults.reduce((sum,row)=>sum+(row.earned||0),0);
- return {...attempt,results,status:"GRADED",score:weight?Math.round(earned/weight*attempt.paper.maxScore*100)/100:0,revision:attempt.revision+1};
+ return {...attempt,results:hskResults,status:gradingStatus(hskResults),
+  ...(attempt.hskkSubmission?{hskkSubmission:{...attempt.hskkSubmission,results:hskkResults,status:gradingStatus(hskkResults)}}:{}),
+  score:weight?Math.round(earned/weight*attempt.paper.maxScore*100)/100:0,revision:attempt.revision+1};
 }
 export function attemptSummary(id:string,attempt:CenterAttempt,now=new Date()){
- const answered=attempt.paper.questions.filter(q=>hasAnswer(attempt.answers[q.id])).length;
- const hskkIds=attempt.hskkSubmission?.questionIds;
- const hskkResults=hskkIds?attempt.results.filter(row=>Object.hasOwn(hskkIds,row.questionId)):[];
- const hskkScore=hskkIds?{
+ const questions=attempt.paper.questions.filter(q=>!isHskkQuestion(attempt,q.id));
+ const answered=questions.filter(q=>hasAnswer(attempt.answers[q.id])).length;
+ const {hsk,hskk:hskkResults}=splitExamResults(attempt);
+ const status=attempt.status==="IN_PROGRESS"?attempt.status:gradingStatus(hsk);
+ const hskkScore=attempt.hskkSubmission?{
   earned:hskkResults.reduce((total,row)=>total+(row.earned??0),0),
   max:hskkResults.reduce((total,row)=>total+row.max,0),
  }:null;
- const classificationLabel=attempt.status==="GRADED"?attempt.paper.classification?.bands.find(band=>Number(attempt.score)>=band.minScore&&Number(attempt.score)<=band.maxScore)?.label||null:null;
- return {classificationLabel,...paperSummary(attempt.paper),paperId:attempt.paper.id,id,status:attempt.status,answered,progress:attempt.paper.questions.length?Math.round(answered/attempt.paper.questions.length*100):0,startedAt:attempt.startedAt,submittedAt:attempt.submittedAt,score:attempt.score,hskkScore,remainingSec:attempt.expiresAt?Math.max(0,Math.ceil((Date.parse(attempt.expiresAt)-now.getTime())/1000)):null,result:attempt.status!=="GRADED"?"PENDING":attempt.paper.classification?(classificationLabel?"CLASSIFIED":"CLASSIFICATION_PENDING"):attempt.paper.passScore===null?"UNSET":Number(attempt.score)>=attempt.paper.passScore?"PASS":"FAIL",timedOut:attempt.timedOut};
+ const classificationLabel=status==="GRADED"?attempt.paper.classification?.bands.find(band=>Number(attempt.score)>=band.minScore&&Number(attempt.score)<=band.maxScore)?.label||null:null;
+ const hskkResult=hskkScore&&attempt.hskkSubmission?{
+  id:`${id}:hskk`,attemptId:id,title:attempt.paper.hskkExam?.title||attempt.paper.title,
+  level:attempt.paper.hskkExam?.level??"",submittedAt:attempt.hskkSubmission.submittedAt,
+  status:gradingStatus(hskkResults),score:hskkScore.earned,maxScore:hskkScore.max,
+ }:null;
+ return {classificationLabel,...paperSummary({...attempt.paper,questions}),paperId:attempt.paper.id,id,status,answered,progress:questions.length?Math.round(answered/questions.length*100):0,startedAt:attempt.startedAt,submittedAt:attempt.submittedAt,score:attempt.score,hskkScore,hskkResult,remainingSec:attempt.expiresAt?Math.max(0,Math.ceil((Date.parse(attempt.expiresAt)-now.getTime())/1000)):null,result:status!=="GRADED"?"PENDING":attempt.paper.classification?(classificationLabel?"CLASSIFIED":"CLASSIFICATION_PENDING"):attempt.paper.passScore===null?"UNSET":Number(attempt.score)>=attempt.paper.passScore?"PASS":"FAIL",timedOut:attempt.timedOut};
 }
 function readingSectionResults(attempt:CenterAttempt, results:Map<string,ExamResult>){
  const sections=new Map<string,{id:string;title:string;earned:number;max:number;passages:{id:string;title:string;earned:number;max:number}[]}>();
@@ -334,7 +358,8 @@ function readingSectionResults(attempt:CenterAttempt, results:Map<string,ExamRes
 export function attemptForOwner(id:string,attempt:CenterAttempt){
  const finished=attempt.status!=="IN_PROGRESS";
  const shownGroups=new Set<string>();
- const results=new Map(attempt.results.map(row=>[row.questionId,row]));
+ const {hsk,hskk}=splitExamResults(attempt);
+ const results=new Map([...hsk,...hskk].map(row=>[row.questionId,row]));
  return {
    ...attemptSummary(id,attempt),
    hskkExam:finished&&hasHskkQuestions(attempt.paper.hskkExam)?attempt.paper.hskkExam:null,
@@ -374,13 +399,26 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
 }
 export function examStatistics(papers:ExamPaper[],attempts:{id:string;state:CenterAttempt}[],filter=0){
  const rows=attempts.filter(row=>!filter||levelGroup(row.state.paper.level)===filter);
- const completed=rows.filter(row=>row.state.status==="GRADED");
+ const completed=rows.filter(({state})=>state.status!=="IN_PROGRESS"&&gradingStatus(splitExamResults(state).hsk)==="GRADED");
  const eligible=papers.filter(p=>p.source==="OFFICIAL"&&(!filter||levelGroup(p.level)===filter));
  const finishedIds=new Set(completed.filter(row=>row.state.paper.source==="OFFICIAL").map(row=>row.state.paper.id));
  const done=eligible.filter(paper=>finishedIds.has(paper.id)).length;
  const groups=new Map<string,{level:number;maxScore:number;sum:number;count:number}>();
  for(const {state}of completed){const key=`${state.paper.level}:${state.paper.maxScore}`;const group=groups.get(key)||{level:state.paper.level,maxScore:state.paper.maxScore,sum:0,count:0};group.sum+=Number(state.score);group.count++;groups.set(key,group);}
- const skills=EXAM_SKILLS.map(skill=>{const ratios=completed.flatMap(({state})=>{const questions=state.paper.questions.filter(q=>q.skill===skill),weight=questions.reduce((sum,q)=>sum+q.points,0);if(!weight)return[];const earned=questions.reduce((sum,q)=>sum+(state.results.find(r=>r.questionId===q.id)?.earned||0),0);return[earned/weight];});return{skill,count:ratios.length,percent:ratios.length?Math.round(ratios.reduce((sum,v)=>sum+v,0)/ratios.length*100):null};});
+ const skills=EXAM_SKILLS.map(skill=>{
+  const ratios=rows.flatMap(({state})=>{
+   if(state.status==="IN_PROGRESS")return [];
+   const {hsk,hskk}=splitExamResults(state);
+   const scored=new Map([
+    ...(gradingStatus(hsk)==="GRADED"?hsk:[]),
+    ...(gradingStatus(hskk)==="GRADED"?hskk:[]),
+   ].map(result=>[result.questionId,result]));
+   const questions=state.paper.questions.filter(q=>q.skill===skill&&scored.has(q.id));
+   const weight=questions.reduce((sum,q)=>sum+q.points,0);
+   return weight?[questions.reduce((sum,q)=>sum+(scored.get(q.id)?.earned??0),0)/weight]:[];
+  });
+  return {skill,count:ratios.length,percent:ratios.length?Math.round(ratios.reduce((sum,v)=>sum+v,0)/ratios.length*100):null};
+ });
  return {done,total:eligible.length,completionPercent:eligible.length?Math.round(done/eligible.length*100):0,averages:[...groups.values()].map(group=>({level:group.level,maxScore:group.maxScore,count:group.count,average:Math.round(group.sum/group.count*100)/100})),skills};
 }
 

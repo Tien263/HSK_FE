@@ -3927,13 +3927,13 @@ export default function ExamStaff({
         <>
           {queue.map((attempt) => (
             <ManualCard
-              key={attempt.id}
+              key={`${attempt.id}:${attempt.kind}`}
               attempt={attempt}
               busy={busy}
               onSave={async (marks, feedback) => {
                 setBusy(true);
                 try {
-                  await examApi("grade", { id: attempt.id, marks, feedback });
+                  await examApi("grade", { id: attempt.id, kind: attempt.kind, marks, feedback });
                   setMessage("Đã lưu điểm và nhận xét chấm tay.");
                   setError("");
                   load();
@@ -4465,7 +4465,7 @@ function ManualCard({
         {(attempt as any).paperTitle || attempt.title} · {attempt.studentName}
       </h2>
       <p>
-        HSK {attempt.level} · Mã bài thi: <code>{attempt.id}</code>
+        {attempt.kind === "hskk" ? "HSKK" : `HSK ${attempt.level}`} · Mã bài thi: <code>{attempt.id}</code>
       </p>
       {attempt.manualQuestions.map((q) => (
         <div className={s.reviewQuestion} key={q.id}>

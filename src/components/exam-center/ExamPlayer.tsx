@@ -55,6 +55,7 @@ export default function ExamPlayer({
   onRetake,
   onHistory,
   onSpeaking,
+  onlyHsk,
 }: {
   id?: string;
   userId?: string;
@@ -65,6 +66,7 @@ export default function ExamPlayer({
   onRetake?: (paperId: string, level: number) => Promise<void>;
   onHistory?: () => void;
   onSpeaking?: () => void;
+  onlyHsk?: boolean;
 }) {
   const [attempt, setAttempt] = useState<View | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -163,6 +165,15 @@ export default function ExamPlayer({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const gradingPending = attempt?.status === "NEEDS_GRADING" || attempt?.hskkResult?.status === "NEEDS_GRADING";
+  useEffect(() => {
+    if (!gradingPending || previewAttempt) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void load();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [gradingPending, load, previewAttempt]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -316,7 +327,7 @@ export default function ExamPlayer({
 
   // Memoized question lists and skill groupings - Called unconditionally at top level (Rules of Hooks)
   const questions = useMemo(() => {
-    return Array.isArray(attempt?.questions) ? attempt.questions : [];
+    return Array.isArray(attempt?.questions) ? attempt.questions.filter(question => !question.hskkQuestionId) : [];
   }, [attempt?.questions]);
 
   const positions = useMemo(() => new Map(questions.map((question, index) => [question.id, index])), [questions]);
@@ -384,7 +395,6 @@ export default function ExamPlayer({
     q.groupType === currentQ.groupType && (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle)
   ) : null;
   const readingSections = attempt?.readingSections || [];
-  const pairedSpeaking = finished ? questions.filter(question => question.hskkQuestionId) : [];
   const currentSectionScore = currentQ && readingSections.find(section => section.id === currentQ.sectionId);
   const currentPassageScore = currentSectionScore?.passages.find(passage => passage.id === currentQ?.groupId);
   const currentMultiGroup = passageQuestions || matchingGroupQuestions || evalGroupQuestions;
@@ -477,6 +487,7 @@ export default function ExamPlayer({
         onHistory={onHistory}
         onRetake={onRetake && (() => onRetake(attempt.paperId, attempt.level))}
         onSpeaking={onSpeaking}
+        onlyHsk={onlyHsk}
       />
     );
   }
@@ -651,7 +662,7 @@ export default function ExamPlayer({
                   <Mic size={16} />
                 )}
                 <span>
-                  {group.skill === "SPEAKING" && pairedSpeaking.length ? "Nói (HSKK)" : skillNames[group.skill]} ({group.questions.length} câu)
+                  {skillNames[group.skill]} ({group.questions.length} câu)
                 </span>
                 {isLocked ? (
                   <Lock size={13} />
@@ -703,23 +714,6 @@ export default function ExamPlayer({
               ))}</ul>
             </details>
           ))}
-        </section>
-      )}
-      {pairedSpeaking.length > 0 && (
-        <section className={s.readingScores} aria-label="Điểm phần khẩu ngữ HSKK">
-          <h2>Điểm phần Nói (HSKK)</h2>
-          <p>
-            {pairedSpeaking.reduce((sum, question) => sum + (question.result?.earned ?? 0), 0).toLocaleString("vi-VN")}
-            {" / "}{pairedSpeaking.reduce((sum, question) => sum + question.points, 0).toLocaleString("vi-VN")} điểm
-            {pairedSpeaking.some(question => question.result?.earned === null) && " · Chờ chấm"}
-          </p>
-        </section>
-      )}
-      {finished && attempt?.hskkExam && !attempt.hskkSubmittedAt && onSpeaking && (
-        <section className={s.readingScores} aria-label="Điểm phần khẩu ngữ HSKK">
-          <h2>Điểm phần Nói (HSKK)</h2>
-          <p>Chưa nộp bài khẩu ngữ.</p>
-          <button type="button" onClick={onSpeaking}>Mở phần thi HSKK</button>
         </section>
       )}
 
@@ -1156,20 +1150,13 @@ export default function ExamPlayer({
 
               {/* Interactive Question Input (Picture Options, Ordering, Writing, etc.) */}
               <ComponentErrorBoundary name="Khu vực trả lời câu hỏi">
-                {finished && currentQ.hskkQuestionId ? (
-                  <div>
-                    {currentQ.audioUrl && <p>Audio đề bài <audio controls preload="none" src={currentQ.audioUrl} /></p>}
-                    {answers[currentQ.id]
-                      ? <p>Bản ghi âm của bạn <audio controls preload="none" src={answers[currentQ.id]} /></p>
-                      : <p>Bạn chưa ghi âm câu này.</p>}
-                  </div>
-                ) : <ExamQuestionInput
+                <ExamQuestionInput
                   key={currentQ.id}
                   question={currentQ}
                   value={answers[currentQ.id] || ""}
                   disabled={finished || busy || conflict}
                   onChange={(val) => handleAnswer(currentQ.id, val)}
-                />}
+                />
               </ComponentErrorBoundary>
 
               {/* Post-exam Answer Explanation */}

@@ -3,6 +3,7 @@ import examBlueprint from "../config/exam_blueprint.json";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import { examExplanationTopics } from "./exam-explanation";
+import { gradingStatus, isHskkQuestion, splitExamResults } from "./exam-center-core";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
 import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, PASSAGE_SECTION, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, isReadingPassage, isReadingCloze, isReadingSection, clozeChoice } from "./reading-cloze";
@@ -163,21 +164,20 @@ export async function submitHskk(user:AuthUser,body:Record<string,unknown>){
 
  const byQuestion=new Map(entries);
  const weights=questions.map(({question})=>Number.isFinite(question.points)&&question.points>0?question.points:0);
- const defaultPoints=weights.every(points=>points===0);
  const pairedQuestions=questions.map(({group,question},index)=>snapshotQuestion({
   ...question,id:randomUUID(),type:"speaking_audio",skill:"SPEAKING",level:state.paper.level,
   groupTitle:group.title,instruction:group.instruction,
- },defaultPoints?1:weights[index]));
+ },weights[index]));
  const mapping=Object.fromEntries(pairedQuestions.map((question,index)=>[question.id,questions[index].question.id]));
  const answers={...state.answers};
- const results=[...state.results];
+ const results=[];
  for(const question of pairedQuestions){
   const recordingId=byQuestion.get(mapping[question.id]);
   if(recordingId)answers[question.id]=`/api/v1/exam-center?action=hskkRecording&id=${recordingId}`;
   results.push({questionId:question.id,manual:!!recordingId,earned:recordingId?null:0,correct:recordingId?null:false,max:question.points});
  }
- const submitted:CenterAttempt={...state,paper:{...state.paper,questions:[...state.paper.questions,...pairedQuestions]},answers,results,
-  hskkSubmission:{submittedAt:new Date().toISOString(),questionIds:mapping},status:"NEEDS_GRADING",revision:state.revision+1};
+ const submitted:CenterAttempt={...state,paper:{...state.paper,questions:[...state.paper.questions,...pairedQuestions]},answers,
+  hskkSubmission:{submittedAt:new Date().toISOString(),questionIds:mapping,results,status:gradingStatus(results)},revision:state.revision+1};
  try{
   await replaceAttempt(row,submitted);
  }catch(error){
@@ -552,20 +552,6 @@ export async function purgeOldMockExams(user:AuthUser){
  });
  return {success:true,deletedSets:mockIds.length,deletedLogs:deletedLogs.count};
 }
-function legacyWeakTopics(question:ExamQuestion,kind:"grammar"|"vocabulary"){
- const metadata=question.editorData;
- const grammar=kind==="grammar";
- const tags=question.tags.toLowerCase();
- const source=String(metadata.sourceContent||"").toLowerCase();
- if(!tags.includes(grammar?"grammar":"vocab")&&!source.includes(grammar?"grammar":"vocab")&&
-    !tags.includes(grammar?"ngữ pháp":"từ vựng"))return [];
- const fields=grammar?[metadata.grammarRule,metadata.grammarPoint,metadata.structure]:
-  [metadata.hanzi,metadata.word,metadata.vocabulary,metadata.sourceWord];
- const tag=question.tags.match(grammar?/(?:grammar|ngữ pháp)\s*[:=]\s*([^,;|]+)/i:/(?:vocab(?:ulary)?|từ vựng)\s*[:=]\s*([^,;|]+)/i);
- const label=fields.find((value):value is string=>typeof value==="string"&&!!value.trim())||tag?.[1]||question.content;
- return label.trim()?[label.trim()]:[];
-}
-
 export async function reviewData(user:AuthUser){
  const [attempts,bookmark,legacy]=await Promise.all([ownAttempts(user),prisma.auditLog.findFirst({where:{id:`exam-review:${user.id}`,userId:user.id,action:REVIEW}}),prisma.wrongQuestion.findMany({where:{studentId:user.id,consecutiveRight:{lt:3}},include:{question:true}})]);
  const saved=new Set(parse<{keys?:string[]}>(bookmark?.details||null).keys||[]);
@@ -573,7 +559,8 @@ export async function reviewData(user:AuthUser){
  const wrong=attempts.flatMap(({id,state})=>{
   if(state.status==="IN_PROGRESS")return [];
   const positions=new Map(state.paper.questions.map((question,index)=>[question.id,{question,position:index+1}]));
-  return state.results.flatMap(result=>{
+  const {hsk,hskk}=splitExamResults(state);
+  return [...hsk,...hskk].flatMap(result=>{
    const entry=positions.get(result.questionId);
    if(!entry||result.correct!==false)return [];
    const {question,position}=entry;
@@ -588,10 +575,10 @@ export async function reviewData(user:AuthUser){
  const weak=(kind:"grammar"|"vocabulary")=>{
   const groups=new Map<string,{id:string;title:string;count:number;attemptId:string;level:number}>();
   for(const row of topics){
-   const labels=row.topics?.[kind]??legacyWeakTopics(row.question,kind);
+   const labels=row.topics?.[kind]??[];
    const seen=new Set<string>();
    for(const label of labels){
-    const id=[kind,row.level,label.normalize("NFC").replace(/\s+/g," ")].join(":");
+    const id=[kind,row.level,label].join(":");
     if(seen.has(id))continue;
     seen.add(id);
     const value=groups.get(id)??{id,title:label,count:0,attemptId:"",level:row.level};
@@ -602,7 +589,7 @@ export async function reviewData(user:AuthUser){
   }
   return [...groups.values()].sort((a,b)=>b.count-a.count);
  };
- return {wrong,grammar:weak("grammar"),vocabulary:weak("vocabulary")};
+ return {wrong:topics.map(({topics,...row})=>({...row,question:{...row.question,explanation:topics?topics.answer.join("\n\n"):row.question.explanation}})),grammar:weak("grammar"),vocabulary:weak("vocabulary")};
 }
 export async function saveWrong(user:AuthUser,body:Record<string,unknown>){
  const review=await reviewData(user),key=String(body.key);if(!review.wrong.some(row=>row.key===key))throw new ExamError(404,"Câu sai không thuộc tài khoản này.");
@@ -621,10 +608,14 @@ export async function gradingQueue(user:AuthUser){
  const rows=await prisma.auditLog.findMany({where:{action:ATTEMPT},include:{user:{select:{name:true}}},orderBy:{createdAt:"desc"}});
  return rows.flatMap(row=>{
   const state=parse<CenterAttempt>(row.details);
-  if(state.status!=="NEEDS_GRADING")return [];
-  const pending=new Set(state.results.filter(result=>result.manual&&result.earned===null).map(result=>result.questionId));
-  return [{id:row.id,title:state.paper.title,level:state.paper.level,studentName:row.user.name,
-   manualQuestions:state.paper.questions.filter(q=>pending.has(q.id)).map(q=>({...q,answer:state.answers[q.id]||""}))}];
+  if(state.status==="IN_PROGRESS")return [];
+  const results=splitExamResults(state);
+  return (["hsk","hskk"] as const).flatMap(kind=>{
+   const pending=new Set(results[kind].filter(result=>result.manual&&result.earned===null).map(result=>result.questionId));
+   if(!pending.size)return [];
+   return [{id:row.id,kind,title:kind==="hskk"?state.paper.hskkExam?.title||state.paper.title:state.paper.title,level:state.paper.level,studentName:row.user.name,
+    manualQuestions:state.paper.questions.filter(q=>pending.has(q.id)).map(q=>({...q,answer:state.answers[q.id]||""}))}];
+  });
  });
 }
 
@@ -633,12 +624,17 @@ export async function gradeManual(user:AuthUser,body:Record<string,unknown>){
  const row=await prisma.auditLog.findFirst({where:{id:String(body.id),action:ATTEMPT}});
  if(!row)throw new ExamError(404,"Không tìm thấy lượt thi.");
  const state=parse<CenterAttempt>(row.details);
- if(state.status!=="NEEDS_GRADING")throw new ExamError(409,"Bài không còn ở trạng thái chờ chấm.");
+ if(state.status==="IN_PROGRESS")throw new ExamError(409,"Bài chưa được nộp.");
  if(!body.marks||typeof body.marks!=="object"||Array.isArray(body.marks))throw new ExamError(400,"Điểm chấm không hợp lệ.");
- const pending=new Set(state.results.filter(result=>result.manual&&result.earned===null).map(result=>result.questionId));
+ const {hsk,hskk}=splitExamResults(state);
+ const pending=new Set([...hsk,...hskk].filter(result=>result.manual&&result.earned===null).map(result=>result.questionId));
+ if(!pending.size)throw new ExamError(409,"Bài không còn ở trạng thái chờ chấm.");
+ const ids=Object.keys(body.marks);
+ if(!ids.length||ids.some(id=>!pending.has(id)||(body.kind==="hsk"&&isHskkQuestion(state,id))||(body.kind==="hskk"&&!isHskkQuestion(state,id))))
+  throw new ExamError(400,"Điểm chấm phải thuộc câu đang chờ chấm của bài đã chọn.");
  const feedback=body.feedback??{};
  if(typeof feedback!=="object"||Array.isArray(feedback)||Object.entries(feedback).some(([id,note])=>
-  !pending.has(id)||typeof note!=="string"||note.length>4000))
+  !ids.includes(id)||typeof note!=="string"||note.length>4000))
   throw new ExamError(400,"Nhận xét phải thuộc câu đang chờ chấm và tối đa 4.000 ký tự.");
  const notes=Object.fromEntries(Object.entries(feedback).map(([id,note])=>[id,(note as string).trim()]).filter(([,note])=>note));
  let graded;

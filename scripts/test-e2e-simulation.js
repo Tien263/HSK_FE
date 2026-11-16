@@ -68,13 +68,17 @@ async function runTests(){
    action:'submitHskk',id:attempt.id,recordings:{oral1:recording.recordingId},
   })).data;
   const queue=(await request(teacher,'/api/v1/exam-center?action=grading')).data;
-  const queued=queue.find(row=>row.id===attempt.id)?.manualQuestions;
-  const question=queued?.find(row=>row.skill==='SPEAKING');
-  check(spoken.hskkSubmittedAt&&question?.id&&queued.some(row=>row.id===essayId),'HSKK and essay are attached to the same manual grading entry');
+  const question=queue.find(row=>row.id===attempt.id&&row.kind==='hskk')?.manualQuestions.find(row=>row.skill==='SPEAKING');
+  check(spoken.hskkSubmittedAt&&question?.id&&queue.find(row=>row.id===attempt.id&&row.kind==='hsk')?.manualQuestions.some(row=>row.id===essayId),'HSKK and HSK appear as separate grading entries under the same attempt');
   const playback=await fetch(baseUrl+question.answer,{headers:{Cookie:teacher.cookie,Range:'bytes=0-1'},signal:AbortSignal.timeout(30000)});
   check(playback.status===206&&Buffer.from(await playback.arrayBuffer()).equals(Buffer.from(audio,'base64').subarray(0,2)),'Teacher can fetch the recording for playback');
-  await request(teacher,'/api/v1/exam-center','POST',{action:'grade',id:attempt.id,
-   marks:{[question.id]:1.5,[essayId]:0.5},feedback:{[question.id]:'Luyện thêm thanh điệu.',[essayId]:'Viết rõ ý.'},
+  await request(teacher,'/api/v1/exam-center','POST',{action:'grade',kind:'hskk',id:attempt.id,
+   marks:{[question.id]:1.5},feedback:{[question.id]:'Luyện thêm thanh điệu.'},
+  });
+  const partial=(await request(student,'/api/v1/exam-center?action=attempt&id='+attempt.id)).data;
+  check(partial.status==='NEEDS_GRADING'&&partial.hskkResult.status==='GRADED','HSKK is graded while HSK is still pending');
+  await request(teacher,'/api/v1/exam-center','POST',{action:'grade',kind:'hsk',id:attempt.id,
+   marks:{[essayId]:0.5},feedback:{[essayId]:'Viết rõ ý.'},
   });
   const evaluated=(await request(student,'/api/v1/exam-center?action=attempt&id='+attempt.id)).data;
   const evaluatedSpeaking=evaluated.questions.find(row=>row.id===question.id);

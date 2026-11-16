@@ -32,6 +32,10 @@ const templates = {
 
 export type HskkLevel = keyof typeof templates;
 
+export function hskkLevelLabel(level: string) {
+  return Object.hasOwn(templates, level) ? `HSKK ${templates[level as HskkLevel].label}` : level;
+}
+
 export function buildHskkTemplate(level: HskkLevel) {
   const { label, durationMin, sections } = templates[level];
   const groups = sections.map(([title, groupType], index): ExamSectionGroup => ({
