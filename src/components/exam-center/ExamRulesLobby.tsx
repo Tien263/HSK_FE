@@ -44,12 +44,10 @@ import s from "./ExamRulesLobby.module.css";
 
 type Dashboard = Awaited<ReturnType<typeof dashboard>>;
 type Paper = Dashboard["papers"][number];
-type Blueprint = Dashboard["blueprints"][number];
 type ActiveAttempt = Dashboard["attempts"][number];
 
 export interface ExamRulesLobbyProps {
   paper: Paper;
-  blueprint?: Blueprint;
   activeAttempt?: ActiveAttempt | null;
   onStart: () => void;
   onContinueAttempt?: (attemptId: string) => void;

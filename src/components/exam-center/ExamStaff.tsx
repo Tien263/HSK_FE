@@ -3904,7 +3904,6 @@ export default function ExamStaff({
                 {previewStep === "lobby" ? (
                   <ExamRulesLobby
                     paper={previewPaper}
-                    blueprint={examBlueprint.levels.find((b) => b.level === levelGroup(authorLevel))}
                     onStart={() => setPreviewStep("player")}
                     onBack={() => setPreviewPaper(null)}
                     busy={false}
