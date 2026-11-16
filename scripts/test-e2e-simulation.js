@@ -46,7 +46,8 @@ async function runTests(){
   const publication=(await request(teacher,'/api/v1/exam-center','POST',{
    action:'importPaper',level:1,title:examTitle,durationMin:15,questions:[
     {type:'listening_choice',skill:'LISTENING',groupId:'listening',groupType:'listening_choice_abc',audioUrl:'/test-listening.mp3',options:['去学校','回家'],correctAnswer:'A',points:0},
-    {type:'essay',skill:'WRITING',content:'写短文',points:0},
+    {type:'essay',skill:'WRITING',content:'写短文',points:0,
+     explanation:'Giải thích từ vựng: 文章 nghĩa là bài văn.\nGiải thích ngữ pháp: Mẫu 比 dùng để so sánh.'},
    ],
    hskkExam:{title:'E2E oral',level:'HSKK_BEGINNER',durationMin:5,groups:[
     {id:'oral',title:'Khẩu ngữ',questions:[{id:'oral1',type:'speaking_prompt',content:'请介绍你自己。',points:2}]},
@@ -79,6 +80,9 @@ async function runTests(){
   const evaluatedSpeaking=evaluated.questions.find(row=>row.id===question.id);
   check(evaluated.hskkScore.earned===1.5&&evaluatedSpeaking.result.feedback==='Luyện thêm thanh điệu.'&&evaluated.score===1.5&&
    evaluated.questions.find(row=>row.id===essayId).result.feedback==='Viết rõ ý.','Student sees HSKK and essay feedback alongside both scores');
+  const review=(await request(student,'/api/v1/exam-center?action=review')).data;
+  check(review.vocabulary.some(row=>row.title==='文章 nghĩa là bài văn.'&&row.attemptId===attempt.id)&&
+   review.grammar.some(row=>row.title==='Mẫu 比 dùng để so sánh.'&&row.attemptId===attempt.id),'Labelled explanations populate both review tabs');
   console.log('\n--- Teacher journey ---');
   const overview=await request(teacher,'/api/v1/reports/overview');check(overview.data?.summary?.totalStudents===1,'Teacher report counts the actual approved student');
   const spoof=await fetch(baseUrl+'/api/v1/classes',{headers:{'x-user-id':teacher.id},signal:AbortSignal.timeout(30000)});check(spoof.status===401,'Spoofed x-user-id cannot replace the login cookie');

@@ -1,5 +1,6 @@
 "use client";
 
+import { examExplanationExample } from "@/lib/exam-explanation";
 import { ChevronDown, ChevronUp, Copy, Plus, Trash2 } from "lucide-react";
 import {
   CLOZE_CODES,
@@ -318,7 +319,7 @@ export default function ReadingClozeEditor({ group, allQuestions, duplicatedNumb
                 rows={3}
                 value={question.explanation || ""}
                 onChange={event => updateQuestion(question.id, { explanation: event.target.value })}
-                placeholder="Giải thích vì sao chọn đáp án này, ngữ pháp / từ vựng... (hỗ trợ xuống dòng)"
+                placeholder={examExplanationExample}
                 style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
               />
             </label>

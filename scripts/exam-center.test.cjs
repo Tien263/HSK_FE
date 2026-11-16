@@ -191,6 +191,31 @@ test('statistics retain separate level/scale averages and normalize skill ratios
 test('review and legacy results are owner-scoped and topic counts use recorded metadata',async()=>{
  const f=fixture(),review=await f.service.reviewData(actors.a);assert.equal(review.wrong.length,1);assert.equal(review.wrong[0].question.id,'old-wrong');assert.equal(review.grammar[0].title,'比字句');assert.equal(review.grammar[0].count,3);await f.service.saveWrong(actors.a,{key:review.wrong[0].key,saved:false});assert.equal((await f.service.reviewData(actors.a)).wrong[0].saved,false);assert.equal(f.wrong[0].wrongCount,3);await rejectStatus(f.service.saveWrong(actors.b,{key:review.wrong[0].key,saved:true}),404);assert.equal((await f.service.legacyDetail(actors.a,'legacy:legacy-a')).answers.length,1);await rejectStatus(f.service.legacyDetail(actors.b,'legacy:legacy-a'),404);
 });
+test('wrong answers populate both weak-topic tabs from labelled author explanations',async()=>{
+ const f=fixture();
+ const vocabulary='苹果 nghĩa là quả táo.';
+ const grammar='Mẫu 比 dùng để so sánh.\nVí dụ: 我比他高。';
+ const {paperId}=await f.service.importPaper(actors.admin,{level:1,title:'Review explanations',durationMin:20,
+  questions:[
+   {type:'multiple_choice',content:'Chọn từ',options:['甲','乙'],correctAnswer:'A',points:1,
+    explanation:`Lời giải chung.\r\nGIẢI THÍCH TỪ VỰNG: ${vocabulary}\r\nGiải thích ngữ pháp\r\n${grammar}\r\nGiải thích từ vựng： ${vocabulary}`},
+   {type:'multiple_choice',content:'Chọn đáp án',options:['甲','乙'],correctAnswer:'A',points:1,
+    explanation:'Giải thích từ vựng: Nội dung câu đã làm đúng.'},
+   {type:'multiple_choice',content:'Câu không có nhãn',options:['甲','乙'],correctAnswer:'A',points:1,
+    explanation:'Lời giải chung có nhắc đến từ vựng.'},
+  ],
+ });
+ const attempt=await start(f,paperId);
+ await f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,
+  answers:Object.fromEntries(attempt.questions.map((question,index)=>[question.id,index===1?'A':'B'])),
+ },true);
+ const review=await f.service.reviewData(actors.a);
+ assert.deepEqual(review.vocabulary.map(({title,count,attemptId})=>({title,count,attemptId})),
+  [{title:vocabulary,count:1,attemptId:attempt.id}]);
+ assert.ok(review.grammar.some(item=>item.title===grammar&&item.count===1&&item.attemptId===attempt.id));
+ assert.ok(review.grammar.some(item=>item.title==='比字句'&&item.count===3));
+ assert.ok((await f.service.reviewData(actors.b)).vocabulary.every(item=>item.attemptId!==attempt.id&&item.title!==vocabulary));
+});
 test('existing results contribute to the correct average scale without leaking other users',async()=>{
  const f=fixture(),data=await f.service.dashboard(actors.a);assert.deepEqual(data.statistics.find(row=>row.level===1).averages.map(row=>[row.average,row.maxScore]),[[100,200]]);assert.equal((await f.service.dashboard(actors.b)).legacy.length,0);
 });

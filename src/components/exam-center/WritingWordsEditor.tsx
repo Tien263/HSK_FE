@@ -1,5 +1,6 @@
 "use client";
 
+import { examExplanationExample } from "@/lib/exam-explanation";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2, Wand2 } from "lucide-react";
 import type { QuestionItem } from "./hsk-sample-templates";
@@ -384,7 +385,7 @@ export default function WritingWordsEditor({
           rows={3}
           value={question.explanation || ""}
           onChange={(e) => onChange({ explanation: e.target.value })}
-          placeholder="Ví dụ: Cặp liên từ 虽然...但是... biểu thị quan hệ chuyển ngoặt. Câu cần diễn đạt hợp lý với hình ảnh chiếc ô dưới mưa."
+          placeholder={examExplanationExample}
           style={{
             width: "100%",
             padding: "8px 12px",

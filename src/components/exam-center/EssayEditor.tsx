@@ -1,5 +1,6 @@
 "use client";
 
+import { examExplanationExample } from "@/lib/exam-explanation";
 import type { QuestionItem } from "./hsk-sample-templates";
 import { countHanzi } from "@/lib/writing-essay";
 
@@ -153,7 +154,7 @@ export default function EssayEditor({
           rows={3}
           value={question.explanation || ""}
           onChange={(e) => onChange({ explanation: e.target.value })}
-          placeholder="Ví dụ: Thang điểm 30 điểm:\n- Ý nghĩa và cấu trúc nội dung: 12 điểm\n- Độ chính xác từ vựng và ngữ pháp: 10 điểm\n- Chữ Hán, dấu câu và trình bày: 8 điểm"
+          placeholder={examExplanationExample}
           style={{
             width: "100%",
             padding: "8px 12px",

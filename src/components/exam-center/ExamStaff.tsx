@@ -1,5 +1,6 @@
 "use client";
 
+import { examExplanationExample } from "@/lib/exam-explanation";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -2391,7 +2392,7 @@ export default function ExamStaff({
                                       rows={3}
                                       value={question.explanation || ""}
                                       onChange={event => handleUpdateQuestion(group.id, question.id, { explanation: event.target.value })}
-                                      placeholder="Giải thích vì sao chọn đáp án này... (hỗ trợ xuống dòng)"
+                                      placeholder={examExplanationExample}
                                       style={{ width: "100%", minHeight: 68, resize: "vertical", fontSize: 13, lineHeight: 1.5, padding: "8px 10px" }}
                                     />
                                   </label>
@@ -2579,7 +2580,7 @@ export default function ExamStaff({
                                                rows={3}
                                                value={q.explanation || ""}
                                                onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                               placeholder="Vì sao câu này khớp với tranh đã chọn? (hỗ trợ xuống dòng)"
+                                               placeholder={examExplanationExample}
                                                style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }}
                                              />
                                           </label>
@@ -2802,7 +2803,7 @@ export default function ExamStaff({
                                     {/* Giải thích đáp án */}
                                     <label style={{ margin: 0, fontSize: 12 }}>
                                       Giải thích đáp án (tùy chọn)
-                                      <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder="Ví dụ: Người nam nói '我要睡觉' (tôi muốn đi ngủ) nên chọn C. (hỗ trợ xuống dòng)" style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
+                                      <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder={examExplanationExample} style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
                                     </label>
                                   </div>
                                 );
@@ -2976,7 +2977,7 @@ export default function ExamStaff({
                                                rows={3}
                                                value={q.explanation || ""}
                                                onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                               placeholder="Ví dụ: Người nữ đính chính Tiểu Trương chưa có bạn gái nên phát biểu là Sai (×)... (hỗ trợ xuống dòng)"
+                                               placeholder={examExplanationExample}
                                                style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }}
                                              />
                                           </label>
@@ -3128,7 +3129,7 @@ export default function ExamStaff({
                                     {/* Giải thích đáp án */}
                                     <label style={{ margin: 0, fontSize: 12 }}>
                                       Giải thích đáp án (tùy chọn)
-                                      <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder="Ví dụ: Theo đoạn nghe, thầy Vương đi xe đạp đến trường... (hỗ trợ xuống dòng)" style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
+                                      <textarea rows={3} value={q.explanation || ""} onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })} placeholder={examExplanationExample} style={{ width: "100%", fontSize: 12, marginTop: 4, minHeight: 64, resize: "vertical", padding: "6px 8px" }} />
                                     </label>
                                   </div>
                                 ))}
@@ -3639,7 +3640,7 @@ export default function ExamStaff({
                                     rows={4}
                                     value={q.explanation || ""}
                                     onChange={(e) => handleUpdateQuestion(group.id, q.id, { explanation: e.target.value })}
-                                    placeholder="Nhập giải thích chi tiết, dịch nghĩa, phân tích từ vựng và ngữ pháp... (thoải mái gõ phím Enter để xuống dòng và khoảng trắng)"
+                                    placeholder={examExplanationExample}
                                     style={{
                                       width: "100%",
                                       fontSize: 12,

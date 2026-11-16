@@ -2,6 +2,7 @@ import { duplicateQuestionNumbers, normalizeQuestionNumber, suggestQuestionNumbe
 import examBlueprint from "../config/exam_blueprint.json";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
+import { examExplanationTopics } from "./exam-explanation";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
 import { CLOZE_PASSAGE, WORD_BANK, PASSAGE_CHOICE, PASSAGE_SECTION, PASSAGE_JUDGEMENT, JUDGEMENT_SECTION, JUDGEMENT_OPTIONS, isReadingPassage, isReadingCloze, isReadingSection, clozeChoice } from "./reading-cloze";
@@ -551,6 +552,20 @@ export async function purgeOldMockExams(user:AuthUser){
  });
  return {success:true,deletedSets:mockIds.length,deletedLogs:deletedLogs.count};
 }
+function legacyWeakTopics(question:ExamQuestion,kind:"grammar"|"vocabulary"){
+ const metadata=question.editorData;
+ const grammar=kind==="grammar";
+ const tags=question.tags.toLowerCase();
+ const source=String(metadata.sourceContent||"").toLowerCase();
+ if(!tags.includes(grammar?"grammar":"vocab")&&!source.includes(grammar?"grammar":"vocab")&&
+    !tags.includes(grammar?"ngữ pháp":"từ vựng"))return [];
+ const fields=grammar?[metadata.grammarRule,metadata.grammarPoint,metadata.structure]:
+  [metadata.hanzi,metadata.word,metadata.vocabulary,metadata.sourceWord];
+ const tag=question.tags.match(grammar?/(?:grammar|ngữ pháp)\s*[:=]\s*([^,;|]+)/i:/(?:vocab(?:ulary)?|từ vựng)\s*[:=]\s*([^,;|]+)/i);
+ const label=fields.find((value):value is string=>typeof value==="string"&&!!value.trim())||tag?.[1]||question.content;
+ return label.trim()?[label.trim()]:[];
+}
+
 export async function reviewData(user:AuthUser){
  const [attempts,bookmark,legacy]=await Promise.all([ownAttempts(user),prisma.auditLog.findFirst({where:{id:`exam-review:${user.id}`,userId:user.id,action:REVIEW}}),prisma.wrongQuestion.findMany({where:{studentId:user.id,consecutiveRight:{lt:3}},include:{question:true}})]);
  const saved=new Set(parse<{keys?:string[]}>(bookmark?.details||null).keys||[]);
@@ -569,8 +584,25 @@ export async function reviewData(user:AuthUser){
   });
  });
  for(const row of legacy){const question=snapshotQuestion(row.question as unknown as Record<string,unknown>,Number((row.question.editorData as Record<string,unknown>|null)?.points)||1);wrong.push({key:`legacy-question:${question.id}`,attemptId:"",paperTitle:"Kho câu sai đã lưu trước đây",level:question.level,question:{...question,...publicExamQuestion(question)},userAnswer:"",saved:!hidden.has(`legacy-question:${question.id}`),frequency:row.wrongCount});}
- const weak=(kind:string)=>{const groups=new Map<string,{id:string;title:string;count:number;attemptId:string;level:number}>();for(const row of wrong){if(!`${row.question.tags} ${row.question.editorData.sourceContent||""}`.toLowerCase().includes(kind)&&!(kind==="grammar"&&row.question.tags.toLowerCase().includes("ngữ pháp"))&&!(kind==="vocab"&&row.question.tags.toLowerCase().includes("từ vựng")))continue;const metadata=row.question.editorData;const fields=kind==="grammar"?[metadata.grammarRule,metadata.grammarPoint,metadata.structure]:[metadata.hanzi,metadata.word,metadata.vocabulary,metadata.sourceWord];const tagMatch=row.question.tags.match(kind==="grammar"?/(?:grammar|ngữ pháp)\s*[:=]\s*([^,;|]+)/i:/(?:vocab(?:ulary)?|từ vựng)\s*[:=]\s*([^,;|]+)/i);const label=fields.find(value=>typeof value==="string"&&value.trim())||tagMatch?.[1]?.trim()||row.question.content;const groupId=`${kind}:${row.level}:${String(label)}`;const value=groups.get(groupId)||{id:groupId,title:String(label),count:0,attemptId:row.attemptId,level:row.level};value.count+=row.frequency;groups.set(value.id,value);}return[...groups.values()].sort((a,b)=>b.count-a.count);};
- return{wrong,grammar:weak("grammar"),vocabulary:weak("vocab")};
+ const topics=wrong.map(row=>({...row,topics:examExplanationTopics(row.question.explanation)}));
+ const weak=(kind:"grammar"|"vocabulary")=>{
+  const groups=new Map<string,{id:string;title:string;count:number;attemptId:string;level:number}>();
+  for(const row of topics){
+   const labels=row.topics?.[kind]??legacyWeakTopics(row.question,kind);
+   const seen=new Set<string>();
+   for(const label of labels){
+    const id=[kind,row.level,label.normalize("NFC").replace(/\s+/g," ")].join(":");
+    if(seen.has(id))continue;
+    seen.add(id);
+    const value=groups.get(id)??{id,title:label,count:0,attemptId:"",level:row.level};
+    value.count+=row.frequency;
+    value.attemptId||=row.attemptId;
+    groups.set(id,value);
+   }
+  }
+  return [...groups.values()].sort((a,b)=>b.count-a.count);
+ };
+ return {wrong,grammar:weak("grammar"),vocabulary:weak("vocabulary")};
 }
 export async function saveWrong(user:AuthUser,body:Record<string,unknown>){
  const review=await reviewData(user),key=String(body.key);if(!review.wrong.some(row=>row.key===key))throw new ExamError(404,"Câu sai không thuộc tài khoản này.");
