@@ -1929,7 +1929,7 @@ export default function GuidePage() {
         )}
 
         {/* Bottom Contact & Direct Teacher Guidance Banner */}
-        <div className="mt-12 p-6 sm:p-8 rounded-3xl bg-[#204434] text-[#FFFCF6] shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+        <div id="ho-tro" className="scroll-mt-6 mt-12 p-6 sm:p-8 rounded-3xl bg-[#204434] text-[#FFFCF6] shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
           <div className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full bg-white/5 blur-xl pointer-events-none" />
           
           <div className="space-y-1.5 text-center md:text-left relative z-10">
@@ -1955,6 +1955,16 @@ export default function GuidePage() {
               Đăng nhập ngay →
             </Link>
           </div>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <section id="dieu-khoan" className="scroll-mt-6 rounded-2xl border border-[#BC9B6B]/40 p-5">
+            <h2 className="font-serif text-lg font-bold">Điều khoản sử dụng</h2>
+            <p className="mt-2 text-sm">Sử dụng tài khoản của mình để học và làm bài. Đọc quy chế của từng đề trước khi xác nhận vào thi. Khi dùng khóa học có giáo viên, kiểm tra mã lớp với giáo viên phụ trách.</p>
+          </section>
+          <section id="bao-mat" className="scroll-mt-6 rounded-2xl border border-[#BC9B6B]/40 p-5">
+            <h2 className="font-serif text-lg font-bold">Quyền riêng tư và dữ liệu học tập</h2>
+            <p className="mt-2 text-sm">Ứng dụng sử dụng thông tin tài khoản để đăng nhập và lưu tiến độ, bài làm, điểm và ghi âm HSKK. Người có quyền chấm bài có thể xem bài làm và nghe bản ghi được nộp. Nếu cần hỗ trợ về dữ liệu tài khoản, liên hệ qua lớp học hoặc giáo viên phụ trách.</p>
+          </section>
         </div>
       </main>
 

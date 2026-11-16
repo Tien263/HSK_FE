@@ -39,7 +39,7 @@ import {
 import ExamFileImportModal from "./ExamFileImportModal";
 import { buildHskkTemplate, hskkQuestionType, type HskkLevel } from "./hskk-templates";
 import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-service";
-import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
+import { examSkillSections, skillOf, EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { examApi, skillNames, typeNames } from "./exam-client";
 import { prepareExamPublicationMedia } from "./exam-publication-media";
@@ -1140,8 +1140,8 @@ export default function ExamStaff({
       return;
     }
 
-    const bp = examBlueprint.levels.find((l) => l.level === levelGroup(authorLevel));
-    const maxScore = parsed.reduce((sum, q) => sum + Number(q.points ?? 1), 0) || bp?.maxScore || 300;
+    const maxScore = parsed.reduce((sum, q) => sum + Number(q.points ?? 1), 0);
+    const sections = examSkillSections(parsed.map(q => ({ skill: skillOf(q.skill) })));
     const mockPaper = {
       id: "preview_paper_id",
       title: authorTitle,
@@ -1152,7 +1152,8 @@ export default function ExamStaff({
       maxScore,
       passScore: authorPass ? Number(authorPass) : null,
       questionsCount: parsed.length,
-      skills: bp?.skills || ["LISTENING", "READING", "WRITING"],
+      skills: sections.map(section => section.skill),
+      sections,
       mode: "EXAM" as const,
       available: true,
       questions: parsed,

@@ -24,7 +24,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,7 +90,8 @@ export default function RegisterPage() {
         hasEnrolledClasses: false,
       };
       localStorage.setItem("currentUser", JSON.stringify(userWithMode));
-      localStorage.setItem("hanyu_email_verified", "true");
+      if (data.requireOtp) localStorage.removeItem("hanyu_email_verified");
+      else localStorage.setItem("hanyu_email_verified", "true");
       sessionStorage.setItem("registeredEmail", cleanEmail);
 
       // Khởi tạo trạng thái onboarding bước 1 (chưa hoàn thành) để người dùng chọn hình thức
@@ -323,13 +324,9 @@ export default function RegisterPage() {
                     />
                     <span>
                       Đồng ý với{" "}
-                      <span className="text-[#204434] font-semibold underline underline-offset-2">
-                        Điều khoản
-                      </span>{" "}
+                      <Link href="/guide#dieu-khoan" target="_blank" className="font-semibold underline">Điều khoản</Link>{" "}
                       &{" "}
-                      <span className="text-[#204434] font-semibold underline underline-offset-2">
-                        Chính sách
-                      </span>
+                      <Link href="/guide#bao-mat" target="_blank" className="font-semibold underline">Chính sách</Link>
                     </span>
                   </label>
                 </div>

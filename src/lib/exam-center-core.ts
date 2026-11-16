@@ -247,7 +247,12 @@ export function publicExamQuestion(q:ExamQuestion, group?:ExamGroupMedia, positi
     translationDirection: safe.translationDirection
  };
 }
-export function paperSummary(paper:ExamPaper){return{createdAt:paper.createdAt||null,customConfig:paper.customConfig||null,id:paper.id,title:paper.title,description:paper.description,level:paper.level,source:paper.source,durationMin:paper.durationMin,maxScore:paper.maxScore,passScore:paper.passScore,proctorEnabled:paper.proctorEnabled!==false,hskkPaperId:(paper as any).hskkPaperId||null,questionsCount:paper.questions.length,skills:[...new Set(paper.questions.map(q=>q.skill))],mode:paper.mode};}
+export function examSkillSections(questions: readonly {skill:ExamSkill}[]){
+ const totals=new Map<ExamSkill,number>();
+ for(const {skill} of questions)totals.set(skill,(totals.get(skill)??0)+1);
+ return [...totals].map(([skill,questionCount])=>({skill,questionCount}));
+}
+export function paperSummary(paper:ExamPaper){return{createdAt:paper.createdAt||null,customConfig:paper.customConfig||null,id:paper.id,title:paper.title,description:paper.description,level:paper.level,source:paper.source,durationMin:paper.durationMin,maxScore:paper.maxScore,passScore:paper.passScore,proctorEnabled:paper.proctorEnabled!==false,hskkPaperId:(paper as any).hskkPaperId||null,questionsCount:paper.questions.length,skills:[...new Set(paper.questions.map(q=>q.skill))],sections:examSkillSections(paper.questions),mode:paper.mode};}
 export function hasAnswer(answer:unknown):boolean {
  if(typeof answer!=="string"||!answer.trim())return false;
  try{const value=JSON.parse(answer);if(Array.isArray(value))return value.length>0&&value.some(item=>String(item).trim());if(value&&typeof value==="object")return Object.values(value).some(item=>String(item??"").trim());}catch{}

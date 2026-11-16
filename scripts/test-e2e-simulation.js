@@ -47,13 +47,15 @@ async function runTests(){
    action:'importPaper',level:1,title:examTitle,durationMin:15,questions:[
     {type:'listening_choice',skill:'LISTENING',groupId:'listening',groupType:'listening_choice_abc',audioUrl:'/test-listening.mp3',options:['去学校','回家'],correctAnswer:'A',points:0},
     {type:'essay',skill:'WRITING',content:'写短文',points:0,
-     explanation:'Giải thích từ vựng: 文章 nghĩa là bài văn.\nGiải thích ngữ pháp: Mẫu 比 dùng để so sánh.'},
+     explanation:'Giải thích từ vụng: 文章 nghĩa là bài văn.\nGiải thích ngữ pháp: Mẫu 比 dùng để so sánh.\nVí dụ: 我比他高。\nGiải thích đáp án: Cần có câu so sánh.'},
    ],
    hskkExam:{title:'E2E oral',level:'HSKK_BEGINNER',durationMin:5,groups:[
     {id:'oral',title:'Khẩu ngữ',questions:[{id:'oral1',type:'speaking_prompt',content:'请介绍你自己。',points:2}]},
    ]},
   })).data;
   check(!!publication?.paperId&&publication.useDefaultPoints,'Teacher publishes an HSK exam with shared audio and default points');
+  const vocabulary=(await request(null,'/api/dictionary/search?q='+encodeURIComponent('苹果'))).items;
+  check(vocabulary.some(entry=>entry.simplified==='苹果'&&entry.definitionsVi.length),'An empty dictionary database can serve curriculum vocabulary');
   const attempt=(await request(student,'/api/v1/exam-center','POST',{
    action:'start',paperId:publication.paperId,requestId:require('node:crypto').randomUUID(),
   })).data;
@@ -82,7 +84,7 @@ async function runTests(){
   });
   if(process.env.HSK_BROWSER_TEST==='1'||process.env.GITHUB_ACTIONS==='true'){
    const {checkExamBrowser}=await import('./exam-center-browser.mjs');
-   await checkExamBrowser({baseUrl,cookie:student.cookie,attemptId:attempt.id,gradeHsk});
+   await checkExamBrowser({baseUrl,cookie:student.cookie,paperId:publication.paperId,attemptId:attempt.id,gradeHsk});
   }else await gradeHsk();
   const evaluated=(await request(student,'/api/v1/exam-center?action=attempt&id='+attempt.id)).data;
   const evaluatedSpeaking=evaluated.questions.find(row=>row.id===question.id);
@@ -90,7 +92,8 @@ async function runTests(){
    evaluated.questions.find(row=>row.id===essayId).result.feedback==='Viết rõ ý.','Student sees HSKK and essay feedback alongside both scores');
   const review=(await request(student,'/api/v1/exam-center?action=review')).data;
   check(review.vocabulary.some(row=>row.title==='文章 nghĩa là bài văn.'&&row.attemptId===attempt.id)&&
-   review.grammar.some(row=>row.title==='Mẫu 比 dùng để so sánh.'&&row.attemptId===attempt.id),'Labelled explanations populate both review tabs');
+   review.grammar.some(row=>row.title==='Mẫu 比 dùng để so sánh.\nVí dụ: 我比他高。'&&row.attemptId===attempt.id)&&
+   review.wrong.some(row=>row.question.id===essayId&&!row.saved&&row.question.explanation==='Cần có câu so sánh.'),'Labelled explanations preserve examples and populate the correct review tabs without a bookmark');
   console.log('\n--- Teacher journey ---');
   const overview=await request(teacher,'/api/v1/reports/overview');check(overview.data?.summary?.totalStudents===1,'Teacher report counts the actual approved student');
   const spoof=await fetch(baseUrl+'/api/v1/classes',{headers:{'x-user-id':teacher.id},signal:AbortSignal.timeout(30000)});check(spoof.status===401,'Spoofed x-user-id cannot replace the login cookie');
