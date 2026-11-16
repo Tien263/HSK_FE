@@ -24,7 +24,7 @@ const HANZII_URL = "https://hanzii.net/?hl=vi";
 
 export default function HanziiDictionaryDrawer() {
   const pathname = usePathname();
-  const view = useSearchParams().get("view");
+  const examView = useSearchParams().get("view");
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const normalizedSentenceQuery = query.normalize("NFC").trim().replace(/\s+/g, " ");
@@ -194,7 +194,7 @@ export default function HanziiDictionaryDrawer() {
     else { setRetry((value) => value + 1); setSelected(results[0]?.key || null); }
   }
 
-  if (pathname === "/s/mock-exam" && (view === "intro" || view === "attempt" || view === "hskk")) return null;
+  if (pathname === "/s/mock-exam" && (examView === "intro" || examView === "attempt" || examView === "hskk")) return null;
   return <>
     <button ref={launcherRef} {...dragHandlers} onClick={() => { if (shouldOpen()) openDictionary(); }}
       title="Kéo để đổi vị trí · Bấm để mở từ điển · Alt + phím mũi tên để di chuyển"

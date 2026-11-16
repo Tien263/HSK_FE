@@ -3,6 +3,7 @@
 import BrandMark from "@/components/common/BrandMark";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
 const searchPages = [
@@ -17,6 +18,7 @@ const searchPages = [
 const normalize = (text: string) => text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
 export default function Header() {
+  const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -110,7 +112,7 @@ export default function Header() {
       {/* Search popup dropdown */}
       {searchOpen && (
         <div className="max-w-xl mx-auto px-6 mb-4 animate-in fade-in duration-150 relative z-30">
-          <form onSubmit={event => { event.preventDefault(); if (matches.length) { window.location.assign(matches[0].href); setSearchOpen(false); } }} className="p-2 rounded-2xl bg-[#faf6ed] border border-[#d8cdb8] shadow-lg flex items-center gap-2">
+          <form onSubmit={event => { event.preventDefault(); if (matches.length) { router.push(matches[0].href); setSearchOpen(false); } }} className="p-2 rounded-2xl bg-[#faf6ed] border border-[#d8cdb8] shadow-lg flex items-center gap-2">
             <Search className="w-4 h-4 text-[#8c9a8f] ml-3" />
             <input
               type="text"
