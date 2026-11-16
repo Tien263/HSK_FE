@@ -53,6 +53,8 @@ jobs:
       - name: Build Next.js app
         run: npm run build
       - name: Start server and run E2E
+        env:
+          HSK_BROWSER_ARTIFACTS: ${{ runner.temp }}/exam-browser
         shell: bash
         run: |
           npm start > /tmp/hsk-server.log 2>&1 &
@@ -66,3 +68,10 @@ jobs:
       - name: Server log on failure
         if: failure()
         run: cat /tmp/hsk-server.log 2>/dev/null || true
+      - name: Upload exam browser failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exam-browser-failure
+          path: ${{ runner.temp }}/exam-browser
+          if-no-files-found: ignore
