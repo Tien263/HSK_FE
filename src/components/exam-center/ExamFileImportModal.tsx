@@ -15,7 +15,7 @@ import {
   Layers,
   ArrowRight,
 } from "lucide-react";
-import type { ExamSectionGroup, QuestionItem, ImportedQuestion } from "./hsk-sample-templates";
+import type { ExamSectionGroup, ImportedQuestion } from "./hsk-sample-templates";
 import { unflattenToGroups } from "./hsk-sample-templates";
 import s from "./ExamCenter.module.css";
 
@@ -37,7 +37,7 @@ export default function ExamFileImportModal({
   onClose,
 }: {
   hskLevel: number;
-  onImport: (groups: ExamSectionGroup[], rawQuestions: QuestionItem[]) => void;
+  onImport: (groups: ExamSectionGroup[], fileName: string) => void;
   onClose: () => void;
 }) {
   const [parsing, setParsing] = useState(false);
@@ -155,7 +155,7 @@ export default function ExamFileImportModal({
           content: qMatch[2].trim(),
           skill: "READING",
           options: [],
-          correctAnswer: "A",
+          correctAnswer: "",
           points: 2,
           passage: currentPassage,
         };
@@ -193,7 +193,7 @@ export default function ExamFileImportModal({
       // Nhận diện đáp án đúng
       if (/^(đáp án|answer|key)[:\s]/i.test(line)) {
         const ans = line.replace(/^(đáp án|answer|key)[:\s]*/i, "").trim().toUpperCase();
-        currentRow.correctAnswer = ans.slice(0, 1) || "A";
+        currentRow.correctAnswer = ans.slice(0, 1);
         continue;
       }
 
@@ -234,7 +234,7 @@ export default function ExamFileImportModal({
       content: currentRow.content || `Câu ${rows.length + 1}`,
       pinyin: currentRow.pinyin || "",
       options: opts,
-      correctAnswer: currentRow.correctAnswer || opts[0]?.id || "A",
+      correctAnswer: currentRow.correctAnswer || "",
       explanation: currentRow.explanation || "",
       points: currentRow.points || 2,
       passage: currentRow.passage || passage || "",
@@ -258,17 +258,20 @@ export default function ExamFileImportModal({
     rawData.forEach((row, idx) => {
       // Tìm các cột tương ứng theo tên linh hoạt
       const getCol = (patterns: string[]) => {
-        for (const k of Object.keys(row)) {
-          const cleanK = k.toLowerCase().trim();
-          if (patterns.some((p) => cleanK.includes(p))) {
-            return String(row[k] ?? "").trim();
-          }
+        const keys = Object.keys(row);
+        for (const pattern of patterns) {
+          const key = keys.find(k => k.toLowerCase().trim() === pattern);
+          if (key !== undefined) return String(row[key] ?? "").trim();
+        }
+        for (const pattern of patterns.filter(p => p.length > 1)) {
+          const key = keys.find(k => k.toLowerCase().trim().includes(pattern));
+          if (key !== undefined) return String(row[key] ?? "").trim();
         }
         return "";
       };
 
-      const numVal = parseInt(getCol(["stt", "câu", "number", "no"]), 10);
-      const questionNum = isNaN(numVal) ? idx + 1 : numVal;
+      const numVal = Number(getCol(["stt", "số câu", "câu", "number", "no"]));
+      const questionNum = Number.isSafeInteger(numVal) && numVal > 0 ? numVal : idx + 1;
 
       const rawSkill = getCol(["kỹ năng", "skill"]).toUpperCase();
       let skill: ParsedRow["skill"] = "READING";
@@ -298,7 +301,7 @@ export default function ExamFileImportModal({
       }
 
       const rawAnswer = getCol(["đáp án", "answer", "key", "correct"]).toUpperCase();
-      const correctAnswer = rawAnswer ? rawAnswer.slice(0, 1) : "A";
+      const correctAnswer = rawAnswer.slice(0, 1);
 
       const explanation = getCol(["giải thích", "explanation", "chú thích"]);
       const pointsVal = parseFloat(getCol(["điểm", "points", "score"]));
@@ -355,7 +358,7 @@ export default function ExamFileImportModal({
           options: Array.isArray(q.options)
             ? q.options.map((o: any) => ({ id: o.id, text: o.text || "" }))
             : [],
-          correctAnswer: q.correctAnswer || "A",
+          correctAnswer: q.correctAnswer || "",
           explanation: q.explanation || "",
           points: Number(q.points) || 2,
           passage: q.passage || "",
@@ -383,8 +386,9 @@ export default function ExamFileImportModal({
   const handleConfirmImport = () => {
     if (!parsedRows.length) return;
 
+    const batchId = crypto.randomUUID();
     const rawQuestions: ImportedQuestion[] = parsedRows.map((r, idx) => ({
-      id: `imported_q_${Date.now()}_${idx + 1}`,
+      id: `imported_q_${batchId}_${idx + 1}`,
       questionNumber: r.number,
       type: r.options.length === 2 && r.options[0].text === "Đúng" ? "true_false" : "multiple_choice",
       skill: r.skill,
@@ -397,9 +401,16 @@ export default function ExamFileImportModal({
       passage: r.passage,
     }));
 
-    const groups = unflattenToGroups(rawQuestions, hskLevel);
-    onImport(groups, rawQuestions as unknown as QuestionItem[]);
-    onClose();
+    const groups = unflattenToGroups(rawQuestions, hskLevel).map(group => ({
+      ...group,
+      id: `${batchId}:${group.id}`,
+    }));
+    try {
+      onImport(groups, fileName);
+      onClose();
+    } catch (error) {
+      setError((error as Error).message);
+    }
   };
 
   return (

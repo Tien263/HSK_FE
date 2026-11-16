@@ -41,6 +41,7 @@ import type { publicationCandidates, gradingQueue } from "@/lib/exam-center-serv
 import { EXAM_LEVELS, levelGroup, levelLabel, PICTURE_CODES, pictureSlots, pictureGroupIssues, snapshotQuestion, publicExamQuestion, isSharedListeningGroup, READING_REPLIES, replySlots, replyGroupIssues } from "@/lib/exam-center-core";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { examApi, skillNames, typeNames } from "./exam-client";
+import { prepareExamPublicationMedia } from "./exam-publication-media";
 import ExamRulesLobby from "./ExamRulesLobby";
 import ExamPlayer from "./ExamPlayer";
 import QuestionNumberInput from "./QuestionNumberInput";
@@ -458,6 +459,7 @@ export default function ExamStaff({
     setAuthorPass(paper.passScore !== null && paper.passScore !== undefined ? String(paper.passScore) : "");
     const reconGroups = unflattenToGroups(paper.questions as any, paper.level);
     setGroups(reconGroups);
+    setAuthorMode("grouped");
     if (reconGroups.length > 0) setActiveGroupId(reconGroups[0].id);
 
     restoreHskkDraft(paper.hskkExam);
@@ -487,15 +489,22 @@ export default function ExamStaff({
   };
 
   // Tiếp nhận kết quả import từ file Excel / Word
-  const handleFileImportSuccess = (importedGroups: ExamSectionGroup[], rawQuestions: QuestionItem[]) => {
-    if (groups.length === 0) {
-      setGroups(importedGroups);
-      if (importedGroups.length > 0) setActiveGroupId(importedGroups[0].id);
-    } else {
-      setGroups((prev) => withQuestionNumbers([...prev, ...importedGroups], true));
+  const handleFileImportSuccess = (importedGroups: ExamSectionGroup[], fileName: string) => {
+    let existing = groups;
+    if (authorMode === "raw") {
+      const questions: unknown = jsonInput.trim() ? JSON.parse(jsonInput) : [];
+      if (!Array.isArray(questions)) throw new Error("JSON hiện tại phải chứa một danh sách câu hỏi.");
+      existing = questions.length ? unflattenToGroups(questions, authorLevel) : [];
     }
-    setJsonInput(JSON.stringify(rawQuestions, null, 2));
-    setMessage(`✅ Đã nạp thành công ${rawQuestions.length} câu hỏi từ file vào bộ đề thi!`);
+    const next = withQuestionNumbers([...existing, ...importedGroups], existing.length > 0);
+    setGroups(next);
+    setAuthorMode("grouped");
+    setAuthorActiveTab("hsk");
+    setActiveGroupId(importedGroups[0].id);
+    setJsonInput(JSON.stringify(flattenGroups(next), null, 2));
+    setAuthorTitle(current => current.trim() ? current : fileName.replace(/\.[^.]+$/, "").slice(0, 300));
+    const count = importedGroups.reduce((sum, group) => sum + sectionQuestions(group).length, 0);
+    setMessage(`Đã nạp ${count} câu hỏi từ tệp vào bộ đề thi.`);
     setError("");
   };
 
@@ -588,6 +597,7 @@ export default function ExamStaff({
   };
 
   const [pendingMedia, setPendingMedia] = useState<Record<string, boolean>>({});
+  const uploadedPublicationMedia = useRef(new Map<string, Promise<string>>());
   const [mediaErrors, setMediaErrors] = useState<Record<string, string>>({});
   const mediaUploading = Object.values(pendingMedia).some(Boolean);
 
@@ -1065,42 +1075,24 @@ export default function ExamStaff({
     );
   };
 
-  // Upload ảnh cho câu hỏi
-  const handleUploadQuestionImage = (groupId: string, qId: string, file: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      handleUpdateQuestion(groupId, qId, { imageUrl: dataUrl });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Upload ảnh cho lựa chọn đáp án
-  const handleUploadOptionImage = (groupId: string, qId: string, optId: string, file: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      const isHskk = authorActiveTab === "hskk" || hskkGroups.some(g => g.id === groupId);
-      const setTarget = isHskk ? setHskkGroups : setGroups;
-      setTarget((prev) =>
-        prev.map((g) => {
-          if (g.id !== groupId) return g;
-          return {
-            ...g,
-            questions: g.questions.map((q) => {
-              if (q.id !== qId) return q;
-              return {
-                ...q,
-                options: q.options.map((opt) => (opt.id === optId ? { ...opt, imageUrl: dataUrl } : opt)),
-              };
-            }),
-          };
-        })
-      );
-    };
-    reader.readAsDataURL(file);
+  const updateOptionImage = (groupId: string, qId: string, optId: string, imageUrl: string) => {
+    const isHskk = authorActiveTab === "hskk" || hskkGroups.some(g => g.id === groupId);
+    const setTarget = isHskk ? setHskkGroups : setGroups;
+    setTarget((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          questions: g.questions.map((q) => {
+            if (q.id !== qId) return q;
+            return {
+              ...q,
+              options: q.options.map((opt) => (opt.id === optId ? { ...opt, imageUrl } : opt)),
+            };
+          }),
+        };
+      })
+    );
   };
 
   // Đổi chế độ Soạn bài
@@ -1216,9 +1208,9 @@ export default function ExamStaff({
       if (authorMode === "grouped") {
         parsed = flattenGroups(groups);
       } else {
-        if (jsonInput.trim()) {
-          parsed = JSON.parse(jsonInput);
-        }
+        const questions: unknown = jsonInput.trim() ? JSON.parse(jsonInput) : [];
+        if (!Array.isArray(questions)) throw new Error("JSON phải chứa một danh sách câu hỏi.");
+        parsed = questions;
       }
       if (!parsed.length) {
         throw new Error("Vui lòng nhập ít nhất 1 câu hỏi hoặc bấm 'Nạp mẫu đề từ thư mục HSK3.0' trước khi lưu.");
@@ -1230,7 +1222,7 @@ export default function ExamStaff({
 
       const publishedHskkGroups = hskkGroups.filter(group => group.questions.length > 0);
 
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         level: authorLevel,
         title: finalTitle,
         description: authorDesc,
@@ -1251,12 +1243,18 @@ export default function ExamStaff({
         };
       }
 
-      const { paperId, duplicateQuestionNumbers: duplicates } = await examApi<{ paperId: string; duplicateQuestionNumbers: number[] }>("importPaper", payload);
+      const publication = await prepareExamPublicationMedia(payload, uploadedPublicationMedia.current);
+      const { paperId, duplicateQuestionNumbers: duplicates, useDefaultPoints } = await examApi<{
+        paperId: string;
+        duplicateQuestionNumbers: number[];
+        useDefaultPoints: boolean;
+      }>("importPaper", publication);
+      uploadedPublicationMedia.current.clear();
 
       setPublishedLink(`/s/mock-exam?${new URLSearchParams({ view: "intro", id: paperId, level: String(levelGroup(authorLevel)) })}`);
       const isEdit = !!editingPaperId; setEditingPaperId(null); setMessage(`${isEdit ? "✅ Đã cập nhật thành công" : "Đã xuất bản"} đề “${finalTitle}” (${parsed.length} câu)${publishedHskkGroups.length ? ` kèm Khẩu ngữ HSKK (${hskkGroups.reduce((s, g) => s + sectionQuestions(g).length, 0)} câu)` : ""}. Học sinh có thể mở đề trong phòng thi.${
         duplicates?.length ? ` Cảnh báo: trùng số câu ${duplicates.join(", ")}.` : ""
-      }`);
+      }${useDefaultPoints ? " Đã áp dụng mặc định 1 điểm mỗi câu vì tổng điểm nhập là 0." : ""}`);
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -3285,27 +3283,8 @@ export default function ExamStaff({
                                     onChange={(e) => handleUpdateQuestion(group.id, q.id, { imageUrl: e.target.value })}
                                     placeholder="Dán link ảnh hoặc chọn file từ máy bên cạnh..."
                                   />
-                                  <label style={{ cursor: "pointer", background: "#e0ebdb", padding: "5px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600, color: "#254422", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                    <Upload size={13} /> Tải ảnh từ máy
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      style={{ display: "none" }}
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) handleUploadQuestionImage(group.id, q.id, file);
-                                      }}
-                                    />
-                                  </label>
-                                  {q.imageUrl && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateQuestion(group.id, q.id, { imageUrl: "" })}
-                                      style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}
-                                    >
-                                      Xóa ảnh
-                                    </button>
-                                  )}
+                                  {mediaActions(`question-image:${group.id}:${q.id}`, q.imageUrl || "", "ảnh", "image",
+                                    imageUrl => handleUpdateQuestion(group.id, q.id, { imageUrl }))}
                                 </div>
                                 {q.imageUrl && (
                                   <div style={{ textAlign: "center", margin: "4px 0" }}>
@@ -3373,27 +3352,8 @@ export default function ExamStaff({
                                             onChange={(e) => handleUpdateQuestion(group.id, q.id, { imageUrl: e.target.value })}
                                             placeholder="Dán link ảnh hoặc bấm tải từ máy..."
                                           />
-                                          <label style={{ cursor: "pointer", background: "#dc2626", color: "#ffffff", padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                            <Upload size={13} /> Tải ảnh từ máy
-                                            <input
-                                              type="file"
-                                              accept="image/*"
-                                              style={{ display: "none" }}
-                                              onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) handleUploadQuestionImage(group.id, q.id, file);
-                                              }}
-                                            />
-                                          </label>
-                                          {q.imageUrl && (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleUpdateQuestion(group.id, q.id, { imageUrl: "" })}
-                                              style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}
-                                            >
-                                              Xóa ảnh
-                                            </button>
-                                          )}
+                                          {mediaActions(`question-image:${group.id}:${q.id}`, q.imageUrl || "", "ảnh", "image",
+                                            imageUrl => handleUpdateQuestion(group.id, q.id, { imageUrl }))}
                                         </div>
                                         {q.imageUrl && (
                                           <div style={{ textAlign: "center", marginTop: 6 }}>
@@ -3649,46 +3609,8 @@ export default function ExamStaff({
                                             />
 
                                             {/* Mini Image Upload for option */}
-                                            <label
-                                              style={{
-                                                cursor: "pointer",
-                                                background: opt.imageUrl ? "#dcfce7" : "#f1f5f9",
-                                                border: "1px solid #cbd5e1",
-                                                borderRadius: 6,
-                                                padding: "3px 8px",
-                                                fontSize: 11,
-                                                color: "#334155",
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 4,
-                                              }}
-                                              title="Tải ảnh cho lựa chọn này (ví dụ tranh A, tranh B...)"
-                                            >
-                                              <ImageIcon size={12} /> {opt.imageUrl ? "Có ảnh" : "+ Ảnh"}
-                                              <input
-                                                type="file"
-                                                accept="image/*"
-                                                style={{ display: "none" }}
-                                                onChange={(e) => {
-                                                  const file = e.target.files?.[0];
-                                                  if (file) handleUploadOptionImage(group.id, q.id, opt.id, file);
-                                                }}
-                                              />
-                                            </label>
-
-                                            {opt.imageUrl && (
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  const newOpts = q.options.map((o) => (o.id === opt.id ? { ...o, imageUrl: "" } : o));
-                                                  handleUpdateQuestion(group.id, q.id, { options: newOpts });
-                                                }}
-                                                style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", padding: 2 }}
-                                                title="Xóa ảnh lựa chọn"
-                                              >
-                                                <X size={14} />
-                                              </button>
-                                            )}
+                                            {mediaActions(`option-image:${group.id}:${q.id}:${opt.id}`, opt.imageUrl || "", "ảnh lựa chọn", "image",
+                                              imageUrl => updateOptionImage(group.id, q.id, opt.id, imageUrl))}
 
                                             {q.options.length > 2 && (
                                               <button

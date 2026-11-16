@@ -564,7 +564,7 @@ export function flattenGroups(groups: ExamSectionGroup[]): ImportedQuestion[] {
         skill: group.skill,
         content: q.content || "",
         pinyin: q.pinyin || "",
-        points: Number(q.points),
+        points: Number(q.points ?? 1),
         correctAnswer: q.correctAnswer || "",
         explanation: q.explanation || "",
         imageUrl: readingPassage || cloze || replyGroup || (pictureGroup && group.skill === "READING") ? "" : q.imageUrl || "",

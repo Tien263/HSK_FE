@@ -7,6 +7,7 @@ const baseUrl=(process.env.BASE_URL||process.argv[2]||'http://localhost:3000').r
 const db=new PrismaClient();
 async function runTests(){
  const suffix=randomBytes(8).toString('hex'),prefix='e2e_ci_'+suffix,password=randomBytes(20).toString('hex');
+ const examTitle='E2E HSK publication '+suffix;
  const userIds=[],usernames=[prefix+'_teacher',prefix+'_student',prefix+'_provisioned'];let teacherId,passed=0;
  function check(condition,label){strict.ok(condition,label);passed++;console.log('✅ [PASS] '+label);}
  async function request(actor,path,method='GET',body,status=200){
@@ -42,6 +43,16 @@ async function runTests(){
   const summary=await request(loggedIn,'/api/v1/my/summary');check(summary.data?.student?.username===student.username&&summary.data.student.currentHskLevel===2,'Authenticated summary returns this student and saved HSK level');
   const vocab=await request(student,'/api/v1/my/vocab-review/today?username='+encodeURIComponent(student.username));check(Array.isArray(vocab.items),'Student vocabulary review endpoint returns a list');
   const wrong=await request(student,'/api/v1/my/wrong-questions?username='+encodeURIComponent(student.username));check(Array.isArray(wrong.items),'Student wrong-question notebook returns a list');
+  const publication=(await request(teacher,'/api/v1/exam-center','POST',{
+   action:'importPaper',level:1,title:examTitle,durationMin:15,questions:[
+    {type:'listening_choice',skill:'LISTENING',groupId:'listening',groupType:'listening_choice_abc',audioUrl:'/test-listening.mp3',options:['去学校','回家'],correctAnswer:'A',points:0},
+   ],
+  })).data;
+  check(!!publication?.paperId&&publication.useDefaultPoints,'Teacher publishes an HSK exam with shared audio and default points');
+  const attempt=(await request(student,'/api/v1/exam-center','POST',{
+   action:'start',paperId:publication.paperId,requestId:require('node:crypto').randomUUID(),
+  })).data;
+  check(attempt.questions.length===1&&attempt.questions[0].audioUrl==='/test-listening.mp3'&&attempt.maxScore===1,'Student can start the newly published HSK exam');
   console.log('\n--- Teacher journey ---');
   const overview=await request(teacher,'/api/v1/reports/overview');check(overview.data?.summary?.totalStudents===1,'Teacher report counts the actual approved student');
   const spoof=await fetch(baseUrl+'/api/v1/classes',{headers:{'x-user-id':teacher.id},signal:AbortSignal.timeout(30000)});check(spoof.status===401,'Spoofed x-user-id cannot replace the login cookie');
@@ -57,7 +68,15 @@ async function runTests(){
   console.log('\n=== '+passed+'/'+passed+' CHECKS PASSED ===');
  }finally{
   // Cleanup runs on failure as well; touch only IDs/usernames created by this run.
-  if(teacherId){await db.teachingMaterial.deleteMany({where:{teacherId}});await db.class.deleteMany({where:{teacherId}});}
+  if(teacherId){
+   const paper=await db.quizSet.findFirst({where:{teacherId,title:examTitle},select:{id:true,questions:{select:{questionId:true}}}});
+   if(paper){
+    await db.auditLog.deleteMany({where:{entity:paper.id,action:{in:['EXAM_CENTER_PUBLICATION','EXAM_CENTER_ATTEMPT']},userId:{in:userIds}}});
+    await db.quizSet.delete({where:{id:paper.id}});
+    await db.question.deleteMany({where:{id:{in:paper.questions.map(row=>row.questionId)}}});
+   }
+   await db.teachingMaterial.deleteMany({where:{teacherId}});await db.class.deleteMany({where:{teacherId}});
+  }
   await db.user.deleteMany({where:{OR:[{id:{in:userIds}},{username:{in:usernames}}]}});await db.$disconnect();console.log('Temporary E2E accounts, class and files cleaned up.');
  }
 }

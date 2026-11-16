@@ -211,7 +211,8 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
   const providedNumber=raw.questionNumber??editor?.questionNumber;
   if(providedNumber!==undefined&&normalizeQuestionNumber(providedNumber)===undefined)
    throw new ExamError(400,`Số thứ tự ở vị trí ${idx+1} phải là số nguyên dương.`);
-  const q=snapshotQuestion({...raw,level},points);
+  const fallbackType=raw.skill==="LISTENING"?"listening_choice":raw.skill==="WRITING"?"essay":raw.skill==="SPEAKING"?"speaking":"multiple_choice";
+  const q=snapshotQuestion({...raw,type:raw.type||fallbackType,level},points);
   q.editorData.rubric=raw.rubric||q.editorData.rubric||"";
   return q;
  });
@@ -367,8 +368,10 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
  }
  const invalid=questions.findIndex(q=>!playableQuestion(q));
  if(invalid>=0)throw new ExamError(400,`Câu ${invalid+1} có dạng câu hỏi chưa hỗ trợ.`);
+ const useDefaultPoints=questions.every(q=>q.points===0);
+ if(useDefaultPoints)questions.forEach(q=>{q.points=1;});
  const totalScore=questions.reduce((sum,q)=>sum+q.points,0);
- if(totalScore<=0||Math.round(totalScore)>2147483647)throw new ExamError(400,"Tổng điểm của đề không hợp lệ.");
+ if(Math.round(totalScore)>2147483647)throw new ExamError(400,"Tổng điểm của đề không hợp lệ.");
  if(passScore!==null&&(!Number.isFinite(passScore)||passScore<0||passScore>totalScore))
   throw new ExamError(400,`Mốc điểm đạt phải từ 0 đến ${totalScore}. Có thể để trống.`);
 
@@ -422,8 +425,8 @@ export async function importPaper(user:AuthUser,body:Record<string,unknown>){
     hskkPaperId:body.hskkPaperId||null
    }),
   }});
-  return {success:true,paperId:targetPaperId,duplicateQuestionNumbers:duplicateNumbers};
- });
+  return {success:true,paperId:targetPaperId,duplicateQuestionNumbers:duplicateNumbers,useDefaultPoints};
+ },{timeout:60000,maxWait:15000});
 }
 
 export async function deletePaper(user:AuthUser,body:Record<string,unknown>){

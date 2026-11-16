@@ -37,6 +37,46 @@ function fixture(){
 let serial=0;const requestId=()=>`00000000-0000-4000-8000-${String(++serial).padStart(12,'0')}`;
 const rejectStatus=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 const start=(f,paperId='off1',extra={})=>f.service.startAttempt(actors.a,{paperId,requestId:requestId(),...extra});
+test('a fully authored exam with all scores left at zero can be published and taken',async()=>{
+ const f=fixture();
+ const {flattenGroups,unflattenToGroups}=require(path.resolve('src/components/exam-center/hsk-sample-templates.ts'));
+ const questions=flattenGroups(unflattenToGroups([
+  {id:'first',skill:'READING',content:'你好',options:[{id:'A',text:'你好'},{id:'B',text:'谢谢'}],correctAnswer:'A',points:0},
+  {id:'second',skill:'LISTENING',content:'',options:[{id:'A',text:'去学校'},{id:'B',text:'回家'}],correctAnswer:'B',points:0,audioUrl:'/sample.mp3'},
+ ],1));
+ const {paperId,useDefaultPoints}=await f.service.importPaper(actors.admin,{level:1,title:'HSK upload',durationMin:20,questions});
+ assert.equal(useDefaultPoints,true);
+ assert.equal((await f.service.dashboard(actors.a)).papers.find(paper=>paper.id===paperId).available,true);
+ const attempt=await start(f,paperId);
+ assert.equal(attempt.maxScore,2);
+ assert.deepEqual(attempt.questions.map(q=>q.points),[1,1]);
+ const answers=Object.fromEntries(attempt.questions.map((q,index)=>[q.id,index===0?'A':'B']));
+ const result=await f.service.writeAttempt(actors.a,{id:attempt.id,revision:attempt.revision,answers},true);
+ assert.equal(result.score,2);
+});
+test('publication extracts inline media from old drafts and reuses existing uploads on retry',async()=>{
+ const filename=path.resolve('src/components/exam-center/exam-publication-media.ts');
+ const loaded=new Module(filename,module);
+ const uploads=[];
+ loaded.require=name=>name==='@/lib/cloudinary'?{uploadToCloudinary:async(file,options)=>{
+  uploads.push({size:file.size,resourceType:options.resourceType});
+  return {secureUrl:`https://media.example/${options.resourceType}`};
+ }}:Module.prototype.require.call(loaded,name);
+ loaded._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,filename);
+ const imageUrl='data:image/png;base64,'+'AAAA'.repeat(2_000_000);
+ const audioUrl='data:audio/mpeg;base64,AAAA';
+ const draft={questions:[{imageUrl,options:[{id:'A',imageUrl}]}],hskkExam:{groups:[{questions:[{audioUrl}]}]}};
+ const uploaded=new Map();
+ assert.ok(JSON.stringify(draft).length>8_000_000);
+ const prepared=await loaded.exports.prepareExamPublicationMedia(draft,uploaded);
+ assert.deepEqual(prepared,{
+  questions:[{imageUrl:'https://media.example/image',options:[{id:'A',imageUrl:'https://media.example/image'}]}],
+  hskkExam:{groups:[{questions:[{audioUrl:'https://media.example/video'}]}]},
+ });
+ assert.deepEqual(await loaded.exports.prepareExamPublicationMedia(draft,uploaded),prepared);
+ assert.equal(uploads.length,2);
+ assert.equal(draft.questions[0].imageUrl,imageUrl);
+});
 test('only submitted attempts with authored speaking questions expose the paired HSKK exam',async()=>{
  const f=fixture();
  const publish=groups=>f.audit.push({action:'EXAM_CENTER_PUBLICATION',entity:'off1',details:JSON.stringify({

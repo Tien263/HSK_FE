@@ -2,7 +2,13 @@
 
 export async function examApi<T>(action:string,body?:Record<string,unknown>,signal?:AbortSignal):Promise<T>{
  const response=await fetch(body?'/api/v1/exam-center':`/api/v1/exam-center?action=${encodeURIComponent(action)}`,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal,...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,action})}:{})});
- const data=await response.json();if(response.status===401){location.assign('/login?next=%2Fs%2Fmock-exam');throw new Error('Phiên đăng nhập hết hạn.');}if(!response.ok||!data.success)throw Object.assign(new Error(data.message||'Chưa xử lý được yêu cầu.'),{status:response.status});return data.data;
+ if(response.status===401){location.assign('/login?next=%2Fs%2Fmock-exam');throw new Error('Phiên đăng nhập hết hạn.');}
+ const data=await response.json().catch(()=>null);
+ if(!response.ok||!data?.success){
+  const fallback=response.status===413?"Dữ liệu gửi lên quá lớn. Kiểm tra các tệp đính kèm trong đề.":`Máy chủ chưa xử lý được yêu cầu (HTTP ${response.status}). Hãy thử lại.`;
+  throw Object.assign(new Error(data?.message||fallback),{status:response.status});
+ }
+ return data.data;
 }
 export async function attemptApi<T>(id:string):Promise<T>{const response=await fetch(`/api/v1/exam-center?action=attempt&id=${encodeURIComponent(id)}`,{cache:'no-store',credentials:'same-origin'});const data=await response.json();if(response.status===401)location.assign('/login?next=%2Fs%2Fmock-exam');if(!response.ok||!data.success)throw new Error(data.message||'Không mở được bài thi.');return data.data;}
 export const skillNames:Record<string,string>={LISTENING:'Nghe',READING:'Đọc',WRITING:'Viết',TRANSLATION:'Dịch',SPEAKING:'Nói'};
