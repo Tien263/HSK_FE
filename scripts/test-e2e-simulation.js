@@ -77,9 +77,13 @@ async function runTests(){
   });
   const partial=(await request(student,'/api/v1/exam-center?action=attempt&id='+attempt.id)).data;
   check(partial.status==='NEEDS_GRADING'&&partial.hskkResult.status==='GRADED','HSKK is graded while HSK is still pending');
-  await request(teacher,'/api/v1/exam-center','POST',{action:'grade',kind:'hsk',id:attempt.id,
+  const gradeHsk=()=>request(teacher,'/api/v1/exam-center','POST',{action:'grade',kind:'hsk',id:attempt.id,
    marks:{[essayId]:0.5},feedback:{[essayId]:'Viết rõ ý.'},
   });
+  if(process.env.HSK_BROWSER_TEST==='1'){
+   const {checkExamBrowser}=await import('./exam-center-browser.mjs');
+   await checkExamBrowser({baseUrl,cookie:student.cookie,attemptId:attempt.id,gradeHsk});
+  }else await gradeHsk();
   const evaluated=(await request(student,'/api/v1/exam-center?action=attempt&id='+attempt.id)).data;
   const evaluatedSpeaking=evaluated.questions.find(row=>row.id===question.id);
   check(evaluated.hskkScore.earned===1.5&&evaluatedSpeaking.result.feedback==='Luyện thêm thanh điệu.'&&evaluated.score===1.5&&
@@ -115,4 +119,4 @@ async function runTests(){
   await db.user.deleteMany({where:{OR:[{id:{in:userIds}},{username:{in:usernames}}]}});await db.$disconnect();console.log('Temporary E2E accounts, class and files cleaned up.');
  }
 }
-runTests().catch(error=>{console.error('E2E failed:',error.message);process.exitCode=1;});
+runTests().catch(error=>{console.error('E2E failed:',error);process.exitCode=1;});
