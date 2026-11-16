@@ -1,13 +1,7 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { Play, X, Video } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 export default function HeroSection() {
-  const [videoModalOpen, setVideoModalOpen] = useState(false);
-
   return (
     <section className="relative pt-4 sm:pt-8 pb-16 md:pb-24 px-6 max-w-6xl mx-auto">
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[460px] md:min-h-[520px]">
@@ -42,41 +36,14 @@ export default function HeroSection() {
               <span>→</span>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => setVideoModalOpen(true)}
-              className="px-5 py-2.5 rounded-full bg-[#faf6ed]/85 border border-[#d8cdb8] text-[#173d2d] font-bold text-xs hover:bg-white transition shadow-xs flex items-center gap-2 cursor-pointer backdrop-blur-xs"
+            <Link
+              href="/guide"
+              className="flex items-center gap-2 rounded-full border border-[#d8cdb8] bg-[#faf6ed]/85 px-5 py-2.5 text-xs font-bold text-[#173d2d] transition hover:bg-white"
             >
-              <div className="w-4 h-4 rounded-full bg-[#1a3d2f] text-white flex items-center justify-center text-[8px]">
-                <Play className="w-2 h-2 fill-white ml-0.5" />
-              </div>
-              <span>Xem video giới thiệu</span>
-            </button>
+              <BookOpen size={15} /> Xem hướng dẫn sử dụng
+            </Link>
           </div>
 
-          {/* 3 Metric Stats with vertical dividers */}
-          <div className="flex items-center gap-6 pt-6 border-t border-[#d8cdb8] max-w-md">
-            <div>
-              <div className="text-2xl font-serif font-bold text-[#173d2d]">
-                50.000+
-              </div>
-              <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Học viên tin tưởng</p>
-            </div>
-            <div className="h-7 w-px bg-[#d8cdb8]" />
-            <div>
-              <div className="text-2xl font-serif font-bold text-[#173d2d]">
-                1.000+
-              </div>
-              <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Bài học chất lượng</p>
-            </div>
-            <div className="h-7 w-px bg-[#d8cdb8]" />
-            <div>
-              <div className="text-2xl font-serif font-bold text-[#173d2d]">
-                4.9/5
-              </div>
-              <p className="text-[11px] text-[#4d6356] mt-0.5 font-medium">Đánh giá từ học viên</p>
-            </div>
-          </div>
         </div>
 
         {/* Right Seal & Calligraphy Badge */}
@@ -95,65 +62,6 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* ===================== VIDEO MODAL ===================== */}
-      {videoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#faf6ed] border border-[#d8cdb8] rounded-3xl max-w-xl w-full p-6 shadow-2xl relative">
-            <button
-              onClick={() => setVideoModalOpen(false)}
-              className="absolute top-4 right-4 text-[#526056] hover:text-[#173d2d] p-1.5 rounded-full transition cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-[#1a3d2f] text-white flex items-center justify-center">
-                <Video className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-[#173d2d] font-serif">
-                  Video Giới Thiệu Không Gian Học Tập Hanyu
-                </h3>
-                <p className="text-[11px] text-[#526056]">
-                  Lộ trình ôn luyện HSK 3.0 cùng cô Ning Ning
-                </p>
-              </div>
-            </div>
-
-            <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black relative flex items-center justify-center mb-4">
-              <Image
-                src="/theme/hero-master-bg.jpg"
-                alt="Video thumbnail"
-                fill
-                className="object-cover opacity-75"
-              />
-              <div className="relative z-10 text-center text-white p-4">
-                <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center mx-auto mb-2 border border-white/40 cursor-pointer hover:scale-105 transition">
-                  <Play className="w-5 h-5 fill-white ml-0.5" />
-                </div>
-                <p className="font-serif text-base font-bold">Lớp Tiếng Trung HSK Chuẩn Quốc Tế</p>
-                <p className="text-[11px] text-white/80 mt-0.5">Học bài bản · Nhớ lâu ngắt quãng · Khắc phục lỗi sai</p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setVideoModalOpen(false)}
-                className="px-4 py-1.5 rounded-xl border border-[#d8cdb8] text-xs font-semibold text-[#526056] cursor-pointer"
-              >
-                Đóng
-              </button>
-              <Link
-                href="/register"
-                className="px-5 py-1.5 rounded-xl bg-[#1a3d2f] text-white text-xs font-bold hover:bg-[#122b21] transition shadow-xs"
-              >
-                Đăng ký học ngay
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

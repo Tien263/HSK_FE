@@ -135,7 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#061609] text-white font-sans selection:bg-[#c3dc4e] selection:text-[#061609]">
         {children}
-        <HanziiDictionaryDrawer />
+        <Suspense fallback={null}><HanziiDictionaryDrawer /></Suspense>
         <Suspense fallback={null}>
           <PwaInstallBanner />
         </Suspense>

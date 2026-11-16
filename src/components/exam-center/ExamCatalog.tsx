@@ -50,7 +50,7 @@ export default function ExamCatalog({ data, review, level, search, source, go, l
     <div className={s.breadcrumb}><button onClick={() => go("home")}><Home size={15} /> Phòng luyện thi</button><span>›</span><strong>{level ? levelLabel(level) : "Tất cả cấp độ"}</strong></div>
     <section className={s.catalogHero} aria-label="Thông tin cấp thi">
       <div><h1>{level ? `${levelLabel(level)} · Danh sách đề thi` : "Danh sách đề thi"}</h1><p lang="zh-CN">模拟试卷 · 循序渐进</p><p>Chọn đề phù hợp để luyện tập, tiếp tục bài đang làm và theo dõi kết quả theo cấp độ.</p></div>
-      <div className={s.blueprintCard}><div className={s.sectionHeading}><h2>{level ? levelLabel(level) : "Cấp độ thi"}</h2>{levelSelect}</div>
+      <div className={s.blueprintCard}><div className={s.sectionHeading}><h2>{level ? `Khung tham chiếu ${levelLabel(level)}` : "Cấp độ thi"}</h2>{levelSelect}</div>
         <div className={s.blueprintFacts}><span><FileCheck2 />{inLevel.filter(p => p.source === "OFFICIAL").length} đề thi</span><span><Clock />{blueprint ? `${blueprint.durationMin} phút` : "Theo từng đề"}</span><span><Layers />{blueprint ? `${blueprint.questionCount} câu` : "Theo từng đề"}</span><span><Trophy />{blueprint?.maxScore ? `${blueprint.maxScore} điểm` : blueprint ? "Phân loại trình độ" : "Theo từng đề"}</span></div>
         {blueprint && <><p><Headphones size={16} />{blueprint.skills.length} kỹ năng: {blueprint.skills.map(key => skillNames[key]).join(" · ")}</p><p><Target size={17} />{blueprint.resultMode === "CLASSIFICATION" ? "HSK 7–9: phân loại theo quy tắc riêng" : `Mốc mục tiêu: ≥ ${blueprint.targetScore} / ${blueprint.maxScore}`}</p></>}
       </div>
@@ -114,7 +114,6 @@ export function ExamIntroduction({
   onStart,
   onBack,
   busy,
-  blueprint,
   activeAttempt,
   onContinueAttempt,
   role,
@@ -124,7 +123,6 @@ export function ExamIntroduction({
   onStart: () => void;
   onBack: () => void;
   busy: boolean;
-  blueprint?: Dashboard["blueprints"][number];
   activeAttempt?: Dashboard["attempts"][number] | null;
   onContinueAttempt?: (attemptId: string) => void;
   role?: string;
@@ -133,7 +131,6 @@ export function ExamIntroduction({
   return (
     <ExamRulesLobby
       paper={paper}
-      blueprint={blueprint}
       activeAttempt={activeAttempt}
       onStart={onStart}
       onContinueAttempt={onContinueAttempt}

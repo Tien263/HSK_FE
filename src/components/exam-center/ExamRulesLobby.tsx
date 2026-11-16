@@ -1,7 +1,7 @@
 "use client";
 
 import BrandMark from "@/components/common/BrandMark";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -37,19 +37,17 @@ import {
   Volume2,
   Wifi,
 } from "lucide-react";
-import { levelGroup, levelLabel, type ExamSkill } from "@/lib/exam-center-core";
+import { levelGroup, levelLabel } from "@/lib/exam-center-core";
 import { skillNames } from "./exam-client";
 import type { dashboard } from "@/lib/exam-center-service";
 import s from "./ExamRulesLobby.module.css";
 
 type Dashboard = Awaited<ReturnType<typeof dashboard>>;
 type Paper = Dashboard["papers"][number];
-type Blueprint = Dashboard["blueprints"][number];
 type ActiveAttempt = Dashboard["attempts"][number];
 
 export interface ExamRulesLobbyProps {
   paper: Paper;
-  blueprint?: Blueprint;
   activeAttempt?: ActiveAttempt | null;
   onStart: () => void;
   onContinueAttempt?: (attemptId: string) => void;
@@ -61,7 +59,6 @@ export interface ExamRulesLobbyProps {
 
 export default function ExamRulesLobby({
   paper,
-  blueprint,
   activeAttempt,
   onStart,
   onContinueAttempt,
@@ -86,68 +83,17 @@ export default function ExamRulesLobby({
   const [agreedDevices, setAgreedDevices] = useState(false);
 
   const level = paper?.level ?? 1;
-  const isHighLevel = level >= 7;
   const skills = Array.isArray(paper?.skills) ? paper.skills : [];
-  const needsMic = isHighLevel || skills.includes("SPEAKING");
+  const needsMic = skills.includes("SPEAKING");
 
-  const totalQuestions = paper?.questionsCount || blueprint?.questionCount || 70;
-  const durationMin = paper?.durationMin || blueprint?.durationMin || 83;
-  const maxScore = paper?.maxScore || blueprint?.maxScore || 300;
-  const passScore =
-    paper?.passScore !== null && paper?.passScore !== undefined
-      ? paper.passScore
-      : blueprint?.resultMode === "CLASSIFICATION"
-      ? null
-      : blueprint?.targetScore ?? 180;
-
-  // Sections dynamic breakdown according to official HSK blueprint
-  const sections = useMemo(() => {
-    if (blueprint?.sections && blueprint.sections.length > 0) {
-      return blueprint.sections;
-    }
-    const result: { skill: ExamSkill; name: string; questionCount: number; durationMin: number }[] = [];
-    if (skills.includes("LISTENING")) {
-      result.push({
-        skill: "LISTENING",
-        name: "Nghe (听力)",
-        questionCount: Math.round(totalQuestions * 0.43),
-        durationMin: Math.round(durationMin * 0.28),
-      });
-    }
-    if (skills.includes("READING")) {
-      result.push({
-        skill: "READING",
-        name: "Đọc (阅读)",
-        questionCount: Math.round(totalQuestions * 0.43),
-        durationMin: Math.round(durationMin * 0.36),
-      });
-    }
-    if (skills.includes("WRITING")) {
-      result.push({
-        skill: "WRITING",
-        name: level <= 3 ? "Viết (书写)" : "Viết (写作)",
-        questionCount: Math.max(1, totalQuestions - Math.round(totalQuestions * 0.86)),
-        durationMin: Math.max(10, durationMin - Math.round(durationMin * 0.64)),
-      });
-    }
-    if (skills.includes("TRANSLATION")) {
-      result.push({
-        skill: "TRANSLATION",
-        name: "Dịch (翻译)",
-        questionCount: 4,
-        durationMin: 42,
-      });
-    }
-    if (skills.includes("SPEAKING")) {
-      result.push({
-        skill: "SPEAKING",
-        name: "Nói (口语)",
-        questionCount: 5,
-        durationMin: 20,
-      });
-    }
-    return result;
-  }, [blueprint, skills, totalQuestions, durationMin, level]);
+  const totalQuestions = paper?.questionsCount ?? 0;
+  const durationMin = paper?.durationMin ?? null;
+  const maxScore = paper?.maxScore ?? null;
+  const passScore = paper?.passScore ?? null;
+  const sections = (paper?.sections ?? []).map(section => ({
+    ...section,
+    name: skillNames[section.skill],
+  }));
 
   // Audio Test via Web Audio API synth chime
   const playAudioChime = useCallback(() => {
@@ -181,7 +127,7 @@ export default function ExamRulesLobby({
       }, 1800);
     } catch {
       setAudioPlaying(false);
-      setAudioTested(true);
+      setAudioTested(false);
     }
   }, []);
 
@@ -193,10 +139,10 @@ export default function ExamRulesLobby({
       const res = await fetch("/api/health?t=" + Date.now(), { cache: "no-store" });
       const latency = Math.round(performance.now() - start);
       setNetworkLatency(latency);
-      setNetworkTested(res.ok || latency < 1200);
+      setNetworkTested(res.ok);
     } catch {
-      setNetworkLatency(45);
-      setNetworkTested(navigator.onLine);
+      setNetworkLatency(null);
+      setNetworkTested(false);
     } finally {
       setNetworkChecking(false);
     }
@@ -213,7 +159,7 @@ export default function ExamRulesLobby({
   // Mic test
   const checkMicrophone = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      setMicTested(true);
+      setMicTested(false);
       return;
     }
     setMicChecking(true);
@@ -235,28 +181,11 @@ export default function ExamRulesLobby({
     checkNetwork();
   }, [checkNetwork]);
 
-  const devicesReady = audioTested && networkTested && imeTested && (!needsMic || micTested);
+  const devicesReady = networkTested && (!skills.includes("LISTENING") || audioTested) && (!needsMic || micTested);
   const canStart = agreedRules && agreedDevices && devicesReady && !busy;
 
   const handleStartExam = () => {
-    if (busy) return;
-    if (!audioTested) {
-      playAudioChime();
-      setAudioTested(true);
-    }
-    if (!networkTested) {
-      setNetworkTested(true);
-    }
-    if (!imeTested) {
-      setImeInput("你好");
-      setImeTested(true);
-    }
-    if (needsMic && !micTested) {
-      setMicTested(true);
-    }
-    setAgreedRules(true);
-    setAgreedDevices(true);
-    onStart();
+    if (canStart) onStart();
   };
 
   return (
@@ -394,7 +323,7 @@ export default function ExamRulesLobby({
             </div>
             <div className={s.statColText}>
               <strong className={s.statBigText}>
-                {passScore ? `≥ ${passScore} điểm` : "Chờ phân loại"}
+                {passScore !== null ? `≥ ${passScore} điểm` : "—"}
               </strong>
               <span className={s.statSubText}>mục tiêu</span>
             </div>
@@ -447,7 +376,7 @@ export default function ExamRulesLobby({
                 <tr>
                   <th>Phần thi</th>
                   <th>Số câu hỏi</th>
-                  <th>Thời gian (ước tính)</th>
+                  <th>Thời gian</th>
                 </tr>
               </thead>
               <tbody>
@@ -468,7 +397,7 @@ export default function ExamRulesLobby({
                       </span>
                     </td>
                     <td>{sec.questionCount} câu</td>
-                    <td>khoảng {sec.durationMin} phút</td>
+                    <td>—</td>
                   </tr>
                 ))}
                 <tr className={s.totalTableRow}>
@@ -626,7 +555,7 @@ export default function ExamRulesLobby({
                   <CheckCircle2 size={13} />
                   <span>
                     {networkTested
-                      ? `Kết nối ổn định (${networkLatency ?? 32}ms)`
+                      ? `Kết nối ổn định (${networkLatency ?? 0}ms)`
                       : "Chưa kiểm tra"}
                   </span>
                 </div>
@@ -751,7 +680,7 @@ export default function ExamRulesLobby({
             <button
               type="button"
               className={s.startBigPillBtn}
-              disabled={busy}
+              disabled={!canStart}
               onClick={handleStartExam}
             >
               <Play size={16} fill="currentColor" />

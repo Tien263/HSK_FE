@@ -3,11 +3,28 @@
 import BrandMark from "@/components/common/BrandMark";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
+const searchPages = [
+  { title: "HSK 3.0", href: "/#course-hsk", keywords: "HSK 1 2 3 4 5 6 7 8 9 thi thử" },
+  { title: "Tiếng Trung theo chủ đề", href: "/#course-topics", keywords: "gia đình mua sắm giao tiếp" },
+  { title: "Tiếng Trung chuyên ngành", href: "/#course-careers", keywords: "thương mại công việc" },
+  { title: "Lộ trình học", href: "/#roadmap", keywords: "tự học cấp độ" },
+  { title: "Luyện tập", href: "/#practice", keywords: "ngữ pháp từ vựng bài tập" },
+  { title: "Hướng dẫn sử dụng", href: "/guide", keywords: "hỗ trợ" },
+];
+
+const normalize = (text: string) => text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
+
 export default function Header() {
+  const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const words = normalize(searchQuery.trim()).split(/\s+/).filter(Boolean);
+  const matches = words.length ? searchPages.filter(page =>
+    words.every(word => normalize(page.title + " " + page.keywords).includes(word))) : [];
 
   return (
     <header className="relative z-30 w-full bg-transparent">
@@ -27,13 +44,13 @@ export default function Header() {
 
         {/* Center Navigation Links */}
         <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-[#3b4e42]">
-          <a href="/#courses" className="hover:text-[#173d2d] transition">
+          <a href="/#course-hsk" className="hover:text-[#173d2d] transition">
             HSK 3.0
           </a>
-          <a href="/#courses" className="hover:text-[#173d2d] transition">
+          <a href="/#course-topics" className="hover:text-[#173d2d] transition">
             Theo chủ đề
           </a>
-          <a href="/#courses" className="hover:text-[#173d2d] transition">
+          <a href="/#course-careers" className="hover:text-[#173d2d] transition">
             Chuyên ngành
           </a>
           <a href="/#roadmap" className="hover:text-[#173d2d] transition">
@@ -95,7 +112,7 @@ export default function Header() {
       {/* Search popup dropdown */}
       {searchOpen && (
         <div className="max-w-xl mx-auto px-6 mb-4 animate-in fade-in duration-150 relative z-30">
-          <div className="p-2 rounded-2xl bg-[#faf6ed] border border-[#d8cdb8] shadow-lg flex items-center gap-2">
+          <form onSubmit={event => { event.preventDefault(); if (matches.length) { router.push(matches[0].href); setSearchOpen(false); } }} className="p-2 rounded-2xl bg-[#faf6ed] border border-[#d8cdb8] shadow-lg flex items-center gap-2">
             <Search className="w-4 h-4 text-[#8c9a8f] ml-3" />
             <input
               type="text"
@@ -106,13 +123,19 @@ export default function Header() {
               className="w-full text-xs text-[#1a3d2f] outline-none px-2 py-1.5 bg-transparent"
             />
             <button
+              type="button"
               onClick={() => setSearchOpen(false)}
               className="p-1 rounded-full text-[#8c9a8f] hover:text-[#1a3d2f] cursor-pointer"
               aria-label="Đóng tìm kiếm"
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
+          </form>
+          {words.length > 0 && <div className="mt-1 rounded-xl border border-[#d8cdb8] bg-[#faf6ed] p-3 text-sm" aria-live="polite">
+            {matches.length ? <ul>{matches.map(page => (
+              <li key={page.href}><Link className="block px-2 py-2 hover:underline" href={page.href} onClick={() => setSearchOpen(false)}>{page.title}</Link></li>
+            ))}</ul> : <p>Không tìm thấy mục phù hợp.</p>}
+          </div>}
         </div>
       )}
     </header>

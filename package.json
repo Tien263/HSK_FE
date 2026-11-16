@@ -17,7 +17,7 @@
     "build": "prisma generate && next build",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint",
-    "test": "node scripts/test-e2e-simulation.js",
+    "test": "node --test scripts/exam-center.test.cjs && node scripts/test-e2e-simulation.js",
     "postinstall": "prisma generate",
     "portal:setup": "node scripts/learning-portal-setup.cjs",
     "portal:test": "node --test scripts/learning-portal.test.cjs",

@@ -8,7 +8,7 @@ export default function CourseCategories() {
     <section id="courses" className="py-12 sm:py-16 px-6 max-w-6xl mx-auto relative z-10">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10">
         {/* ===================== PILLAR 01: HSK 3.0 ===================== */}
-        <div className="flex flex-col justify-between group bg-[#faf6ed]/60 rounded-3xl p-6 border border-[#ded5c2]/70 hover:shadow-md transition">
+        <div id="course-hsk" className="scroll-mt-6 flex flex-col justify-between group bg-[#faf6ed]/60 rounded-3xl p-6 border border-[#ded5c2]/70 hover:shadow-md transition">
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-4xl font-serif font-light text-[#b8ab97] select-none">
@@ -40,7 +40,7 @@ export default function CourseCategories() {
         </div>
 
         {/* ===================== PILLAR 02: Tiếng Trung theo chủ đề ===================== */}
-        <div className="flex flex-col justify-between group bg-[#faf6ed]/60 rounded-3xl p-6 border border-[#ded5c2]/70 hover:shadow-md transition">
+        <div id="course-topics" className="scroll-mt-6 flex flex-col justify-between group bg-[#faf6ed]/60 rounded-3xl p-6 border border-[#ded5c2]/70 hover:shadow-md transition">
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-4xl font-serif font-light text-[#b8ab97] select-none">
@@ -72,7 +72,7 @@ export default function CourseCategories() {
         </div>
 
         {/* ===================== PILLAR 03: Tiếng Trung chuyên ngành ===================== */}
-        <div className="flex flex-col justify-between group bg-[#faf6ed]/60 rounded-3xl p-6 border border-[#ded5c2]/70 hover:shadow-md transition">
+        <div id="course-careers" className="scroll-mt-6 flex flex-col justify-between group bg-[#faf6ed]/60 rounded-3xl p-6 border border-[#ded5c2]/70 hover:shadow-md transition">
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-4xl font-serif font-light text-[#b8ab97] select-none">

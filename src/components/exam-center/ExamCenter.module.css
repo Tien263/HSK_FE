@@ -235,3 +235,10 @@
   color: #365232;
   resize: vertical;
 }
+
+.radarReal { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 20px; align-items: center; }
+.radarReal svg { width: min(100%, 230px); justify-self: center; }
+.radarReal .skills span { width: auto; min-width: 54px; }
+@media (max-width: 700px) {
+  .topbar nav { width: 100%; min-width: 0; flex-wrap: wrap; justify-content: flex-start; }
+}

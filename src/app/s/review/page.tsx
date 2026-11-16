@@ -145,9 +145,9 @@ export default function VocabReviewPage() {
             <div className="w-16 h-16 rounded-2xl bg-[#991b1b] text-white flex items-center justify-center text-2xl font-serif mx-auto mb-4 shadow-md">
               恭喜
             </div>
-            <h2 className="text-2xl font-bold text-[#1a3d2f] mb-2 font-serif">Hoàn thành buổi ôn từ!</h2>
+            <h2 className="text-2xl font-bold text-[#1a3d2f] mb-2 font-serif">{reviewedCount > 0 ? "Hoàn thành buổi ôn từ!" : "Chưa có từ cần ôn hôm nay"}</h2>
             <p className="text-sm text-[#526056] max-w-md mx-auto mb-6 leading-relaxed">
-              Tuyệt vời lắm! Bạn đã hoàn thành đợt ôn từ theo thuật toán ngắt quãng Leitner hôm nay. Các từ đã nhớ sẽ được chuyển lên hộp nhớ lâu hơn!
+              {reviewedCount > 0 ? "Các từ đã nhớ được chuyển lên hộp nhớ lâu hơn." : "Từ trong sổ tay sẽ xuất hiện ở đây khi đến lịch ôn."}
             </p>
 
             <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto mb-6 text-center">

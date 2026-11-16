@@ -74,10 +74,10 @@ export default function Footer() {
             <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
               Học tập
             </h4>
-            <p className="hover:text-white cursor-pointer transition">HSK 3.0</p>
-            <p className="hover:text-white cursor-pointer transition">Theo chủ đề</p>
-            <p className="hover:text-white cursor-pointer transition">Chuyên ngành</p>
-            <p className="hover:text-white cursor-pointer transition">Lộ trình</p>
+            <Link href="/#course-hsk" className="block hover:text-white transition">HSK 3.0</Link>
+            <Link href="/#course-topics" className="block hover:text-white transition">Theo chủ đề</Link>
+            <Link href="/#course-careers" className="block hover:text-white transition">Chuyên ngành</Link>
+            <Link href="/#roadmap" className="block hover:text-white transition">Lộ trình</Link>
           </div>
 
           {/* Col 4: Hỗ trợ */}
@@ -88,10 +88,10 @@ export default function Footer() {
             <Link href="/guide" className="block hover:text-white text-emerald-300 font-semibold transition">
               📖 Hướng dẫn sử dụng
             </Link>
-            <p className="hover:text-white cursor-pointer transition">Trung tâm trợ giúp</p>
-            <p className="hover:text-white cursor-pointer transition">Liên hệ</p>
-            <p className="hover:text-white cursor-pointer transition">Chính sách bảo mật</p>
-            <p className="hover:text-white cursor-pointer transition">Điều khoản sử dụng</p>
+            <Link href="/guide" className="block hover:text-white transition">Trung tâm trợ giúp</Link>
+            <Link href="/guide#ho-tro" className="block hover:text-white transition">Liên hệ</Link>
+            <Link href="/guide#bao-mat" className="block hover:text-white transition">Chính sách bảo mật</Link>
+            <Link href="/guide#dieu-khoan" className="block hover:text-white transition">Điều khoản sử dụng</Link>
           </div>
 
           {/* Col 5: Kết nối với chúng tôi */}

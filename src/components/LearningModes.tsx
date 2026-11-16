@@ -100,7 +100,7 @@ export default function LearningModes() {
 
             {/* Card 2: Học cùng giáo viên */}
             <Link
-              href="/t/dashboard"
+              href="/onboarding"
               className="bg-[#faf6ed]/92 backdrop-blur-[2px] rounded-3xl p-6 sm:p-7 border border-[#d8cdb8] flex flex-col justify-between shadow-md hover:shadow-xl hover:border-[#a8383b]/50 transition duration-300 group max-w-xs w-full cursor-pointer"
             >
               <div>
