@@ -226,3 +226,12 @@
   margin-left: 8px;
   color: #56644f;
 }
+.gradingFeedback {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d5dfc3;
+  border-radius: 8px;
+  background: #fffef8;
+  color: #365232;
+  resize: vertical;
+}

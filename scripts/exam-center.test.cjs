@@ -14,7 +14,7 @@ function fixture(){
   {id:'manual',title:'Tự luận nâng cao',hskLevel:8,totalScore:300,status:'READY',mode:'MOCK_EXAM',teacherId:'admin',teacher:{name:'Admin',role:'ADMIN'},assignments:[{durationMin:60}],questions:[{points:5,question:rawQuestion('essay',{type:'essay',skill:'WRITING',level:8,correctAnswer:'Bài mẫu',editorData:{schemaVersion:2,status:'READY',rubric:'Tiêu chí chấm tay',sampleAnswer:'SECRET SAMPLE'}})}]},
  ];
  const wrong=[{id:'w-a',studentId:'a',wrongCount:3,consecutiveRight:0,question:rawQuestion('old-wrong',{skill:'GRAMMAR',tags:'grammar:比字句',editorData:{grammarRule:'比字句'}})},{id:'w-b',studentId:'b',wrongCount:8,consecutiveRight:0,question:rawQuestion('private-b')}];
- const matches=(row,where={})=>Object.entries(where).every(([key,value])=>key==='status'&&value&&typeof value==='object'?row.status!==value.not:row[key]===value);
+ const matches=(row,where={})=>Object.entries(where).every(([key,value])=>Array.isArray(value?.in)?value.in.includes(row[key]):key==='status'&&value&&typeof value==='object'?row.status!==value.not:row[key]===value);
  const db={quizSet:{findMany:async({where})=>sets.filter(set=>(!where.status||set.status===where.status)&&(!where.mode||where.mode.in.includes(set.mode))),findFirst:async({where})=>sets.find(set=>set.id===where.id&&set.status===where.status)||null},auditLog:{findMany:async({where,include})=>audit.filter(row=>matches(row,where)).slice().reverse().map(row=>({...row,...(include?.user?{user:{name:row.userId}}:{})})),findFirst:async({where})=>{const row=audit.find(row=>matches(row,where));return row?{...row}:null;},create:async({data})=>{if(data.id&&audit.some(row=>row.id===data.id))throw new Error('duplicate');const row={id:data.id||'log-'+(audit.length+1),createdAt:new Date(),...data};audit.push(row);return row;},updateMany:async({where,data})=>{if(conflict){conflict=false;return{count:0};}const row=audit.find(row=>matches(row,where));if(!row)return{count:0};Object.assign(row,data);return{count:1};},upsert:async({where,create,update})=>{const row=audit.find(row=>row.id===where.id);if(row){Object.assign(row,update);return row;}audit.push({...create,createdAt:new Date()});return create;}},attempt:{findMany:async({where})=>legacy.filter(row=>row.studentId===where.studentId),findFirst:async({where})=>legacy.find(row=>row.id===where.id&&row.studentId===where.studentId&&row.status!=='IN_PROGRESS')||null},wrongQuestion:{findMany:async({where})=>wrong.filter(row=>row.studentId===where.studentId&&row.consecutiveRight<where.consecutiveRight.lt)}};
  db.quizSet.create=async({data})=>{
   const {questions,...fields}=data;
@@ -94,6 +94,58 @@ test('only submitted attempts with authored speaking questions expose the paired
  assert.ok(!(await f.service.dashboard(actors.a)).papers.some(paper=>Object.hasOwn(paper,'hskkExam')));
  assert.deepEqual((await submit(active)).hskkExam.groups,groups);
  assert.deepEqual((await f.service.getAttempt(actors.a,active.id)).hskkExam.groups,groups);
+});
+test('HSKK submission adds speaking to the same attempt and preserves earlier written marks and feedback',async()=>{
+ const f=fixture(),audio='data:audio/webm;codecs=opus;base64,GkXfow==';
+ const {paperId}=await f.service.importPaper(actors.admin,{
+  level:1,title:'Paired HSKK',durationMin:20,passScore:3,
+  questions:[{type:'essay',skill:'WRITING',content:'写短文',points:5}],
+  hskkExam:{groups:[{title:'口语',questions:[
+   {id:'s1',content:'请介绍你自己。',points:0},
+   {id:'s2',content:'你喜欢什么？',points:0},
+  ]}]},
+ });
+ const active=await start(f,paperId);
+ const upload={id:active.id,questionId:'s1',audio};
+ await rejectStatus(f.service.saveHskkRecording(actors.a,upload),409);
+ const writtenId=active.questions[0].id;
+ await f.service.writeAttempt(actors.a,{id:active.id,revision:active.revision,answers:{[writtenId]:'我的文章'}},true);
+ await f.service.gradeManual(actors.admin,{id:active.id,marks:{[writtenId]:3},feedback:{[writtenId]:'Viết rõ ý.'}});
+ await rejectStatus(f.service.saveHskkRecording(actors.b,upload),404);
+ await rejectStatus(f.service.saveHskkRecording(actors.a,{...upload,questionId:'missing'}),400);
+ const {recordingId}=await f.service.saveHskkRecording(actors.a,upload);
+ assert.deepEqual(await f.service.saveHskkRecording(actors.a,upload),{recordingId});
+ await rejectStatus(f.service.getHskkRecording(actors.b,recordingId),404);
+ const play=await f.service.getHskkRecording(actors.admin,recordingId);
+ assert.equal(play.headers.get('content-type'),'audio/webm');
+ assert.deepEqual(Buffer.from(await play.arrayBuffer()),Buffer.from('GkXfow==','base64'));
+ const part=await f.service.getHskkRecording(actors.a,recordingId,'bytes=1-2');
+ assert.equal(part.status,206);
+ assert.equal(part.headers.get('content-range'),'bytes 1-2/4');
+ await rejectStatus(f.service.submitHskk(actors.a,{id:active.id,recordings:{s2:recordingId}}),400);
+ const body={id:active.id,recordings:{s1:recordingId}};
+ const submitted=await f.service.submitHskk(actors.a,body);
+ assert.equal(submitted.status,'NEEDS_GRADING');
+ assert.ok(submitted.hskkSubmittedAt);
+ assert.equal((await f.service.submitHskk(actors.a,body)).revision,submitted.revision);
+ const [spoken,blank]=submitted.questions.filter(question=>question.skill==='SPEAKING');
+ assert.equal(spoken.points,1);
+ assert.equal(blank.result.earned,0);
+ assert.match(submitted.answers[spoken.id],/hskkRecording/);
+ const [pending]=await f.service.gradingQueue(actors.admin);
+ assert.deepEqual(pending.manualQuestions.map(question=>question.id),[spoken.id]);
+ await rejectStatus(f.service.gradeManual(actors.admin,{id:active.id,marks:{[spoken.id]:0.75},feedback:{[writtenId]:'Sai câu'}}),400);
+ await f.service.gradeManual(actors.admin,{id:active.id,marks:{[spoken.id]:0.75},feedback:{[spoken.id]:'Nói rõ, luyện thêm thanh điệu.'}});
+ const result=await f.service.getAttempt(actors.a,active.id);
+ assert.equal(result.status,'GRADED');
+ assert.equal(result.score,3);
+ assert.equal(result.maxScore,5);
+ assert.equal(result.result,'PASS');
+ assert.equal(result.questions[0].result.feedback,'Viết rõ ý.');
+ assert.equal(result.questions.find(question=>question.id===spoken.id).result.feedback,'Nói rõ, luyện thêm thanh điệu.');
+ assert.equal(result.questions.find(question=>question.id===spoken.id).result.earned,0.75);
+ assert.deepEqual(result.hskkScore,{earned:0.75,max:2});
+ assert.deepEqual(await f.service.gradingQueue(actors.admin),[]);
 });
 test('anonymous, locked and password-change sessions are denied before protected data access',async()=>{
  const f=fixture();for(const actor of [null,{...actors.a,status:'LOCKED'},{...actors.a,mustChangePassword:true}]){f.actor(actor);let called=false;const response=await f.service.examResponse(new Request('https://hanyu.test/api?studentId=a',{headers:{'x-user-id':'a'}}),async()=>{called=true;return Response.json({});});assert.equal(response.status,actor?.mustChangePassword?403:401);assert.equal(called,false);}assert.equal(f.audit.length,0);

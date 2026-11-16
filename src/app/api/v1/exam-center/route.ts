@@ -16,6 +16,9 @@ import {
   saveWrong,
   gradingQueue,
   gradeManual,
+  saveHskkRecording,
+  submitHskk,
+  getHskkRecording,
   legacyDetail,
   getExamDrafts,
   saveExamDraft,
@@ -27,6 +30,7 @@ export function GET(request: Request) {
   return examResponse(request, async (user) => {
     const params = new URL(request.url).searchParams;
     const action = params.get("action") || "dashboard";
+    if (action === "hskkRecording") return getHskkRecording(user, params.get("id") || "", request.headers.get("range"));
     const data =
       action === "dashboard"
         ? await dashboard(user)
@@ -76,6 +80,10 @@ export function POST(request: Request) {
           ? await saveWrong(user, body)
           : body.action === "grade"
           ? await gradeManual(user, body)
+          : body.action === "saveHskkRecording"
+          ? await saveHskkRecording(user, body)
+          : body.action === "submitHskk"
+          ? await submitHskk(user, body)
           : body.action === "saveDraft"
           ? await saveExamDraft(user, body)
           : body.action === "deleteDraft"

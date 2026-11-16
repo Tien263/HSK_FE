@@ -5,29 +5,39 @@ import Image from "next/image";
 import {
   Mic,
   Volume2,
-  Play,
   RotateCcw,
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
   ArrowLeft,
   X,
-  Check,
 } from "lucide-react";
 import ExamAudioRecorder from "@/components/common/ExamAudioRecorder";
-import type { PairedHskkExam } from "@/lib/exam-center-core";
+import type { attemptForOwner, PairedHskkExam } from "@/lib/exam-center-core";
+import { examApi } from "./exam-client";
 import { readHskkSubmission, saveHskkSubmission } from "./hskk-storage";
 import s from "./ExamResult.module.css";
+
+type Attempt = ReturnType<typeof attemptForOwner>;
+
+function submittedRecordings(attempt: Attempt) {
+  return Object.fromEntries(attempt.questions.flatMap(question =>
+    question.hskkQuestionId && attempt.answers[question.id]
+      ? [[question.hskkQuestionId, attempt.answers[question.id]]] : [],
+  ));
+}
 
 export default function HskkExamPlayer({
   exam,
   parentAttemptId,
   parentPaperTitle,
+  submittedAttempt,
   onClose,
 }: {
   exam: PairedHskkExam;
   parentAttemptId: string;
   parentPaperTitle: string;
+  submittedAttempt: Attempt | null;
   onClose: () => void;
 }) {
   const allQuestions = React.useMemo(() => exam.groups.flatMap(group => group.questions || []), [exam.groups]);
@@ -35,6 +45,7 @@ export default function HskkExamPlayer({
   const [storageError, setStorageError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [capturePending, setCapturePending] = useState(false);
+  const [legacySubmission, setLegacySubmission] = useState(false);
 
   // Microphone Check State
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
@@ -55,30 +66,39 @@ export default function HskkExamPlayer({
   const pendingSave = useRef<Promise<void>>(Promise.resolve());
   const [audioPromptPlaying, setAudioPromptPlaying] = useState(false);
   const promptAudioRef = useRef<HTMLAudioElement | null>(null);
+  const uploaded = useRef(new Map<string, { audio: string; recordingId: string }>());
 
   useEffect(() => {
     let active = true;
+    if (submittedAttempt) {
+      const saved = submittedRecordings(submittedAttempt);
+      answersRef.current = saved;
+      setAnswers(saved);
+      setStep("completed");
+      return;
+    }
     void readHskkSubmission(parentAttemptId, exam).then(saved => {
       if (!active) return;
       answersRef.current = saved.answers;
       setAnswers(saved.answers);
-      setStep(saved.completed ? "completed" : "mic_check");
+      const hasLegacyRecording = saved.completed && Object.keys(saved.answers).length > 0;
+      setLegacySubmission(hasLegacyRecording);
+      if (hasLegacyRecording) setCurrentIdx(Math.max(0, allQuestions.length - 1));
+      setStep(hasLegacyRecording ? "exam" : "mic_check");
     });
     return () => { active = false; };
-  }, [exam, parentAttemptId]);
+  }, [allQuestions.length, exam, parentAttemptId, submittedAttempt]);
 
-  function persistAnswers(nextAnswers: Record<string, string>, completed = false) {
+  function persistAnswers(nextAnswers: Record<string, string>) {
     const save = pendingSave.current.then(async () => {
       try {
-        await saveHskkSubmission(parentAttemptId, { paperTitle: exam.title, answers: nextAnswers, completed });
+        await saveHskkSubmission(parentAttemptId, { paperTitle: exam.title, answers: nextAnswers, completed: false });
         setStorageError("");
-        return true;
       } catch {
         setStorageError("Trình duyệt không lưu được bản ghi âm. Hãy giữ trang này mở và thử nộp bài lại.");
-        return false;
       }
     });
-    pendingSave.current = save.then(() => {});
+    pendingSave.current = save;
     return save;
   }
 
@@ -162,9 +182,38 @@ export default function HskkExamPlayer({
   };
 
   const handleFinishExam = async () => {
+    const responses = Object.entries(answersRef.current).filter(([, audio]) => audio);
+    if (!responses.length) {
+      setStorageError("Hãy ghi âm ít nhất một câu trước khi nộp bài HSKK.");
+      return;
+    }
     setSubmitting(true);
-    if (await persistAnswers(answersRef.current, true)) setStep("completed");
-    setSubmitting(false);
+    await pendingSave.current;
+    setStorageError("");
+    try {
+      const recordings: [string, string][] = [];
+      for (const [questionId, audio] of responses) {
+        const cached = uploaded.current.get(questionId);
+        if (cached?.audio === audio) {
+          recordings.push([questionId, cached.recordingId]);
+          continue;
+        }
+        const { recordingId } = await examApi<{ recordingId: string }>("saveHskkRecording", {
+          id: parentAttemptId, questionId, audio,
+        });
+        uploaded.current.set(questionId, { audio, recordingId });
+        recordings.push([questionId, recordingId]);
+      }
+      const submitted = await examApi<Attempt>("submitHskk", {
+        id: parentAttemptId, recordings: Object.fromEntries(recordings),
+      });
+      setAnswers(submittedRecordings(submitted));
+      setStep("completed");
+    } catch (error) {
+      setStorageError((error as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const answeredCount = Object.keys(answers).filter((k) => !!answers[k]).length;
@@ -225,6 +274,7 @@ export default function HskkExamPlayer({
             )}
             <button
               type="button"
+              disabled={submitting}
               onClick={onClose}
               style={{
                 background: "rgba(255, 255, 255, 0.15)",
@@ -245,6 +295,9 @@ export default function HskkExamPlayer({
         <div style={{ padding: 24 }}>
           {step === "loading" && <p role="status">Đang tải bài thi khẩu ngữ…</p>}
           {storageError && <p role="alert" className={s.error}>{storageError}</p>}
+          {legacySubmission && step === "exam" && (
+            <p role="status">Đã tìm thấy bài HSKK lưu trên trình duyệt. Bấm Nộp bài để gửi bản ghi đi chấm.</p>
+          )}
           {/* STEP 1: MICROPHONE CHECK */}
           {step === "mic_check" && (
             <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center", padding: "20px 0" }}>
@@ -631,7 +684,7 @@ export default function HskkExamPlayer({
                   Đã hoàn thành và nộp bài thi Khẩu ngữ HSKK!
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>
-                  Bạn đã ghi âm thành công {answeredCount} / {allQuestions.length} câu. Toàn bộ bản thu âm đã được bảo lưu an toàn.
+                  Bài HSKK đã được gửi đến hệ thống chấm tay. Bạn có thể xem điểm và nhận xét trong kết quả HSK.
                 </p>
               </div>
 
@@ -703,6 +756,7 @@ export default function HskkExamPlayer({
           </span>
           <button
             type="button"
+            disabled={submitting}
             onClick={onClose}
             style={{
               padding: "8px 18px",

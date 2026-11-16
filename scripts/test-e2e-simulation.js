@@ -46,13 +46,39 @@ async function runTests(){
   const publication=(await request(teacher,'/api/v1/exam-center','POST',{
    action:'importPaper',level:1,title:examTitle,durationMin:15,questions:[
     {type:'listening_choice',skill:'LISTENING',groupId:'listening',groupType:'listening_choice_abc',audioUrl:'/test-listening.mp3',options:['去学校','回家'],correctAnswer:'A',points:0},
+    {type:'essay',skill:'WRITING',content:'写短文',points:0},
    ],
+   hskkExam:{title:'E2E oral',level:'HSKK_BEGINNER',durationMin:5,groups:[
+    {id:'oral',title:'Khẩu ngữ',questions:[{id:'oral1',type:'speaking_prompt',content:'请介绍你自己。',points:2}]},
+   ]},
   })).data;
   check(!!publication?.paperId&&publication.useDefaultPoints,'Teacher publishes an HSK exam with shared audio and default points');
   const attempt=(await request(student,'/api/v1/exam-center','POST',{
    action:'start',paperId:publication.paperId,requestId:require('node:crypto').randomUUID(),
   })).data;
-  check(attempt.questions.length===1&&attempt.questions[0].audioUrl==='/test-listening.mp3'&&attempt.maxScore===1,'Student can start the newly published HSK exam');
+  check(attempt.questions.length===2&&attempt.questions[0].audioUrl==='/test-listening.mp3'&&attempt.maxScore===2,'Student can start the newly published HSK exam');
+  const essayId=attempt.questions[1].id;
+  await request(student,'/api/v1/exam-center','POST',{action:'submit',id:attempt.id,revision:attempt.revision,answers:{[attempt.questions[0].id]:'A',[essayId]:'我的文章'}});
+  const audio='GkXfow==';
+  const recording=(await request(student,'/api/v1/exam-center','POST',{
+   action:'saveHskkRecording',id:attempt.id,questionId:'oral1',audio:'data:audio/webm;codecs=opus;base64,'+audio,
+  })).data;
+  const spoken=(await request(student,'/api/v1/exam-center','POST',{
+   action:'submitHskk',id:attempt.id,recordings:{oral1:recording.recordingId},
+  })).data;
+  const queue=(await request(teacher,'/api/v1/exam-center?action=grading')).data;
+  const queued=queue.find(row=>row.id===attempt.id)?.manualQuestions;
+  const question=queued?.find(row=>row.skill==='SPEAKING');
+  check(spoken.hskkSubmittedAt&&question?.id&&queued.some(row=>row.id===essayId),'HSKK and essay are attached to the same manual grading entry');
+  const playback=await fetch(baseUrl+question.answer,{headers:{Cookie:teacher.cookie,Range:'bytes=0-1'},signal:AbortSignal.timeout(30000)});
+  check(playback.status===206&&Buffer.from(await playback.arrayBuffer()).equals(Buffer.from(audio,'base64').subarray(0,2)),'Teacher can fetch the recording for playback');
+  await request(teacher,'/api/v1/exam-center','POST',{action:'grade',id:attempt.id,
+   marks:{[question.id]:1.5,[essayId]:0.5},feedback:{[question.id]:'Luyện thêm thanh điệu.',[essayId]:'Viết rõ ý.'},
+  });
+  const evaluated=(await request(student,'/api/v1/exam-center?action=attempt&id='+attempt.id)).data;
+  const evaluatedSpeaking=evaluated.questions.find(row=>row.id===question.id);
+  check(evaluated.hskkScore.earned===1.5&&evaluatedSpeaking.result.feedback==='Luyện thêm thanh điệu.'&&evaluated.score===1.5&&
+   evaluated.questions.find(row=>row.id===essayId).result.feedback==='Viết rõ ý.','Student sees HSKK and essay feedback alongside both scores');
   console.log('\n--- Teacher journey ---');
   const overview=await request(teacher,'/api/v1/reports/overview');check(overview.data?.summary?.totalStudents===1,'Teacher report counts the actual approved student');
   const spoof=await fetch(baseUrl+'/api/v1/classes',{headers:{'x-user-id':teacher.id},signal:AbortSignal.timeout(30000)});check(spoof.status===401,'Spoofed x-user-id cannot replace the login cookie');
@@ -75,6 +101,7 @@ async function runTests(){
     await db.quizSet.delete({where:{id:paper.id}});
     await db.question.deleteMany({where:{id:{in:paper.questions.map(row=>row.questionId)}}});
    }
+   await db.auditLog.deleteMany({where:{userId:{in:userIds},action:'EXAM_CENTER_HSKK_RECORDING'}});
    await db.teachingMaterial.deleteMany({where:{teacherId}});await db.class.deleteMany({where:{teacherId}});
   }
   await db.user.deleteMany({where:{OR:[{id:{in:userIds}},{username:{in:usernames}}]}});await db.$disconnect();console.log('Temporary E2E accounts, class and files cleaned up.');

@@ -1,6 +1,6 @@
 import { duplicateQuestionNumbers, normalizeQuestionNumber, suggestQuestionNumbers } from "./question-number";
 import examBlueprint from "../config/exam_blueprint.json";
-import { randomInt, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 import type { Prisma } from "../generated/prisma";
 import { getAuthUser, type AuthUser } from "./auth-server";
@@ -9,6 +9,8 @@ import { NextResponse } from "next/server";
 import { EXAM_LEVELS, EXAM_SKILLS, recommendExam, attemptForOwner, attemptSummary, examStatistics, finishManual, publicExamQuestion, levelGroup, paperSummary, scoreAttempt, snapshotQuestion, supportedTypes, playableQuestion, usableQuestion, isSharedListeningGroup, replySlots, restoreLegacyReplyGroups, READING_REPLIES, PICTURE_CODES, examAudioUrl, type ExamGroupMedia, type CenterAttempt, type ExamPaper, type ExamQuestion } from "./exam-center-core";
 
 const ATTEMPT="EXAM_CENTER_ATTEMPT", PAPER="EXAM_CENTER_PAPER", PUBLICATION="EXAM_CENTER_PUBLICATION", REVIEW="EXAM_CENTER_REVIEW";
+const HSKK_RECORDING="EXAM_CENTER_HSKK_RECORDING";
+const hskkAudio=/^data:(audio\/(?:webm|mp4|mpeg|ogg|wav|aac|x-m4a))(?:;codecs=[\w.-]+)?;base64,([A-Za-z0-9+/]+={0,2})$/i;
 export class ExamError extends Error { constructor(public status:number,message:string){super(message);} }
 export async function examAccess(request:Request){
  const user=await getAuthUser(request);
@@ -91,6 +93,101 @@ export async function dashboard(user:AuthUser){
  return {recommendations:[0,...EXAM_LEVELS].map(level=>({level,recommendation:recommendExam(official,attempts,level)})),blueprints:examBlueprint.levels,papers:papers.map(paper=>({...paperSummary(paper),available:paper.questions.length>0&&paper.questions.every(playableQuestion)&&paper.maxScore>0&&paper.questions.some(q=>q.points>0)&&!!paper.durationMin})),levels:EXAM_LEVELS.map(level=>{const rows=official.filter(p=>levelGroup(p.level)===level),times=rows.flatMap(p=>p.durationMin?[p.durationMin]:[]);return{level,count:rows.length,durationMin:times.length?Math.min(...times):null,durationMax:times.length?Math.max(...times):null};}),attempts:summaries,legacy,statistics:[0,...EXAM_LEVELS].map(level=>({level,...examStatistics(official,[...attempts,...legacyStats],level)})),bank,serverNow:new Date().toISOString()};
 }
 export async function getAttempt(user:AuthUser,id:string){return attemptForOwner(id,await settledState(user,id));}
+
+async function pairedHskkAttempt(user:AuthUser,id:string){
+ const row=await ownedRow(user,id);
+ if(row.userId!==user.id)throw new ExamError(403,"Chỉ chủ bài thi mới có thể nộp bản ghi âm.");
+ const state=parse<CenterAttempt>(row.details);
+ const groups=state.paper.hskkExam?.groups??[];
+ const questions=groups.flatMap(group=>(group.questions??[]).map(question=>({group,question})));
+ if(state.status==="IN_PROGRESS"||!questions.length)throw new ExamError(409,"Hãy nộp bài HSK có phần khẩu ngữ trước.");
+ return {row,state,questions};
+}
+
+export async function saveHskkRecording(user:AuthUser,body:Record<string,unknown>){
+ const id=String(body.id||""), questionId=String(body.questionId||"");
+ const {state,questions}=await pairedHskkAttempt(user,id);
+ if(state.hskkSubmission)throw new ExamError(409,"Bài khẩu ngữ đã được nộp.");
+ if(!questions.some(({question})=>question.id===questionId))throw new ExamError(400,"Bản ghi không thuộc đề khẩu ngữ này.");
+ const audio=body.audio;
+ if(typeof audio!=="string"||audio.length>6_000_000||!hskkAudio.test(audio)||audio.slice(audio.indexOf(",")+1).length%4!==0)
+  throw new ExamError(400,"Bản ghi âm không hợp lệ hoặc quá lớn. Hãy ghi âm lại câu này.");
+ const entity=`${id}:${questionId}`;
+ const recordingId="hskk_"+createHash("sha256").update(JSON.stringify([user.id,entity,audio])).digest("hex");
+ await prisma.auditLog.upsert({where:{id:recordingId},create:{id:recordingId,userId:user.id,action:HSKK_RECORDING,entity,details:audio},update:{}});
+ return {recordingId};
+}
+
+export async function getHskkRecording(user:AuthUser,id:string,range:string|null=null){
+ const row=await prisma.auditLog.findFirst({where:{id,action:HSKK_RECORDING,
+  ...(user.role==="ADMIN"||user.role==="TEACHER"?{}:{userId:user.id}),
+ }});
+ const audio=row?.details?.match(hskkAudio);
+ if(!audio)throw new ExamError(404,"Không tìm thấy bản ghi âm.");
+ const bytes=Buffer.from(audio[2],"base64");
+ const headers=new Headers({"Content-Type":audio[1],"Content-Length":String(bytes.length),"Accept-Ranges":"bytes",
+  "Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"});
+ const requested=range?.match(/^bytes=(\d*)-(\d*)$/);
+ if(!requested)return new Response(new Uint8Array(bytes),{headers});
+ const [,first,last]=requested;
+ const start=first?Number(first):Math.max(0,bytes.length-Number(last));
+ const end=first&&last?Math.min(bytes.length-1,Number(last)):bytes.length-1;
+ if(start>=bytes.length||start>end){
+  headers.set("Content-Range",`bytes */${bytes.length}`);
+  headers.set("Content-Length","0");
+  return new Response(null,{status:416,headers});
+ }
+ headers.set("Content-Range",`bytes ${start}-${end}/${bytes.length}`);
+ headers.set("Content-Length",String(end-start+1));
+ return new Response(new Uint8Array(bytes.subarray(start,end+1)),{status:206,headers});
+}
+
+export async function submitHskk(user:AuthUser,body:Record<string,unknown>){
+ const id=String(body.id||"");
+ const {row,state,questions}=await pairedHskkAttempt(user,id);
+ if(state.hskkSubmission)return attemptForOwner(id,state);
+ if(!body.recordings||typeof body.recordings!=="object"||Array.isArray(body.recordings))
+  throw new ExamError(400,"Danh sách bản ghi âm không hợp lệ.");
+ const entries=Object.entries(body.recordings);
+ const questionIds=new Set(questions.map(({question})=>question.id));
+ if(!entries.length||entries.some(([questionId,recordingId])=>!questionIds.has(questionId)||typeof recordingId!=="string"||!/^hskk_[a-f0-9]{64}$/.test(recordingId)))
+  throw new ExamError(400,"Cần ít nhất một bản ghi hợp lệ thuộc đề khẩu ngữ.");
+ const recordings=await prisma.auditLog.findMany({
+  where:{userId:user.id,action:HSKK_RECORDING,id:{in:entries.map(([,recordingId])=>recordingId as string)}},
+  select:{id:true,entity:true},
+ });
+ const byId=new Map(recordings.map(recording=>[recording.id,recording.entity]));
+ if(entries.some(([questionId,recordingId])=>byId.get(recordingId as string)!==`${id}:${questionId}`))
+  throw new ExamError(400,"Không tìm thấy bản ghi âm của lượt thi này.");
+
+ const byQuestion=new Map(entries);
+ const weights=questions.map(({question})=>Number.isFinite(question.points)&&question.points>0?question.points:0);
+ const defaultPoints=weights.every(points=>points===0);
+ const pairedQuestions=questions.map(({group,question},index)=>snapshotQuestion({
+  ...question,id:randomUUID(),type:"speaking_audio",skill:"SPEAKING",level:state.paper.level,
+  groupTitle:group.title,instruction:group.instruction,
+ },defaultPoints?1:weights[index]));
+ const mapping=Object.fromEntries(pairedQuestions.map((question,index)=>[question.id,questions[index].question.id]));
+ const answers={...state.answers};
+ const results=[...state.results];
+ for(const question of pairedQuestions){
+  const recordingId=byQuestion.get(mapping[question.id]);
+  if(recordingId)answers[question.id]=`/api/v1/exam-center?action=hskkRecording&id=${recordingId}`;
+  results.push({questionId:question.id,manual:!!recordingId,earned:recordingId?null:0,correct:recordingId?null:false,max:question.points});
+ }
+ const submitted:CenterAttempt={...state,paper:{...state.paper,questions:[...state.paper.questions,...pairedQuestions]},answers,results,
+  hskkSubmission:{submittedAt:new Date().toISOString(),questionIds:mapping},status:"NEEDS_GRADING",revision:state.revision+1};
+ try{
+  await replaceAttempt(row,submitted);
+ }catch(error){
+  if(!(error instanceof ExamError)||error.status!==409)throw error;
+  const latest=await settledState(user,id);
+  if(latest.hskkSubmission)return attemptForOwner(id,latest);
+  throw error;
+ }
+ return attemptForOwner(id,submitted);
+}
+
 export async function startAttempt(user:AuthUser,body:Record<string,unknown>){
  const requestId=clientId(body.requestId),id=`exam_${requestId}`;
  const prior=await prisma.auditLog.findFirst({where:{id,userId:user.id,action:ATTEMPT}});if(prior)return getAttempt(user,id);
@@ -487,8 +584,37 @@ export async function saveWrong(user:AuthUser,body:Record<string,unknown>){
  }
  throw new ExamError(409,"Kho câu sai đang được cập nhật. Hãy thử lại.");
 }
-export async function gradingQueue(user:AuthUser){if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền chấm bài.");const rows=await prisma.auditLog.findMany({where:{action:ATTEMPT},include:{user:{select:{name:true}}},orderBy:{createdAt:"desc"}});return rows.flatMap(row=>{const state=parse<CenterAttempt>(row.details);return state.status==="NEEDS_GRADING"?[{...attemptForOwner(row.id,state),studentName:row.user.name,manualQuestions:state.paper.questions.filter(q=>state.results.find(r=>r.questionId===q.id)?.manual).map(q=>({...q,answer:state.answers[q.id]||""}))}]:[];});}
-export async function gradeManual(user:AuthUser,body:Record<string,unknown>){if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền chấm bài.");const row=await prisma.auditLog.findFirst({where:{id:String(body.id),action:ATTEMPT}});if(!row)throw new ExamError(404,"Không tìm thấy lượt thi.");const state=parse<CenterAttempt>(row.details);if(state.status!=="NEEDS_GRADING")throw new ExamError(409,"Bài không còn ở trạng thái chờ chấm.");if(!body.marks||typeof body.marks!=="object"||Array.isArray(body.marks))throw new ExamError(400,"Điểm chấm không hợp lệ.");let graded;try{graded=finishManual(state,body.marks as Record<string,number>);}catch(error){throw new ExamError(400,(error as Error).message);}await replaceAttempt(row,graded);return{success:true};}
+export async function gradingQueue(user:AuthUser){
+ if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền chấm bài.");
+ const rows=await prisma.auditLog.findMany({where:{action:ATTEMPT},include:{user:{select:{name:true}}},orderBy:{createdAt:"desc"}});
+ return rows.flatMap(row=>{
+  const state=parse<CenterAttempt>(row.details);
+  if(state.status!=="NEEDS_GRADING")return [];
+  const pending=new Set(state.results.filter(result=>result.manual&&result.earned===null).map(result=>result.questionId));
+  return [{id:row.id,title:state.paper.title,level:state.paper.level,studentName:row.user.name,
+   manualQuestions:state.paper.questions.filter(q=>pending.has(q.id)).map(q=>({...q,answer:state.answers[q.id]||""}))}];
+ });
+}
+
+export async function gradeManual(user:AuthUser,body:Record<string,unknown>){
+ if(user.role!=="ADMIN"&&user.role!=="TEACHER")throw new ExamError(403,"Chỉ Giáo viên và Admin có quyền chấm bài.");
+ const row=await prisma.auditLog.findFirst({where:{id:String(body.id),action:ATTEMPT}});
+ if(!row)throw new ExamError(404,"Không tìm thấy lượt thi.");
+ const state=parse<CenterAttempt>(row.details);
+ if(state.status!=="NEEDS_GRADING")throw new ExamError(409,"Bài không còn ở trạng thái chờ chấm.");
+ if(!body.marks||typeof body.marks!=="object"||Array.isArray(body.marks))throw new ExamError(400,"Điểm chấm không hợp lệ.");
+ const pending=new Set(state.results.filter(result=>result.manual&&result.earned===null).map(result=>result.questionId));
+ const feedback=body.feedback??{};
+ if(typeof feedback!=="object"||Array.isArray(feedback)||Object.entries(feedback).some(([id,note])=>
+  !pending.has(id)||typeof note!=="string"||note.length>4000))
+  throw new ExamError(400,"Nhận xét phải thuộc câu đang chờ chấm và tối đa 4.000 ký tự.");
+ const notes=Object.fromEntries(Object.entries(feedback).map(([id,note])=>[id,(note as string).trim()]).filter(([,note])=>note));
+ let graded;
+ try{graded=finishManual(state,body.marks as Record<string,number>,notes);}
+ catch(error){throw new ExamError(400,(error as Error).message);}
+ await replaceAttempt(row,graded);
+ return {success:true};
+}
 
 export async function legacyDetail(user:AuthUser,id:string){
  const row=await prisma.attempt.findFirst({where:{id:id.replace(/^legacy:/,""),studentId:user.id,status:{not:"IN_PROGRESS"}},include:{answers:{include:{question:true}},assignment:{select:{title:true}}}});

@@ -384,6 +384,7 @@ export default function ExamPlayer({
     q.groupType === currentQ.groupType && (currentQ.groupId ? q.groupId === currentQ.groupId : q.groupTitle === currentQ.groupTitle)
   ) : null;
   const readingSections = attempt?.readingSections || [];
+  const pairedSpeaking = finished ? questions.filter(question => question.hskkQuestionId) : [];
   const currentSectionScore = currentQ && readingSections.find(section => section.id === currentQ.sectionId);
   const currentPassageScore = currentSectionScore?.passages.find(passage => passage.id === currentQ?.groupId);
   const currentMultiGroup = passageQuestions || matchingGroupQuestions || evalGroupQuestions;
@@ -627,7 +628,7 @@ export default function ExamPlayer({
         {skillGroups.map((group, idx) => {
           const isActive = group.skill === currentQ.skill;
           const isSkillFinished = group.questions.every((q) => hasAnswer(answers[q.id]));
-          const isLocked = !isActive && group.skill === "LISTENING" && currentQ.skill !== "LISTENING";
+          const isLocked = !finished && !isActive && group.skill === "LISTENING" && currentQ.skill !== "LISTENING";
 
           return (
             <div key={group.skill} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -650,7 +651,7 @@ export default function ExamPlayer({
                   <Mic size={16} />
                 )}
                 <span>
-                  {skillNames[group.skill] || group.skill} ({group.questions.length} câu)
+                  {group.skill === "SPEAKING" && pairedSpeaking.length ? "Nói (HSKK)" : skillNames[group.skill]} ({group.questions.length} câu)
                 </span>
                 {isLocked ? (
                   <Lock size={13} />
@@ -702,6 +703,23 @@ export default function ExamPlayer({
               ))}</ul>
             </details>
           ))}
+        </section>
+      )}
+      {pairedSpeaking.length > 0 && (
+        <section className={s.readingScores} aria-label="Điểm phần khẩu ngữ HSKK">
+          <h2>Điểm phần Nói (HSKK)</h2>
+          <p>
+            {pairedSpeaking.reduce((sum, question) => sum + (question.result?.earned ?? 0), 0).toLocaleString("vi-VN")}
+            {" / "}{pairedSpeaking.reduce((sum, question) => sum + question.points, 0).toLocaleString("vi-VN")} điểm
+            {pairedSpeaking.some(question => question.result?.earned === null) && " · Chờ chấm"}
+          </p>
+        </section>
+      )}
+      {finished && attempt?.hskkExam && !attempt.hskkSubmittedAt && onSpeaking && (
+        <section className={s.readingScores} aria-label="Điểm phần khẩu ngữ HSKK">
+          <h2>Điểm phần Nói (HSKK)</h2>
+          <p>Chưa nộp bài khẩu ngữ.</p>
+          <button type="button" onClick={onSpeaking}>Mở phần thi HSKK</button>
         </section>
       )}
 
@@ -1138,13 +1156,20 @@ export default function ExamPlayer({
 
               {/* Interactive Question Input (Picture Options, Ordering, Writing, etc.) */}
               <ComponentErrorBoundary name="Khu vực trả lời câu hỏi">
-                <ExamQuestionInput
+                {finished && currentQ.hskkQuestionId ? (
+                  <div>
+                    {currentQ.audioUrl && <p>Audio đề bài <audio controls preload="none" src={currentQ.audioUrl} /></p>}
+                    {answers[currentQ.id]
+                      ? <p>Bản ghi âm của bạn <audio controls preload="none" src={answers[currentQ.id]} /></p>
+                      : <p>Bạn chưa ghi âm câu này.</p>}
+                  </div>
+                ) : <ExamQuestionInput
                   key={currentQ.id}
                   question={currentQ}
                   value={answers[currentQ.id] || ""}
                   disabled={finished || busy || conflict}
                   onChange={(val) => handleAnswer(currentQ.id, val)}
-                />
+                />}
               </ComponentErrorBoundary>
 
               {/* Post-exam Answer Explanation */}
@@ -1166,6 +1191,11 @@ export default function ExamPlayer({
                   {currentQ.explanation && (
                     <p style={{ margin: 0, fontSize: 13, color: "#546d50" }}>
                       <strong>Giải thích:</strong> {currentQ.explanation}
+                    </p>
+                  )}
+                  {currentQ.result?.feedback && (
+                    <p style={{ whiteSpace: "pre-wrap" }}>
+                      <strong>Nhận xét chấm tay:</strong> {currentQ.result.feedback}
                     </p>
                   )}
                 </div>

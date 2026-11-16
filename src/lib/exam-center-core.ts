@@ -96,8 +96,8 @@ export function hasHskkQuestions(exam:PairedHskkExam|null|undefined): exam is Pa
  return Array.isArray(exam?.groups)&&exam.groups.some(group=>Array.isArray(group?.questions)&&group.questions.length>0);
 }
 export type ExamPaper = { groups?:Record<string,ExamGroupMedia>; classification?:{bands:{minScore:number;maxScore:number;label:string}[]}; createdAt?:string; customConfig?:{skills:string[];types:string[];count:number}; id:string; title:string; description:string; level:number; source:"OFFICIAL"|"CUSTOM"; durationMin:number|null; maxScore:number; passScore:number|null; proctorEnabled?:boolean; hskkExam?:PairedHskkExam|null; hskkPaperId?:string|null; questions:ExamQuestion[]; mode:"EXAM"|"PRACTICE" };
-export type ExamResult = { questionId:string; manual:boolean; correct:boolean|null; earned:number|null; max:number };
-export type CenterAttempt = { schemaVersion:1; paper:ExamPaper; answers:Record<string,string>; results:ExamResult[]; status:"IN_PROGRESS"|"NEEDS_GRADING"|"GRADED"; startedAt:string; expiresAt:string|null; submittedAt:string|null; score:number|null; revision:number; timedOut:boolean };
+export type ExamResult = { questionId:string; manual:boolean; correct:boolean|null; earned:number|null; max:number; feedback?:string };
+export type CenterAttempt = { schemaVersion:1; paper:ExamPaper; answers:Record<string,string>; results:ExamResult[]; status:"IN_PROGRESS"|"NEEDS_GRADING"|"GRADED"; startedAt:string; expiresAt:string|null; submittedAt:string|null; hskkSubmission?:{submittedAt:string;questionIds:Record<string,string>}; score:number|null; revision:number; timedOut:boolean };
 export const levelGroup=(level:number)=>level>=7?7:level;
 export const levelLabel=(level:number)=>level>=7?"HSK 7–9":`HSK ${level}`;
 export function skillOf(value:string):ExamSkill { const key=value.toUpperCase();return key.includes("SPEAK")?"SPEAKING":key.includes("TRANS")?"TRANSLATION":key.includes("LISTEN")?"LISTENING":key.includes("WRIT")||key.includes("GRAMMAR")?"WRITING":"READING"; }
@@ -281,15 +281,28 @@ export function scoreAttempt(attempt:CenterAttempt,now=new Date()):CenterAttempt
  const weight=results.reduce((sum,row)=>sum+row.max,0),earned=results.reduce((sum,row)=>sum+(row.earned||0),0);
  return {...attempt,status:results.some(row=>row.manual)?"NEEDS_GRADING":"GRADED",results,score:weight?Math.round(earned/weight*attempt.paper.maxScore*100)/100:0,submittedAt:now.toISOString(),revision:attempt.revision+1};
 }
-export function finishManual(attempt:CenterAttempt,marks:Record<string,number>):CenterAttempt {
- const results=attempt.results.map(result=>{if(!result.manual)return result;const value=marks[result.questionId];if(!Number.isFinite(value)||value<0||value>result.max)throw new Error("Điểm tự luận phải nằm trong điểm tối đa của câu.");return{...result,earned:value,correct:value===result.max};});
- const weight=results.reduce((sum,row)=>sum+row.max,0),earned=results.reduce((sum,row)=>sum+(row.earned||0),0);
+export function finishManual(attempt:CenterAttempt,marks:Record<string,number>,feedback:Record<string,string>={}):CenterAttempt {
+ const results=attempt.results.map(result=>{
+  if(!result.manual||result.earned!==null)return result;
+  const value=marks[result.questionId];
+  if(!Number.isFinite(value)||value<0||value>result.max)throw new Error("Điểm chấm tay phải nằm trong điểm tối đa của câu.");
+  return {...result,earned:value,correct:value===result.max,feedback:feedback[result.questionId]};
+ });
+ const speakingIds=new Set(Object.keys(attempt.hskkSubmission?.questionIds??{}));
+ const hskResults=results.filter(row=>!speakingIds.has(row.questionId));
+ const weight=hskResults.reduce((sum,row)=>sum+row.max,0),earned=hskResults.reduce((sum,row)=>sum+(row.earned||0),0);
  return {...attempt,results,status:"GRADED",score:weight?Math.round(earned/weight*attempt.paper.maxScore*100)/100:0,revision:attempt.revision+1};
 }
 export function attemptSummary(id:string,attempt:CenterAttempt,now=new Date()){
  const answered=attempt.paper.questions.filter(q=>hasAnswer(attempt.answers[q.id])).length;
+ const hskkIds=attempt.hskkSubmission?.questionIds;
+ const hskkResults=hskkIds?attempt.results.filter(row=>Object.hasOwn(hskkIds,row.questionId)):[];
+ const hskkScore=hskkIds?{
+  earned:hskkResults.reduce((total,row)=>total+(row.earned??0),0),
+  max:hskkResults.reduce((total,row)=>total+row.max,0),
+ }:null;
  const classificationLabel=attempt.status==="GRADED"?attempt.paper.classification?.bands.find(band=>Number(attempt.score)>=band.minScore&&Number(attempt.score)<=band.maxScore)?.label||null:null;
- return {classificationLabel,...paperSummary(attempt.paper),paperId:attempt.paper.id,id,status:attempt.status,answered,progress:attempt.paper.questions.length?Math.round(answered/attempt.paper.questions.length*100):0,startedAt:attempt.startedAt,submittedAt:attempt.submittedAt,score:attempt.score,remainingSec:attempt.expiresAt?Math.max(0,Math.ceil((Date.parse(attempt.expiresAt)-now.getTime())/1000)):null,result:attempt.status!=="GRADED"?"PENDING":attempt.paper.classification?(classificationLabel?"CLASSIFIED":"CLASSIFICATION_PENDING"):attempt.paper.passScore===null?"UNSET":Number(attempt.score)>=attempt.paper.passScore?"PASS":"FAIL",timedOut:attempt.timedOut};
+ return {classificationLabel,...paperSummary(attempt.paper),paperId:attempt.paper.id,id,status:attempt.status,answered,progress:attempt.paper.questions.length?Math.round(answered/attempt.paper.questions.length*100):0,startedAt:attempt.startedAt,submittedAt:attempt.submittedAt,score:attempt.score,hskkScore,remainingSec:attempt.expiresAt?Math.max(0,Math.ceil((Date.parse(attempt.expiresAt)-now.getTime())/1000)):null,result:attempt.status!=="GRADED"?"PENDING":attempt.paper.classification?(classificationLabel?"CLASSIFIED":"CLASSIFICATION_PENDING"):attempt.paper.passScore===null?"UNSET":Number(attempt.score)>=attempt.paper.passScore?"PASS":"FAIL",timedOut:attempt.timedOut};
 }
 function readingSectionResults(attempt:CenterAttempt, results:Map<string,ExamResult>){
  const sections=new Map<string,{id:string;title:string;earned:number;max:number;passages:{id:string;title:string;earned:number;max:number}[]}>();
@@ -325,6 +338,7 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
  return {
    ...attemptSummary(id,attempt),
    hskkExam:finished&&hasHskkQuestions(attempt.paper.hskkExam)?attempt.paper.hskkExam:null,
+   hskkSubmittedAt:attempt.hskkSubmission?.submittedAt??null,
    revision:attempt.revision,
    readingSections:finished?readingSectionResults(attempt,results):[],
    expiresAt:attempt.expiresAt,
@@ -351,6 +365,7 @@ export function attemptForOwner(id:string,attempt:CenterAttempt){
          evidence:String(q.editorData.evidence||""),
          ...(q.type==="listening_fill"?{acceptedAnswers:String(q.editorData.acceptedAnswers||"")}:{}),
          audioScript:q.content,
+         hskkQuestionId:attempt.hskkSubmission?.questionIds[q.id],
          result:results.get(q.id)
        }:{})
      };

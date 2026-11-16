@@ -1290,7 +1290,7 @@ export default function ExamStaff({
           aria-pressed={view === "grading"}
           onClick={() => onNavigate?.("grading")}
         >
-          <BookOpen size={16} /> Chấm bài tự luận
+          <BookOpen size={16} /> Chấm tay
         </button>
       </div>
 
@@ -1298,7 +1298,7 @@ export default function ExamStaff({
         {view === "authoring"
           ? "Soạn đề & Quản lý đề thi chuẩn HSK 3.0"
           : view === "grading"
-          ? "Chấm bài tự luận"
+          ? "Chấm tay bài thi HSK và HSKK"
           : "Duyệt & cấu hình đề chính thức"}
       </h1>
 
@@ -1306,7 +1306,7 @@ export default function ExamStaff({
         {view === "authoring"
           ? "Admin soạn đề thi trực quan theo từng Nhóm bài (Câu 1-5, Câu 6-10, bài đọc chung, audio bài nghe, ảnh đề & ảnh đáp án). Có chế độ xem trước đúng 100% giao diện học sinh."
           : view === "grading"
-          ? "Điểm các câu tự luận được cộng với phần chấm tự động sau khi lưu."
+          ? "Nghe bản ghi HSKK hoặc đọc bài làm, rồi lưu điểm và nhận xét cho từng câu."
           : "Duyệt nội dung sẵn sàng, xóa đề lỗi/đề thử nghiệm, đặt thời gian và ngưỡng đạt trước khi mở cho học sinh."}
       </p>
 
@@ -1314,10 +1314,10 @@ export default function ExamStaff({
         <div className={s.error} role="alert" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <AlertTriangle size={18} />
-            <strong style={{ fontSize: 14 }}>Không thể xuất bản đề thi:</strong>
+            <strong style={{ fontSize: 14 }}>{view === "grading" ? "Có lỗi khi chấm tay" : "Không thể xuất bản đề thi:"}</strong>
           </div>
           <span style={{ fontSize: 13, lineHeight: 1.5 }}>{error}</span>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
+          {view === "authoring" && <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
             <button
               type="button"
               onClick={handleExportBackupJson}
@@ -1344,7 +1344,7 @@ export default function ExamStaff({
                 💡 Gợi ý: Hãy bấm tải file JSON về máy tính, sau đó đăng nhập tài khoản Admin/Giáo viên và dùng nút &quot;Nạp tệp JSON từ máy&quot; để xuất bản đề ngay lập tức!
               </span>
             )}
-          </div>
+          </div>}
         </div>
       )}
       {message && <p className={s.notice} role="status">{message}{view === "authoring" && publishedLink && (
@@ -3929,11 +3929,11 @@ export default function ExamStaff({
               key={attempt.id}
               attempt={attempt}
               busy={busy}
-              onSave={async (marks) => {
+              onSave={async (marks, feedback) => {
                 setBusy(true);
                 try {
-                  await examApi("grade", { id: attempt.id, marks });
-                  setMessage("Đã lưu điểm chấm tay.");
+                  await examApi("grade", { id: attempt.id, marks, feedback });
+                  setMessage("Đã lưu điểm và nhận xét chấm tay.");
                   setError("");
                   load();
                   onChanged();
@@ -4453,9 +4453,10 @@ function ManualCard({
 }: {
   attempt: Queue[number];
   busy: boolean;
-  onSave: (marks: Record<string, number>) => void;
+  onSave: (marks: Record<string, number>, feedback: Record<string, string>) => void;
 }) {
   const [marks, setMarks] = useState<Record<string, number>>({});
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
 
   return (
     <article className={s.staffCard}>
@@ -4467,13 +4468,17 @@ function ManualCard({
       </p>
       {attempt.manualQuestions.map((q) => (
         <div className={s.reviewQuestion} key={q.id}>
-          <strong>{q.content}</strong>
+          <strong>{q.content || String(q.editorData.groupTitle || "Câu hỏi")}</strong>
           <p>
             {skillNames[q.skill]} · {typeNames[q.type] || q.type} · Tối đa {q.points} điểm
           </p>
+          {q.skill === "SPEAKING" && q.audioUrl && <p>Audio đề bài <audio controls preload="none" src={q.audioUrl} /></p>}
+          {q.skill === "SPEAKING" && q.imageUrl && (
+            <Image unoptimized width={240} height={160} src={q.imageUrl} alt="Ảnh đề bài" style={{ objectFit: "contain" }} />
+          )}
           <div className={s.studentAnswer}>
-            {q.answer.startsWith("data:audio/") ? (
-              <audio controls src={q.answer} />
+            {q.answer.startsWith("data:audio/") || q.answer.startsWith("/api/v1/exam-center?action=hskkRecording&") ? (
+              <audio controls preload="none" src={q.answer} />
             ) : q.answer.startsWith("data:image/") ? (
               <Image
                 unoptimized
@@ -4495,23 +4500,31 @@ function ManualCard({
               max={q.points}
               step="0.01"
               value={marks[q.id] ?? ""}
-              onChange={(e) =>
-                setMarks({
-                  ...marks,
-                  [q.id]: Math.min(q.points, Math.max(0, Number(e.target.value) || 0)),
-                })
-              }
+              onChange={event => {
+                const value = event.target.value;
+                setMarks(previous => {
+                  const next = { ...previous };
+                  if (value === "") delete next[q.id];
+                  else next[q.id] = Math.min(q.points, Math.max(0, Number(value)));
+                  return next;
+                });
+              }}
             />
+          </label>
+          <label>
+            Nhận xét / giải thích
+            <textarea className={s.gradingFeedback} rows={3} maxLength={4000} value={feedback[q.id] ?? ""}
+              onChange={event => setFeedback(previous => ({ ...previous, [q.id]: event.target.value }))} />
           </label>
         </div>
       ))}
       <button
         className={s.primary}
-        disabled={busy}
+        disabled={busy || attempt.manualQuestions.some(question => marks[question.id] === undefined)}
         type="button"
-        onClick={() => onSave(marks)}
+        onClick={() => onSave(marks, feedback)}
       >
-        Lưu điểm chấm
+        Lưu điểm và nhận xét
       </button>
     </article>
   );

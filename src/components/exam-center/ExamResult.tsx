@@ -3,7 +3,6 @@ import { ArrowRight, BarChart3, CalendarDays, Clock3, FileText, History, Mic, Ro
 import { useEffect, useState } from "react";
 import { hasAnswer, levelLabel, type attemptForOwner } from "@/lib/exam-center-core";
 import { dateText, resultNames, skillNames, timeText } from "./exam-client";
-import { readHskkSubmission } from "./hskk-storage";
 import s from "./ExamResult.module.css";
 
 type Attempt = ReturnType<typeof attemptForOwner>;
@@ -25,29 +24,27 @@ export default function ExamResult({ attempt, error, onReview, onBack, onRetake,
 }) {
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState("");
-  const [speakingComplete, setSpeakingComplete] = useState(false);
-  const { id, hskkExam } = attempt;
-  useEffect(() => {
-    let active = true;
-    if (hskkExam) {
-      void readHskkSubmission(id, hskkExam).then(saved => {
-        if (active) setSpeakingComplete(saved.completed);
-      });
-    }
-    return () => { active = false; };
-  }, [id, hskkExam]);
+  const { hskkExam, hskkSubmittedAt } = attempt;
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const { questions, answers, score, maxScore, submittedAt, startedAt } = attempt;
-  const totalWeight = questions.reduce((sum, question) => sum + question.points, 0);
-  const scoreScale = totalWeight > 0 ? maxScore / totalWeight : 0;
-  const skills = attempt.skills.map(skill => {
+  const { questions, answers, submittedAt, startedAt } = attempt;
+  const hskWeight = questions.reduce((sum, question) => sum + (question.hskkQuestionId ? 0 : question.points), 0);
+  const scoreScale = hskWeight > 0 ? attempt.maxScore / hskWeight : 0;
+  const points = (question: Attempt["questions"][number], value: number) =>
+    value * (question.hskkQuestionId ? 1 : scoreScale);
+  const hskkScore = attempt.hskkScore;
+  const maxScore = attempt.maxScore + (hskkScore?.max ?? 0);
+  const score = attempt.score === null ? null : attempt.score + (hskkScore?.earned ?? 0);
+  const skillOrder = ["LISTENING", "READING", "WRITING", "SPEAKING"] as const;
+  const skills = [...skillOrder, ...attempt.skills.filter(skill => skill === "TRANSLATION")].map(skill => {
     const rows = questions.filter(question => question.skill === skill);
-    const max = rows.reduce((sum, question) => sum + question.points, 0);
-    const earned = rows.reduce((sum, question) => sum + (question.result?.earned ?? 0), 0);
+    const max = rows.reduce((sum, question) => sum + points(question, question.points), 0);
+    const earned = rows.reduce((sum, question) => sum + points(question, question.result?.earned ?? 0), 0);
+    const awaitingHskk = skill === "SPEAKING" && !!hskkExam && !hskkSubmittedAt;
     return {
-      skill, label: skillNames[skill], count: rows.length, max, earned,
+      skill, label: skill === "SPEAKING" && hskkExam ? "Nói (HSKK)" : skillNames[skill],
+      count: rows.length, max, earned, awaitingHskk,
       rate: max > 0 ? earned / max : 0,
       correct: rows.filter(question => hasAnswer(answers[question.id]) && question.result?.correct === true).length,
       pending: rows.some(question => question.result?.earned == null),
@@ -126,13 +123,14 @@ export default function ExamResult({ attempt, error, onReview, onBack, onRetake,
               <meter aria-label="Tỷ lệ điểm" min={0} max={1} value={rate} />
               <strong>{percent.format(rate)}</strong>
             </div>}
-            {attempt.passScore !== null && <p className={s.target}><Target size={20} /> Mục tiêu tham khảo ≥ {number.format(attempt.passScore)} điểm</p>}
+            {hskkScore && <p className={s.note}>HSK {number.format(attempt.score ?? 0)} / {number.format(attempt.maxScore)} điểm · HSKK {number.format(hskkScore.earned)} / {number.format(hskkScore.max)} điểm</p>}
+            {attempt.passScore !== null && <p className={s.target}><Target size={20} /> Mục tiêu HSK ≥ {number.format(attempt.passScore)} điểm</p>}
             {attempt.status === "NEEDS_GRADING" && <p className={s.note}>Điểm tạm tính, còn câu chờ chấm.</p>}
           </section>
 
           <section className={s.chart}>
             <h2>Tỷ lệ điểm theo kỹ năng</h2>
-            {skills.length >= 3 ? (() => {
+            {(() => {
               const point = (index: number, scale: number) => {
                 const angle = index * 2 * Math.PI / skills.length - Math.PI / 2;
                 return [140 + Math.cos(angle) * 66 * scale, 95 + Math.sin(angle) * 66 * scale] as const;
@@ -145,16 +143,14 @@ export default function ExamResult({ attempt, error, onReview, onBack, onRetake,
                   return <line key={skill} x1={140} y1={95} x2={x} y2={y} stroke="#b9cbb9" />;
                 })}
                 <polygon points={polygon(index => skills[index].rate)} fill="#77ae83" fillOpacity=".55" stroke="#326a4b" strokeWidth="2" />
-                {skills.map(({ skill, label, rate }, index) => {
+                {skills.map(({ skill, label, rate, max }, index) => {
                   const [x, y] = point(index, 1.27);
                   return <text key={skill} x={x} y={y} textAnchor="middle" fill="currentColor" fontSize="12">
-                    {label}<tspan x={x} dy={14} fontWeight="700">{percent.format(rate)}</tspan>
+                    {label}<tspan x={x} dy={14} fontWeight="700">{max > 0 ? percent.format(rate) : "—"}</tspan>
                   </text>;
                 })}
               </svg>;
-            })() : <ul className={s.skillBars}>{skills.map(skill => <li key={skill.skill}>
-              <strong>{skill.label}</strong><meter aria-label={skill.label} min={0} max={1} value={skill.rate} /><span>{percent.format(skill.rate)}</span>
-            </li>)}</ul>}
+            })()}
           </section>
 
           <section className={s.detail}>
@@ -165,7 +161,7 @@ export default function ExamResult({ attempt, error, onReview, onBack, onRetake,
                 <tbody>{skills.map(skill => <tr key={skill.skill}>
                   <th scope="row">{skill.label} <span lang="zh">({skillChinese[skill.skill]})</span></th>
                   <td>{skill.count}</td><td>{skill.correct}</td>
-                  <td>{number.format(skill.earned * scoreScale)} / {number.format(skill.max * scoreScale)}{skill.pending && <small> (tạm tính)</small>}</td>
+                  <td>{skill.count ? <>{number.format(skill.earned)} / {number.format(skill.max)}{skill.pending && <small> (tạm tính)</small>}</> : skill.awaitingHskk ? "Chưa thi" : "—"}</td>
                   <td>{skill.max > 0 ? percent.format(skill.rate) : "—"}</td>
                 </tr>)}</tbody>
                 <tfoot><tr><th scope="row">Tổng cộng</th><td>{total}</td><td>{correct}</td>
@@ -190,7 +186,7 @@ export default function ExamResult({ attempt, error, onReview, onBack, onRetake,
 
         <div className={s.actions}>
           <button className={s.primary} onClick={onReview}>Xem phân tích chi tiết <ArrowRight size={17} /></button>
-          {hskkExam && onSpeaking && <button className={s.primary} onClick={onSpeaking}><Mic size={17} /> {speakingComplete ? "Xem bài làm HSKK" : "Tiếp tục thi HSKK"}</button>}
+          {hskkExam && onSpeaking && <button className={s.primary} onClick={onSpeaking}><Mic size={17} /> {hskkSubmittedAt ? "Xem bài làm HSKK" : "Mở phần thi HSKK"}</button>}
           {onRetake && <button disabled={retrying} onClick={() => void retake()}><RotateCcw size={16} /> {retrying ? "Đang mở đề…" : "Làm lại đề này"}</button>}
           <button onClick={onBack}><FileText size={16} /> Chọn đề khác</button>
           {onHistory && <button onClick={onHistory}><History size={16} /> Xem lịch sử thi</button>}

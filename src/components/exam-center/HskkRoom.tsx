@@ -23,7 +23,8 @@ export default function HskkRoom({ id, onBack }: { id: string; onBack: () => voi
   }, [id]);
 
   if (attempt?.hskkExam && attempt.status !== "IN_PROGRESS") {
-    return <HskkExamPlayer exam={attempt.hskkExam} parentAttemptId={id} parentPaperTitle={attempt.title} onClose={onBack} />;
+    return <HskkExamPlayer exam={attempt.hskkExam} parentAttemptId={id} parentPaperTitle={attempt.title}
+      submittedAttempt={attempt.hskkSubmittedAt ? attempt : null} onClose={onBack} />;
   }
 
   return (
