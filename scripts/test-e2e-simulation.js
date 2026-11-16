@@ -80,7 +80,7 @@ async function runTests(){
   const gradeHsk=()=>request(teacher,'/api/v1/exam-center','POST',{action:'grade',kind:'hsk',id:attempt.id,
    marks:{[essayId]:0.5},feedback:{[essayId]:'Viết rõ ý.'},
   });
-  if(process.env.HSK_BROWSER_TEST==='1'){
+  if(process.env.HSK_BROWSER_TEST==='1'||process.env.GITHUB_ACTIONS==='true'){
    const {checkExamBrowser}=await import('./exam-center-browser.mjs');
    await checkExamBrowser({baseUrl,cookie:student.cookie,attemptId:attempt.id,gradeHsk});
   }else await gradeHsk();
