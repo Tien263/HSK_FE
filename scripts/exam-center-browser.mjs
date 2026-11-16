@@ -30,6 +30,8 @@ export async function checkExamBrowser({ baseUrl, cookie, attemptId, gradeHsk })
   }));
 
   try {
+    // Start with the optional install prompt dismissed so it cannot cover an exam control.
+    await page.evaluateOnNewDocument(() => localStorage.setItem("hanyu_pwa_dismissed_at", String(Date.now())));
     const separator = cookie.indexOf("=");
     await page.browserContext().setCookie({
       name: cookie.slice(0, separator),
@@ -58,12 +60,15 @@ export async function checkExamBrowser({ baseUrl, cookie, attemptId, gradeHsk })
     await waitForText('[aria-label="Kết quả HSK"]', "Đã chấm", 30000);
     await waitForText('[aria-label="Kết quả HSKK"]', "1,5");
 
-    step = "history";
+    step = "oral-history";
+    await page.setViewport({ width: 1280, height: 900 });
     await open({ view: "history" });
     await clickHistory("Bảng thành tích HSKK");
     await waitForText("h1", "Kết quả thi HSKK");
+    step = "oral-recording";
     await click("Xem bản ghi và nhận xét");
     await waitForText("main", "Luyện thêm thanh điệu.");
+    step = "written-history";
     await open({ view: "history" });
     await clickHistory("Bảng thành tích HSK");
     await waitForText("h1", "Kết quả thi HSK");
@@ -86,7 +91,7 @@ export async function checkExamBrowser({ baseUrl, cookie, attemptId, gradeHsk })
       await mkdir(directory, { recursive: true });
       await page.screenshot({ path: path.join(directory, `${step}.png`), fullPage: true });
     }
-    throw new Error(`Exam browser regression failed at ${step}`, { cause: error });
+    throw new Error(`Exam browser regression failed at ${step} (${page.url()})`, { cause: error });
   } finally {
     await browser.close();
   }
